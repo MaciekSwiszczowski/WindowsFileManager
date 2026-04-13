@@ -1,0 +1,102 @@
+<UserControl
+
+    x:Class="WinUiFileManager.Presentation.Panels.FilePaneView"
+
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+
+    xmlns:controls="using:WinUiFileManager.Presentation.Controls"
+
+    Loaded="FilePaneView_Loaded">
+
+
+
+    <Border x:Name="PaneBorder" BorderThickness="1"
+
+            BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+
+            CornerRadius="4" Padding="0"
+
+            Tapped="PaneBorder_Tapped"
+
+            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+        <Grid>
+
+            <Grid.RowDefinitions>
+
+                <RowDefinition Height="Auto" />
+
+                <RowDefinition Height="*" />
+
+                <RowDefinition Height="Auto" />
+
+            </Grid.RowDefinitions>
+
+
+
+            <Grid Grid.Row="0" Padding="4" ColumnSpacing="4" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
+
+                <Grid.ColumnDefinitions>
+
+                    <ColumnDefinition Width="Auto" />
+
+                    <ColumnDefinition Width="*" />
+
+                </Grid.ColumnDefinitions>
+
+                <ComboBox x:Name="DriveComboBox" Grid.Column="0"
+
+                          MinWidth="80" VerticalAlignment="Center"
+
+                          SelectionChanged="DriveComboBox_SelectionChanged" />
+
+                <TextBox x:Name="PathBox" Grid.Column="1"
+
+                         PlaceholderText="Enter path..."
+
+                         VerticalAlignment="Center"
+
+                         KeyDown="PathBox_KeyDown" />
+
+            </Grid>
+
+
+
+            <Grid Grid.Row="1">
+
+                <controls:FileEntryTableView x:Name="EntryTable" />
+
+                <StackPanel x:Name="OverlayPanel"
+
+                            HorizontalAlignment="Center" VerticalAlignment="Center"
+
+                            Visibility="Collapsed">
+
+                    <ProgressRing x:Name="LoadingRing" IsActive="False" />
+
+                    <TextBlock x:Name="OverlayText" TextAlignment="Center" Margin="0,8,0,0"
+
+                               Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+
+                </StackPanel>
+
+            </Grid>
+
+
+
+            <Grid Grid.Row="2" Padding="8,2" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
+
+                <TextBlock x:Name="PaneStatusText" FontSize="11"
+
+                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+
+            </Grid>
+
+        </Grid>
+
+    </Border>
+
+</UserControl>
+

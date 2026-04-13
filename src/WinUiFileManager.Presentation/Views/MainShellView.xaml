@@ -1,0 +1,114 @@
+<UserControl
+    x:Class="WinUiFileManager.Presentation.Views.MainShellView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:panels="using:WinUiFileManager.Presentation.Panels">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <CommandBar Grid.Row="0" DefaultLabelPosition="Collapsed" IsOpen="False"
+                    HorizontalAlignment="Left" OverflowButtonVisibility="Collapsed">
+            <AppBarButton Icon="Copy" Click="OnCopyClick" ToolTipService.ToolTip="Copy (F5)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F5" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton Icon="MoveToFolder" Click="OnMoveClick" ToolTipService.ToolTip="Move (F6)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F6" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton Icon="Rename" Click="OnRenameClick" ToolTipService.ToolTip="Rename (Shift+F6)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F6" Modifiers="Shift" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton Icon="Delete" Click="OnDeleteClick" ToolTipService.ToolTip="Delete (F8, Delete)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F8" />
+                    <KeyboardAccelerator Key="Delete" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton Icon="NewFolder" Click="OnCreateFolderClick" ToolTipService.ToolTip="Create Folder (F7, Ctrl+Shift+N)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F7" />
+                    <KeyboardAccelerator Key="N" Modifiers="Control,Shift" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarToggleButton Icon="Sync" IsChecked="{x:Bind ViewModel.ParallelExecutionEnabled, Mode=TwoWay}" ToolTipService.ToolTip="Parallel Operations" />
+            <AppBarButton Icon="Refresh" Click="OnRefreshClick" ToolTipService.ToolTip="Refresh (Ctrl+R)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="R" Modifiers="Control" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton x:Name="FavouritesAppBarButton" Icon="Favorite" ToolTipService.ToolTip="Favourites (Ctrl+D)">
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="D" Modifiers="Control" />
+                </AppBarButton.KeyboardAccelerators>
+                <AppBarButton.Flyout>
+                    <MenuFlyout x:Name="FavouritesFlyout" Opening="OnFavouritesFlyoutOpening">
+                        <MenuFlyoutItem Text="Add current folder" Click="OnAddFavouriteClick">
+                            <MenuFlyoutItem.Icon>
+                                <SymbolIcon Symbol="Add" />
+                            </MenuFlyoutItem.Icon>
+                        </MenuFlyoutItem>
+                        <MenuFlyoutSeparator />
+                    </MenuFlyout>
+                </AppBarButton.Flyout>
+            </AppBarButton>
+            <AppBarButton Click="OnPropertiesClick" ToolTipService.ToolTip="Properties (Alt+Enter)">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="PreviewLink" />
+                </AppBarButton.Icon>
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="Enter" Modifiers="Menu" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarButton Click="OnCopyPathClick" ToolTipService.ToolTip="Copy Full Path (Ctrl+Shift+C)">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Link" />
+                </AppBarButton.Icon>
+                <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="C" Modifiers="Control,Shift" />
+                </AppBarButton.KeyboardAccelerators>
+            </AppBarButton>
+            <AppBarSeparator />
+            <AppBarButton x:Name="ThemeToggleButton" Click="OnToggleThemeClick" ToolTipService.ToolTip="Toggle Theme">
+                <AppBarButton.Icon>
+                    <SymbolIcon Symbol="Setting" />
+                </AppBarButton.Icon>
+            </AppBarButton>
+        </CommandBar>
+
+        <Grid Grid.Row="1" ColumnSpacing="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="2" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <panels:FilePaneView x:Name="LeftPaneView" Grid.Column="0" />
+            <Border Grid.Column="1" Background="{ThemeResource SystemControlBackgroundBaseLowBrush}" />
+            <panels:FilePaneView x:Name="RightPaneView" Grid.Column="2" />
+        </Grid>
+
+        <Grid Grid.Row="2" Padding="8,4" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ActivePaneText" Grid.Column="0" Text="Left" VerticalAlignment="Center" FontWeight="SemiBold" />
+            <TextBlock x:Name="PathText" Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="ItemCountText" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center" />
+            <TextBlock x:Name="SelectedText" Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</UserControl>

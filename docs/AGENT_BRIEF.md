@@ -378,8 +378,10 @@ Persist the following user settings:
 - favourite folders
 - whether parallel execution is enabled
 - last used max degree of parallelism
+- last known pane locations (left and right) and the last active pane;
+  written on application close, restored on startup with fallback to the
+  first available NTFS drive when a saved path is no longer reachable
 - last window size/state if desired
-- last known pane locations if desired
 
 Storage rules:
 - use a simple structured local format such as JSON

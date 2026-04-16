@@ -521,9 +521,29 @@ Persist at minimum:
 - favourites
 - per-user settings
 - operation preferences where appropriate
-- optional last visited paths per panel
+- last visited path for each panel (left and right)
+- last active panel (left or right)
 
 Settings must be stored in a local, user-scoped, versionable format.
+
+### Session state persistence
+
+- The last visited path for each pane and the last active pane are persisted
+  between sessions.
+- Writes happen once on application close (via the window `Closing` event),
+  not on every navigation.
+- On startup, if a persisted path cannot be opened (drive unplugged, folder
+  deleted, permission denied), the pane falls back to the first available
+  NTFS drive root. Initialization never fails because of a stale saved path.
+
+### Startup behavior
+
+- The main window must be shown and become interactive before any file
+  system I/O runs.
+- Drive enumeration and initial pane navigation happen in the background,
+  in parallel for left and right panes, after the UI has been presented.
+- Each pane renders its contents as soon as its own background load
+  completes; one pane must not block the other.
 
 ---
 

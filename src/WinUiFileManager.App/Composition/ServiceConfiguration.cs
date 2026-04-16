@@ -40,6 +40,7 @@ public static class ServiceConfiguration
 
         services.AddSingleton<ShowPropertiesCommandHandler>();
         services.AddSingleton<SetParallelExecutionCommandHandler>();
+        services.AddSingleton<PersistPaneStateCommandHandler>();
 
         services.AddSingleton<WinUiDialogService>();
         services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<WinUiDialogService>());

@@ -58,6 +58,8 @@ public sealed class ViewModelTestBuilder
         var showProperties = new ShowPropertiesCommandHandler(DialogService);
         var setParallelExec = new SetParallelExecutionCommandHandler(
             SettingsRepository, NullLogger<SetParallelExecutionCommandHandler>.Instance);
+        var persistPaneState = new PersistPaneStateCommandHandler(
+            SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
         var leftPane = new FilePaneViewModel(
             openEntry, navigateUp, goToPath, refreshPane, volumePolicy,
@@ -79,6 +81,7 @@ public sealed class ViewModelTestBuilder
             openFavourite,
             showProperties,
             setParallelExec,
+            persistPaneState,
             DialogService,
             FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,

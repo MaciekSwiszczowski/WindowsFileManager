@@ -2,6 +2,7 @@ namespace WinUiFileManager.App.Windows;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Presentation.Services;
@@ -16,6 +17,7 @@ public sealed partial class MainShellWindow : Window
         var appWindow = this.AppWindow;
         appWindow.Resize(new global::Windows.Graphics.SizeInt32(1400, 900));
         appWindow.SetIcon("Assets\\app-icon.ico");
+        appWindow.Closing += OnAppWindowClosing;
 
         if (Content is FrameworkElement root)
             root.RequestedTheme = ElementTheme.Dark;
@@ -26,8 +28,10 @@ public sealed partial class MainShellWindow : Window
     }
 
     private bool _initialized;
+    private MainShellViewModel? _viewModel;
+    private bool _statePersisted;
 
-    private async void OnShellViewLoaded(object sender, RoutedEventArgs e)
+    private void OnShellViewLoaded(object sender, RoutedEventArgs e)
     {
         if (_initialized)
             return;
@@ -35,18 +39,41 @@ public sealed partial class MainShellWindow : Window
 
         var services = App.Services;
 
-        var viewModel = services.GetRequiredService<MainShellViewModel>();
-        viewModel.LeftPane.PaneId = PaneId.Left;
-        viewModel.RightPane.PaneId = PaneId.Right;
+        _viewModel = services.GetRequiredService<MainShellViewModel>();
+        _viewModel.LeftPane.PaneId = PaneId.Left;
+        _viewModel.RightPane.PaneId = PaneId.Right;
 
         var dialogService = services.GetRequiredService<WinUiDialogService>();
         dialogService.XamlRoot = ShellView.XamlRoot;
 
-        ShellView.Initialize(viewModel);
+        ShellView.Initialize(_viewModel);
         ShellView.ToggleThemeAction = ToggleTheme;
 
-        await Task.Yield();
-        await viewModel.InitializeAsync();
+        DispatcherQueue.TryEnqueue(
+            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
+            async () =>
+            {
+                if (_viewModel is not null)
+                    await _viewModel.InitializeAsync();
+            });
+    }
+
+    private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+    {
+        if (_statePersisted || _viewModel is null)
+            return;
+
+        args.Cancel = true;
+        _statePersisted = true;
+
+        try
+        {
+            await _viewModel.PersistStateAsync();
+        }
+        finally
+        {
+            this.Close();
+        }
     }
 
     public void ToggleTheme()

@@ -27,6 +27,7 @@ public sealed partial class MainShellViewModel : ObservableObject
     private readonly OpenFavouriteCommandHandler _openFavouriteHandler;
     private readonly ShowPropertiesCommandHandler _showPropertiesHandler;
     private readonly SetParallelExecutionCommandHandler _setParallelExecutionHandler;
+    private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly IDialogService _dialogService;
     private readonly IFavouritesRepository _favouritesRepository;
     private readonly ILogger<MainShellViewModel> _logger;
@@ -84,6 +85,7 @@ public sealed partial class MainShellViewModel : ObservableObject
         OpenFavouriteCommandHandler openFavouriteHandler,
         ShowPropertiesCommandHandler showPropertiesHandler,
         SetParallelExecutionCommandHandler setParallelExecutionHandler,
+        PersistPaneStateCommandHandler persistPaneStateHandler,
         IDialogService dialogService,
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
@@ -102,6 +104,7 @@ public sealed partial class MainShellViewModel : ObservableObject
         _openFavouriteHandler = openFavouriteHandler;
         _showPropertiesHandler = showPropertiesHandler;
         _setParallelExecutionHandler = setParallelExecutionHandler;
+        _persistPaneStateHandler = persistPaneStateHandler;
         _dialogService = dialogService;
         _favouritesRepository = favouritesRepository;
         _logger = logger;
@@ -405,19 +408,21 @@ public sealed partial class MainShellViewModel : ObservableObject
             _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
 
-            await LoadFavouritesAsync();
+            await Task.WhenAll(
+                LoadFavouritesAsync(),
+                LeftPane.LoadDrivesAsync(),
+                RightPane.LoadDrivesAsync());
 
-            await LeftPane.LoadDrivesAsync();
-            await RightPane.LoadDrivesAsync();
-
-            var firstDrive = LeftPane.AvailableDrives.FirstOrDefault();
-            var defaultPath = firstDrive?.RootPath.DisplayPath ?? @"C:\";
+            var defaultPath = LeftPane.AvailableDrives.FirstOrDefault()?.RootPath.DisplayPath
+                ?? RightPane.AvailableDrives.FirstOrDefault()?.RootPath.DisplayPath
+                ?? @"C:\";
 
             var leftPath = _currentSettings.LastLeftPanePath?.DisplayPath ?? defaultPath;
             var rightPath = _currentSettings.LastRightPanePath?.DisplayPath ?? defaultPath;
 
-            await LeftPane.NavigateToCommand.ExecuteAsync(leftPath);
-            await RightPane.NavigateToCommand.ExecuteAsync(rightPath);
+            await Task.WhenAll(
+                NavigateWithFallbackAsync(LeftPane, leftPath, defaultPath),
+                NavigateWithFallbackAsync(RightPane, rightPath, defaultPath));
 
             ActivePane = _currentSettings.LastActivePane == PaneId.Right ? RightPane : LeftPane;
             UpdateStatusText();
@@ -425,6 +430,36 @@ public sealed partial class MainShellViewModel : ObservableObject
         catch (Exception ex)
         {
             _logger.LogError(ex, "Initialization failed");
+        }
+    }
+
+    private static async Task NavigateWithFallbackAsync(
+        FilePaneViewModel pane,
+        string preferredPath,
+        string fallbackPath)
+    {
+        await pane.NavigateToCommand.ExecuteAsync(preferredPath);
+
+        if (pane.CurrentNormalizedPath is null
+            && !string.Equals(preferredPath, fallbackPath, StringComparison.OrdinalIgnoreCase))
+        {
+            await pane.NavigateToCommand.ExecuteAsync(fallbackPath);
+        }
+    }
+
+    public async Task PersistStateAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _persistPaneStateHandler.ExecuteAsync(
+                LeftPane.CurrentNormalizedPath,
+                RightPane.CurrentNormalizedPath,
+                ActivePane.PaneId,
+                cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Persisting pane state failed");
         }
     }
 

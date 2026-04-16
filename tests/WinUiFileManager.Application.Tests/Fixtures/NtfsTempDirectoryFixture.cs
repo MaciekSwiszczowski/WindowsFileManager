@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Application.Tests.Fixtures;
 
-public sealed class NtfsTempDirectoryFixture : IDisposable
+public sealed partial class NtfsTempDirectoryFixture : IDisposable
 {
     public NtfsTempDirectoryFixture()
     {
@@ -32,6 +32,10 @@ public sealed class NtfsTempDirectoryFixture : IDisposable
 
     public void Dispose()
     {
-        try { Directory.Delete(RootPath, true); } catch { }
+        try { Directory.Delete(RootPath, true); }
+        catch
+        {
+            // ignored
+        }
     }
 }

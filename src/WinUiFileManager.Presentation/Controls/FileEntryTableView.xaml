@@ -29,11 +29,33 @@
         CornerButtonMode="None"
         HeadersVisibility="Columns"
         AllowLiveShaping="False"
-        RowDoubleTapped="FileTable_RowDoubleTapped"
+        UseSystemFocusVisuals="True"
         Sorting="FileTable_Sorting"
         SelectionChanged="FileTable_SelectionChanged"
         KeyDown="FileTable_KeyDown"
         GotFocus="FileTable_GotFocus">
+        <tv:TableView.Resources>
+            <!-- Accent-tinted background for selected rows so multi-selection
+                 is clearly visible. These are the TableView-specific theme
+                 keys defined by WinUI.TableView (see Themes/Resources.xaml).
+                 We bind Color (not a brush) to avoid StaticResource lookups
+                 that may not resolve against the control's theme dictionary. -->
+            <SolidColorBrush x:Key="TableViewRowBackgroundSelected"
+                             Color="{ThemeResource SystemAccentColor}"
+                             Opacity="0.35" />
+            <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPointerOver"
+                             Color="{ThemeResource SystemAccentColor}"
+                             Opacity="0.5" />
+            <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPressed"
+                             Color="{ThemeResource SystemAccentColor}"
+                             Opacity="0.6" />
+
+            <!-- Accent-colored focus border around the focused/clicked row. -->
+            <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush"
+                             Color="{ThemeResource SystemAccentColor}" />
+            <SolidColorBrush x:Key="TableViewRowFocusBorderBrush"
+                             Color="{ThemeResource SystemAccentColor}" />
+        </tv:TableView.Resources>
         <tv:TableView.Columns>
             <tv:TableViewTextColumn
                 Header="Name"

@@ -1,3 +1,4 @@
+using System.IO.Enumeration;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -26,28 +27,19 @@ public sealed class WindowsFileSystemService : IFileSystemService
         NormalizedPath path,
         CancellationToken cancellationToken)
     {
-        var dirInfo = new DirectoryInfo(path.DisplayPath);
-
-        if (!dirInfo.Exists)
+        if (!Directory.Exists(path.DisplayPath))
         {
             _logger.LogWarning("Directory does not exist: {Path}", path.DisplayPath);
             return Task.FromResult<IReadOnlyList<FileSystemEntryModel>>([]);
         }
 
         var entries = new List<FileSystemEntryModel>();
+        var enumerable = CreateDirectoryEnumerable(path.DisplayPath);
 
-        foreach (var fsi in dirInfo.EnumerateFileSystemInfos())
+        foreach (var entry in enumerable)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            try
-            {
-                entries.Add(BuildEntryModel(fsi));
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-            {
-                _logger.LogWarning(ex, "Skipping inaccessible entry: {Path}", fsi.FullName);
-            }
+            entries.Add(entry);
         }
 
         return Task.FromResult<IReadOnlyList<FileSystemEntryModel>>(entries);
@@ -108,5 +100,43 @@ public sealed class WindowsFileSystemService : IFileSystemService
             CreationTimeUtc: fsi.CreationTimeUtc,
             Attributes: fsi.Attributes,
             FileId: fileId);
+    }
+
+    private FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
+    {
+        var fullPath = entry.ToFullPath();
+        var isDirectory = entry.IsDirectory;
+        var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
+        var name = entry.FileName.ToString();
+        var extension = isDirectory ? string.Empty : Path.GetExtension(name);
+
+        var fileIdResult = _fileIdentityInterop.GetFileId(fullPath);
+        var fileId = fileIdResult is { Success: true, FileId128: not null }
+            ? new NtfsFileId(fileIdResult.FileId128)
+            : NtfsFileId.None;
+
+        return new FileSystemEntryModel(
+            FullPath: NormalizedPath.FromUserInput(fullPath),
+            Name: name,
+            Extension: extension,
+            Kind: kind,
+            Size: isDirectory ? 0L : entry.Length,
+            LastWriteTimeUtc: entry.LastWriteTimeUtc.UtcDateTime,
+            CreationTimeUtc: entry.CreationTimeUtc.UtcDateTime,
+            Attributes: entry.Attributes,
+            FileId: fileId);
+    }
+
+    private FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)
+    {
+        return new FileSystemEnumerable<FileSystemEntryModel>(
+            directoryPath,
+            (ref FileSystemEntry entry) => BuildEntryModel(ref entry),
+            new EnumerationOptions
+            {
+                AttributesToSkip = 0,
+                IgnoreInaccessible = true,
+                ReturnSpecialDirectories = false
+            });
     }
 }

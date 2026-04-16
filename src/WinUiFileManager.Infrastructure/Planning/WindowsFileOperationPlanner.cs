@@ -1,3 +1,4 @@
+using System.IO.Enumeration;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -8,6 +9,14 @@ namespace WinUiFileManager.Infrastructure.Planning;
 
 public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
 {
+    private static readonly EnumerationOptions RecursiveEnumerationOptions = new()
+    {
+        AttributesToSkip = 0,
+        IgnoreInaccessible = false,
+        RecurseSubdirectories = true,
+        ReturnSpecialDirectories = false
+    };
+
     private readonly ILogger<WindowsFileOperationPlanner> _logger;
 
     public WindowsFileOperationPlanner(ILogger<WindowsFileOperationPlanner> logger)
@@ -133,8 +142,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
             ItemKind.Directory,
             0));
 
-        var nestedSourceDirs = Directory
-            .EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories)
+        var nestedSourceDirs = EnumerateDirectoriesRecursive(sourceDir)
             .OrderBy(d => Path.GetRelativePath(sourceDir, d).Length)
             .ThenBy(d => d, StringComparer.OrdinalIgnoreCase);
 
@@ -150,7 +158,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
                 0));
         }
 
-        foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
+        foreach (var file in EnumerateFilesRecursive(sourceDir))
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -171,7 +179,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
         List<OperationItemPlan> items,
         CancellationToken cancellationToken)
     {
-        foreach (var file in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
+        foreach (var file in EnumerateFilesRecursive(directoryPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
             var fi = new FileInfo(file);
@@ -179,7 +187,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
                 NormalizedPath.FromUserInput(file), null, ItemKind.File, fi.Length));
         }
 
-        var subdirs = Directory.EnumerateDirectories(directoryPath, "*", SearchOption.AllDirectories)
+        var subdirs = EnumerateDirectoriesRecursive(directoryPath)
             .OrderByDescending(d => d.Length)
             .ToList();
 
@@ -189,5 +197,31 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
             items.Add(new OperationItemPlan(
                 NormalizedPath.FromUserInput(dir), null, ItemKind.Directory, 0));
         }
+    }
+
+    private static IEnumerable<string> EnumerateDirectoriesRecursive(string rootPath)
+    {
+        var enumerable = new FileSystemEnumerable<string>(
+            rootPath,
+            static (ref FileSystemEntry entry) => entry.ToFullPath(),
+            RecursiveEnumerationOptions)
+        {
+            ShouldIncludePredicate = static (ref FileSystemEntry entry) => entry.IsDirectory
+        };
+
+        return enumerable;
+    }
+
+    private static IEnumerable<string> EnumerateFilesRecursive(string rootPath)
+    {
+        var enumerable = new FileSystemEnumerable<string>(
+            rootPath,
+            static (ref FileSystemEntry entry) => entry.ToFullPath(),
+            RecursiveEnumerationOptions)
+        {
+            ShouldIncludePredicate = static (ref FileSystemEntry entry) => !entry.IsDirectory
+        };
+
+        return enumerable;
     }
 }

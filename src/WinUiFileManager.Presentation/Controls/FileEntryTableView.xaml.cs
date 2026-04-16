@@ -2,6 +2,7 @@ using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
 using Windows.System;
 using Windows.UI.Core;
 using WinUI.TableView;
@@ -22,6 +23,16 @@ public sealed partial class FileEntryTableView : UserControl
         // PreviewKeyDown fires before the TableView's internal key handling,
         // ensuring Enter on folders and '..' is not consumed by the control first.
         PreviewKeyDown += OnPreviewKeyDown;
+
+        // WinUI.TableView's TableViewCell marks DoubleTapped as Handled when
+        // IsReadOnly=True (see TableViewCell.OnDoubleTapped). That prevents the
+        // event from bubbling to TableViewRow, so RowDoubleTapped never fires
+        // and a plain XAML DoubleTapped subscription is also skipped. Subscribe
+        // with handledEventsToo: true so we still receive the event.
+        FileTable.AddHandler(
+            UIElement.DoubleTappedEvent,
+            new DoubleTappedEventHandler(OnFileTableDoubleTapped),
+            handledEventsToo: true);
     }
 
     public FileEntryTableViewModel GridViewModel { get; } = new();
@@ -99,7 +110,39 @@ public sealed partial class FileEntryTableView : UserControl
             {
                 _syncingSelection = false;
             }
+
+            // Move the TableView's focused row (the one that shows the
+            // accent border) to match CurrentItem. Without this the frame
+            // lags behind after programmatic navigation, e.g. after going
+            // up one directory.
+            MoveFocusToCurrentItem();
         }
+    }
+
+    private void MoveFocusToCurrentItem(int retries = 5)
+    {
+        // The row container may not be realized yet right after PopulateItems
+        // (virtualizer hasn't had a layout pass). Retry a few dispatcher ticks
+        // so the container exists before we focus it. FocusState.Keyboard is
+        // used so the system focus visual (our accent border) actually renders.
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (FileTable.SelectedItem is null)
+                return;
+
+            if (FileTable.ContainerFromItem(FileTable.SelectedItem) is Control container)
+            {
+                container.Focus(FocusState.Keyboard);
+            }
+            else if (retries > 0)
+            {
+                MoveFocusToCurrentItem(retries - 1);
+            }
+            else
+            {
+                FileTable.Focus(FocusState.Keyboard);
+            }
+        });
     }
 
     private void FileTable_Sorting(object sender, TableViewSortingEventArgs e)
@@ -140,19 +183,40 @@ public sealed partial class FileEntryTableView : UserControl
         }
     }
 
-    private void FileTable_RowDoubleTapped(object sender, TableViewRowDoubleTappedEventArgs e)
+    private void OnFileTableDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
+    {
+        var entry = FindEntryInVisualTree(e.OriginalSource as DependencyObject)
+            ?? FileTable.SelectedItem as FileEntryViewModel;
+
+        if (ActivateEntry(entry))
+            e.Handled = true;
+    }
+
+    private static FileEntryViewModel? FindEntryInVisualTree(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is FrameworkElement fe && fe.DataContext is FileEntryViewModel entry)
+                return entry;
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return null;
+    }
+
+    private bool ActivateEntry(FileEntryViewModel? entry)
     {
         var host = GridViewModel.Host;
-        if (host is null)
-            return;
+        if (host is null || entry is null)
+            return false;
 
-        // Use SelectedItem instead of e.Item — the single-click before double-tap has
-        // already set SelectedItem via SelectionChanged, so it is always up to date.
-        if (FileTable.SelectedItem is FileEntryViewModel entry)
-        {
-            host.CurrentItem = entry;
+        host.CurrentItem = entry;
+
+        if (host.NavigateIntoCommand.CanExecute(null))
             host.NavigateIntoCommand.Execute(null);
-        }
+
+        return true;
     }
 
     private void FileTable_GotFocus(object sender, RoutedEventArgs e) =>
@@ -160,6 +224,17 @@ public sealed partial class FileEntryTableView : UserControl
 
     // PreviewKeyDown fires before the TableView's internal handling.
     // Enter is handled here so the TableView cannot consume it first.
+    //
+    // Plain Up/Down are also handled here because TableView's internal
+    // keyboard navigation uses its private CurrentRowIndex cursor, which
+    // is NOT updated by programmatic SelectedItem changes. After navigating
+    // into/up a directory, that internal cursor would still point at the
+    // row index from the previous folder, causing arrow-down to jump to a
+    // seemingly random position. Driving navigation from our VM's Items
+    // collection removes that desync entirely.
+    //
+    // Shift/Ctrl + arrow combinations are intentionally left to the
+    // TableView's native handler so range-select behavior is preserved.
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         var host = GridViewModel.Host;
@@ -167,6 +242,7 @@ public sealed partial class FileEntryTableView : UserControl
             return;
 
         var ctrl = IsModifierDown(VirtualKey.Control);
+        var shift = IsModifierDown(VirtualKey.Shift);
 
         switch (e.Key)
         {
@@ -178,7 +254,57 @@ public sealed partial class FileEntryTableView : UserControl
                     e.Handled = true;
                 }
                 break;
+
+            case VirtualKey.Down when !ctrl && !shift:
+                if (MoveCurrentItemBy(1))
+                    e.Handled = true;
+                break;
+
+            case VirtualKey.Up when !ctrl && !shift:
+                if (MoveCurrentItemBy(-1))
+                    e.Handled = true;
+                break;
         }
+    }
+
+    private bool MoveCurrentItemBy(int delta)
+    {
+        var host = GridViewModel.Host;
+        if (host is null || host.Items.Count == 0)
+            return false;
+
+        var anchor = FileTable.SelectedItem as FileEntryViewModel ?? host.CurrentItem;
+        var currentIdx = anchor is null ? -1 : host.Items.IndexOf(anchor);
+        var targetIdx = currentIdx < 0
+            ? (delta > 0 ? 0 : host.Items.Count - 1)
+            : Math.Clamp(currentIdx + delta, 0, host.Items.Count - 1);
+
+        return MoveCurrentItemToIndex(targetIdx);
+    }
+
+    private bool MoveCurrentItemToIndex(int targetIdx)
+    {
+        var host = GridViewModel.Host;
+        if (host is null || host.Items.Count == 0 || targetIdx < 0 || targetIdx >= host.Items.Count)
+            return false;
+
+        var target = host.Items[targetIdx];
+
+        _syncingSelection = true;
+        try
+        {
+            FileTable.SelectedItem = target;
+            host.CurrentItem = target;
+            FileTable.ScrollRowIntoView(targetIdx);
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        host.NotifySelectionChanged();
+        MoveFocusToCurrentItem();
+        return true;
     }
 
     private void FileTable_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -256,14 +382,12 @@ public sealed partial class FileEntryTableView : UserControl
                 break;
 
             case VirtualKey.Home:
-                if (host.Items.Count > 0)
-                    FileTable.SelectedItem = host.Items[0];
+                MoveCurrentItemToIndex(0);
                 e.Handled = true;
                 break;
 
             case VirtualKey.End:
-                if (host.Items.Count > 0)
-                    FileTable.SelectedItem = host.Items[^1];
+                MoveCurrentItemToIndex(host.Items.Count - 1);
                 e.Handled = true;
                 break;
 

@@ -203,6 +203,184 @@ public sealed class WindowsFileOperationServiceTests
         }
     }
 
+    [Test]
+    public async Task Test_CopyDirectoryStructure_DeepDestination_Succeeds()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var sourceRoot = fixture.CreateDirectory("tree");
+        var deepFile = fixture.CreateFile("tree/l1/l2/l3/note.txt", sizeInBytes: 20);
+        var l1 = Path.Combine(sourceRoot, "l1");
+        var l2 = Path.Combine(l1, "l2");
+        var l3 = Path.Combine(l2, "l3");
+        var destDir = fixture.CreateDirectory("out");
+        var destRoot = Path.Combine(destDir, "tree");
+        var destL1 = Path.Combine(destRoot, "l1");
+        var destL2 = Path.Combine(destL1, "l2");
+        var destL3 = Path.Combine(destL2, "l3");
+        var destFile = Path.Combine(destL3, "note.txt");
+
+        var items = new List<OperationItemPlan>
+        {
+            new(
+                NormalizedPath.FromUserInput(sourceRoot),
+                NormalizedPath.FromUserInput(destRoot),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(l1),
+                NormalizedPath.FromUserInput(destL1),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(l2),
+                NormalizedPath.FromUserInput(destL2),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(l3),
+                NormalizedPath.FromUserInput(destL3),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(deepFile),
+                NormalizedPath.FromUserInput(destFile),
+                ItemKind.File,
+                new FileInfo(deepFile).Length)
+        };
+
+        var plan = new OperationPlan(
+            OperationType.Copy,
+            items,
+            NormalizedPath.FromUserInput(destDir),
+            CollisionPolicy.Ask,
+            new ParallelExecutionOptions());
+
+        var sut = CreateService();
+        var summary = await sut.ExecuteAsync(plan, null, CancellationToken.None);
+
+        await Assert.That(summary.Status).IsEqualTo(OperationStatus.Succeeded);
+        await Assert.That(File.Exists(destFile)).IsTrue();
+        await Assert.That(File.Exists(deepFile)).IsTrue();
+    }
+
+    [Test]
+    public async Task Test_ParallelCopyDirectoryStructure_DeepDestination_Succeeds()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var sourceRoot = fixture.CreateDirectory("tree");
+        var fileA = fixture.CreateFile("tree/a/x/f.txt", sizeInBytes: 8);
+        var fileB = fixture.CreateFile("tree/b/y/g.txt", sizeInBytes: 8);
+        var fileC = fixture.CreateFile("tree/c/z/w/file3.txt", sizeInBytes: 8);
+        var destDir = fixture.CreateDirectory("out");
+        var destRoot = Path.Combine(destDir, "tree");
+        var sa = Path.Combine(sourceRoot, "a");
+        var sax = Path.Combine(sa, "x");
+        var sb = Path.Combine(sourceRoot, "b");
+        var sby = Path.Combine(sb, "y");
+        var sc = Path.Combine(sourceRoot, "c");
+        var scz = Path.Combine(sc, "z");
+        var sczw = Path.Combine(scz, "w");
+        var da = Path.Combine(destRoot, "a");
+        var dax = Path.Combine(da, "x");
+        var db = Path.Combine(destRoot, "b");
+        var dby = Path.Combine(db, "y");
+        var dc = Path.Combine(destRoot, "c");
+        var dcz = Path.Combine(dc, "z");
+        var dczw = Path.Combine(dcz, "w");
+
+        var items = new List<OperationItemPlan>
+        {
+            new(
+                NormalizedPath.FromUserInput(sourceRoot),
+                NormalizedPath.FromUserInput(destRoot),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sa),
+                NormalizedPath.FromUserInput(da),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sax),
+                NormalizedPath.FromUserInput(dax),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sb),
+                NormalizedPath.FromUserInput(db),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sby),
+                NormalizedPath.FromUserInput(dby),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sc),
+                NormalizedPath.FromUserInput(dc),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(scz),
+                NormalizedPath.FromUserInput(dcz),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(sczw),
+                NormalizedPath.FromUserInput(dczw),
+                ItemKind.Directory,
+                0),
+            new(
+                NormalizedPath.FromUserInput(fileA),
+                NormalizedPath.FromUserInput(Path.Combine(dax, "f.txt")),
+                ItemKind.File,
+                new FileInfo(fileA).Length),
+            new(
+                NormalizedPath.FromUserInput(fileB),
+                NormalizedPath.FromUserInput(Path.Combine(dby, "g.txt")),
+                ItemKind.File,
+                new FileInfo(fileB).Length),
+            new(
+                NormalizedPath.FromUserInput(fileC),
+                NormalizedPath.FromUserInput(Path.Combine(dczw, "file3.txt")),
+                ItemKind.File,
+                new FileInfo(fileC).Length)
+        };
+
+        var parallelOptions = new ParallelExecutionOptions(Enabled: true, MaxDegreeOfParallelism: 4);
+        var plan = new OperationPlan(
+            OperationType.Copy,
+            items,
+            NormalizedPath.FromUserInput(destDir),
+            CollisionPolicy.Ask,
+            parallelOptions);
+
+        var sut = CreateService();
+        var summary = await sut.ExecuteAsync(plan, null, CancellationToken.None);
+
+        await Assert.That(summary.Status).IsEqualTo(OperationStatus.Succeeded);
+        await Assert.That(File.Exists(Path.Combine(dax, "f.txt"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(dby, "g.txt"))).IsTrue();
+        await Assert.That(File.Exists(Path.Combine(dczw, "file3.txt"))).IsTrue();
+    }
+
+    [Test]
+    public async Task Test_CopyRejected_WhenDestinationRootFolderDoesNotExist()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var sourcePath = fixture.CreateFile("doc.txt", sizeInBytes: 16);
+        var missingDestDir = Path.Combine(fixture.RootPath, "missing_target");
+        var sut = CreateService();
+        var plan = BuildCopyPlan(sourcePath, missingDestDir);
+
+        var summary = await sut.ExecuteAsync(plan, null, CancellationToken.None);
+
+        await Assert.That(summary.Status).IsEqualTo(OperationStatus.Failed);
+        await Assert.That(summary.SucceededCount).IsEqualTo(0);
+        await Assert.That(summary.Message).IsNotNull();
+        await Assert.That(File.Exists(sourcePath)).IsTrue();
+    }
+
     private static WindowsFileOperationService CreateService()
     {
         return new WindowsFileOperationService(
@@ -265,6 +443,7 @@ public sealed class WindowsFileOperationServiceTests
 
     private static OperationPlan BuildMovePlan(string source, string dest)
     {
+        var destParent = Path.GetDirectoryName(dest)!;
         var items = new List<OperationItemPlan>
         {
             new(NormalizedPath.FromUserInput(source),
@@ -276,7 +455,7 @@ public sealed class WindowsFileOperationServiceTests
         return new OperationPlan(
             OperationType.Move,
             items,
-            null,
+            NormalizedPath.FromUserInput(destParent),
             CollisionPolicy.Ask,
             new ParallelExecutionOptions());
     }

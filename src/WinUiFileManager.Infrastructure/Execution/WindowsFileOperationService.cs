@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -32,6 +33,31 @@ public sealed class WindowsFileOperationService : IFileOperationService
         CancellationToken cancellationToken)
     {
         var stopwatch = Stopwatch.StartNew();
+
+        if (plan.Type is OperationType.Copy or OperationType.Move
+            && plan.DestinationDirectory is NormalizedPath requiredDestinationRoot)
+        {
+            if (!Directory.Exists(requiredDestinationRoot.DisplayPath))
+            {
+                _logger.LogWarning(
+                    "Destination directory does not exist: {Path}",
+                    requiredDestinationRoot.DisplayPath);
+                stopwatch.Stop();
+                return new OperationSummary(
+                    plan.Type,
+                    OperationStatus.Failed,
+                    plan.Items.Count,
+                    SucceededCount: 0,
+                    FailedCount: plan.Items.Count,
+                    WarningCount: 0,
+                    SkippedCount: 0,
+                    WasCancelled: false,
+                    stopwatch.Elapsed,
+                    ItemResults: [],
+                    Message: $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
+            }
+        }
+
         var results = new ConcurrentBag<OperationItemResult>();
         var completedCount = 0;
         var wasCancelled = false;
@@ -95,7 +121,36 @@ public sealed class WindowsFileOperationService : IFileOperationService
             CancellationToken = cancellationToken
         };
 
-        await Parallel.ForEachAsync(plan.Items, parallelOptions, (item, ct) =>
+        if (plan.Type is OperationType.Copy or OperationType.Move)
+        {
+            foreach (var item in plan.Items)
+            {
+                if (item.Kind != ItemKind.Directory)
+                    continue;
+
+                cancellationToken.ThrowIfCancellationRequested();
+                var dirResult = ExecuteItem(plan.Type, item);
+                results.Add(dirResult);
+                completed++;
+                ReportProgress(progress, plan, completed);
+            }
+
+            await Parallel.ForEachAsync(
+                plan.Items.Where(i => i.Kind == ItemKind.File),
+                parallelOptions,
+                (item, _) =>
+                {
+                    var fileResult = ExecuteItem(plan.Type, item);
+                    results.Add(fileResult);
+                    var current = Interlocked.Increment(ref completed);
+                    ReportProgress(progress, plan, current);
+                    return ValueTask.CompletedTask;
+                });
+
+            return completed;
+        }
+
+        await Parallel.ForEachAsync(plan.Items, parallelOptions, (item, _) =>
         {
             var result = ExecuteItem(plan.Type, item);
             results.Add(result);

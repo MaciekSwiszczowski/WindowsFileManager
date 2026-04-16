@@ -133,6 +133,23 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
             ItemKind.Directory,
             0));
 
+        var nestedSourceDirs = Directory
+            .EnumerateDirectories(sourceDir, "*", SearchOption.AllDirectories)
+            .OrderBy(d => Path.GetRelativePath(sourceDir, d).Length)
+            .ThenBy(d => d, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var subSourceDir in nestedSourceDirs)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var relativeDir = Path.GetRelativePath(sourceDir, subSourceDir);
+            var subDestDir = Path.Combine(destDir, relativeDir);
+            items.Add(new OperationItemPlan(
+                NormalizedPath.FromUserInput(subSourceDir),
+                NormalizedPath.FromUserInput(subDestDir),
+                ItemKind.Directory,
+                0));
+        }
+
         foreach (var file in Directory.EnumerateFiles(sourceDir, "*", SearchOption.AllDirectories))
         {
             cancellationToken.ThrowIfCancellationRequested();

@@ -1,3 +1,4 @@
+using System.Reflection;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -12,6 +13,41 @@ namespace WinUiFileManager.Presentation.Controls;
 
 public sealed partial class FileEntryTableView : UserControl
 {
+    // WinUI.TableView keeps its arrow-key anchor in two internal members:
+    //   - LastSelectionUnit (set to Row on mouse tap)
+    //   - CurrentRowIndex   (set to the tapped row index)
+    // Both are 'internal', but get stale when we change selection
+    // programmatically (e.g. after navigating into/out of a folder). Reflecting
+    // them lets us keep the control's native keyboard selection working from
+    // the correct row without replacing any of the control's own logic.
+    private static readonly PropertyInfo? LastSelectionUnitProperty =
+        typeof(TableView).GetProperty(
+            "LastSelectionUnit",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
+    private static readonly PropertyInfo? CurrentRowIndexProperty =
+        typeof(TableView).GetProperty(
+            "CurrentRowIndex",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
+    // SelectionStartRowIndex is the anchor that TableView.SelectRows uses for
+    // Shift+Arrow range selection. SelectRows only initializes it via
+    // `SelectionStartRowIndex ??= slot.Row;`, so when we change SelectedItem
+    // programmatically (navigating into/out of a folder) the anchor keeps its
+    // old value from the previous folder. The next Shift+Down then extends
+    // from that stale anchor, selecting a large, unexpected range. Reset it
+    // together with CurrentRowIndex so Shift+Arrow always anchors at the row
+    // the user sees selected.
+    private static readonly PropertyInfo? SelectionStartRowIndexProperty =
+        typeof(TableView).GetProperty(
+            "SelectionStartRowIndex",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
+    private static readonly PropertyInfo? SelectionStartCellSlotProperty =
+        typeof(TableView).GetProperty(
+            "SelectionStartCellSlot",
+            BindingFlags.NonPublic | BindingFlags.Instance);
+
     private bool _syncingSelection;
     private FilePaneViewModel? _currentItemSyncHost;
 
@@ -59,9 +95,21 @@ public sealed partial class FileEntryTableView : UserControl
 
     public void FocusGrid()
     {
-        FileTable.Focus(FocusState.Programmatic);
+        FileTable.Focus(FocusState.Keyboard);
         if (GridViewModel.Host?.Items.Count > 0 && FileTable.SelectedItem is null)
-            FileTable.SelectedItem = GridViewModel.Host.Items[0];
+        {
+            _syncingSelection = true;
+            try
+            {
+                FileTable.SelectedItem = GridViewModel.Host.Items[0];
+            }
+            finally
+            {
+                _syncingSelection = false;
+            }
+
+            SyncTableViewKeyboardAnchor(0);
+        }
     }
 
     public void ApplyColumnResizeFromOptions()
@@ -98,11 +146,12 @@ public sealed partial class FileEntryTableView : UserControl
         var current = host.CurrentItem;
         if (current is not null && !Equals(FileTable.SelectedItem, current))
         {
+            var idx = host.Items.IndexOf(current);
+
             _syncingSelection = true;
             try
             {
                 FileTable.SelectedItem = current;
-                var idx = host.Items.IndexOf(current);
                 if (idx >= 0)
                     FileTable.ScrollRowIntoView(idx);
             }
@@ -111,11 +160,30 @@ public sealed partial class FileEntryTableView : UserControl
                 _syncingSelection = false;
             }
 
+            if (idx >= 0)
+                SyncTableViewKeyboardAnchor(idx);
+
             // Move the TableView's focused row (the one that shows the
             // accent border) to match CurrentItem. Without this the frame
             // lags behind after programmatic navigation, e.g. after going
             // up one directory.
             MoveFocusToCurrentItem();
+        }
+    }
+
+    private void SyncTableViewKeyboardAnchor(int rowIndex)
+    {
+        try
+        {
+            LastSelectionUnitProperty?.SetValue(FileTable, TableViewSelectionUnit.Row);
+            CurrentRowIndexProperty?.SetValue(FileTable, (int?)rowIndex);
+            SelectionStartRowIndexProperty?.SetValue(FileTable, (int?)rowIndex);
+            SelectionStartCellSlotProperty?.SetValue(FileTable, null);
+        }
+        catch
+        {
+            // If WinUI.TableView ever renames these internals we silently
+            // fall back to the control's default keyboard anchor behavior.
         }
     }
 
@@ -224,17 +292,10 @@ public sealed partial class FileEntryTableView : UserControl
 
     // PreviewKeyDown fires before the TableView's internal handling.
     // Enter is handled here so the TableView cannot consume it first.
-    //
-    // Plain Up/Down are also handled here because TableView's internal
-    // keyboard navigation uses its private CurrentRowIndex cursor, which
-    // is NOT updated by programmatic SelectedItem changes. After navigating
-    // into/up a directory, that internal cursor would still point at the
-    // row index from the previous folder, causing arrow-down to jump to a
-    // seemingly random position. Driving navigation from our VM's Items
-    // collection removes that desync entirely.
-    //
-    // Shift/Ctrl + arrow combinations are intentionally left to the
-    // TableView's native handler so range-select behavior is preserved.
+    // Arrow / Home / End / Shift+Arrow etc. are left to the control's own
+    // keyboard selection logic so mouse and keyboard multi-selection stay
+    // consistent; SyncTableViewKeyboardAnchor keeps its internal anchor
+    // correct after programmatic navigation.
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         var host = GridViewModel.Host;
@@ -242,7 +303,6 @@ public sealed partial class FileEntryTableView : UserControl
             return;
 
         var ctrl = IsModifierDown(VirtualKey.Control);
-        var shift = IsModifierDown(VirtualKey.Shift);
 
         switch (e.Key)
         {
@@ -254,57 +314,7 @@ public sealed partial class FileEntryTableView : UserControl
                     e.Handled = true;
                 }
                 break;
-
-            case VirtualKey.Down when !ctrl && !shift:
-                if (MoveCurrentItemBy(1))
-                    e.Handled = true;
-                break;
-
-            case VirtualKey.Up when !ctrl && !shift:
-                if (MoveCurrentItemBy(-1))
-                    e.Handled = true;
-                break;
         }
-    }
-
-    private bool MoveCurrentItemBy(int delta)
-    {
-        var host = GridViewModel.Host;
-        if (host is null || host.Items.Count == 0)
-            return false;
-
-        var anchor = FileTable.SelectedItem as FileEntryViewModel ?? host.CurrentItem;
-        var currentIdx = anchor is null ? -1 : host.Items.IndexOf(anchor);
-        var targetIdx = currentIdx < 0
-            ? (delta > 0 ? 0 : host.Items.Count - 1)
-            : Math.Clamp(currentIdx + delta, 0, host.Items.Count - 1);
-
-        return MoveCurrentItemToIndex(targetIdx);
-    }
-
-    private bool MoveCurrentItemToIndex(int targetIdx)
-    {
-        var host = GridViewModel.Host;
-        if (host is null || host.Items.Count == 0 || targetIdx < 0 || targetIdx >= host.Items.Count)
-            return false;
-
-        var target = host.Items[targetIdx];
-
-        _syncingSelection = true;
-        try
-        {
-            FileTable.SelectedItem = target;
-            host.CurrentItem = target;
-            FileTable.ScrollRowIntoView(targetIdx);
-        }
-        finally
-        {
-            _syncingSelection = false;
-        }
-
-        host.NotifySelectionChanged();
-        MoveFocusToCurrentItem();
-        return true;
     }
 
     private void FileTable_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -361,14 +371,25 @@ public sealed partial class FileEntryTableView : UserControl
             case VirtualKey.Insert:
                 if (FileTable.SelectedItem is FileEntryViewModel insertSelected)
                 {
-                    // Capture index before SyncSelectionFromHost clears SelectedItems
                     var insertIdx = host.Items.IndexOf(insertSelected);
                     host.ToggleSelection(insertSelected);
                     SyncSelectionFromHost();
-                    // Advance cursor to next row (stay on last row if already there)
                     var nextIdx = Math.Min(insertIdx + 1, host.Items.Count - 1);
                     if (nextIdx >= 0)
-                        FileTable.SelectedItem = host.Items[nextIdx];
+                    {
+                        _syncingSelection = true;
+                        try
+                        {
+                            FileTable.SelectedItem = host.Items[nextIdx];
+                        }
+                        finally
+                        {
+                            _syncingSelection = false;
+                        }
+
+                        SyncTableViewKeyboardAnchor(nextIdx);
+                    }
+
                     e.Handled = true;
                 }
                 break;
@@ -378,16 +399,6 @@ public sealed partial class FileEntryTableView : UserControl
                     host.ClearSelectionCommand.Execute(null);
                 else
                     host.ClearIncrementalSearch();
-                e.Handled = true;
-                break;
-
-            case VirtualKey.Home:
-                MoveCurrentItemToIndex(0);
-                e.Handled = true;
-                break;
-
-            case VirtualKey.End:
-                MoveCurrentItemToIndex(host.Items.Count - 1);
                 e.Handled = true;
                 break;
 
@@ -403,21 +414,6 @@ public sealed partial class FileEntryTableView : UserControl
                 }
                 break;
         }
-    }
-
-    private void SelectItemAtOffsetFromCurrent(int delta)
-    {
-        var host = GridViewModel.Host;
-        if (host is null || FileTable.SelectedItem is not FileEntryViewModel current)
-            return;
-
-        var idx = host.Items.IndexOf(current);
-        if (idx < 0)
-            return;
-
-        var next = idx + delta;
-        if (next >= 0 && next < host.Items.Count)
-            FileTable.SelectedItem = host.Items[next];
     }
 
     private void SyncSelectionFromHost()

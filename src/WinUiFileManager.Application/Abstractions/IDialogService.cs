@@ -1,4 +1,5 @@
 using WinUiFileManager.Domain.Enums;
+using WinUiFileManager.Domain.Events;
 using WinUiFileManager.Domain.Results;
 using WinUiFileManager.Domain.ValueObjects;
 
@@ -19,6 +20,11 @@ public interface IDialogService
     Task<string?> ShowCreateFolderDialogAsync(CancellationToken ct);
 
     Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct);
+
+    Task<IOperationProgressDialog> ShowOperationProgressAsync(
+        OperationType operationType,
+        Action onCancel,
+        CancellationToken ct);
 
     Task ShowOperationResultAsync(OperationSummary summary, CancellationToken ct);
 }

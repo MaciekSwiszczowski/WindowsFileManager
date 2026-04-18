@@ -2,6 +2,7 @@ using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Presentation.ViewModels;
+using WinUiFileManager.Application.Abstractions;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
@@ -12,6 +13,7 @@ public sealed class ViewModelTestBuilder
     public FakeSettingsRepository SettingsRepository { get; } = new();
     public FakeFavouritesRepository FavouritesRepository { get; } = new();
     public FakeShellService ShellService { get; } = new();
+    public IFileOperationService? FileOperationServiceOverride { get; set; }
 
     public MainShellViewModel Build()
     {
@@ -25,7 +27,7 @@ public sealed class ViewModelTestBuilder
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
             NullLogger<WindowsFileOperationPlanner>.Instance);
-        var operationService = new WindowsFileOperationService(
+        var operationService = FileOperationServiceOverride ?? new WindowsFileOperationService(
             fileOpInterop, NullLogger<WindowsFileOperationService>.Instance);
 
         var openEntry = new OpenEntryCommandHandler(

@@ -32,8 +32,6 @@ public sealed class WindowsFileOperationService : IFileOperationService
         IProgress<OperationProgressEvent>? progress,
         CancellationToken cancellationToken)
     {
-        var stopwatch = Stopwatch.StartNew();
-
         if (plan.Type is OperationType.Copy or OperationType.Move
             && plan.DestinationDirectory is NormalizedPath requiredDestinationRoot)
         {
@@ -42,7 +40,6 @@ public sealed class WindowsFileOperationService : IFileOperationService
                 _logger.LogWarning(
                     "Destination directory does not exist: {Path}",
                     requiredDestinationRoot.DisplayPath);
-                stopwatch.Stop();
                 return new OperationSummary(
                     plan.Type,
                     OperationStatus.Failed,
@@ -52,25 +49,55 @@ public sealed class WindowsFileOperationService : IFileOperationService
                     0,
                     0,
                     false,
-                    stopwatch.Elapsed,
+                    TimeSpan.Zero,
                     [],
                     $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
             }
         }
 
+        return await Task.Run(
+            () => ExecuteCoreAsync(plan, progress, cancellationToken),
+            CancellationToken.None);
+    }
+
+    private async Task<OperationSummary> ExecuteCoreAsync(
+        OperationPlan plan,
+        IProgress<OperationProgressEvent>? progress,
+        CancellationToken cancellationToken)
+    {
+        var stopwatch = Stopwatch.StartNew();
         var results = new ConcurrentBag<OperationItemResult>();
         var completedCount = 0;
         var wasCancelled = false;
 
         try
         {
+            ReportProgress(
+                progress,
+                plan,
+                completedCount: 0,
+                completedBytes: 0,
+                currentItemPath: plan.Items.FirstOrDefault()?.SourcePath,
+                statusMessage: "Preparing operation",
+                totalBytes: GetTotalBytes(plan));
+
             if (plan.ParallelOptions.Enabled && plan.ParallelOptions.MaxDegreeOfParallelism > 1)
             {
-                completedCount = await ExecuteParallelAsync(plan, results, progress, cancellationToken);
+                var parallelResult = await ExecuteParallelAsync(
+                    plan,
+                    results,
+                    progress,
+                    cancellationToken);
+                completedCount = parallelResult.CompletedCount;
             }
             else
             {
-                completedCount = ExecuteSequential(plan, results, progress, cancellationToken);
+                var sequentialResult = ExecuteSequential(
+                    plan,
+                    results,
+                    progress,
+                    cancellationToken);
+                completedCount = sequentialResult.CompletedCount;
             }
         }
         catch (OperationCanceledException)
@@ -107,13 +134,15 @@ public sealed class WindowsFileOperationService : IFileOperationService
             null);
     }
 
-    private async Task<int> ExecuteParallelAsync(
+    private async Task<(int CompletedCount, long CompletedBytes)> ExecuteParallelAsync(
         OperationPlan plan,
         ConcurrentBag<OperationItemResult> results,
         IProgress<OperationProgressEvent>? progress,
         CancellationToken cancellationToken)
     {
         var completed = 0;
+        var completedBytes = 0L;
+        var totalBytes = GetTotalBytes(plan);
 
         var parallelOptions = new ParallelOptions
         {
@@ -134,7 +163,16 @@ public sealed class WindowsFileOperationService : IFileOperationService
                 var dirResult = ExecuteItem(plan.Type, item);
                 results.Add(dirResult);
                 completed++;
-                ReportProgress(progress, plan, completed);
+                completedBytes += Math.Max(item.EstimatedSize, 0);
+                ReportProgress(
+                    progress,
+                    plan,
+                    completed,
+                    completedBytes,
+                    item.SourcePath,
+                    dirResult.Succeeded ? "Item completed" : "Item failed",
+                    totalBytes);
+                cancellationToken.ThrowIfCancellationRequested();
             }
 
             await Parallel.ForEachAsync(
@@ -145,11 +183,20 @@ public sealed class WindowsFileOperationService : IFileOperationService
                     var fileResult = ExecuteItem(plan.Type, item);
                     results.Add(fileResult);
                     var current = Interlocked.Increment(ref completed);
-                    ReportProgress(progress, plan, current);
+                    var currentBytes = Interlocked.Add(ref completedBytes, Math.Max(item.EstimatedSize, 0));
+                    ReportProgress(
+                        progress,
+                        plan,
+                        current,
+                        currentBytes,
+                        item.SourcePath,
+                        fileResult.Succeeded ? "Item completed" : "Item failed",
+                        totalBytes);
                     return ValueTask.CompletedTask;
                 });
 
-            return completed;
+            cancellationToken.ThrowIfCancellationRequested();
+            return (completed, completedBytes);
         }
 
         await Parallel.ForEachAsync(plan.Items, parallelOptions, (item, _) =>
@@ -157,20 +204,31 @@ public sealed class WindowsFileOperationService : IFileOperationService
             var result = ExecuteItem(plan.Type, item);
             results.Add(result);
             var current = Interlocked.Increment(ref completed);
-            ReportProgress(progress, plan, current);
+            var currentBytes = Interlocked.Add(ref completedBytes, Math.Max(item.EstimatedSize, 0));
+            ReportProgress(
+                progress,
+                plan,
+                current,
+                currentBytes,
+                item.SourcePath,
+                result.Succeeded ? "Item completed" : "Item failed",
+                totalBytes);
             return ValueTask.CompletedTask;
         });
 
-        return completed;
+        cancellationToken.ThrowIfCancellationRequested();
+        return (completed, completedBytes);
     }
 
-    private int ExecuteSequential(
+    private (int CompletedCount, long CompletedBytes) ExecuteSequential(
         OperationPlan plan,
         ConcurrentBag<OperationItemResult> results,
         IProgress<OperationProgressEvent>? progress,
         CancellationToken cancellationToken)
     {
         var completedCount = 0;
+        var completedBytes = 0L;
+        var totalBytes = GetTotalBytes(plan);
 
         foreach (var item in plan.Items)
         {
@@ -179,10 +237,19 @@ public sealed class WindowsFileOperationService : IFileOperationService
             var result = ExecuteItem(plan.Type, item);
             results.Add(result);
             completedCount++;
-            ReportProgress(progress, plan, completedCount);
+            completedBytes += Math.Max(item.EstimatedSize, 0);
+            ReportProgress(
+                progress,
+                plan,
+                completedCount,
+                completedBytes,
+                item.SourcePath,
+                result.Succeeded ? "Item completed" : "Item failed",
+                totalBytes);
+            cancellationToken.ThrowIfCancellationRequested();
         }
 
-        return completedCount;
+        return (completedCount, completedBytes);
     }
 
     private OperationItemResult ExecuteItem(OperationType type, OperationItemPlan item)
@@ -282,17 +349,24 @@ public sealed class WindowsFileOperationService : IFileOperationService
     private static void ReportProgress(
         IProgress<OperationProgressEvent>? progress,
         OperationPlan plan,
-        int completedCount)
+        int completedCount,
+        long completedBytes,
+        NormalizedPath? currentItemPath,
+        string? statusMessage,
+        long totalBytes)
     {
         progress?.Report(new OperationProgressEvent(
             plan.Type,
             plan.Items.Count,
             completedCount,
-            0,
-            0,
-            null,
-            null));
+            totalBytes,
+            completedBytes,
+            currentItemPath,
+            statusMessage));
     }
+
+    private static long GetTotalBytes(OperationPlan plan) =>
+        plan.Items.Sum(static item => Math.Max(item.EstimatedSize, 0));
 
     private static OperationStatus DetermineStatus(
         int succeeded, int failed, int warnings, bool cancelled)

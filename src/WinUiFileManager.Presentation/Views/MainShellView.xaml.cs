@@ -141,6 +141,7 @@ public sealed partial class MainShellView : UserControl
 
         var ctrl = IsModifierDown(VirtualKey.Control);
         var shift = IsModifierDown(VirtualKey.Shift);
+        var inTextInputContext = IsTextInputFocused();
 
         switch (e.Key)
         {
@@ -159,14 +160,14 @@ public sealed partial class MainShellView : UserControl
                 break;
 
             // Ctrl+A — select all items in active pane (spec §6.2 and §12.16)
-            case VirtualKey.A when ctrl && !shift:
-                ViewModel.ActivePane.SelectAllCommand.Execute(null);
+            case VirtualKey.A when ctrl && !shift && !inTextInputContext:
+                GetActivePaneView().SelectAllEntries();
                 e.Handled = true;
                 break;
 
             // Ctrl+Shift+A — clear selection in active pane (spec §6.2 and §12.17)
-            case VirtualKey.A when ctrl && shift:
-                ViewModel.ActivePane.ClearSelectionCommand.Execute(null);
+            case VirtualKey.A when ctrl && shift && !inTextInputContext:
+                GetActivePaneView().ClearSelection();
                 e.Handled = true;
                 break;
 
@@ -354,4 +355,13 @@ public sealed partial class MainShellView : UserControl
     private static bool IsModifierDown(VirtualKey key) =>
         InputKeyboardSource.GetKeyStateForCurrentThread(key)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    private bool IsTextInputFocused()
+    {
+        var focused = FocusManager.GetFocusedElement(XamlRoot);
+        return focused is TextBox
+            or PasswordBox
+            or RichEditBox
+            or AutoSuggestBox;
+    }
 }

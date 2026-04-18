@@ -21,4 +21,6 @@ public interface IFileSystemService
     Task<bool> ExistsAsync(NormalizedPath path, CancellationToken cancellationToken);
 
     Task<bool> DirectoryExistsAsync(NormalizedPath path, CancellationToken cancellationToken);
+
+    IDisposable WatchDirectory(NormalizedPath path, Action onChanged);
 }

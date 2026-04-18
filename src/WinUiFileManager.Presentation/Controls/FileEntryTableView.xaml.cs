@@ -118,6 +118,32 @@ public sealed partial class FileEntryTableView : UserControl
         }
     }
 
+    public void SelectAllRows()
+    {
+        var host = GridViewModel.Host;
+        if (host is null || !host.IsInteractive)
+        {
+            return;
+        }
+
+        FileTable.SelectAll();
+        var parentEntry = host.Items.FirstOrDefault(static item => item.IsParentEntry);
+        if (parentEntry is not null && FileTable.SelectedItems.Contains(parentEntry))
+        {
+            FileTable.SelectedItems.Remove(parentEntry);
+        }
+    }
+
+    public void ClearRowSelection()
+    {
+        if (GridViewModel.Host is null)
+        {
+            return;
+        }
+
+        FileTable.SelectedItems.Clear();
+    }
+
     public void ApplyColumnResizeFromOptions()
     {
         FileTable.CanResizeColumns = FilePaneDisplayOptions.EnableColumnResize;
@@ -368,10 +394,21 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         var ctrl = IsModifierDown(VirtualKey.Control);
+        var shift = IsModifierDown(VirtualKey.Shift);
 
         switch (e.Key)
         {
             // Enter is handled in PreviewKeyDown to beat the TableView's internal routing.
+
+            case VirtualKey.A when ctrl && !shift:
+                SelectAllRows();
+                e.Handled = true;
+                break;
+
+            case VirtualKey.A when ctrl && shift:
+                ClearRowSelection();
+                e.Handled = true;
+                break;
 
             case VirtualKey.Back:
                 if (!string.IsNullOrEmpty(host.IncrementalSearchText))
@@ -474,10 +511,10 @@ public sealed partial class FileEntryTableView : UserControl
         try
         {
             FileTable.SelectedItems.Clear();
-        foreach (var item in host.Items.Where(static i => i.IsSelected))
-        {
-            FileTable.SelectedItems.Add(item);
-        }
+            foreach (var item in host.Items.Where(static i => i.IsSelected))
+            {
+                FileTable.SelectedItems.Add(item);
+            }
         }
         finally
         {

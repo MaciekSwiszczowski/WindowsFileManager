@@ -50,6 +50,26 @@ public sealed partial class FilePaneView
         EntryTable.FocusGrid();
     }
 
+    public void SelectAllEntries()
+    {
+        if (_viewModel?.IsInteractive != true)
+        {
+            return;
+        }
+
+        EntryTable.SelectAllRows();
+    }
+
+    public void ClearSelection()
+    {
+        if (_viewModel?.IsInteractive != true)
+        {
+            return;
+        }
+
+        EntryTable.ClearRowSelection();
+    }
+
     public void SetActive(bool isActive)
     {
         PaneBorder.BorderThickness = isActive ? new Thickness(2) : new Thickness(1);

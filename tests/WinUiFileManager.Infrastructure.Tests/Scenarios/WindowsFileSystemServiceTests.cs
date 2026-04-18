@@ -135,6 +135,22 @@ public sealed class WindowsFileSystemServiceTests
         await Assert.That(exists).IsFalse();
     }
 
+    [Test]
+    public async Task Test_WatchDirectory_RaisesChangeCallback_ForCreatedFile()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var sut = CreateService();
+        var path = NormalizedPath.FromUserInput(fixture.RootPath);
+        using var changed = new ManualResetEventSlim(false);
+        using var subscription = sut.WatchDirectory(path, () => changed.Set());
+
+        fixture.CreateFile("watched.txt", sizeInBytes: 32);
+
+        var signaled = await Task.Run(() => changed.Wait(TimeSpan.FromSeconds(5)));
+
+        await Assert.That(signaled).IsTrue();
+    }
+
     private static WindowsFileSystemService CreateService()
     {
         return new WindowsFileSystemService(

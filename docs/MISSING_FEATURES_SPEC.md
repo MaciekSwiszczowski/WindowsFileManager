@@ -14,11 +14,13 @@ Required behavior:
 - show operation type, processed count, total count, and current item path
 - support cancel while operation is running
 - keep UI responsive while progress is shown
-- show final result summary after completion/cancel/failure
+- show progress using a modal operation dialog (same dialog-service flow used for operation summaries), not as a permanent shell/pane surface
+- show final result summary after completion/cancel/failure in the existing operation result dialog
 
 Acceptance:
 - progress appears during long operations (not only after completion)
 - cancel request is routed and reflected in final summary
+- no always-visible progress container is added between command bar and panes
 
 ### 2. Centralized Shortcut Registry
 Replace scattered keyboard shortcut handling with one reusable shortcut map/service.

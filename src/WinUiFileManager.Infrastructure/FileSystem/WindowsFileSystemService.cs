@@ -7,6 +7,10 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
+/// <summary>
+/// Enumerates directory contents, maps file-system metadata into entry models, and exposes
+/// lightweight active-folder watch subscriptions for pane refresh.
+/// </summary>
 public sealed class WindowsFileSystemService : IFileSystemService
 {
     private const int DefaultBatchSize = 512;
@@ -35,7 +39,9 @@ public sealed class WindowsFileSystemService : IFileSystemService
         var entries = new List<FileSystemEntryModel>();
 
         await foreach (var batch in EnumerateDirectoryBatchesAsync(path, DefaultBatchSize, DefaultBatchSize, cancellationToken))
+        {
             entries.AddRange(batch);
+        }
 
         return entries;
     }
@@ -127,6 +133,19 @@ public sealed class WindowsFileSystemService : IFileSystemService
         return Task.FromResult(Directory.Exists(path.DisplayPath));
     }
 
+    public IDisposable WatchDirectory(NormalizedPath path, Action onChanged)
+    {
+        ArgumentNullException.ThrowIfNull(onChanged);
+
+        if (!Directory.Exists(path.DisplayPath))
+        {
+            _logger.LogDebug("Skipping directory watcher for missing path: {Path}", path.DisplayPath);
+            return NullDisposable.Instance;
+        }
+
+        return new ResilientDirectoryWatcher(path.DisplayPath, onChanged, _logger);
+    }
+
     private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)
     {
         var isDirectory = fsi is DirectoryInfo;
@@ -170,7 +189,7 @@ public sealed class WindowsFileSystemService : IFileSystemService
     {
         return new FileSystemEnumerable<FileSystemEntryModel>(
             directoryPath,
-            static (ref FileSystemEntry entry) => BuildEntryModel(ref entry),
+            static (ref entry) => BuildEntryModel(ref entry),
             EnumerationOptions);
     }
 }

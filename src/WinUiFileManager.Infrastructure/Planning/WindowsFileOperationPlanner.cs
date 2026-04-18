@@ -31,10 +31,13 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
         ParallelExecutionOptions parallelOptions,
         CancellationToken cancellationToken)
     {
-        var planItems = BuildCopyMoveItems(items, destination, cancellationToken);
+        return Task.Run(() =>
+        {
+            var planItems = BuildCopyMoveItems(items, destination, cancellationToken);
 
-        return Task.FromResult(new OperationPlan(
-            OperationType.Copy, planItems, destination, collisionPolicy, parallelOptions));
+            return new OperationPlan(
+                OperationType.Copy, planItems, destination, collisionPolicy, parallelOptions);
+        }, cancellationToken);
     }
 
     public Task<OperationPlan> PlanMoveAsync(
@@ -44,36 +47,42 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
         ParallelExecutionOptions parallelOptions,
         CancellationToken cancellationToken)
     {
-        var planItems = BuildCopyMoveItems(items, destination, cancellationToken);
+        return Task.Run(() =>
+        {
+            var planItems = BuildCopyMoveItems(items, destination, cancellationToken);
 
-        return Task.FromResult(new OperationPlan(
-            OperationType.Move, planItems, destination, collisionPolicy, parallelOptions));
+            return new OperationPlan(
+                OperationType.Move, planItems, destination, collisionPolicy, parallelOptions);
+        }, cancellationToken);
     }
 
     public Task<OperationPlan> PlanDeleteAsync(
         IReadOnlyList<FileSystemEntryModel> items,
         CancellationToken cancellationToken)
     {
-        var planItems = new List<OperationItemPlan>();
-
-        foreach (var item in items)
+        return Task.Run(() =>
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var displayPath = item.FullPath.DisplayPath;
+            var planItems = new List<OperationItemPlan>();
 
-            if (item.Kind == ItemKind.Directory)
+            foreach (var item in items)
             {
-                AddDeleteItemsForDirectory(displayPath, planItems, cancellationToken);
-                planItems.Add(new OperationItemPlan(item.FullPath, null, ItemKind.Directory, 0));
-            }
-            else
-            {
-                planItems.Add(new OperationItemPlan(item.FullPath, null, ItemKind.File, item.Size));
-            }
-        }
+                cancellationToken.ThrowIfCancellationRequested();
+                var displayPath = item.FullPath.DisplayPath;
 
-        return Task.FromResult(new OperationPlan(
-            OperationType.Delete, planItems, null, CollisionPolicy.Ask, new ParallelExecutionOptions()));
+                if (item.Kind == ItemKind.Directory)
+                {
+                    AddDeleteItemsForDirectory(displayPath, planItems, cancellationToken);
+                    planItems.Add(new OperationItemPlan(item.FullPath, null, ItemKind.Directory, 0));
+                }
+                else
+                {
+                    planItems.Add(new OperationItemPlan(item.FullPath, null, ItemKind.File, item.Size));
+                }
+            }
+
+            return new OperationPlan(
+                OperationType.Delete, planItems, null, CollisionPolicy.Ask, new ParallelExecutionOptions());
+        }, cancellationToken);
     }
 
     public Task<OperationPlan> PlanCreateFolderAsync(

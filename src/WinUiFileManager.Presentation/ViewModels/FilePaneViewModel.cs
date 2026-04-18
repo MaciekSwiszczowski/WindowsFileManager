@@ -22,6 +22,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private readonly INtfsVolumePolicyService _volumePolicyService;
     private readonly IPathNormalizationService _pathNormalizationService;
     private readonly ILogger<FilePaneViewModel> _logger;
+    private readonly SynchronizationContext? _uiSynchronizationContext;
 
     private readonly SourceCache<FileEntryViewModel, string> _sourceCache = new(static x => x.UniqueKey);
     private readonly BehaviorSubject<IComparer<FileEntryViewModel>> _sortComparer;
@@ -29,6 +30,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private readonly IDisposable _subscription;
 
     private CancellationTokenSource? _loadCancellation;
+    private CancellationTokenSource? _watchRefreshDebounceCancellation;
+    private IDisposable? _directoryWatchSubscription;
     private NormalizedPath? _currentNormalizedPath;
 
     [ObservableProperty]
@@ -72,6 +75,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         _volumePolicyService = volumePolicyService;
         _pathNormalizationService = pathNormalizationService;
         _logger = logger;
+        _uiSynchronizationContext = SynchronizationContext.Current;
 
         _sortComparer = new BehaviorSubject<IComparer<FileEntryViewModel>>(
             new FileEntryComparer(SortColumn.Name, true));
@@ -182,11 +186,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var restoreSelection = CurrentItem is { IsParentEntry: false } item
-            ? item.Name
-            : null;
-
-        await LoadDirectoryAsync(_currentNormalizedPath.Value, restoreSelection, CancellationToken.None);
+        await RefreshCurrentDirectoryAsync(CancellationToken.None);
     }
 
     [RelayCommand]
@@ -197,12 +197,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var selectable = _sortedItems.Where(static i => !i.IsParentEntry).ToList();
-        var allSelected = selectable.Count > 0 && selectable.All(static i => i.IsSelected);
-
-        foreach (var item in selectable)
+        foreach (var item in _sortedItems.Where(static i => !i.IsParentEntry))
         {
-            item.IsSelected = !allSelected;
+            item.IsSelected = true;
         }
 
         NotifySelectionChanged();
@@ -374,6 +371,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     {
         _loadCancellation?.Cancel();
         _loadCancellation?.Dispose();
+        CancelWatcherRefresh();
+        DisposeDirectoryWatcher();
         _subscription.Dispose();
         _sortComparer.Dispose();
         _sourceCache.Dispose();
@@ -414,6 +413,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         CancellationToken cancellationToken)
     {
         CancelLoading();
+        CancelWatcherRefresh();
+        DisposeDirectoryWatcher();
         _loadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var loadToken = _loadCancellation.Token;
 
@@ -454,6 +455,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
             NotifySelectionChanged();
             OnPropertyChanged(nameof(ItemCount));
+            StartWatchingDirectory(path);
         }
         catch (OperationCanceledException)
         {
@@ -488,6 +490,162 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         _loadCancellation.Cancel();
         _loadCancellation.Dispose();
         _loadCancellation = null;
+    }
+
+    private void StartWatchingDirectory(NormalizedPath path)
+    {
+        DisposeDirectoryWatcher();
+
+        try
+        {
+            _directoryWatchSubscription = _fileSystemService.WatchDirectory(path, OnDirectoryChanged);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to start directory watcher for {Path}", path.DisplayPath);
+        }
+    }
+
+    private void DisposeDirectoryWatcher()
+    {
+        _directoryWatchSubscription?.Dispose();
+        _directoryWatchSubscription = null;
+    }
+
+    private void OnDirectoryChanged()
+    {
+        CancelWatcherRefresh();
+        _watchRefreshDebounceCancellation = new CancellationTokenSource();
+        var refreshToken = _watchRefreshDebounceCancellation.Token;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250), refreshToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            PostToUi(() => _ = RefreshFromWatcherAsync(refreshToken));
+        }, CancellationToken.None);
+    }
+
+    private async Task RefreshFromWatcherAsync(CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested || IsLoading || _currentNormalizedPath is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await RefreshCurrentDirectoryAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Background watcher refresh failed for {Path}", _currentNormalizedPath.Value.DisplayPath);
+        }
+    }
+
+    private void CancelWatcherRefresh()
+    {
+        _watchRefreshDebounceCancellation?.Cancel();
+        _watchRefreshDebounceCancellation?.Dispose();
+        _watchRefreshDebounceCancellation = null;
+    }
+
+    private async Task RefreshCurrentDirectoryAsync(CancellationToken cancellationToken)
+    {
+        if (_currentNormalizedPath is null)
+        {
+            return;
+        }
+
+        var currentPath = _currentNormalizedPath.Value;
+        var existingPath = await ResolveExistingDirectoryOrAncestorAsync(currentPath, cancellationToken);
+        if (existingPath is null)
+        {
+            ErrorMessage = $"Directory not found: {currentPath.DisplayPath}";
+            return;
+        }
+
+        var restoreSelectionName = CurrentItem is { IsParentEntry: false } item
+            ? item.Name
+            : null;
+
+        if (!string.Equals(existingPath.Value.DisplayPath, currentPath.DisplayPath, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Directory {MissingPath} no longer exists. Falling back to existing ancestor {ExistingPath}.",
+                currentPath.DisplayPath,
+                existingPath.Value.DisplayPath);
+
+            restoreSelectionName = GetFallbackSelectionName(currentPath, existingPath.Value);
+        }
+
+        await LoadDirectoryAsync(existingPath.Value, restoreSelectionName, cancellationToken);
+    }
+
+    private async Task<NormalizedPath?> ResolveExistingDirectoryOrAncestorAsync(
+        NormalizedPath path,
+        CancellationToken cancellationToken)
+    {
+        var currentPath = path.DisplayPath;
+
+        while (!string.IsNullOrEmpty(currentPath))
+        {
+            var normalizedPath = NormalizedPath.FromUserInput(currentPath);
+            if (await _fileSystemService.DirectoryExistsAsync(normalizedPath, cancellationToken))
+            {
+                return normalizedPath;
+            }
+
+            currentPath = GetParentPath(currentPath);
+        }
+
+        return null;
+    }
+
+    private static string? GetFallbackSelectionName(NormalizedPath missingPath, NormalizedPath existingAncestorPath)
+    {
+        var relativePath = Path.GetRelativePath(existingAncestorPath.DisplayPath, missingPath.DisplayPath);
+        if (string.IsNullOrWhiteSpace(relativePath) || string.Equals(relativePath, ".", StringComparison.Ordinal))
+        {
+            return null;
+        }
+
+        return relativePath
+            .Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries)
+            .FirstOrDefault();
+    }
+
+    private static string? GetParentPath(string path)
+    {
+        var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (trimmedPath.Length == 2 && trimmedPath[1] == ':')
+        {
+            return null;
+        }
+
+        var parent = Path.GetDirectoryName(trimmedPath);
+        return string.IsNullOrEmpty(parent) ? null : parent;
+    }
+
+    private void PostToUi(Action action)
+    {
+        if (_uiSynchronizationContext is null)
+        {
+            action();
+            return;
+        }
+
+        _uiSynchronizationContext.Post(static state => ((Action)state!).Invoke(), action);
     }
 
     private void ResetItems()

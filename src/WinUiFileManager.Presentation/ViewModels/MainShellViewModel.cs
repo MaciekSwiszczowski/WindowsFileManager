@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -9,6 +10,7 @@ using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
+using WinUiFileManager.Domain.Results;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
@@ -53,6 +55,8 @@ public sealed partial class MainShellViewModel : ObservableObject
 
     [ObservableProperty]
     public partial double InspectorWidth { get; set; } = 340d;
+
+    public OperationProgressViewModel OperationProgress { get; } = new();
 
     public bool ParallelExecutionEnabled
     {
@@ -148,6 +152,11 @@ public sealed partial class MainShellViewModel : ObservableObject
     [RelayCommand]
     private async Task CopyAsync()
     {
+        if (OperationProgress.IsRunning)
+        {
+            return;
+        }
+
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
         {
@@ -166,18 +175,16 @@ public sealed partial class MainShellViewModel : ObservableObject
                 _currentSettings.ParallelExecutionEnabled,
                 _currentSettings.MaxDegreeOfParallelism);
 
-            var summary = await _copyHandler.ExecuteAsync(
-                items,
-                destination.Value,
-                CollisionPolicy.Ask,
-                parallelOptions,
-                new Progress<OperationProgressEvent>(),
-                CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
-            await InactivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke();
+            await RunTrackedOperationAsync(
+                OperationType.Copy,
+                (progress, cancellationToken) => _copyHandler.ExecuteAsync(
+                    items,
+                    destination.Value,
+                    CollisionPolicy.Ask,
+                    parallelOptions,
+                    progress,
+                    cancellationToken),
+                refreshInactivePane: true);
         }
         catch (Exception ex)
         {
@@ -189,6 +196,11 @@ public sealed partial class MainShellViewModel : ObservableObject
     [RelayCommand]
     private async Task MoveAsync()
     {
+        if (OperationProgress.IsRunning)
+        {
+            return;
+        }
+
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
         {
@@ -207,18 +219,16 @@ public sealed partial class MainShellViewModel : ObservableObject
                 _currentSettings.ParallelExecutionEnabled,
                 _currentSettings.MaxDegreeOfParallelism);
 
-            var summary = await _moveHandler.ExecuteAsync(
-                items,
-                destination.Value,
-                CollisionPolicy.Ask,
-                parallelOptions,
-                new Progress<OperationProgressEvent>(),
-                CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
-            await InactivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke();
+            await RunTrackedOperationAsync(
+                OperationType.Move,
+                (progress, cancellationToken) => _moveHandler.ExecuteAsync(
+                    items,
+                    destination.Value,
+                    CollisionPolicy.Ask,
+                    parallelOptions,
+                    progress,
+                    cancellationToken),
+                refreshInactivePane: true);
         }
         catch (Exception ex)
         {
@@ -230,6 +240,11 @@ public sealed partial class MainShellViewModel : ObservableObject
     [RelayCommand]
     private async Task DeleteAsync()
     {
+        if (OperationProgress.IsRunning)
+        {
+            return;
+        }
+
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
         {
@@ -247,14 +262,13 @@ public sealed partial class MainShellViewModel : ObservableObject
                 return;
             }
 
-            var summary = await _deleteHandler.ExecuteAsync(
-                items,
-                new Progress<OperationProgressEvent>(),
-                CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke();
+            await RunTrackedOperationAsync(
+                OperationType.Delete,
+                (progress, cancellationToken) => _deleteHandler.ExecuteAsync(
+                    items,
+                    progress,
+                    cancellationToken),
+                refreshInactivePane: false);
         }
         catch (Exception ex)
         {
@@ -542,5 +556,162 @@ public sealed partial class MainShellViewModel : ObservableObject
     private void RefreshInspector()
     {
         _ = Inspector.UpdateSelectionAsync(ActivePane.GetSelectedEntries(), ActivePane.IsLoading);
+    }
+
+    private async Task RunTrackedOperationAsync(
+        OperationType operationType,
+        Func<IProgress<OperationProgressEvent>, CancellationToken, Task<OperationSummary>> executeAsync,
+        bool refreshInactivePane)
+    {
+        OperationProgress.Start(operationType);
+        var progressDialog = await _dialogService.ShowOperationProgressAsync(
+            operationType,
+            () => OperationProgress.CancelCommand.Execute(null),
+            CancellationToken.None);
+        using var progress = new ThrottledSynchronizationContextProgress<OperationProgressEvent>(
+            progressEvent =>
+            {
+                OperationProgress.ReportProgress(progressEvent);
+                progressDialog.ReportProgress(progressEvent);
+            },
+            static progressEvent => progressEvent.CompletedItems == 0
+                || progressEvent.TotalItems == 0
+                || progressEvent.CompletedItems >= progressEvent.TotalItems);
+
+        try
+        {
+            var summary = await executeAsync(progress, OperationProgress.CancellationToken);
+            OperationProgress.Finish();
+            await progressDialog.CloseAsync(CancellationToken.None);
+
+            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
+            await ActivePane.RefreshCommand.ExecuteAsync(null);
+
+            if (refreshInactivePane)
+            {
+                await InactivePane.RefreshCommand.ExecuteAsync(null);
+            }
+
+            FocusActivePaneRequested?.Invoke();
+        }
+        finally
+        {
+            await progressDialog.CloseAsync(CancellationToken.None);
+            OperationProgress.Reset();
+        }
+    }
+
+    private sealed class ThrottledSynchronizationContextProgress<T>(
+        Action<T> handler,
+        Func<T, bool>? shouldFlushImmediately = null) : IProgress<T>, IDisposable
+    {
+        private static readonly TimeSpan MinimumUpdateInterval = TimeSpan.FromMilliseconds(50);
+        private readonly object _gate = new();
+        private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
+        private T? _pendingValue;
+        private bool _hasPendingValue;
+        private bool _flushScheduled;
+        private long _lastPublishedTimestamp;
+
+        public void Report(T value)
+        {
+            if (shouldFlushImmediately?.Invoke(value) == true || ShouldPublishNow())
+            {
+                Publish(value);
+                return;
+            }
+
+            lock (_gate)
+            {
+                _pendingValue = value;
+                _hasPendingValue = true;
+
+                if (_flushScheduled)
+                {
+                    return;
+                }
+
+                _flushScheduled = true;
+            }
+
+            _ = FlushLaterAsync();
+        }
+
+        public void Dispose()
+        {
+            T? pendingValue = default;
+            var hasPendingValue = false;
+
+            lock (_gate)
+            {
+                if (_hasPendingValue)
+                {
+                    pendingValue = _pendingValue;
+                    hasPendingValue = true;
+                    _hasPendingValue = false;
+                    _pendingValue = default;
+                }
+            }
+
+            if (hasPendingValue)
+            {
+                Publish(pendingValue!);
+            }
+        }
+
+        private bool ShouldPublishNow()
+        {
+            var lastPublishedTimestamp = Interlocked.Read(ref _lastPublishedTimestamp);
+            if (lastPublishedTimestamp == 0)
+            {
+                return true;
+            }
+
+            return Stopwatch.GetElapsedTime(lastPublishedTimestamp) >= MinimumUpdateInterval;
+        }
+
+        private async Task FlushLaterAsync()
+        {
+            await Task.Delay(MinimumUpdateInterval).ConfigureAwait(false);
+
+            T? pendingValue = default;
+            var hasPendingValue = false;
+
+            lock (_gate)
+            {
+                _flushScheduled = false;
+                if (_hasPendingValue)
+                {
+                    pendingValue = _pendingValue;
+                    hasPendingValue = true;
+                    _hasPendingValue = false;
+                    _pendingValue = default;
+                }
+            }
+
+            if (hasPendingValue)
+            {
+                Publish(pendingValue!);
+            }
+        }
+
+        private void Publish(T value)
+        {
+            Interlocked.Exchange(ref _lastPublishedTimestamp, Stopwatch.GetTimestamp());
+
+            if (_synchronizationContext is null)
+            {
+                handler(value);
+                return;
+            }
+
+            _synchronizationContext.Post(
+                static state =>
+                {
+                    var (callback, reportedValue) = ((Action<T>, T))state!;
+                    callback(reportedValue);
+                },
+                (handler, value));
+        }
     }
 }

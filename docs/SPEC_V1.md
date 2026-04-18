@@ -79,7 +79,7 @@ The main window contains:
 - right-side inspector panel (visible by default, toggleable)
 - exactly one active panel at any given time
 - command area or status area
-- optional operation progress surface
+- modal operation progress dialog shown only while long-running operations are active
 
 ### Active panel rules
 - Navigation commands apply to the active panel
@@ -114,6 +114,7 @@ The application must support:
 - move to parent directory
 - navigate to a typed absolute path
 - refresh current panel
+- if the current directory disappears externally, refresh/watch invalidation rolls the pane back to the highest existing ancestor directory
 - switch active panel
 - preserve per-panel navigation state independently
 
@@ -398,6 +399,11 @@ Responsible for:
 - binding to view models
 - dialogs and progress surfaces
 
+Progress-surface rule:
+- copy/move/delete progress is presented through the dialog service as a modal progress dialog
+- final operation summary is presented through the existing operation result dialog
+- progress must not be implemented as a permanently allocated row/surface in the main shell layout
+
 Must not contain file-system mutation logic.
 
 #### Command/Application Layer
@@ -557,6 +563,7 @@ The system must not rely on UI automation for the main correctness guarantee.
 - navigate to explicit path
 - reject non-NTFS path
 - refresh after external changes
+- refresh when the current directory was deleted externally and the pane must fall back to the highest existing ancestor
 
 #### Copy
 - single file copy

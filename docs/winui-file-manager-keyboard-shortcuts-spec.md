@@ -502,6 +502,11 @@ Opening a file must not disturb pane state.
 - missing selected items are removed from selection
 - inactive pane unchanged unless explicitly refreshed too
 
+### Special case: current directory deleted externally
+- if the pane's current directory no longer exists, refresh rolls back to the highest existing ancestor directory
+- focus remains in the launching pane list
+- active pane does not change
+
 ### Failure
 - active pane unchanged
 - focus remains in launching pane list

@@ -57,9 +57,8 @@ public sealed class RenameEntryCommandHandlerTests
     private static async Task<IReadOnlyList<FileSystemEntryModel>> GetEntries(params string[] paths)
     {
         var pathService = new WindowsPathNormalizationService();
-        var fileIdInterop = new FileIdentityInterop();
         var fsService = new WindowsFileSystemService(
-            pathService, fileIdInterop, NullLogger<WindowsFileSystemService>.Instance);
+            pathService, NullLogger<WindowsFileSystemService>.Instance);
 
         var entries = new List<FileSystemEntryModel>();
         foreach (var path in paths)

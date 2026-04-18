@@ -8,4 +8,6 @@ public sealed record AppSettings(
     int MaxDegreeOfParallelism = 4,
     NormalizedPath? LastLeftPanePath = null,
     NormalizedPath? LastRightPanePath = null,
-    PaneId LastActivePane = PaneId.Left);
+    PaneId LastActivePane = PaneId.Left,
+    bool InspectorVisible = true,
+    double InspectorWidth = 340d);

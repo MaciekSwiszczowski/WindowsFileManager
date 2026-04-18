@@ -13,7 +13,6 @@ public sealed class FakeDialogService : IDialogService
     public int CreateFolderDialogCallCount { get; private set; }
     public int RenameDialogCallCount { get; private set; }
     public int ShowOperationResultCallCount { get; private set; }
-    public int ShowPropertiesCallCount { get; private set; }
     public OperationSummary? LastOperationResult { get; private set; }
 
     public Task<CollisionPolicy> ShowCollisionDialogAsync(NormalizedPath sourcePath, NormalizedPath destinationPath, CancellationToken ct)
@@ -37,12 +36,6 @@ public sealed class FakeDialogService : IDialogService
     {
         RenameDialogCallCount++;
         return Task.FromResult(RenameResult);
-    }
-
-    public Task ShowPropertiesAsync(IReadOnlyList<FileSystemEntryModel> entries, CancellationToken ct)
-    {
-        ShowPropertiesCallCount++;
-        return Task.CompletedTask;
     }
 
     public Task ShowOperationResultAsync(OperationSummary summary, CancellationToken ct)

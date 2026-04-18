@@ -68,19 +68,47 @@
 
                 <controls:FileEntryTableView x:Name="EntryTable" />
 
-                <StackPanel x:Name="OverlayPanel"
+                <Grid x:Name="OverlayPanel"
 
-                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                      Background="#66000000"
 
-                            Visibility="Collapsed">
+                      Visibility="Collapsed">
 
-                    <ProgressRing x:Name="LoadingRing" IsActive="False" />
+                    <Border HorizontalAlignment="Center"
 
-                    <TextBlock x:Name="OverlayText" TextAlignment="Center" Margin="0,8,0,0"
+                            VerticalAlignment="Center"
 
-                               Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+                            Padding="16,12"
 
-                </StackPanel>
+                            CornerRadius="8"
+
+                            Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
+
+                        <StackPanel>
+
+                            <ProgressRing x:Name="LoadingRing"
+
+                                          Width="28"
+
+                                          Height="28"
+
+                                          HorizontalAlignment="Center"
+
+                                          IsActive="False" />
+
+                            <TextBlock x:Name="OverlayText"
+
+                                       Margin="0,8,0,0"
+
+                                       TextAlignment="Center"
+
+                                       Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}" />
+
+                        </StackPanel>
+
+                    </Border>
+
+                </Grid>
 
             </Grid>
 

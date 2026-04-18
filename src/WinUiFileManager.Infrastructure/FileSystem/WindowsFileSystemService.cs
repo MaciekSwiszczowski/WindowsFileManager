@@ -1,48 +1,83 @@
 using System.IO.Enumeration;
+using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
 public sealed class WindowsFileSystemService : IFileSystemService
 {
-    private readonly IPathNormalizationService _pathService;
-    private readonly IFileIdentityInterop _fileIdentityInterop;
+    private const int DefaultBatchSize = 512;
+
+    private static readonly EnumerationOptions EnumerationOptions = new()
+    {
+        AttributesToSkip = 0,
+        IgnoreInaccessible = true,
+        ReturnSpecialDirectories = false
+    };
+
     private readonly ILogger<WindowsFileSystemService> _logger;
 
     public WindowsFileSystemService(
         IPathNormalizationService pathService,
-        IFileIdentityInterop fileIdentityInterop,
         ILogger<WindowsFileSystemService> logger)
     {
-        _pathService = pathService;
-        _fileIdentityInterop = fileIdentityInterop;
+        _ = pathService;
         _logger = logger;
     }
 
-    public Task<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryAsync(
+    public async Task<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryAsync(
         NormalizedPath path,
         CancellationToken cancellationToken)
+    {
+        var entries = new List<FileSystemEntryModel>();
+
+        await foreach (var batch in EnumerateDirectoryBatchesAsync(path, DefaultBatchSize, DefaultBatchSize, cancellationToken))
+            entries.AddRange(batch);
+
+        return entries;
+    }
+
+    public async IAsyncEnumerable<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryBatchesAsync(
+        NormalizedPath path,
+        int initialBatchSize,
+        int batchSize,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (!Directory.Exists(path.DisplayPath))
         {
             _logger.LogWarning("Directory does not exist: {Path}", path.DisplayPath);
-            return Task.FromResult<IReadOnlyList<FileSystemEntryModel>>([]);
+            yield break;
         }
 
-        var entries = new List<FileSystemEntryModel>();
-        var enumerable = CreateDirectoryEnumerable(path.DisplayPath);
+        if (initialBatchSize <= 0)
+            initialBatchSize = DefaultBatchSize;
 
-        foreach (var entry in enumerable)
+        if (batchSize <= 0)
+            batchSize = DefaultBatchSize;
+
+        var targetBatchSize = initialBatchSize;
+        var batch = new List<FileSystemEntryModel>(targetBatchSize);
+
+        foreach (var entry in CreateDirectoryEnumerable(path.DisplayPath))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            entries.Add(entry);
+            batch.Add(entry);
+
+            if (batch.Count < targetBatchSize)
+                continue;
+
+            yield return batch;
+            targetBatchSize = batchSize;
+            batch = new List<FileSystemEntryModel>(targetBatchSize);
+
+            await Task.Yield();
         }
 
-        return Task.FromResult<IReadOnlyList<FileSystemEntryModel>>(entries);
+        if (batch.Count > 0)
+            yield return batch;
     }
 
     public Task<FileSystemEntryModel?> GetEntryAsync(
@@ -78,17 +113,12 @@ public sealed class WindowsFileSystemService : IFileSystemService
         return Task.FromResult(Directory.Exists(path.DisplayPath));
     }
 
-    private FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)
+    private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)
     {
         var isDirectory = fsi is DirectoryInfo;
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
         var size = fsi is FileInfo fi ? fi.Length : 0L;
         var extension = isDirectory ? string.Empty : fsi.Extension;
-
-        var fileIdResult = _fileIdentityInterop.GetFileId(fsi.FullName);
-        var fileId = fileIdResult is { Success: true, FileId128: not null }
-            ? new NtfsFileId(fileIdResult.FileId128)
-            : NtfsFileId.None;
 
         return new FileSystemEntryModel(
             FullPath: NormalizedPath.FromUserInput(fsi.FullName),
@@ -99,21 +129,16 @@ public sealed class WindowsFileSystemService : IFileSystemService
             LastWriteTimeUtc: fsi.LastWriteTimeUtc,
             CreationTimeUtc: fsi.CreationTimeUtc,
             Attributes: fsi.Attributes,
-            FileId: fileId);
+            FileId: NtfsFileId.None);
     }
 
-    private FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
+    private static FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
     {
         var fullPath = entry.ToFullPath();
         var isDirectory = entry.IsDirectory;
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
         var name = entry.FileName.ToString();
         var extension = isDirectory ? string.Empty : Path.GetExtension(name);
-
-        var fileIdResult = _fileIdentityInterop.GetFileId(fullPath);
-        var fileId = fileIdResult is { Success: true, FileId128: not null }
-            ? new NtfsFileId(fileIdResult.FileId128)
-            : NtfsFileId.None;
 
         return new FileSystemEntryModel(
             FullPath: NormalizedPath.FromUserInput(fullPath),
@@ -124,19 +149,14 @@ public sealed class WindowsFileSystemService : IFileSystemService
             LastWriteTimeUtc: entry.LastWriteTimeUtc.UtcDateTime,
             CreationTimeUtc: entry.CreationTimeUtc.UtcDateTime,
             Attributes: entry.Attributes,
-            FileId: fileId);
+            FileId: NtfsFileId.None);
     }
 
-    private FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)
+    private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)
     {
         return new FileSystemEnumerable<FileSystemEntryModel>(
             directoryPath,
-            (ref FileSystemEntry entry) => BuildEntryModel(ref entry),
-            new EnumerationOptions
-            {
-                AttributesToSkip = 0,
-                IgnoreInaccessible = true,
-                ReturnSpecialDirectories = false
-            });
+            static (ref FileSystemEntry entry) => BuildEntryModel(ref entry),
+            EnumerationOptions);
     }
 }

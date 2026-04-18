@@ -4,7 +4,6 @@ using System.Reactive.Subjects;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DynamicData;
-using DynamicData.Binding;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Navigation;
@@ -15,18 +14,21 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 {
+    private const int InitialBatchSize = 150;
+    private const int SubsequentBatchSize = 750;
+
     private readonly OpenEntryCommandHandler _openEntryHandler;
-    private readonly NavigateUpCommandHandler _navigateUpHandler;
-    private readonly GoToPathCommandHandler _goToPathHandler;
-    private readonly RefreshPaneCommandHandler _refreshPaneHandler;
+    private readonly IFileSystemService _fileSystemService;
     private readonly INtfsVolumePolicyService _volumePolicyService;
+    private readonly IPathNormalizationService _pathNormalizationService;
     private readonly ILogger<FilePaneViewModel> _logger;
 
-    private readonly SourceCache<FileEntryViewModel, string> _sourceCache = new(x => x.UniqueKey);
+    private readonly SourceCache<FileEntryViewModel, string> _sourceCache = new(static x => x.UniqueKey);
     private readonly BehaviorSubject<IComparer<FileEntryViewModel>> _sortComparer;
     private readonly ReadOnlyObservableCollection<FileEntryViewModel> _sortedItems;
     private readonly IDisposable _subscription;
 
+    private CancellationTokenSource? _loadCancellation;
     private NormalizedPath? _currentNormalizedPath;
 
     [ObservableProperty]
@@ -45,7 +47,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public partial FileEntryViewModel? CurrentItem { get; set; }
 
     [ObservableProperty]
-    public partial string? IncrementalSearchText { get; set; }
+    public partial string? IncrementalSearchText { get; private set; }
 
     [ObservableProperty]
     public partial SortColumn SortBy { get; set; } = SortColumn.Name;
@@ -60,17 +62,15 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public FilePaneViewModel(
         OpenEntryCommandHandler openEntryHandler,
-        NavigateUpCommandHandler navigateUpHandler,
-        GoToPathCommandHandler goToPathHandler,
-        RefreshPaneCommandHandler refreshPaneHandler,
+        IFileSystemService fileSystemService,
         INtfsVolumePolicyService volumePolicyService,
+        IPathNormalizationService pathNormalizationService,
         ILogger<FilePaneViewModel> logger)
     {
         _openEntryHandler = openEntryHandler;
-        _navigateUpHandler = navigateUpHandler;
-        _goToPathHandler = goToPathHandler;
-        _refreshPaneHandler = refreshPaneHandler;
+        _fileSystemService = fileSystemService;
         _volumePolicyService = volumePolicyService;
+        _pathNormalizationService = pathNormalizationService;
         _logger = logger;
 
         _sortComparer = new BehaviorSubject<IComparer<FileEntryViewModel>>(
@@ -91,6 +91,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public NormalizedPath? CurrentNormalizedPath => _currentNormalizedPath;
 
+    public bool IsInteractive => !IsLoading;
+
     public void SetSort(SortColumn column)
     {
         if (SortBy == column)
@@ -107,39 +109,17 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task NavigateToAsync(string path)
     {
-        IsLoading = true;
-        ErrorMessage = null;
+        var normalizedPath = await ResolveDirectoryPathAsync(path, CancellationToken.None);
+        if (normalizedPath is null)
+            return;
 
-        try
-        {
-            var result = await _goToPathHandler.ExecuteAsync(path, CancellationToken.None);
-
-            if (result.Success && result.Entries is not null && result.Path is not null)
-            {
-                _currentNormalizedPath = result.Path;
-                CurrentPath = result.Path.Value.DisplayPath;
-                PopulateItems(result.Entries);
-            }
-            else
-            {
-                ErrorMessage = result.ErrorMessage ?? "Navigation failed.";
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to navigate to {Path}", path);
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        await LoadDirectoryAsync(normalizedPath.Value, null, CancellationToken.None);
     }
 
     [RelayCommand]
     private async Task NavigateIntoAsync()
     {
-        if (CurrentItem is null)
+        if (IsLoading || CurrentItem is null)
             return;
 
         if (CurrentItem.IsParentEntry)
@@ -148,114 +128,65 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        IsLoading = true;
-        ErrorMessage = null;
+        var targetPath = CurrentItem.Model.FullPath;
 
-        try
+        if (!CurrentItem.IsDirectory)
         {
-            var isDirectory = CurrentItem.IsDirectory;
-            var targetPath = CurrentItem.Model.FullPath;
-
-            var entries = await _openEntryHandler.ExecuteAsync(
-                targetPath, CancellationToken.None);
-
-            if (isDirectory)
+            try
             {
-                _currentNormalizedPath = targetPath;
-                CurrentPath = targetPath.DisplayPath;
-                PopulateItems(entries);
-                ClearSelection(); // Selection cleared on successful navigation into folder
+                await _openEntryHandler.ExecuteAsync(targetPath, CancellationToken.None);
             }
-            // If it's a file, OpenEntryCommandHandler handles opening it and returns empty list.
-            // We don't want to change the current view or selection.
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to open {Path}", targetPath);
+                ErrorMessage = ex.Message;
+            }
+
+            return;
         }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to navigate into {Path}", CurrentItem.FullPath);
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+
+        await LoadDirectoryAsync(targetPath, null, CancellationToken.None);
     }
 
     [RelayCommand]
     private async Task NavigateUpAsync()
     {
-        if (_currentNormalizedPath is null)
+        if (IsLoading || _currentNormalizedPath is null)
             return;
 
-        IsLoading = true;
-        ErrorMessage = null;
+        var oldPath = _currentNormalizedPath.Value;
+        var parent = Path.GetDirectoryName(oldPath.Value);
+        if (string.IsNullOrEmpty(parent))
+            return;
 
-        try
-        {
-            var oldPath = _currentNormalizedPath.Value;
-            var result = await _navigateUpHandler.ExecuteAsync(
-                oldPath, CancellationToken.None);
-
-            if (result is not null)
-            {
-                _currentNormalizedPath = result.Value.Path;
-                CurrentPath = result.Value.Path.DisplayPath;
-                PopulateItems(result.Value.Entries);
-                ClearSelection(); // Selection cleared on successful navigation up
-
-                // Try to land on the directory we just came from
-                var folderName = Path.GetFileName(oldPath.DisplayPath.TrimEnd(Path.DirectorySeparatorChar));
-                if (!string.IsNullOrEmpty(folderName))
-                {
-                    var previousFolder = _sortedItems.FirstOrDefault(i => i.Name.Equals(folderName, StringComparison.OrdinalIgnoreCase));
-                    if (previousFolder != null)
-                    {
-                        CurrentItem = previousFolder;
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to navigate up from {Path}", CurrentPath);
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        var parentPath = NormalizedPath.FromUserInput(parent);
+        var folderName = Path.GetFileName(oldPath.DisplayPath.TrimEnd(Path.DirectorySeparatorChar));
+        await LoadDirectoryAsync(parentPath, folderName, CancellationToken.None);
     }
 
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (_currentNormalizedPath is null)
+        if (IsLoading || _currentNormalizedPath is null)
             return;
 
-        IsLoading = true;
-        ErrorMessage = null;
+        var restoreSelection = CurrentItem is { IsParentEntry: false } item
+            ? item.Name
+            : null;
 
-        try
-        {
-            var entries = await _refreshPaneHandler.ExecuteAsync(
-                _currentNormalizedPath.Value, CancellationToken.None);
-            PopulateItems(entries);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to refresh {Path}", CurrentPath);
-            ErrorMessage = ex.Message;
-        }
-        finally
-        {
-            IsLoading = false;
-        }
+        await LoadDirectoryAsync(_currentNormalizedPath.Value, restoreSelection, CancellationToken.None);
     }
 
     [RelayCommand]
     private void SelectAll()
     {
-        var allSelected = _sortedItems.All(i => i.IsSelected);
-        foreach (var item in _sortedItems)
+        if (IsLoading)
+            return;
+
+        var selectable = _sortedItems.Where(i => !i.IsParentEntry).ToList();
+        var allSelected = selectable.Count > 0 && selectable.All(i => i.IsSelected);
+
+        foreach (var item in selectable)
             item.IsSelected = !allSelected;
 
         NotifySelectionChanged();
@@ -264,24 +195,35 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private void ClearSelection()
     {
+        if (IsLoading)
+            return;
+
         foreach (var item in _sortedItems)
             item.IsSelected = false;
 
+        CurrentItem = null;
         NotifySelectionChanged();
     }
 
     public void ToggleSelection(FileEntryViewModel item)
     {
+        if (IsLoading || item.IsParentEntry)
+            return;
+
         item.IsSelected = !item.IsSelected;
         NotifySelectionChanged();
     }
 
     public void HandleIncrementalSearch(char c)
     {
+        if (IsLoading)
+            return;
+
         IncrementalSearchText = (IncrementalSearchText ?? string.Empty) + c;
 
         var match = _sortedItems.FirstOrDefault(i =>
-            i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
+            !i.IsParentEntry
+            && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
             CurrentItem = match;
@@ -294,7 +236,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public void BackspaceIncrementalSearch()
     {
-        if (string.IsNullOrEmpty(IncrementalSearchText))
+        if (IsLoading || string.IsNullOrEmpty(IncrementalSearchText))
             return;
 
         IncrementalSearchText = IncrementalSearchText[..^1];
@@ -305,7 +247,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var match = _sortedItems.FirstOrDefault(i =>
-            i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
+            !i.IsParentEntry
+            && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
             CurrentItem = match;
@@ -321,14 +264,15 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     partial void OnSelectedDriveChanged(VolumeInfo? value)
     {
-        if (value is not null)
-        {
+        if (value is not null && !IsLoading)
             _ = NavigateToCommand.ExecuteAsync(value.RootPath.DisplayPath);
-        }
     }
 
     public IReadOnlyList<FileSystemEntryModel> GetSelectedEntryModels()
     {
+        if (IsLoading)
+            return [];
+
         var selected = _sortedItems
             .Where(i => i.IsSelected && !i.IsParentEntry)
             .Select(i => i.Model)
@@ -339,6 +283,24 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
         if (CurrentItem is { IsParentEntry: false })
             return [CurrentItem.Model];
+
+        return [];
+    }
+
+    public IReadOnlyList<FileEntryViewModel> GetSelectedEntries()
+    {
+        if (IsLoading)
+            return [];
+
+        var selected = _sortedItems
+            .Where(i => i.IsSelected && !i.IsParentEntry)
+            .ToList();
+
+        if (selected.Count > 0)
+            return selected;
+
+        if (CurrentItem is { } current)
+            return [current];
 
         return [];
     }
@@ -357,24 +319,154 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ItemCount));
     }
 
-    private void PopulateItems(IReadOnlyList<FileSystemEntryModel> entries)
+    public void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(SelectedCount));
+    }
+
+    public void Dispose()
+    {
+        _loadCancellation?.Cancel();
+        _loadCancellation?.Dispose();
+        _subscription.Dispose();
+        _sortComparer.Dispose();
+        _sourceCache.Dispose();
+    }
+
+    private async Task<NormalizedPath?> ResolveDirectoryPathAsync(string rawPath, CancellationToken cancellationToken)
+    {
+        ErrorMessage = null;
+
+        var pathValidation = _pathNormalizationService.Validate(rawPath);
+        if (!pathValidation.IsValid)
+        {
+            ErrorMessage = pathValidation.ErrorMessage ?? "Navigation failed.";
+            return null;
+        }
+
+        var normalizedPath = _pathNormalizationService.Normalize(rawPath);
+        var ntfsValidation = _volumePolicyService.ValidateNtfsPath(normalizedPath.Value);
+        if (!ntfsValidation.IsValid)
+        {
+            ErrorMessage = ntfsValidation.ErrorMessage ?? "Navigation failed.";
+            return null;
+        }
+
+        var exists = await _fileSystemService.DirectoryExistsAsync(normalizedPath, cancellationToken);
+        if (!exists)
+        {
+            ErrorMessage = $"Directory not found: {normalizedPath.DisplayPath}";
+            return null;
+        }
+
+        return normalizedPath;
+    }
+
+    private async Task LoadDirectoryAsync(
+        NormalizedPath path,
+        string? restoreSelectionName,
+        CancellationToken cancellationToken)
+    {
+        CancelLoading();
+        _loadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var loadToken = _loadCancellation.Token;
+
+        IsLoading = true;
+        ErrorMessage = null;
+        IncrementalSearchText = null;
+        CurrentItem = null;
+        _currentNormalizedPath = path;
+        CurrentPath = path.DisplayPath;
+        ResetItems();
+
+        try
+        {
+            var foundRestoredSelection = false;
+
+            await foreach (var batch in _fileSystemService.EnumerateDirectoryBatchesAsync(
+                               path,
+                               InitialBatchSize,
+                               SubsequentBatchSize,
+                               loadToken))
+            {
+                AddBatch(batch);
+
+                if (!foundRestoredSelection && !string.IsNullOrEmpty(restoreSelectionName))
+                {
+                    var match = _sortedItems.FirstOrDefault(i =>
+                        !i.IsParentEntry
+                        && i.Name.Equals(restoreSelectionName, StringComparison.OrdinalIgnoreCase));
+                    if (match is not null)
+                    {
+                        CurrentItem = match;
+                        foundRestoredSelection = true;
+                    }
+                }
+            }
+
+            CurrentItem ??= _sortedItems.FirstOrDefault(static i => !i.IsParentEntry) ?? _sortedItems.FirstOrDefault();
+
+            NotifySelectionChanged();
+            OnPropertyChanged(nameof(ItemCount));
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogDebug("Pane load canceled for {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to load directory {Path}", path);
+            ErrorMessage = ex.Message;
+            CurrentItem = null;
+            NotifySelectionChanged();
+        }
+        finally
+        {
+            if (_loadCancellation is not null && _loadCancellation.Token == loadToken)
+            {
+                _loadCancellation?.Dispose();
+                _loadCancellation = null;
+            }
+
+            IsLoading = false;
+        }
+    }
+
+    private void CancelLoading()
+    {
+        if (_loadCancellation is null)
+            return;
+
+        _loadCancellation.Cancel();
+        _loadCancellation.Dispose();
+        _loadCancellation = null;
+    }
+
+    private void ResetItems()
     {
         _sourceCache.Edit(updater =>
         {
             updater.Clear();
 
             if (!IsAtDriveRoot())
-            {
-                var parentEntry = FileEntryViewModel.CreateParentEntry();
-                updater.AddOrUpdate(parentEntry);
-            }
+                updater.AddOrUpdate(FileEntryViewModel.CreateParentEntry());
+        });
 
+        NotifySelectionChanged();
+        OnPropertyChanged(nameof(ItemCount));
+    }
+
+    private void AddBatch(IReadOnlyList<FileSystemEntryModel> entries)
+    {
+        if (entries.Count == 0)
+            return;
+
+        _sourceCache.Edit(updater =>
+        {
             foreach (var entry in entries)
                 updater.AddOrUpdate(new FileEntryViewModel(entry));
         });
 
-        CurrentItem = _sortedItems.Count > 0 ? _sortedItems[0] : null;
-        NotifySelectionChanged();
         OnPropertyChanged(nameof(ItemCount));
     }
 
@@ -385,17 +477,5 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
         var display = _currentNormalizedPath.Value.DisplayPath;
         return display.Length <= 3 && display.EndsWith(@":\", StringComparison.Ordinal);
-    }
-
-    public void NotifySelectionChanged()
-    {
-        OnPropertyChanged(nameof(SelectedCount));
-    }
-
-    public void Dispose()
-    {
-        _subscription.Dispose();
-        _sortComparer.Dispose();
-        _sourceCache.Dispose();
     }
 }

@@ -14,6 +14,11 @@ namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView : UserControl
 {
+    private readonly InputCursor _horizontalResizeCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
+    private bool _isResizingInspector;
+    private double _inspectorResizeStartX;
+    private double _inspectorResizeStartWidth;
+
     public MainShellView()
     {
         InitializeComponent();
@@ -29,6 +34,7 @@ public sealed partial class MainShellView : UserControl
         DataContext = viewModel;
         LeftPaneView.ViewModel = viewModel.LeftPane;
         RightPaneView.ViewModel = viewModel.RightPane;
+        InspectorView.ViewModel = viewModel.Inspector;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.FocusActivePaneRequested += OnFocusActivePaneRequested;
 
@@ -40,6 +46,7 @@ public sealed partial class MainShellView : UserControl
 
         UpdateStatusBar();
         UpdateActivePaneBorders();
+        UpdateInspectorLayout();
     }
 
     private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e) =>
@@ -116,9 +123,6 @@ public sealed partial class MainShellView : UserControl
         }
     }
 
-    private void OnPropertiesClick(object sender, RoutedEventArgs e) =>
-        ViewModel?.ShowPropertiesCommand.Execute(null);
-
     private void OnCopyPathClick(object sender, RoutedEventArgs e) =>
         ViewModel?.CopyFullPathCommand.Execute(null);
 
@@ -163,6 +167,11 @@ public sealed partial class MainShellView : UserControl
                 FavouritesFlyout.ShowAt(FavouritesAppBarButton);
                 e.Handled = true;
                 break;
+
+            case VirtualKey.I when ctrl:
+                ViewModel.ToggleInspectorCommand.Execute(null);
+                e.Handled = true;
+                break;
         }
     }
 
@@ -173,6 +182,11 @@ public sealed partial class MainShellView : UserControl
             UpdateStatusBar();
             if (e.PropertyName == nameof(MainShellViewModel.ActivePane))
                 UpdateActivePaneBorders();
+            if (e.PropertyName is nameof(MainShellViewModel.IsInspectorVisible)
+                or nameof(MainShellViewModel.InspectorWidth))
+            {
+                UpdateInspectorLayout();
+            }
         });
     }
 
@@ -241,6 +255,70 @@ public sealed partial class MainShellView : UserControl
     private void OnToggleThemeClick(object sender, RoutedEventArgs e)
     {
         ToggleThemeAction?.Invoke();
+    }
+
+    private void UpdateInspectorLayout()
+    {
+        if (ViewModel is null)
+            return;
+
+        var isVisible = ViewModel.IsInspectorVisible;
+        InspectorColumn.Width = isVisible
+            ? new GridLength(ViewModel.InspectorWidth, GridUnitType.Pixel)
+            : new GridLength(0, GridUnitType.Pixel);
+        InspectorSplitterColumn.Width = isVisible
+            ? new GridLength(6, GridUnitType.Pixel)
+            : new GridLength(0, GridUnitType.Pixel);
+        InspectorView.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+        InspectorResizeHandle.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void OnInspectorResizePointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (ViewModel?.IsInspectorVisible != true || sender is not UIElement element)
+            return;
+
+        ProtectedCursor = _horizontalResizeCursor;
+        _isResizingInspector = true;
+        _inspectorResizeStartX = e.GetCurrentPoint(this).Position.X;
+        _inspectorResizeStartWidth = ViewModel.InspectorWidth;
+        element.CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnInspectorResizePointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizingInspector || ViewModel is null)
+            return;
+
+        var currentX = e.GetCurrentPoint(this).Position.X;
+        var delta = _inspectorResizeStartX - currentX;
+        ViewModel.SetInspectorWidth(_inspectorResizeStartWidth + delta);
+        UpdateInspectorLayout();
+        e.Handled = true;
+    }
+
+    private void OnInspectorResizePointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizingInspector || sender is not UIElement element)
+            return;
+
+        _isResizingInspector = false;
+        element.ReleasePointerCapture(e.Pointer);
+        ProtectedCursor = null;
+        e.Handled = true;
+    }
+
+    private void OnInspectorResizePointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (ViewModel?.IsInspectorVisible == true)
+            ProtectedCursor = _horizontalResizeCursor;
+    }
+
+    private void OnInspectorResizePointerExited(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isResizingInspector)
+            ProtectedCursor = null;
     }
 
     private static bool IsModifierDown(VirtualKey key) =>

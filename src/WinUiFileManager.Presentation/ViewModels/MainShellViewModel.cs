@@ -1,11 +1,11 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.FileOperations;
-using WinUiFileManager.Application.Properties;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
@@ -25,7 +25,6 @@ public sealed partial class MainShellViewModel : ObservableObject
     private readonly AddFavouriteCommandHandler _addFavouriteHandler;
     private readonly RemoveFavouriteCommandHandler _removeFavouriteHandler;
     private readonly OpenFavouriteCommandHandler _openFavouriteHandler;
-    private readonly ShowPropertiesCommandHandler _showPropertiesHandler;
     private readonly SetParallelExecutionCommandHandler _setParallelExecutionHandler;
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly IDialogService _dialogService;
@@ -45,6 +44,15 @@ public sealed partial class MainShellViewModel : ObservableObject
 
     [ObservableProperty]
     public partial string StatusText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial FileInspectorViewModel Inspector { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsInspectorVisible { get; set; } = true;
+
+    [ObservableProperty]
+    public partial double InspectorWidth { get; set; } = 340d;
 
     public bool ParallelExecutionEnabled
     {
@@ -83,12 +91,12 @@ public sealed partial class MainShellViewModel : ObservableObject
         AddFavouriteCommandHandler addFavouriteHandler,
         RemoveFavouriteCommandHandler removeFavouriteHandler,
         OpenFavouriteCommandHandler openFavouriteHandler,
-        ShowPropertiesCommandHandler showPropertiesHandler,
         SetParallelExecutionCommandHandler setParallelExecutionHandler,
         PersistPaneStateCommandHandler persistPaneStateHandler,
         IDialogService dialogService,
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
+        FileInspectorViewModel inspector,
         FilePaneViewModel leftPane,
         FilePaneViewModel rightPane)
     {
@@ -102,17 +110,20 @@ public sealed partial class MainShellViewModel : ObservableObject
         _addFavouriteHandler = addFavouriteHandler;
         _removeFavouriteHandler = removeFavouriteHandler;
         _openFavouriteHandler = openFavouriteHandler;
-        _showPropertiesHandler = showPropertiesHandler;
         _setParallelExecutionHandler = setParallelExecutionHandler;
         _persistPaneStateHandler = persistPaneStateHandler;
         _dialogService = dialogService;
         _favouritesRepository = favouritesRepository;
         _logger = logger;
+        Inspector = inspector;
 
         LeftPane = leftPane;
         RightPane = rightPane;
         ActivePane = leftPane;
         leftPane.IsActive = true;
+
+        leftPane.PropertyChanged += OnPanePropertyChanged;
+        rightPane.PropertyChanged += OnPanePropertyChanged;
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
@@ -125,6 +136,7 @@ public sealed partial class MainShellViewModel : ObservableObject
         RightPane.IsActive = value == RightPane;
         OnPropertyChanged(nameof(InactivePane));
         UpdateStatusText();
+        RefreshInspector();
     }
 
     [RelayCommand]
@@ -317,24 +329,6 @@ public sealed partial class MainShellViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ShowPropertiesAsync()
-    {
-        var items = ActivePane.GetSelectedEntryModels();
-        if (items.Count == 0)
-            return;
-
-        try
-        {
-            await _showPropertiesHandler.ExecuteAsync(items, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Show properties failed");
-            StatusText = $"Error: {ex.Message}";
-        }
-    }
-
-    [RelayCommand]
     private async Task AddFavouriteAsync()
     {
         var currentPath = ActivePane.CurrentNormalizedPath;
@@ -407,6 +401,8 @@ public sealed partial class MainShellViewModel : ObservableObject
         {
             _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
+            IsInspectorVisible = _currentSettings.InspectorVisible;
+            InspectorWidth = _currentSettings.InspectorWidth;
 
             await Task.WhenAll(
                 LoadFavouritesAsync(),
@@ -426,6 +422,7 @@ public sealed partial class MainShellViewModel : ObservableObject
 
             ActivePane = _currentSettings.LastActivePane == PaneId.Right ? RightPane : LeftPane;
             UpdateStatusText();
+            RefreshInspector();
         }
         catch (Exception ex)
         {
@@ -455,6 +452,8 @@ public sealed partial class MainShellViewModel : ObservableObject
                 LeftPane.CurrentNormalizedPath,
                 RightPane.CurrentNormalizedPath,
                 ActivePane.PaneId,
+                IsInspectorVisible,
+                InspectorWidth,
                 cancellationToken);
         }
         catch (Exception ex)
@@ -477,5 +476,37 @@ public sealed partial class MainShellViewModel : ObservableObject
         Favourites.Clear();
         foreach (var item in items)
             Favourites.Add(item);
+    }
+
+    [RelayCommand]
+    private void ToggleInspector()
+    {
+        IsInspectorVisible = !IsInspectorVisible;
+    }
+
+    public void SetInspectorWidth(double width)
+    {
+        InspectorWidth = Math.Clamp(width, 260d, 640d);
+    }
+
+    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not FilePaneViewModel pane)
+            return;
+
+        if (pane != ActivePane)
+            return;
+
+        if (e.PropertyName is nameof(FilePaneViewModel.CurrentItem)
+            or nameof(FilePaneViewModel.SelectedCount)
+            or nameof(FilePaneViewModel.IsLoading))
+        {
+            RefreshInspector();
+        }
+    }
+
+    private void RefreshInspector()
+    {
+        _ = Inspector.UpdateSelectionAsync(ActivePane.GetSelectedEntries(), ActivePane.IsLoading);
     }
 }

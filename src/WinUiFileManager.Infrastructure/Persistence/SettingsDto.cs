@@ -5,4 +5,6 @@ internal sealed record SettingsDto(
     int MaxDegreeOfParallelism,
     string? LastLeftPanePath,
     string? LastRightPanePath,
-    string LastActivePane);
+    string LastActivePane,
+    bool InspectorVisible,
+    double InspectorWidth);

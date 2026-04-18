@@ -97,14 +97,6 @@
                 MinWidth="40"
                 ElementStyle="{StaticResource MutedEllipsisCellStyle}"
                 CanSort="True" />
-            <tv:TableViewTextColumn
-                Header="FileId"
-                SortMemberPath="FileId"
-                Binding="{Binding FileId}"
-                Width="100"
-                MinWidth="72"
-                ElementStyle="{StaticResource MutedEllipsisCellStyle}"
-                CanSort="True" />
         </tv:TableView.Columns>
     </tv:TableView>
 </UserControl>

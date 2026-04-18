@@ -21,7 +21,7 @@ The product target is:
 - Fast, keyboard-first navigation and file operations.
 - Deterministic, testable command behavior.
 - Safe handling of bulk operations.
-- Clear semantics for overwrite, cancellation, partial failure, and locked files.
+- Clear semantics for cancellation, partial failure, and locked files.
 - Solid architectural base for future low-level file operations.
 
 ### Non-goals for v1
@@ -76,6 +76,7 @@ The application is not optimized for novice users in v1.
 The main window contains:
 - left file panel
 - right file panel
+- right-side inspector panel (visible by default, toggleable)
 - exactly one active panel at any given time
 - command area or status area
 - optional operation progress surface
@@ -83,7 +84,7 @@ The main window contains:
 ### Active panel rules
 - Navigation commands apply to the active panel
 - Selection belongs to the active panel
-- Copy and move default to the inactive panel as destination, unless the user explicitly overrides destination
+- Copy and move default to the inactive panel as destination
 - Visual distinction between active and inactive panel must be obvious
 
 ### Keyboard-first requirement
@@ -100,7 +101,6 @@ Required keyboard capabilities:
 - open favourites
 - add current path to favourites
 - confirm or cancel dialogs from keyboard
-- move through conflict dialogs from keyboard
 
 Mouse support is allowed, but it is secondary.
 
@@ -128,7 +128,6 @@ Each panel must display at minimum:
 - size
 - last write time
 - attributes
-- NTFS FileId
 
 Sorting support in v1:
 - name
@@ -138,17 +137,19 @@ Sorting support in v1:
 
 A directory entry must be visually distinguishable from a file entry.
 
-### 3. NTFS FileId Display
-The UI must display NTFS FileId only.
+### 3. Inspector And NTFS FileId Display
+The file list must stay on cheap metadata only. NTFS `FileId` is shown in the inspector for a single selected item.
 
 Rules:
-- Do not display volume serial number in the UI
-- Display FileId in a stable hexadecimal format
-- Treat FileId as diagnostic metadata in the UI
-- The UI contract does not promise global uniqueness across all volumes
+- Do not display volume serial number in the UI.
+- Display `FileId` in a stable hexadecimal format.
+- Treat `FileId` as diagnostic metadata in the UI.
+- The UI contract does not promise global uniqueness across all volumes.
+- `FileId` must not be collected in the hot path during folder enumeration.
+- `FileId` loading in inspector is deferred (`200 ms` debounce), cancellable, and resilient to failures/timeouts.
 
 Internal note:
-- The engine may keep additional identity context internally if needed, but the UI must expose FileId only
+- The engine may keep additional identity context internally if needed, but the inspector UI exposes `FileId` only.
 
 ### 4. Basic File Commands
 The following commands are required in v1:
@@ -157,8 +158,8 @@ The following commands are required in v1:
 - rename
 - delete
 - create folder
-- view properties
 - copy full path
+- toggle inspector
 
 Each command must exist as a testable application/command-layer action.
 
@@ -176,6 +177,17 @@ Bulk behavior requirements:
 - error aggregation
 - final summary
 
+### 5.1 Incremental Directory Loading
+Folder enumeration must be incremental and batched.
+
+Required behavior:
+- first batch appears quickly after navigation
+- subsequent batches continue until enumeration completes
+- enumeration is cancellable
+- stale results must not appear after navigation away
+- panes are visibly busy and non-interactive while loading
+- `Ctrl+A` and item-selection actions do nothing while pane loading is active
+
 
 ### 6. Favourite Folders
 The application must support favourite folders.
@@ -187,38 +199,23 @@ Required features:
 - keyboard access to favourites list
 - persisted storage across sessions
 
-### 7. Properties View
-A properties surface must be available for the selected item.
+### 7. Inspector View
+An inspector pane must be available on the right side for selected-item details.
 
-Minimum displayed properties:
+Minimum displayed fields:
+- name
 - full path
 - type (file or directory)
+- extension
 - size
-- attributes
 - timestamps
-- NTFS FileId
+- attributes
+- NTFS `FileId`
 
-If multiple items are selected, v1 may either:
-- disable properties, or
-- show aggregated properties
-
-This behavior must be explicitly defined and tested.
-
-### 8. Parallel Operations Switch
-The application must expose a user-controllable switch for parallelizing independent file operations where safe.
-
-v1 requirements:
-- default is off
-- applies only to supported operations
-- must be bounded by configurable maximum degree of parallelism
-- must not compromise correctness semantics
-
-Recommended safe scope for v1:
-- file copy in bulk
-- cross-volume move implemented as copy + delete stages
-- file deletion
-
-
+Selection behavior:
+- when no item is selected, inspector clears
+- for multi-selection, inspector shows selected count only
+- when exactly one item is selected, inspector shows full details
 
 ---
 
@@ -266,7 +263,6 @@ Copy must support:
 - file to directory
 - directory to directory recursively
 - bulk copy
-- overwrite policy
 - progress reporting
 - cancellation
 
@@ -275,19 +271,14 @@ Move must support:
 - intra-volume move
 - cross-volume move
 - bulk move
-- overwrite policy
 - progress reporting
 - cancellation
-
-Cross-volume move must be treated as copy + delete semantics in the result model.
-If copy succeeds and delete fails, that item must not be treated as a clean success.
-It must be reported as a warning or partial failure.
 
 ### Rename
 Rename must support:
 - single-item rename
 - validation of invalid names
-- collision detection
+- name collision detection
 - batch rename for multiple selected items
 
 ### Delete
@@ -306,12 +297,8 @@ Decision for v1:
 Create folder must support:
 - create in active panel current directory
 - validation against invalid name
-- collision handling
+- name collision handling
 - long path handling
-
-### View Properties
-Properties must be read-only in v1.
-No editing of attributes or timestamps in v1.
 
 ### Copy Full Path
 Copy full path must support:
@@ -320,25 +307,6 @@ Copy full path must support:
 - multiple selected items copied as newline-separated list, or single-item only if product chooses that path
 
 The chosen behavior must be explicit and tested.
-
----
-
-## Overwrite and Conflict Rules
-
-Collision behavior must be deterministic.
-
-Required policies:
-- Ask
-- Overwrite
-- Overwrite All
-- Skip
-- Skip All
-- Auto Rename Destination
-- Cancel
-
-The chosen policy for the current operation must be consistently applied.
-
-If the operation is bulk and the user selects an "All" option, later conflicts in the same operation must not re-prompt.
 
 ---
 
@@ -451,7 +419,6 @@ Responsible for:
 - FileId retrieval
 - copy/move/delete/rename/create-folder execution
 - path normalization
-- safe parallel operation planning
 
 #### Win32 Interop Layer
 Responsible for:
@@ -474,7 +441,6 @@ The exact implementation may vary, but the system must have explicit models for 
 - ItemOperationResult
 - OperationProgress
 - OperationSummary
-- CollisionResolution
 - ErrorDescriptor
 
 ### FileSystemEntry minimum data
@@ -484,12 +450,11 @@ The exact implementation may vary, but the system must have explicit models for 
 - size
 - timestamps
 - attributes
-- FileId
 - selection state if held in UI/view-model layer
 
 ### FileIdentity
 UI requirement:
-- FileId only is displayed
+- `FileId` is displayed in inspector only (not in pane columns)
 
 Engine requirement:
 - enough information to operate safely and consistently
@@ -507,11 +472,6 @@ Engine requirement:
 - Large directories must be handled with virtualization or equivalent efficiency strategy
 - Initial render should prioritize visible items
 - Sorting should be efficient enough for practical engineering use
-
-### Parallel operations
-- Parallelism must be bounded
-- Correctness has priority over raw throughput
-- Sequential mode must always remain available
 
 ---
 
@@ -561,7 +521,6 @@ Minimum logging requirements:
 Recommended:
 - operation correlation id
 - duration metrics
-- selected conflict resolution policy
 
 Logs must be useful for diagnosing customer-like internal issues.
 
@@ -603,17 +562,14 @@ The system must not rely on UI automation for the main correctness guarantee.
 - single file copy
 - directory copy
 - bulk copy
-- overwrite variants
 - cancellation
 - locked file handling
 - long path copy
-- parallel mode on and off
 
 #### Move
 - intra-volume move
 - cross-volume move semantics if supported in test environment
 - partial failure during delete stage
-- overwrite variants
 - cancellation
 
 #### Rename
@@ -635,10 +591,11 @@ The system must not rely on UI automation for the main correctness guarantee.
 - invalid name
 - long path creation
 
-#### Properties
+#### Inspector
 - file metadata retrieval
 - directory metadata retrieval
-- FileId presence on NTFS
+- deferred `FileId` retrieval for single-item inspector selection
+- inspector clears for empty selection and shows selected count for multi-selection
 
 #### Copy Full Path
 - single item
@@ -692,13 +649,14 @@ The following are explicitly out of scope:
 v1 is acceptable when all of the following are true:
 - The application runs on Windows as a WinUI 3 desktop app
 - It shows two panels with independent navigation state
+- It shows a right-side inspector pane that is visible by default
 - It ignores non-NTFS volumes completely
-- It displays NTFS FileId only
+- It does not display `FileId` in pane columns
+- It displays NTFS `FileId` in the inspector for a single selected item
 - All listed commands work from keyboard
 - Bulk operations are supported with progress, cancellation, and aggregated error reporting
 - Favourites are persisted and keyboard-accessible
 - Long path scenarios are supported
-- Parallel execution can be turned on and off for supported operations
 - All implemented commands have TUnit integration coverage at engine and command-layer level
 - The codebase preserves a strict separation between UI, command layer, engine, and interop
 
@@ -712,11 +670,11 @@ Priority order:
 1. architecture skeleton
 2. NTFS-only validation
 3. dual-panel navigation
-4. directory listing with FileId
-5. single-item commands
-6. bulk operations
-7. favourites
-8. parallel switch
+4. directory listing with cheap metadata only
+5. inspector with deferred selected-item `FileId` loading
+6. single-item commands
+7. bulk operations
+8. favourites
 9. final hardening and test completion
 
 Any feature not listed as in-scope must not be added unless explicitly requested.

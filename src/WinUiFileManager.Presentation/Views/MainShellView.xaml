@@ -2,6 +2,7 @@
     x:Class="WinUiFileManager.Presentation.Views.MainShellView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinUiFileManager.Presentation.Controls"
     xmlns:panels="using:WinUiFileManager.Presentation.Panels">
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
@@ -62,14 +63,6 @@
                     </MenuFlyout>
                 </AppBarButton.Flyout>
             </AppBarButton>
-            <AppBarButton Click="OnPropertiesClick" ToolTipService.ToolTip="Properties (Alt+Enter)">
-                <AppBarButton.Icon>
-                    <SymbolIcon Symbol="PreviewLink" />
-                </AppBarButton.Icon>
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="Enter" Modifiers="Menu" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
             <AppBarButton Click="OnCopyPathClick" ToolTipService.ToolTip="Copy Full Path (Ctrl+Shift+C)">
                 <AppBarButton.Icon>
                     <SymbolIcon Symbol="Link" />
@@ -78,6 +71,15 @@
                     <KeyboardAccelerator Key="C" Modifiers="Control,Shift" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
+            <AppBarToggleButton IsChecked="{x:Bind ViewModel.IsInspectorVisible, Mode=TwoWay}"
+                                ToolTipService.ToolTip="Toggle Inspector (Ctrl+I)">
+                <AppBarToggleButton.Icon>
+                    <SymbolIcon Symbol="Preview" />
+                </AppBarToggleButton.Icon>
+                <AppBarToggleButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="I" Modifiers="Control" />
+                </AppBarToggleButton.KeyboardAccelerators>
+            </AppBarToggleButton>
             <AppBarSeparator />
             <AppBarButton x:Name="ThemeToggleButton" Click="OnToggleThemeClick" ToolTipService.ToolTip="Toggle Theme">
                 <AppBarButton.Icon>
@@ -91,11 +93,23 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="2" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition x:Name="InspectorSplitterColumn" Width="6" />
+                <ColumnDefinition x:Name="InspectorColumn" Width="340" />
             </Grid.ColumnDefinitions>
 
             <panels:FilePaneView x:Name="LeftPaneView" Grid.Column="0" />
             <Border Grid.Column="1" Background="{ThemeResource SystemControlBackgroundBaseLowBrush}" />
             <panels:FilePaneView x:Name="RightPaneView" Grid.Column="2" />
+            <Border x:Name="InspectorResizeHandle"
+                    Grid.Column="3"
+                    Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                    PointerEntered="OnInspectorResizePointerEntered"
+                    PointerExited="OnInspectorResizePointerExited"
+                    PointerPressed="OnInspectorResizePointerPressed"
+                    PointerMoved="OnInspectorResizePointerMoved"
+                    PointerReleased="OnInspectorResizePointerReleased"
+                    PointerCanceled="OnInspectorResizePointerReleased" />
+            <controls:FileInspectorView x:Name="InspectorView" Grid.Column="4" />
         </Grid>
 
         <Grid Grid.Row="2" Padding="8,4" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">

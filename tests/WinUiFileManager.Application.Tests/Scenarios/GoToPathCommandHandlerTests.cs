@@ -42,11 +42,10 @@ public sealed class GoToPathCommandHandlerTests
     private static GoToPathCommandHandler CreateHandler()
     {
         var volumeInterop = new VolumeInterop();
-        var fileIdInterop = new FileIdentityInterop();
         var pathService = new WindowsPathNormalizationService();
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var fileSystemService = new WindowsFileSystemService(
-            pathService, fileIdInterop, NullLogger<WindowsFileSystemService>.Instance);
+            pathService, NullLogger<WindowsFileSystemService>.Instance);
 
         return new GoToPathCommandHandler(
             fileSystemService,

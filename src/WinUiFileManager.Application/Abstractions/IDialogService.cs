@@ -20,7 +20,5 @@ public interface IDialogService
 
     Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct);
 
-    Task ShowPropertiesAsync(IReadOnlyList<FileSystemEntryModel> entries, CancellationToken ct);
-
     Task ShowOperationResultAsync(OperationSummary summary, CancellationToken ct);
 }

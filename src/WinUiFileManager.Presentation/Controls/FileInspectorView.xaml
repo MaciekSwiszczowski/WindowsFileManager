@@ -1,0 +1,114 @@
+<UserControl
+    x:Class="WinUiFileManager.Presentation.Controls.FileInspectorView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <Style x:Key="InspectorLabelStyle" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+        </Style>
+
+        <Style x:Key="InspectorValueStyle" TargetType="TextBox">
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="IsSpellCheckEnabled" Value="False" />
+            <Setter Property="AcceptsReturn" Value="True" />
+        </Style>
+    </UserControl.Resources>
+
+    <Border Padding="12"
+            BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+            BorderThickness="1"
+            Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Inspector" FontSize="18" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding StatusMessage}"
+                               Visibility="{Binding EmptyStateVisibility}" />
+                </StackPanel>
+
+                <Button Grid.Column="1"
+                        Content="Copy All"
+                        Click="OnCopyAllClick"
+                        IsEnabled="{Binding HasItem}" />
+            </Grid>
+
+            <Grid Grid.Row="1">
+                <StackPanel Spacing="8"
+                            Visibility="{Binding DetailsVisibility}">
+                    <ProgressRing IsActive="{Binding IsLoadingDetails}"
+                                  Width="24"
+                                  Height="24"
+                                  HorizontalAlignment="Left" />
+
+                    <Grid ColumnSpacing="12" RowSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="130" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Name" />
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Name}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Path" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Full Path" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FullPath}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Type" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Type" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Type}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Ext" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Extension" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding Extension}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Size" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Size" />
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding Size}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="Created" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Creation Time (UTC)" />
+                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding CreationTimeUtc}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Modified" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Last Write Time (UTC)" />
+                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding LastWriteTimeUtc}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Attr" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Attributes" />
+                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding Attributes}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="8" Grid.Column="0" Text="NTFS ID" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="NTFS File/Folder ID" />
+                        <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding FileId}" Style="{StaticResource InspectorValueStyle}" />
+                    </Grid>
+                </StackPanel>
+
+                <TextBlock Text="{Binding StatusMessage}"
+                           VerticalAlignment="Center"
+                           TextWrapping="Wrap"
+                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                           Visibility="{Binding EmptyStateVisibility}" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

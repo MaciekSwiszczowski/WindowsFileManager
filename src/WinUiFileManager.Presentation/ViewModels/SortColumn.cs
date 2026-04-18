@@ -6,6 +6,5 @@ public enum SortColumn
     Extension,
     Size,
     Modified,
-    Attributes,
-    FileId
+    Attributes
 }

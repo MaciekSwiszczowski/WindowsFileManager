@@ -1,6 +1,5 @@
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
-using WinUiFileManager.Application.Properties;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Presentation.ViewModels;
 
@@ -17,12 +16,12 @@ public sealed class ViewModelTestBuilder
     public MainShellViewModel Build()
     {
         var pathService = new WindowsPathNormalizationService();
-        var fileIdInterop = new FileIdentityInterop();
         var volumeInterop = new VolumeInterop();
         var fileOpInterop = new FileOperationInterop();
 
         var fsService = new WindowsFileSystemService(
-            pathService, fileIdInterop, NullLogger<WindowsFileSystemService>.Instance);
+            pathService, NullLogger<WindowsFileSystemService>.Instance);
+        var fileIdentityService = new NtfsFileIdentityService(new FileIdentityInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
             NullLogger<WindowsFileOperationPlanner>.Instance);
@@ -31,12 +30,6 @@ public sealed class ViewModelTestBuilder
 
         var openEntry = new OpenEntryCommandHandler(
             fsService, volumePolicy, ShellService, NullLogger<OpenEntryCommandHandler>.Instance);
-        var navigateUp = new NavigateUpCommandHandler(
-            fsService, NullLogger<NavigateUpCommandHandler>.Instance);
-        var goToPath = new GoToPathCommandHandler(
-            fsService, volumePolicy, pathService, NullLogger<GoToPathCommandHandler>.Instance);
-        var refreshPane = new RefreshPaneCommandHandler(
-            fsService, NullLogger<RefreshPaneCommandHandler>.Instance);
 
         var copyHandler = new CopySelectionCommandHandler(
             planner, operationService, NullLogger<CopySelectionCommandHandler>.Instance);
@@ -55,18 +48,21 @@ public sealed class ViewModelTestBuilder
             FavouritesRepository, NullLogger<RemoveFavouriteCommandHandler>.Instance);
         var openFavourite = new OpenFavouriteCommandHandler(
             FavouritesRepository, fsService, NullLogger<OpenFavouriteCommandHandler>.Instance);
-        var showProperties = new ShowPropertiesCommandHandler(DialogService);
         var setParallelExec = new SetParallelExecutionCommandHandler(
             SettingsRepository, NullLogger<SetParallelExecutionCommandHandler>.Instance);
         var persistPaneState = new PersistPaneStateCommandHandler(
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
         var leftPane = new FilePaneViewModel(
-            openEntry, navigateUp, goToPath, refreshPane, volumePolicy,
+            openEntry, fsService, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
         var rightPane = new FilePaneViewModel(
-            openEntry, navigateUp, goToPath, refreshPane, volumePolicy,
+            openEntry, fsService, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
+        var inspector = new FileInspectorViewModel(
+            fileIdentityService,
+            ClipboardService,
+            NullLogger<FileInspectorViewModel>.Instance);
 
         return new MainShellViewModel(
             SettingsRepository,
@@ -79,12 +75,12 @@ public sealed class ViewModelTestBuilder
             addFavourite,
             removeFavourite,
             openFavourite,
-            showProperties,
             setParallelExec,
             persistPaneState,
             DialogService,
             FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,
+            inspector,
             leftPane,
             rightPane);
     }

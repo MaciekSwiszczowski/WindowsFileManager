@@ -226,11 +226,11 @@ public sealed partial class FileEntryTableView : UserControl
         if (_syncingSelection)
             return;
 
-        ActivationRequested?.Invoke();
-
         var host = GridViewModel.Host;
-        if (host is null)
+        if (host is null || !host.IsInteractive)
             return;
+
+        ActivationRequested?.Invoke();
 
         _syncingSelection = true;
         try
@@ -276,7 +276,7 @@ public sealed partial class FileEntryTableView : UserControl
     private bool ActivateEntry(FileEntryViewModel? entry)
     {
         var host = GridViewModel.Host;
-        if (host is null || entry is null)
+        if (host is null || !host.IsInteractive || entry is null)
             return false;
 
         host.CurrentItem = entry;
@@ -299,7 +299,7 @@ public sealed partial class FileEntryTableView : UserControl
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         var host = GridViewModel.Host;
-        if (host is null)
+        if (host is null || !host.IsInteractive)
             return;
 
         var ctrl = IsModifierDown(VirtualKey.Control);
@@ -320,7 +320,7 @@ public sealed partial class FileEntryTableView : UserControl
     private void FileTable_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         var host = GridViewModel.Host;
-        if (host is null)
+        if (host is null || !host.IsInteractive)
             return;
 
         var ctrl = IsModifierDown(VirtualKey.Control);

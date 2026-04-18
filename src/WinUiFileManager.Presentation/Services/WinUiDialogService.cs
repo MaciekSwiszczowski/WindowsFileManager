@@ -147,45 +147,6 @@ public sealed class WinUiDialogService : IDialogService
         };
     }
 
-    public async Task ShowPropertiesAsync(
-        IReadOnlyList<FileSystemEntryModel> entries, CancellationToken ct)
-    {
-        if (XamlRoot is null || entries.Count == 0)
-            return;
-
-        var panel = new StackPanel { Spacing = 6 };
-
-        if (entries.Count == 1)
-        {
-            var entry = entries[0];
-            AddProperty(panel, "Name", entry.Name);
-            AddProperty(panel, "Path", entry.FullPath.DisplayPath);
-            AddProperty(panel, "Type", entry.Kind.ToString());
-            if (entry.Kind != ItemKind.Directory)
-                AddProperty(panel, "Size", FormatSize(entry.Size));
-            AddProperty(panel, "Created", entry.CreationTimeUtc.ToLocalTime().ToString("G"));
-            AddProperty(panel, "Modified", entry.LastWriteTimeUtc.ToLocalTime().ToString("G"));
-            AddProperty(panel, "Attributes", entry.Attributes.ToString());
-        }
-        else
-        {
-            AddProperty(panel, "Items selected", entries.Count.ToString());
-            var totalSize = entries.Where(e => e.Kind != ItemKind.Directory).Sum(e => e.Size);
-            AddProperty(panel, "Total size (files)", FormatSize(totalSize));
-        }
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Properties",
-            Content = panel,
-            CloseButtonText = "OK",
-            DefaultButton = ContentDialogButton.Close,
-        };
-
-        await dialog.ShowAsync();
-    }
-
     public async Task ShowOperationResultAsync(OperationSummary summary, CancellationToken ct)
     {
         if (XamlRoot is null)
@@ -243,20 +204,4 @@ public sealed class WinUiDialogService : IDialogService
         await dialog.ShowAsync();
     }
 
-    private static void AddProperty(StackPanel panel, string label, string value)
-    {
-        panel.Children.Add(new TextBlock
-        {
-            Text = $"{label}: {value}",
-            TextWrapping = TextWrapping.Wrap,
-        });
-    }
-
-    private static string FormatSize(long bytes) => bytes switch
-    {
-        < 1024 => $"{bytes} B",
-        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
-        < 1024 * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
-        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
-    };
 }

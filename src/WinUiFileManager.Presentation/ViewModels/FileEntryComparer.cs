@@ -35,7 +35,6 @@ public sealed class FileEntryComparer : IComparer<FileEntryViewModel>
         SortColumn.Size => x.SizeBytes.CompareTo(y.SizeBytes),
         SortColumn.Modified => x.LastWriteTimeUtc.CompareTo(y.LastWriteTimeUtc),
         SortColumn.Attributes => string.Compare(x.Attributes, y.Attributes, StringComparison.Ordinal),
-        SortColumn.FileId => string.Compare(x.FileId, y.FileId, StringComparison.Ordinal),
         _ => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase),
     };
 }

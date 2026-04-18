@@ -91,7 +91,9 @@ public sealed class JsonSettingsRepository : ISettingsRepository
                 : NormalizedPath.FromUserInput(dto.LastRightPanePath),
             Enum.TryParse<PaneId>(dto.LastActivePane, ignoreCase: true, out var pane)
                 ? pane
-                : PaneId.Left);
+                : PaneId.Left,
+            dto.InspectorVisible,
+            dto.InspectorWidth > 0 ? dto.InspectorWidth : 340d);
 
     private static SettingsDto ToDto(AppSettings settings) =>
         new(
@@ -99,5 +101,7 @@ public sealed class JsonSettingsRepository : ISettingsRepository
             settings.MaxDegreeOfParallelism,
             settings.LastLeftPanePath?.DisplayPath,
             settings.LastRightPanePath?.DisplayPath,
-            settings.LastActivePane.ToString());
+            settings.LastActivePane.ToString(),
+            settings.InspectorVisible,
+            settings.InspectorWidth);
 }

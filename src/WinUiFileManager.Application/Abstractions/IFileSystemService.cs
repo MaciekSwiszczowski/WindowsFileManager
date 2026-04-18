@@ -8,6 +8,12 @@ public interface IFileSystemService
         NormalizedPath path,
         CancellationToken cancellationToken);
 
+    IAsyncEnumerable<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryBatchesAsync(
+        NormalizedPath path,
+        int initialBatchSize,
+        int batchSize,
+        CancellationToken cancellationToken);
+
     Task<FileSystemEntryModel?> GetEntryAsync(
         NormalizedPath path,
         CancellationToken cancellationToken);

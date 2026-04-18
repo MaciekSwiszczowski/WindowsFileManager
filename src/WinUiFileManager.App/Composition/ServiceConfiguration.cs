@@ -6,7 +6,6 @@ using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
-using WinUiFileManager.Application.Properties;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.Services;
@@ -38,7 +37,6 @@ public static class ServiceConfiguration
         services.AddSingleton<RemoveFavouriteCommandHandler>();
         services.AddSingleton<OpenFavouriteCommandHandler>();
 
-        services.AddSingleton<ShowPropertiesCommandHandler>();
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
@@ -47,6 +45,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
 
         services.AddTransient<FilePaneViewModel>();
+        services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
 

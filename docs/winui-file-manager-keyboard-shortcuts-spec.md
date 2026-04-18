@@ -32,11 +32,10 @@ This document applies to the currently implemented and near-term file manager fe
 - rename
 - delete
 - create folder
-- properties
 - copy full path
 - favourites
+- inspector toggle
 - multi-selection
-- optional parallel-operation switch
 
 Rules:
 - do **not** mention or plan for features outside this scope
@@ -108,8 +107,8 @@ Important examples:
 - `F8` / `Delete` delete
 - `Tab` switch active pane
 - `Backspace` parent directory
-- `Alt+Enter` properties
 - `Ctrl+D` favourites / hotlist
+- `Ctrl+I` inspector toggle
 - `Insert` as a selection key
 
 ## 3.3 One action may have multiple shortcuts
@@ -143,7 +142,7 @@ Examples:
 - `Move (F6)`
 - `Rename (Shift+F6)`
 - `Delete (F8, Delete)`
-- `Properties (Alt+Enter)`
+- `Toggle Inspector (Ctrl+I)`
 - `Create Folder (F7, Ctrl+Shift+N)`
 
 If a command is disabled, its tooltip must still show the shortcut.
@@ -176,7 +175,7 @@ Examples:
 | Rename in place | `Shift+F6` | — | Yes |
 | Create folder | `F7` | `Ctrl+Shift+N` | Yes |
 | Delete | `F8` | `Delete` | Yes |
-| Properties | `Alt+Enter` | — | Yes |
+| Toggle inspector | `Ctrl+I` | — | Yes |
 | Copy full path | `Ctrl+Shift+C` | — | Yes |
 | Favourites / Hotlist | `Ctrl+D` | — | Yes |
 | Focus path box | `Ctrl+L` | — | Yes |
@@ -255,7 +254,6 @@ All dialogs must follow consistent desktop rules.
 | Activate focused button | `Space` or `Enter` |
 
 Additional rules:
-- `Enter` on a valid destination path inside Copy/Move dialogs confirms the dialog
 - `Esc` cancels the dialog
 - `Enter` must not dismiss an in-progress operation dialog
 - once an operation has completed and the result dialog is shown, `Enter` may close it if the default action is `Close`
@@ -516,7 +514,6 @@ Opening a file must not disturb pane state.
 ### Before execution
 - launching pane is the source pane
 - opposite pane is the default destination context
-- copy dialog opens
 - active pane remains the source pane
 
 ### Success
@@ -562,7 +559,6 @@ This example is mandatory.
 ### Before execution
 - launching pane is the source pane
 - opposite pane is the default destination
-- move dialog opens
 
 ### Success
 After a successful move from source pane to opposite pane:
@@ -683,19 +679,15 @@ Recommended rule:
 
 ---
 
-## 12.12 Properties (`Alt+Enter`)
+## 12.12 Toggle Inspector (`Ctrl+I`)
 
-### Open
+### Success
 - active pane unchanged
-- properties dialog opens for current item or selection summary
-
-### Close
-- active pane unchanged
-- focus returns to launching pane list
+- focus remains where it was before toggle
 - selection unchanged
-- current item unchanged
+- inspector visibility toggles
 
-Properties is a non-destructive inspection action and must not disturb pane state.
+Inspector toggle is a non-destructive UI action and must not disturb pane state.
 
 ---
 
@@ -886,13 +878,13 @@ After success:
 - selection becomes empty
 - current item moves to nearest surviving item
 
-## 16.4 Open Properties and close it
-After close:
+## 16.4 Toggle Inspector
+After toggle:
 - same pane remains active
-- focus returns to same pane list
+- focus remains where it was
 - selection unchanged
 
-## 16.5 Cancel Copy dialog before execution
+## 16.5 Cancel a modal command dialog before execution
 After cancel:
 - same pane remains active
 - focus returns to same pane list
@@ -920,7 +912,7 @@ After success:
 | Rename | `Shift+F6` |
 | Create folder | `F7`, `Ctrl+Shift+N` |
 | Delete | `F8`, `Delete` |
-| Properties | `Alt+Enter` |
+| Toggle inspector | `Ctrl+I` |
 | Copy full path | `Ctrl+Shift+C` |
 | Favourites | `Ctrl+D` |
 | Refresh | `Ctrl+R` |

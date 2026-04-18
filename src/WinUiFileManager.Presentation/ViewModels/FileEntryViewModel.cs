@@ -36,9 +36,9 @@ public sealed partial class FileEntryViewModel : ObservableObject
 
     public string LastWriteTime => IsParentEntry ? string.Empty : Model.LastWriteTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
 
-    public string Attributes => IsParentEntry ? string.Empty : Model.Attributes.ToString();
+    public string CreationTime => IsParentEntry ? string.Empty : Model.CreationTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
 
-    public string FileId => IsParentEntry ? string.Empty : Model.FileId.HexDisplay;
+    public string Attributes => IsParentEntry ? string.Empty : Model.Attributes.ToString();
 
     public ItemKind Kind => IsParentEntry ? ItemKind.Directory : Model.Kind;
 
@@ -49,6 +49,8 @@ public sealed partial class FileEntryViewModel : ObservableObject
     public long SizeBytes => IsParentEntry ? -1 : Model.Size;
 
     public DateTime LastWriteTimeUtc => IsParentEntry ? DateTime.MinValue : Model.LastWriteTimeUtc;
+
+    public DateTime CreationTimeUtc => IsParentEntry ? DateTime.MinValue : Model.CreationTimeUtc;
 
     public string UniqueKey => IsParentEntry ? ".." : Model.FullPath.DisplayPath;
 

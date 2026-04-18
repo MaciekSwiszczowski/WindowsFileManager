@@ -139,7 +139,6 @@ public sealed class WindowsFileSystemServiceTests
     {
         return new WindowsFileSystemService(
             new WindowsPathNormalizationService(),
-            new FileIdentityInterop(),
             NullLogger<WindowsFileSystemService>.Instance);
     }
 }

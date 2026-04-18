@@ -55,7 +55,6 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
         nameof(FileEntryViewModel.Size) => SortColumn.Size,
         nameof(FileEntryViewModel.LastWriteTime) => SortColumn.Modified,
         nameof(FileEntryViewModel.Attributes) => SortColumn.Attributes,
-        nameof(FileEntryViewModel.FileId) => SortColumn.FileId,
         _ => SortColumn.Name,
     };
 }

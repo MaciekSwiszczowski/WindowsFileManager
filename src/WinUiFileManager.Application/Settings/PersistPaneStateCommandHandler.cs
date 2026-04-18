@@ -22,6 +22,8 @@ public sealed class PersistPaneStateCommandHandler
         NormalizedPath? leftPanePath,
         NormalizedPath? rightPanePath,
         PaneId activePane,
+        bool inspectorVisible,
+        double inspectorWidth,
         CancellationToken ct)
     {
         var current = await _settingsRepository.LoadAsync(ct);
@@ -30,15 +32,19 @@ public sealed class PersistPaneStateCommandHandler
         {
             LastLeftPanePath = leftPanePath,
             LastRightPanePath = rightPanePath,
-            LastActivePane = activePane
+            LastActivePane = activePane,
+            InspectorVisible = inspectorVisible,
+            InspectorWidth = inspectorWidth
         };
 
         await _settingsRepository.SaveAsync(updated, ct);
 
         _logger.LogInformation(
-            "Pane state persisted: Left={Left}, Right={Right}, Active={Active}",
+            "Pane state persisted: Left={Left}, Right={Right}, Active={Active}, InspectorVisible={InspectorVisible}, InspectorWidth={InspectorWidth}",
             leftPanePath?.DisplayPath,
             rightPanePath?.DisplayPath,
-            activePane);
+            activePane,
+            inspectorVisible,
+            inspectorWidth);
     }
 }

@@ -110,7 +110,9 @@ public sealed class CopySelectionCommandHandlerTests
             var entry = await fsService.GetEntryAsync(
                 NormalizedPath.FromUserInput(path), CancellationToken.None);
             if (entry is not null)
+            {
                 entries.Add(entry);
+            }
         }
 
         return entries;

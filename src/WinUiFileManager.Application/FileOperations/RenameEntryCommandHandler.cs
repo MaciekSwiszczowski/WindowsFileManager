@@ -27,10 +27,14 @@ public sealed class RenameEntryCommandHandler
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(newName))
+        {
             throw new ArgumentException("New name cannot be empty.", nameof(newName));
+        }
 
         if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
             throw new ArgumentException("New name contains invalid characters.", nameof(newName));
+        }
 
         var parentDir = Path.GetDirectoryName(entry.FullPath.DisplayPath)
                         ?? throw new InvalidOperationException($"Cannot determine parent directory of '{entry.FullPath.DisplayPath}'.");

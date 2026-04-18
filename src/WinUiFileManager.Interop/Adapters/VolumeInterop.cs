@@ -13,16 +13,18 @@ public sealed class VolumeInterop : IVolumeInterop
             try
             {
                 if (!drive.IsReady)
+                {
                     continue;
+                }
 
                 volumes.Add(new DriveVolumeInfo(
-                    DriveLetter: drive.Name[..1],
-                    Label: drive.VolumeLabel,
-                    FileSystemName: drive.DriveFormat,
-                    RootPath: drive.RootDirectory.FullName,
-                    SerialNumber: 0,
-                    MaxComponentLength: 255,
-                    FileSystemFlags: 0));
+                    drive.Name[..1],
+                    drive.VolumeLabel,
+                    drive.DriveFormat,
+                    drive.RootDirectory.FullName,
+                    0,
+                    255,
+                    0));
             }
             catch (IOException)
             {
@@ -47,22 +49,26 @@ public sealed class VolumeInterop : IVolumeInterop
         var root = Path.GetPathRoot(fullPath);
 
         if (root is null || root.Length < 2)
+        {
             return null;
+        }
 
         try
         {
             var driveInfo = new DriveInfo(root);
             if (!driveInfo.IsReady)
+            {
                 return null;
+            }
 
             return new DriveVolumeInfo(
-                DriveLetter: driveInfo.Name[..1],
-                Label: driveInfo.VolumeLabel,
-                FileSystemName: driveInfo.DriveFormat,
-                RootPath: driveInfo.RootDirectory.FullName,
-                SerialNumber: 0,
-                MaxComponentLength: 255,
-                FileSystemFlags: 0);
+                driveInfo.Name[..1],
+                driveInfo.VolumeLabel,
+                driveInfo.DriveFormat,
+                driveInfo.RootDirectory.FullName,
+                0,
+                255,
+                0);
         }
         catch (Exception)
         {

@@ -39,7 +39,9 @@ public sealed class JsonSettingsRepository : ISettingsRepository
         try
         {
             if (!File.Exists(_filePath))
+            {
                 return new AppSettings();
+            }
 
             try
             {

@@ -87,7 +87,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public int ItemCount => _sortedItems.Count;
 
-    public int SelectedCount => _sortedItems.Count(i => i.IsSelected);
+    public int SelectedCount => _sortedItems.Count(static i => i.IsSelected);
 
     public NormalizedPath? CurrentNormalizedPath => _currentNormalizedPath;
 
@@ -96,7 +96,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void SetSort(SortColumn column)
     {
         if (SortBy == column)
+        {
             SortAscending = !SortAscending;
+        }
         else
         {
             SortBy = column;
@@ -111,7 +113,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     {
         var normalizedPath = await ResolveDirectoryPathAsync(path, CancellationToken.None);
         if (normalizedPath is null)
+        {
             return;
+        }
 
         await LoadDirectoryAsync(normalizedPath.Value, null, CancellationToken.None);
     }
@@ -120,7 +124,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private async Task NavigateIntoAsync()
     {
         if (IsLoading || CurrentItem is null)
+        {
             return;
+        }
 
         if (CurrentItem.IsParentEntry)
         {
@@ -152,12 +158,16 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private async Task NavigateUpAsync()
     {
         if (IsLoading || _currentNormalizedPath is null)
+        {
             return;
+        }
 
         var oldPath = _currentNormalizedPath.Value;
         var parent = Path.GetDirectoryName(oldPath.Value);
         if (string.IsNullOrEmpty(parent))
+        {
             return;
+        }
 
         var parentPath = NormalizedPath.FromUserInput(parent);
         var folderName = Path.GetFileName(oldPath.DisplayPath.TrimEnd(Path.DirectorySeparatorChar));
@@ -168,7 +178,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private async Task RefreshAsync()
     {
         if (IsLoading || _currentNormalizedPath is null)
+        {
             return;
+        }
 
         var restoreSelection = CurrentItem is { IsParentEntry: false } item
             ? item.Name
@@ -181,13 +193,17 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private void SelectAll()
     {
         if (IsLoading)
+        {
             return;
+        }
 
-        var selectable = _sortedItems.Where(i => !i.IsParentEntry).ToList();
-        var allSelected = selectable.Count > 0 && selectable.All(i => i.IsSelected);
+        var selectable = _sortedItems.Where(static i => !i.IsParentEntry).ToList();
+        var allSelected = selectable.Count > 0 && selectable.All(static i => i.IsSelected);
 
         foreach (var item in selectable)
+        {
             item.IsSelected = !allSelected;
+        }
 
         NotifySelectionChanged();
     }
@@ -196,10 +212,14 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private void ClearSelection()
     {
         if (IsLoading)
+        {
             return;
+        }
 
         foreach (var item in _sortedItems)
+        {
             item.IsSelected = false;
+        }
 
         CurrentItem = null;
         NotifySelectionChanged();
@@ -208,7 +228,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void ToggleSelection(FileEntryViewModel item)
     {
         if (IsLoading || item.IsParentEntry)
+        {
             return;
+        }
 
         item.IsSelected = !item.IsSelected;
         NotifySelectionChanged();
@@ -217,7 +239,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void HandleIncrementalSearch(char c)
     {
         if (IsLoading)
+        {
             return;
+        }
 
         IncrementalSearchText = (IncrementalSearchText ?? string.Empty) + c;
 
@@ -226,7 +250,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
+        {
             CurrentItem = match;
+        }
     }
 
     public void ClearIncrementalSearch()
@@ -237,7 +263,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void BackspaceIncrementalSearch()
     {
         if (IsLoading || string.IsNullOrEmpty(IncrementalSearchText))
+        {
             return;
+        }
 
         IncrementalSearchText = IncrementalSearchText[..^1];
         if (string.IsNullOrEmpty(IncrementalSearchText))
@@ -251,7 +279,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
+        {
             CurrentItem = match;
+        }
     }
 
     public async Task LoadDrivesAsync()
@@ -259,30 +289,40 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         var drives = await _volumePolicyService.GetNtfsVolumesAsync(CancellationToken.None);
         AvailableDrives.Clear();
         foreach (var drive in drives)
+        {
             AvailableDrives.Add(drive);
+        }
     }
 
     partial void OnSelectedDriveChanged(VolumeInfo? value)
     {
         if (value is not null && !IsLoading)
+        {
             _ = NavigateToCommand.ExecuteAsync(value.RootPath.DisplayPath);
+        }
     }
 
     public IReadOnlyList<FileSystemEntryModel> GetSelectedEntryModels()
     {
         if (IsLoading)
+        {
             return [];
+        }
 
         var selected = _sortedItems
-            .Where(i => i.IsSelected && !i.IsParentEntry)
-            .Select(i => i.Model)
+            .Where(static i => i is { IsSelected: true, IsParentEntry: false })
+            .Select(static i => i.Model)
             .ToList();
 
         if (selected.Count > 0)
+        {
             return selected;
+        }
 
         if (CurrentItem is { IsParentEntry: false })
+        {
             return [CurrentItem.Model];
+        }
 
         return [];
     }
@@ -290,17 +330,23 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public IReadOnlyList<FileEntryViewModel> GetSelectedEntries()
     {
         if (IsLoading)
+        {
             return [];
+        }
 
         var selected = _sortedItems
-            .Where(i => i.IsSelected && !i.IsParentEntry)
+            .Where(static i => i is { IsSelected: true, IsParentEntry: false })
             .ToList();
 
         if (selected.Count > 0)
+        {
             return selected;
+        }
 
         if (CurrentItem is { } current)
+        {
             return [current];
+        }
 
         return [];
     }
@@ -435,7 +481,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private void CancelLoading()
     {
         if (_loadCancellation is null)
+        {
             return;
+        }
 
         _loadCancellation.Cancel();
         _loadCancellation.Dispose();
@@ -449,7 +497,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             updater.Clear();
 
             if (!IsAtDriveRoot())
+            {
                 updater.AddOrUpdate(FileEntryViewModel.CreateParentEntry());
+            }
         });
 
         NotifySelectionChanged();
@@ -459,12 +509,16 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private void AddBatch(IReadOnlyList<FileSystemEntryModel> entries)
     {
         if (entries.Count == 0)
+        {
             return;
+        }
 
         _sourceCache.Edit(updater =>
         {
             foreach (var entry in entries)
+            {
                 updater.AddOrUpdate(new FileEntryViewModel(entry));
+            }
         });
 
         OnPropertyChanged(nameof(ItemCount));
@@ -473,7 +527,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private bool IsAtDriveRoot()
     {
         if (_currentNormalizedPath is null)
+        {
             return true;
+        }
 
         var display = _currentNormalizedPath.Value.DisplayPath;
         return display.Length <= 3 && display.EndsWith(@":\", StringComparison.Ordinal);

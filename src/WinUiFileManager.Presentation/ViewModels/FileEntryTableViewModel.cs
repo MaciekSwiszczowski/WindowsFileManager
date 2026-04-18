@@ -16,15 +16,21 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
     public void Attach(FilePaneViewModel? host)
     {
         if (ReferenceEquals(_host, host))
+        {
             return;
+        }
 
         if (_host is not null)
+        {
             _host.PropertyChanged -= OnHostPropertyChanged;
+        }
 
         _host = host;
 
         if (_host is not null)
+        {
             _host.PropertyChanged += OnHostPropertyChanged;
+        }
 
         OnPropertyChanged(nameof(Items));
         RaiseSortStateChanged();
@@ -34,7 +40,9 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
     {
         if (e.PropertyName is nameof(FilePaneViewModel.SortBy)
             or nameof(FilePaneViewModel.SortAscending))
+        {
             RaiseSortStateChanged();
+        }
     }
 
     private void RaiseSortStateChanged() =>
@@ -43,7 +51,9 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
     public void ApplySortFromSortMemberPath(string? sortMemberPath)
     {
         if (_host is null || string.IsNullOrEmpty(sortMemberPath))
+        {
             return;
+        }
 
         _host.SetSort(MapSortMemberPath(sortMemberPath));
     }

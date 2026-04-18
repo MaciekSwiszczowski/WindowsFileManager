@@ -27,7 +27,7 @@ public sealed class NtfsVolumePolicyService : INtfsVolumePolicyService
                 v.Label,
                 v.FileSystemName,
                 NormalizedPath.FromUserInput(v.RootPath),
-                IsNtfs: true))
+                true))
             .ToList();
 
         return Task.FromResult<IReadOnlyList<VolumeInfo>>(ntfsVolumes);
@@ -45,19 +45,25 @@ public sealed class NtfsVolumePolicyService : INtfsVolumePolicyService
     public PathValidationResult ValidateNtfsPath(string path)
     {
         if (string.IsNullOrWhiteSpace(path))
+        {
             return PathValidationResult.Invalid("Path cannot be empty.");
+        }
 
         try
         {
             var volume = _volumeInterop.GetVolumeForPath(path);
 
             if (volume is null)
+            {
                 return PathValidationResult.Invalid(
                     $"Could not determine volume for path '{path}'.");
+            }
 
             if (!IsNtfs(volume.FileSystemName))
+            {
                 return PathValidationResult.Invalid(
                     $"Path '{path}' is on a non-NTFS volume ({volume.FileSystemName}). Only NTFS volumes are supported.");
+            }
 
             return PathValidationResult.Valid();
         }

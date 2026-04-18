@@ -150,11 +150,15 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
+        {
             return;
+        }
 
         var destination = InactivePane.CurrentNormalizedPath;
         if (destination is null)
+        {
             return;
+        }
 
         try
         {
@@ -187,11 +191,15 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
+        {
             return;
+        }
 
         var destination = InactivePane.CurrentNormalizedPath;
         if (destination is null)
+        {
             return;
+        }
 
         try
         {
@@ -224,7 +232,9 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
+        {
             return;
+        }
 
         try
         {
@@ -233,7 +243,9 @@ public sealed partial class MainShellViewModel : ObservableObject
                 items.Count, hasDirectories, CancellationToken.None);
 
             if (!confirmed)
+            {
                 return;
+            }
 
             var summary = await _deleteHandler.ExecuteAsync(
                 items,
@@ -256,13 +268,17 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var currentPath = ActivePane.CurrentNormalizedPath;
         if (currentPath is null)
+        {
             return;
+        }
 
         try
         {
             var folderName = await _dialogService.ShowCreateFolderDialogAsync(CancellationToken.None);
             if (string.IsNullOrWhiteSpace(folderName))
+            {
                 return;
+            }
 
             var summary = await _createFolderHandler.ExecuteAsync(
                 currentPath.Value,
@@ -286,7 +302,9 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var currentItem = ActivePane.CurrentItem;
         if (currentItem is null || currentItem.IsParentEntry)
+        {
             return;
+        }
 
         try
         {
@@ -294,7 +312,9 @@ public sealed partial class MainShellViewModel : ObservableObject
                 currentItem.Name, CancellationToken.None);
 
             if (string.IsNullOrWhiteSpace(newName) || newName == currentItem.Name)
+            {
                 return;
+            }
 
             var summary = await _renameHandler.ExecuteAsync(
                 currentItem.Model, newName, CancellationToken.None);
@@ -315,7 +335,9 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var items = ActivePane.GetSelectedEntryModels();
         if (items.Count == 0)
+        {
             return;
+        }
 
         try
         {
@@ -333,7 +355,9 @@ public sealed partial class MainShellViewModel : ObservableObject
     {
         var currentPath = ActivePane.CurrentNormalizedPath;
         if (currentPath is null)
+        {
             return;
+        }
 
         try
         {
@@ -341,13 +365,17 @@ public sealed partial class MainShellViewModel : ObservableObject
                 Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
 
             if (string.IsNullOrEmpty(displayName))
+            {
                 displayName = currentPath.Value.DisplayPath;
+            }
 
             var result = await _addFavouriteHandler.ExecuteAsync(
                 displayName, currentPath.Value, CancellationToken.None);
 
             if (result.IsValid)
+            {
                 await LoadFavouritesAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -475,7 +503,9 @@ public sealed partial class MainShellViewModel : ObservableObject
         var items = await _favouritesRepository.GetAllAsync(CancellationToken.None);
         Favourites.Clear();
         foreach (var item in items)
+        {
             Favourites.Add(item);
+        }
     }
 
     [RelayCommand]
@@ -492,10 +522,14 @@ public sealed partial class MainShellViewModel : ObservableObject
     private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (sender is not FilePaneViewModel pane)
+        {
             return;
+        }
 
         if (pane != ActivePane)
+        {
             return;
+        }
 
         if (e.PropertyName is nameof(FilePaneViewModel.CurrentItem)
             or nameof(FilePaneViewModel.SelectedCount)

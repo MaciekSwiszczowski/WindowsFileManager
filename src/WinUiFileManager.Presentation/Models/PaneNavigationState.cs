@@ -19,7 +19,9 @@ public sealed class PaneNavigationState
         CurrentIndex++;
 
         if (CurrentIndex < _backStack.Count)
+        {
             _backStack.RemoveRange(CurrentIndex, _backStack.Count - CurrentIndex);
+        }
 
         _backStack.Add(path);
         CurrentPath = path;
@@ -28,7 +30,9 @@ public sealed class PaneNavigationState
     public NormalizedPath? GoBack()
     {
         if (!CanGoBack)
+        {
             return null;
+        }
 
         CurrentIndex--;
         CurrentPath = _backStack[CurrentIndex];

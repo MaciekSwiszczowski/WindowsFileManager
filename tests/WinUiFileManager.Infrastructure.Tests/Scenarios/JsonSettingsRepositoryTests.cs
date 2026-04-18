@@ -52,11 +52,11 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         // Arrange
         var sut = CreateRepository();
         var settings = new AppSettings(
-            ParallelExecutionEnabled: true,
-            MaxDegreeOfParallelism: 8,
-            LastLeftPanePath: NormalizedPath.FromUserInput(@"C:\Left"),
-            LastRightPanePath: NormalizedPath.FromUserInput(@"C:\Right"),
-            LastActivePane: PaneId.Right);
+            true,
+            8,
+            NormalizedPath.FromUserInput(@"C:\Left"),
+            NormalizedPath.FromUserInput(@"C:\Right"),
+            PaneId.Right);
 
         // Act
         await sut.SaveAsync(settings, CancellationToken.None);
@@ -74,11 +74,11 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         // Arrange
         var sut = CreateRepository();
         var settings = new AppSettings(
-            ParallelExecutionEnabled: true,
-            MaxDegreeOfParallelism: 16,
-            LastLeftPanePath: NormalizedPath.FromUserInput(@"C:\Users"),
-            LastRightPanePath: NormalizedPath.FromUserInput(@"C:\Temp"),
-            LastActivePane: PaneId.Left);
+            true,
+            16,
+            NormalizedPath.FromUserInput(@"C:\Users"),
+            NormalizedPath.FromUserInput(@"C:\Temp"),
+            PaneId.Left);
 
         // Act
         await sut.SaveAsync(settings, CancellationToken.None);

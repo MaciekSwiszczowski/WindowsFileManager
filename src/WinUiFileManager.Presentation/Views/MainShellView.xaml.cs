@@ -55,7 +55,9 @@ public sealed partial class MainShellView : UserControl
     private void ActivatePane(PaneId paneId)
     {
         if (ViewModel is null)
+        {
             return;
+        }
 
         var desired = paneId == PaneId.Left ? ViewModel.LeftPane : ViewModel.RightPane;
         if (ViewModel.ActivePane != desired)
@@ -86,10 +88,14 @@ public sealed partial class MainShellView : UserControl
     private void OnFavouritesFlyoutOpening(object sender, object e)
     {
         if (ViewModel is null || sender is not MenuFlyout flyout)
+        {
             return;
+        }
 
         while (flyout.Items.Count > 2)
+        {
             flyout.Items.RemoveAt(flyout.Items.Count - 1);
+        }
 
         foreach (var fav in ViewModel.Favourites)
         {
@@ -129,7 +135,9 @@ public sealed partial class MainShellView : UserControl
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (ViewModel is null)
+        {
             return;
+        }
 
         var ctrl = IsModifierDown(VirtualKey.Control);
         var shift = IsModifierDown(VirtualKey.Shift);
@@ -181,7 +189,9 @@ public sealed partial class MainShellView : UserControl
         {
             UpdateStatusBar();
             if (e.PropertyName == nameof(MainShellViewModel.ActivePane))
+            {
                 UpdateActivePaneBorders();
+            }
             if (e.PropertyName is nameof(MainShellViewModel.IsInspectorVisible)
                 or nameof(MainShellViewModel.InspectorWidth))
             {
@@ -193,7 +203,9 @@ public sealed partial class MainShellView : UserControl
     private void UpdateStatusBar()
     {
         if (ViewModel is null)
+        {
             return;
+        }
 
         var active = ViewModel.ActivePane;
         var paneName = active.PaneId == PaneId.Left ? "Left" : "Right";
@@ -202,17 +214,21 @@ public sealed partial class MainShellView : UserControl
 
         var itemsLine = $"{active.ItemCount} items";
         if (!string.IsNullOrEmpty(active.IncrementalSearchText))
+        {
             itemsLine += $" | Search: {active.IncrementalSearchText}";
+        }
         ItemCountText.Text = itemsLine;
 
         var selectedLine = $"{active.SelectedCount} selected";
         if (active.SelectedCount > 0)
         {
             var bytes = active.Items
-                .Where(i => i.IsSelected && !i.IsParentEntry && i.SizeBytes >= 0)
-                .Sum(i => i.SizeBytes);
+                .Where(static i => i.IsSelected && !i.IsParentEntry && i.SizeBytes >= 0)
+                .Sum(static i => i.SizeBytes);
             if (bytes > 0)
+            {
                 selectedLine += $" ({FormatByteSize(bytes)})";
+            }
         }
 
         SelectedText.Text = selectedLine;
@@ -237,7 +253,9 @@ public sealed partial class MainShellView : UserControl
     private void UpdateActivePaneBorders()
     {
         if (ViewModel is null)
+        {
             return;
+        }
 
         var leftActive = ViewModel.ActivePane.PaneId == PaneId.Left;
         LeftPaneView.SetActive(leftActive);
@@ -260,7 +278,9 @@ public sealed partial class MainShellView : UserControl
     private void UpdateInspectorLayout()
     {
         if (ViewModel is null)
+        {
             return;
+        }
 
         var isVisible = ViewModel.IsInspectorVisible;
         InspectorColumn.Width = isVisible
@@ -276,7 +296,9 @@ public sealed partial class MainShellView : UserControl
     private void OnInspectorResizePointerPressed(object sender, PointerRoutedEventArgs e)
     {
         if (ViewModel?.IsInspectorVisible != true || sender is not UIElement element)
+        {
             return;
+        }
 
         ProtectedCursor = _horizontalResizeCursor;
         _isResizingInspector = true;
@@ -289,7 +311,9 @@ public sealed partial class MainShellView : UserControl
     private void OnInspectorResizePointerMoved(object sender, PointerRoutedEventArgs e)
     {
         if (!_isResizingInspector || ViewModel is null)
+        {
             return;
+        }
 
         var currentX = e.GetCurrentPoint(this).Position.X;
         var delta = _inspectorResizeStartX - currentX;
@@ -301,7 +325,9 @@ public sealed partial class MainShellView : UserControl
     private void OnInspectorResizePointerReleased(object sender, PointerRoutedEventArgs e)
     {
         if (!_isResizingInspector || sender is not UIElement element)
+        {
             return;
+        }
 
         _isResizingInspector = false;
         element.ReleasePointerCapture(e.Pointer);
@@ -312,13 +338,17 @@ public sealed partial class MainShellView : UserControl
     private void OnInspectorResizePointerEntered(object sender, PointerRoutedEventArgs e)
     {
         if (ViewModel?.IsInspectorVisible == true)
+        {
             ProtectedCursor = _horizontalResizeCursor;
+        }
     }
 
     private void OnInspectorResizePointerExited(object sender, PointerRoutedEventArgs e)
     {
         if (!_isResizingInspector)
+        {
             ProtectedCursor = null;
+        }
     }
 
     private static bool IsModifierDown(VirtualKey key) =>

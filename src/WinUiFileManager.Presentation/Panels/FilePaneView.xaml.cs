@@ -10,7 +10,7 @@ using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Presentation.Panels;
 
-public sealed partial class FilePaneView : UserControl
+public sealed partial class FilePaneView
 {
     private FilePaneViewModel? _viewModel;
     private bool _syncingDriveSelection;
@@ -32,7 +32,9 @@ public sealed partial class FilePaneView : UserControl
     public void FocusPathBox()
     {
         if (_viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         PathBox.Focus(FocusState.Programmatic);
         PathBox.SelectAll();
@@ -41,7 +43,9 @@ public sealed partial class FilePaneView : UserControl
     public void FocusFileList()
     {
         if (_viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         EntryTable.FocusGrid();
     }
@@ -55,15 +59,21 @@ public sealed partial class FilePaneView : UserControl
             : "SystemControlBackgroundBaseLowBrush";
 
         if (Resources.TryGetValue(key, out var res) && res is Brush brush)
+        {
             PaneBorder.BorderBrush = brush;
+        }
         else if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(key, out var appRes) && appRes is Brush appBrush)
+        {
             PaneBorder.BorderBrush = appBrush;
+        }
     }
 
     private void OnEntryGridActivationRequested()
     {
         if (_viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         PaneActivationRequested?.Invoke();
     }
@@ -80,7 +90,9 @@ public sealed partial class FilePaneView : UserControl
         {
             _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
             if (_viewModel.Items is INotifyCollectionChanged oldCollection)
+            {
                 oldCollection.CollectionChanged -= OnItemsCollectionChanged;
+            }
         }
 
         _viewModel = value;
@@ -93,9 +105,11 @@ public sealed partial class FilePaneView : UserControl
 
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
         if (_viewModel.Items is INotifyCollectionChanged newCollection)
+        {
             newCollection.CollectionChanged += OnItemsCollectionChanged;
+        }
 
-        PathBox.Text = _viewModel.CurrentPath ?? string.Empty;
+        PathBox.Text = _viewModel.CurrentPath;
         EntryTable.Attach(_viewModel);
         DriveComboBox.ItemsSource = _viewModel.AvailableDrives;
         DriveComboBox.DisplayMemberPath = nameof(VolumeInfo.DriveLetter);
@@ -141,7 +155,9 @@ public sealed partial class FilePaneView : UserControl
     private void PathBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (_viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         switch (e.Key)
         {
@@ -152,7 +168,7 @@ public sealed partial class FilePaneView : UserControl
                 break;
 
             case VirtualKey.Escape:
-                PathBox.Text = _viewModel.CurrentPath ?? string.Empty;
+                PathBox.Text = _viewModel.CurrentPath;
                 EntryTable.FocusGrid();
                 e.Handled = true;
                 break;
@@ -162,7 +178,9 @@ public sealed partial class FilePaneView : UserControl
     private void PaneBorder_Tapped(object sender, TappedRoutedEventArgs e)
     {
         if (_viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         PaneActivationRequested?.Invoke();
     }
@@ -170,26 +188,36 @@ public sealed partial class FilePaneView : UserControl
     private void DriveComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingDriveSelection || _viewModel?.IsInteractive != true)
+        {
             return;
+        }
 
         if (DriveComboBox.SelectedItem is VolumeInfo drive)
+        {
             _viewModel.SelectedDrive = drive;
+        }
     }
 
     private void SyncDriveSelection()
     {
         if (_viewModel is null)
+        {
             return;
+        }
 
         var currentPath = _viewModel.CurrentPath;
         if (string.IsNullOrEmpty(currentPath))
+        {
             return;
+        }
 
         var matchingDrive = _viewModel.AvailableDrives
             .FirstOrDefault(d => currentPath.StartsWith(d.RootPath.DisplayPath, StringComparison.OrdinalIgnoreCase));
 
         if (matchingDrive is null || Equals(DriveComboBox.SelectedItem, matchingDrive))
+        {
             return;
+        }
 
         _syncingDriveSelection = true;
         try
@@ -205,7 +233,9 @@ public sealed partial class FilePaneView : UserControl
     private void UpdateOverlay()
     {
         if (_viewModel is null)
+        {
             return;
+        }
 
         if (_viewModel.IsLoading)
         {
@@ -246,7 +276,9 @@ public sealed partial class FilePaneView : UserControl
     private void UpdatePaneStatus()
     {
         if (_viewModel is null)
+        {
             return;
+        }
 
         var total = _viewModel.ItemCount;
         var selected = _viewModel.SelectedCount;

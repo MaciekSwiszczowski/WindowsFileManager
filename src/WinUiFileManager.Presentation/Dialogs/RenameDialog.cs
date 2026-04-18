@@ -28,7 +28,9 @@ public sealed class RenameDialog
         var result = await dialog.ShowAsync();
 
         if (result is not ContentDialogResult.Primary)
+        {
             return null;
+        }
 
         var newName = nameBox.Text.Trim();
         return newName.Length > 0 && newName != currentName ? newName : null;

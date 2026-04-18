@@ -75,7 +75,7 @@ public sealed class CopyDirectoryTests
         var sut = CreateHandler();
         var entries = await GetEntries(sourceDir);
         var destination = NormalizedPath.FromUserInput(destDir);
-        var parallel = new ParallelExecutionOptions(Enabled: true, MaxDegreeOfParallelism: 4);
+        var parallel = new ParallelExecutionOptions(true, 4);
 
         var summary = await sut.ExecuteAsync(
             entries,

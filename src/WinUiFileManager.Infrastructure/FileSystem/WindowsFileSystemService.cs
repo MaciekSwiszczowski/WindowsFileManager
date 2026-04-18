@@ -53,10 +53,14 @@ public sealed class WindowsFileSystemService : IFileSystemService
         }
 
         if (initialBatchSize <= 0)
+        {
             initialBatchSize = DefaultBatchSize;
+        }
 
         if (batchSize <= 0)
+        {
             batchSize = DefaultBatchSize;
+        }
 
         var targetBatchSize = initialBatchSize;
         var batch = new List<FileSystemEntryModel>(targetBatchSize);
@@ -67,7 +71,9 @@ public sealed class WindowsFileSystemService : IFileSystemService
             batch.Add(entry);
 
             if (batch.Count < targetBatchSize)
+            {
                 continue;
+            }
 
             yield return batch;
             targetBatchSize = batchSize;
@@ -77,7 +83,9 @@ public sealed class WindowsFileSystemService : IFileSystemService
         }
 
         if (batch.Count > 0)
+        {
             yield return batch;
+        }
     }
 
     public Task<FileSystemEntryModel?> GetEntryAsync(
@@ -90,12 +98,18 @@ public sealed class WindowsFileSystemService : IFileSystemService
         FileSystemInfo? fsi = null;
 
         if (File.Exists(displayPath))
+        {
             fsi = new FileInfo(displayPath);
+        }
         else if (Directory.Exists(displayPath))
+        {
             fsi = new DirectoryInfo(displayPath);
+        }
 
         if (fsi is null)
+        {
             return Task.FromResult<FileSystemEntryModel?>(null);
+        }
 
         return Task.FromResult<FileSystemEntryModel?>(BuildEntryModel(fsi));
     }
@@ -121,15 +135,15 @@ public sealed class WindowsFileSystemService : IFileSystemService
         var extension = isDirectory ? string.Empty : fsi.Extension;
 
         return new FileSystemEntryModel(
-            FullPath: NormalizedPath.FromUserInput(fsi.FullName),
-            Name: fsi.Name,
-            Extension: extension,
-            Kind: kind,
-            Size: size,
-            LastWriteTimeUtc: fsi.LastWriteTimeUtc,
-            CreationTimeUtc: fsi.CreationTimeUtc,
-            Attributes: fsi.Attributes,
-            FileId: NtfsFileId.None);
+            NormalizedPath.FromUserInput(fsi.FullName),
+            fsi.Name,
+            extension,
+            kind,
+            size,
+            fsi.LastWriteTimeUtc,
+            fsi.CreationTimeUtc,
+            fsi.Attributes,
+            NtfsFileId.None);
     }
 
     private static FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
@@ -141,15 +155,15 @@ public sealed class WindowsFileSystemService : IFileSystemService
         var extension = isDirectory ? string.Empty : Path.GetExtension(name);
 
         return new FileSystemEntryModel(
-            FullPath: NormalizedPath.FromUserInput(fullPath),
-            Name: name,
-            Extension: extension,
-            Kind: kind,
-            Size: isDirectory ? 0L : entry.Length,
-            LastWriteTimeUtc: entry.LastWriteTimeUtc.UtcDateTime,
-            CreationTimeUtc: entry.CreationTimeUtc.UtcDateTime,
-            Attributes: entry.Attributes,
-            FileId: NtfsFileId.None);
+            NormalizedPath.FromUserInput(fullPath),
+            name,
+            extension,
+            kind,
+            isDirectory ? 0L : entry.Length,
+            entry.LastWriteTimeUtc.UtcDateTime,
+            entry.CreationTimeUtc.UtcDateTime,
+            entry.Attributes,
+            NtfsFileId.None);
     }
 
     private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)

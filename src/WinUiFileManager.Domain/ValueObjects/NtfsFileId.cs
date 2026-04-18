@@ -21,7 +21,10 @@ public readonly record struct NtfsFileId
     {
         var hash = new HashCode();
         foreach (var b in _bytes)
+        {
             hash.Add(b);
+        }
+
         return hash.ToHashCode();
     }
 }

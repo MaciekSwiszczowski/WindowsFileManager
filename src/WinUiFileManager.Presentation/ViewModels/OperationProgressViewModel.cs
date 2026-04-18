@@ -32,7 +32,9 @@ public sealed partial class OperationProgressViewModel : ObservableObject
     private void Cancel()
     {
         if (!CanCancel)
+        {
             return;
+        }
 
         _cts.Cancel();
         CanCancel = false;

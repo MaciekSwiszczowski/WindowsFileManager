@@ -187,7 +187,7 @@ public sealed class WindowsFileOperationServiceTests
             .ToList();
         var destDir = fixture.CreateDirectory("pardest");
         var sut = CreateService();
-        var parallelOptions = new ParallelExecutionOptions(Enabled: true, MaxDegreeOfParallelism: 4);
+        var parallelOptions = new ParallelExecutionOptions(true, 4);
         var plan = BuildCopyPlan(sources, destDir, parallelOptions);
 
         // Act
@@ -347,7 +347,7 @@ public sealed class WindowsFileOperationServiceTests
                 new FileInfo(fileC).Length)
         };
 
-        var parallelOptions = new ParallelExecutionOptions(Enabled: true, MaxDegreeOfParallelism: 4);
+        var parallelOptions = new ParallelExecutionOptions(true, 4);
         var plan = new OperationPlan(
             OperationType.Copy,
             items,

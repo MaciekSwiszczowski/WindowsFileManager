@@ -1,8 +1,15 @@
 namespace WinUiFileManager.Domain.ValueObjects;
 
-public readonly record struct NormalizedPath(string Value)
+public readonly record struct NormalizedPath
 {
+    public NormalizedPath(string value)
+    {
+        Value = value;
+    }
+
     private const string ExtendedPathPrefix = @"\\?\";
+
+    public string Value { get; init; }
 
     public string DisplayPath =>
         Value.StartsWith(ExtendedPathPrefix, StringComparison.Ordinal)
@@ -24,7 +31,9 @@ public readonly record struct NormalizedPath(string Value)
         trimmed = trimmed.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
         if (trimmed.Length == ExtendedPathPrefix.Length + 2 && trimmed[^1] == ':')
+        {
             trimmed += Path.DirectorySeparatorChar;
+        }
 
         return new NormalizedPath(trimmed);
     }

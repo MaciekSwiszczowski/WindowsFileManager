@@ -26,7 +26,9 @@ public sealed class CreateFolderDialog
         var result = await dialog.ShowAsync();
 
         if (result is not ContentDialogResult.Primary)
+        {
             return null;
+        }
 
         var name = nameBox.Text.Trim();
         return name.Length > 0 ? name : null;

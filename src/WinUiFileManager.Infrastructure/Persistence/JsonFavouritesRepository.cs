@@ -79,7 +79,9 @@ public sealed class JsonFavouritesRepository : IFavouritesRepository
     private async Task<List<FavouriteDto>> LoadDtosAsync(CancellationToken cancellationToken)
     {
         if (!File.Exists(_filePath))
+        {
             return [];
+        }
 
         try
         {

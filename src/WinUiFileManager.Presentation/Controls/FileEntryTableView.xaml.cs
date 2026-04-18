@@ -78,18 +78,24 @@ public sealed partial class FileEntryTableView : UserControl
     public void Attach(FilePaneViewModel? host)
     {
         if (_currentItemSyncHost is not null)
+        {
             _currentItemSyncHost.PropertyChanged -= OnHostPropertyChanged;
+        }
 
         GridViewModel.Attach(host);
         _currentItemSyncHost = host;
 
         if (host is not null)
+        {
             host.PropertyChanged += OnHostPropertyChanged;
+        }
 
         DispatcherQueue.TryEnqueue(() =>
         {
             if (GridViewModel.Host is not null)
+            {
                 FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
+            }
         });
     }
 
@@ -122,7 +128,9 @@ public sealed partial class FileEntryTableView : UserControl
         FileTable.RowHeight = 32;
         ApplyColumnResizeFromOptions();
         if (GridViewModel.Host is not null)
+        {
             FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
+        }
     }
 
     private void OnSortStateChanged(object? sender, EventArgs e)
@@ -130,18 +138,24 @@ public sealed partial class FileEntryTableView : UserControl
         DispatcherQueue.TryEnqueue(() =>
         {
             if (GridViewModel.Host is not null)
+            {
                 FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
+            }
         });
     }
 
     private void OnHostPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(FilePaneViewModel.CurrentItem))
+        {
             return;
+        }
 
         var host = GridViewModel.Host;
         if (host is null || _syncingSelection)
+        {
             return;
+        }
 
         var current = host.CurrentItem;
         if (current is not null && !Equals(FileTable.SelectedItem, current))
@@ -153,7 +167,9 @@ public sealed partial class FileEntryTableView : UserControl
             {
                 FileTable.SelectedItem = current;
                 if (idx >= 0)
+                {
                     FileTable.ScrollRowIntoView(idx);
+                }
             }
             finally
             {
@@ -161,7 +177,9 @@ public sealed partial class FileEntryTableView : UserControl
             }
 
             if (idx >= 0)
+            {
                 SyncTableViewKeyboardAnchor(idx);
+            }
 
             // Move the TableView's focused row (the one that shows the
             // accent border) to match CurrentItem. Without this the frame
@@ -196,7 +214,9 @@ public sealed partial class FileEntryTableView : UserControl
         DispatcherQueue.TryEnqueue(() =>
         {
             if (FileTable.SelectedItem is null)
+            {
                 return;
+            }
 
             if (FileTable.ContainerFromItem(FileTable.SelectedItem) is Control container)
             {
@@ -218,17 +238,23 @@ public sealed partial class FileEntryTableView : UserControl
         e.Handled = true; // Prevent TableView from sorting internally
         GridViewModel.ApplySortFromSortMemberPath(e.Column?.SortMemberPath);
         if (GridViewModel.Host is not null)
+        {
             FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
+        }
     }
 
     private void FileTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_syncingSelection)
+        {
             return;
+        }
 
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive)
+        {
             return;
+        }
 
         ActivationRequested?.Invoke();
 
@@ -236,12 +262,18 @@ public sealed partial class FileEntryTableView : UserControl
         try
         {
             foreach (var added in e.AddedItems.OfType<FileEntryViewModel>())
+            {
                 added.IsSelected = true;
+            }
             foreach (var removed in e.RemovedItems.OfType<FileEntryViewModel>())
+            {
                 removed.IsSelected = false;
+            }
 
             if (FileTable.SelectedItem is FileEntryViewModel entry)
+            {
                 host.CurrentItem = entry;
+            }
 
             host.NotifySelectionChanged();
         }
@@ -257,7 +289,9 @@ public sealed partial class FileEntryTableView : UserControl
             ?? FileTable.SelectedItem as FileEntryViewModel;
 
         if (ActivateEntry(entry))
+        {
             e.Handled = true;
+        }
     }
 
     private static FileEntryViewModel? FindEntryInVisualTree(DependencyObject? source)
@@ -265,7 +299,9 @@ public sealed partial class FileEntryTableView : UserControl
         while (source is not null)
         {
             if (source is FrameworkElement fe && fe.DataContext is FileEntryViewModel entry)
+            {
                 return entry;
+            }
 
             source = VisualTreeHelper.GetParent(source);
         }
@@ -277,12 +313,16 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive || entry is null)
+        {
             return false;
+        }
 
         host.CurrentItem = entry;
 
         if (host.NavigateIntoCommand.CanExecute(null))
+        {
             host.NavigateIntoCommand.Execute(null);
+        }
 
         return true;
     }
@@ -300,7 +340,9 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive)
+        {
             return;
+        }
 
         var ctrl = IsModifierDown(VirtualKey.Control);
 
@@ -321,7 +363,9 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive)
+        {
             return;
+        }
 
         var ctrl = IsModifierDown(VirtualKey.Control);
 
@@ -396,7 +440,9 @@ public sealed partial class FileEntryTableView : UserControl
 
             case VirtualKey.Escape:
                 if (host.SelectedCount > 0)
+                {
                     host.ClearSelectionCommand.Execute(null);
+                }
                 else
                     host.ClearIncrementalSearch();
                 e.Handled = true;
@@ -420,14 +466,18 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null)
+        {
             return;
+        }
 
         _syncingSelection = true;
         try
         {
             FileTable.SelectedItems.Clear();
-            foreach (var item in host.Items.Where(i => i.IsSelected))
-                FileTable.SelectedItems.Add(item);
+        foreach (var item in host.Items.Where(static i => i.IsSelected))
+        {
+            FileTable.SelectedItems.Add(item);
+        }
         }
         finally
         {

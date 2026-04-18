@@ -23,7 +23,9 @@ public sealed partial class FavouritesDialogViewModel : ObservableObject
     {
         var item = Favourites.FirstOrDefault(f => f.Id == id);
         if (item is not null)
+        {
             Favourites.Remove(item);
+        }
 
         FavouriteRemoved?.Invoke(id);
     }

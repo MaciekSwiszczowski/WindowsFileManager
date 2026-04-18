@@ -16,7 +16,9 @@ public sealed class WinUiDialogService : IDialogService
         int itemCount, bool includesDirectories, CancellationToken ct)
     {
         if (XamlRoot is null)
+        {
             return false;
+        }
 
         var message = includesDirectories
             ? $"Permanently delete {itemCount} item(s) including directories?"
@@ -39,7 +41,9 @@ public sealed class WinUiDialogService : IDialogService
     public async Task<string?> ShowCreateFolderDialogAsync(CancellationToken ct)
     {
         if (XamlRoot is null)
+        {
             return null;
+        }
 
         var textBox = new TextBox { PlaceholderText = "Folder name" };
 
@@ -55,7 +59,9 @@ public sealed class WinUiDialogService : IDialogService
 
         var result = await dialog.ShowAsync();
         if (result != ContentDialogResult.Primary)
+        {
             return null;
+        }
 
         var name = textBox.Text.Trim();
         return name.Length > 0 ? name : null;
@@ -64,7 +70,9 @@ public sealed class WinUiDialogService : IDialogService
     public async Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct)
     {
         if (XamlRoot is null)
+        {
             return null;
+        }
 
         var textBox = new TextBox { Text = currentName };
         textBox.SelectAll();
@@ -81,7 +89,9 @@ public sealed class WinUiDialogService : IDialogService
 
         var result = await dialog.ShowAsync();
         if (result != ContentDialogResult.Primary)
+        {
             return null;
+        }
 
         var name = textBox.Text.Trim();
         return name.Length > 0 && name != currentName ? name : null;
@@ -91,7 +101,9 @@ public sealed class WinUiDialogService : IDialogService
         NormalizedPath sourcePath, NormalizedPath destinationPath, CancellationToken ct)
     {
         if (XamlRoot is null)
+        {
             return CollisionPolicy.Cancel;
+        }
 
         var content = new StackPanel { Spacing = 8 };
         content.Children.Add(new TextBlock
@@ -133,7 +145,9 @@ public sealed class WinUiDialogService : IDialogService
 
         var result = await dialog.ShowAsync();
         if (result != ContentDialogResult.Primary)
+        {
             return CollisionPolicy.Cancel;
+        }
 
         return combo.SelectedIndex switch
         {
@@ -150,7 +164,9 @@ public sealed class WinUiDialogService : IDialogService
     public async Task ShowOperationResultAsync(OperationSummary summary, CancellationToken ct)
     {
         if (XamlRoot is null)
+        {
             return;
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine($"Operation: {summary.Type}");
@@ -160,7 +176,9 @@ public sealed class WinUiDialogService : IDialogService
         sb.AppendLine($"Total: {summary.TotalItems}  |  Succeeded: {summary.SucceededCount}  |  Failed: {summary.FailedCount}  |  Skipped: {summary.SkippedCount}");
 
         if (summary.WasCancelled)
+        {
             sb.AppendLine("Operation was cancelled.");
+        }
 
         var failedItems = summary.ItemResults.Where(r => !r.Succeeded).ToList();
         if (failedItems.Count > 0)
@@ -171,11 +189,15 @@ public sealed class WinUiDialogService : IDialogService
             {
                 sb.AppendLine($"  {item.SourcePath.DisplayPath}");
                 if (item.Error is not null)
+                {
                     sb.AppendLine($"    {item.Error.Message}");
+                }
             }
 
             if (failedItems.Count > 20)
+            {
                 sb.AppendLine($"  ... and {failedItems.Count - 20} more");
+            }
         }
 
         if (!string.IsNullOrEmpty(summary.Message))

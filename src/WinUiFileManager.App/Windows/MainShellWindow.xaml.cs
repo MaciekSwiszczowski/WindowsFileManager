@@ -20,7 +20,9 @@ public sealed partial class MainShellWindow : Window
         appWindow.Closing += OnAppWindowClosing;
 
         if (Content is FrameworkElement root)
+        {
             root.RequestedTheme = ElementTheme.Dark;
+        }
 
         ApplyTitleBarTheme(isDark: true);
 
@@ -34,7 +36,9 @@ public sealed partial class MainShellWindow : Window
     private void OnShellViewLoaded(object sender, RoutedEventArgs e)
     {
         if (_initialized)
+        {
             return;
+        }
         _initialized = true;
 
         var services = App.Services;
@@ -54,14 +58,18 @@ public sealed partial class MainShellWindow : Window
             async () =>
             {
                 if (_viewModel is not null)
+                {
                     await _viewModel.InitializeAsync();
+                }
             });
     }
 
     private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
     {
         if (_statePersisted || _viewModel is null)
+        {
             return;
+        }
 
         args.Cancel = true;
         _statePersisted = true;
@@ -79,7 +87,9 @@ public sealed partial class MainShellWindow : Window
     public void ToggleTheme()
     {
         if (Content is not FrameworkElement root)
+        {
             return;
+        }
 
         var newTheme = root.ActualTheme == ElementTheme.Dark
             ? ElementTheme.Light

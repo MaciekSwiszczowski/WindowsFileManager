@@ -47,14 +47,14 @@ public sealed class WindowsFileOperationService : IFileOperationService
                     plan.Type,
                     OperationStatus.Failed,
                     plan.Items.Count,
-                    SucceededCount: 0,
-                    FailedCount: plan.Items.Count,
-                    WarningCount: 0,
-                    SkippedCount: 0,
-                    WasCancelled: false,
+                    0,
+                    plan.Items.Count,
+                    0,
+                    0,
+                    false,
                     stopwatch.Elapsed,
-                    ItemResults: [],
-                    Message: $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
+                    [],
+                    $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
             }
         }
 
@@ -89,22 +89,22 @@ public sealed class WindowsFileOperationService : IFileOperationService
         stopwatch.Stop();
 
         var itemResults = results.ToList();
-        var succeeded = itemResults.Count(r => r.Succeeded);
-        var failed = itemResults.Count(r => !r.Succeeded);
-        var warnings = itemResults.Count(r => r.Warning is not null);
+        var succeeded = itemResults.Count(static r => r.Succeeded);
+        var failed = itemResults.Count(static r => !r.Succeeded);
+        var warnings = itemResults.Count(static r => r.Warning is not null);
 
         return new OperationSummary(
-            Type: plan.Type,
-            Status: DetermineStatus(succeeded, failed, warnings, wasCancelled),
-            TotalItems: plan.Items.Count,
-            SucceededCount: succeeded,
-            FailedCount: failed,
-            WarningCount: warnings,
-            SkippedCount: plan.Items.Count - succeeded - failed,
-            WasCancelled: wasCancelled,
-            Duration: stopwatch.Elapsed,
-            ItemResults: itemResults,
-            Message: null);
+            plan.Type,
+            DetermineStatus(succeeded, failed, warnings, wasCancelled),
+            plan.Items.Count,
+            succeeded,
+            failed,
+            warnings,
+            plan.Items.Count - succeeded - failed,
+            wasCancelled,
+            stopwatch.Elapsed,
+            itemResults,
+            null);
     }
 
     private async Task<int> ExecuteParallelAsync(
@@ -126,7 +126,9 @@ public sealed class WindowsFileOperationService : IFileOperationService
             foreach (var item in plan.Items)
             {
                 if (item.Kind != ItemKind.Directory)
+                {
                     continue;
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
                 var dirResult = ExecuteItem(plan.Type, item);
@@ -136,7 +138,7 @@ public sealed class WindowsFileOperationService : IFileOperationService
             }
 
             await Parallel.ForEachAsync(
-                plan.Items.Where(i => i.Kind == ItemKind.File),
+                plan.Items.Where(static i => i.Kind == ItemKind.File),
                 parallelOptions,
                 (item, _) =>
                 {
@@ -224,9 +226,9 @@ public sealed class WindowsFileOperationService : IFileOperationService
             return new OperationItemResult(
                 item.SourcePath,
                 item.DestinationPath,
-                Succeeded: true,
-                Error: null,
-                Warning: null);
+                true,
+                null,
+                null);
         }
 
         _logger.LogError(
@@ -242,9 +244,9 @@ public sealed class WindowsFileOperationService : IFileOperationService
         return new OperationItemResult(
             item.SourcePath,
             item.DestinationPath,
-            Succeeded: false,
-            Error: error,
-            Warning: null);
+            false,
+            error,
+            null);
     }
 
     private void CleanupMoveSourceDirectories(
@@ -252,13 +254,13 @@ public sealed class WindowsFileOperationService : IFileOperationService
         ConcurrentBag<OperationItemResult> results)
     {
         var failedPaths = new HashSet<string>(
-            results.Where(r => !r.Succeeded).Select(r => r.SourcePath.DisplayPath),
+            results.Where(static r => !r.Succeeded).Select(static r => r.SourcePath.DisplayPath),
             StringComparer.OrdinalIgnoreCase);
 
         var directoriesToRemove = plan.Items
             .Where(i => i.Kind == ItemKind.Directory && !failedPaths.Contains(i.SourcePath.DisplayPath))
-            .Select(i => i.SourcePath.DisplayPath)
-            .OrderByDescending(p => p.Length)
+            .Select(static i => i.SourcePath.DisplayPath)
+            .OrderByDescending(static p => p.Length)
             .ToList();
 
         foreach (var dir in directoriesToRemove)
@@ -266,7 +268,9 @@ public sealed class WindowsFileOperationService : IFileOperationService
             try
             {
                 if (Directory.Exists(dir))
+                {
                     Directory.Delete(dir, recursive: false);
+                }
             }
             catch (Exception ex)
             {
@@ -284,10 +288,10 @@ public sealed class WindowsFileOperationService : IFileOperationService
             plan.Type,
             plan.Items.Count,
             completedCount,
-            TotalBytes: 0,
-            CompletedBytes: 0,
-            CurrentItemPath: null,
-            StatusMessage: null));
+            0,
+            0,
+            null,
+            null));
     }
 
     private static OperationStatus DetermineStatus(

@@ -123,7 +123,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             if (completedTask != fileIdTask)
             {
                 if (currentVersion != _selectionVersion || loadToken.IsCancellationRequested)
+                {
                     return;
+                }
 
                 FileId = "Unavailable";
                 return;
@@ -131,7 +133,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
 
             var fileId = await fileIdTask;
             if (currentVersion != _selectionVersion)
+            {
                 return;
+            }
 
             FileId = fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
         }
@@ -143,7 +147,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         {
             _logger.LogWarning(ex, "Failed to load FileId for {Path}", entry.Model.FullPath.DisplayPath);
             if (currentVersion == _selectionVersion)
+            {
                 FileId = "Unavailable";
+            }
         }
         finally
         {
@@ -154,7 +160,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             }
 
             if (currentVersion == _selectionVersion)
+            {
                 IsLoadingDetails = false;
+            }
         }
     }
 
@@ -162,7 +170,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
     private async Task CopyAllAsync()
     {
         if (!HasItem)
+        {
             return;
+        }
 
         var builder = new StringBuilder();
         AppendLine(builder, "Name", Name);
@@ -210,7 +220,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
     private void CancelPendingLoad()
     {
         if (_loadCancellation is null)
+        {
             return;
+        }
 
         _loadCancellation.Cancel();
         _loadCancellation.Dispose();
@@ -241,7 +253,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
     private static string FormatSize(long sizeBytes)
     {
         if (sizeBytes < 0)
+        {
             return string.Empty;
+        }
 
         string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
         var suffixIndex = 0;

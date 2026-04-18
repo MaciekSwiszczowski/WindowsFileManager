@@ -144,7 +144,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
 
         var nestedSourceDirs = EnumerateDirectoriesRecursive(sourceDir)
             .OrderBy(d => Path.GetRelativePath(sourceDir, d).Length)
-            .ThenBy(d => d, StringComparer.OrdinalIgnoreCase);
+            .ThenBy(static d => d, StringComparer.OrdinalIgnoreCase);
 
         foreach (var subSourceDir in nestedSourceDirs)
         {
@@ -188,7 +188,7 @@ public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
         }
 
         var subdirs = EnumerateDirectoriesRecursive(directoryPath)
-            .OrderByDescending(d => d.Length)
+            .OrderByDescending(static d => d.Length)
             .ToList();
 
         foreach (var dir in subdirs)

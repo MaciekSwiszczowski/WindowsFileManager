@@ -1,3 +1,4 @@
+using System.Reactive.Concurrency;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Abstractions;
@@ -8,10 +9,14 @@ public interface IFileSystemService
         NormalizedPath path,
         CancellationToken cancellationToken);
 
-    IAsyncEnumerable<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryBatchesAsync(
+    /// <summary>
+    /// Emits each file-system entry of the directory as a cold observable. Enumeration is
+    /// scheduled on <paramref name="scheduler"/>, so callers can keep the work off the UI
+    /// thread and compose their own buffering/throttling/observe-on pipelines on top.
+    /// </summary>
+    IObservable<FileSystemEntryModel> ObserveDirectoryEntries(
         NormalizedPath path,
-        int initialBatchSize,
-        int batchSize,
+        IScheduler scheduler,
         CancellationToken cancellationToken);
 
     Task<FileSystemEntryModel?> GetEntryAsync(
@@ -21,6 +26,4 @@ public interface IFileSystemService
     Task<bool> ExistsAsync(NormalizedPath path, CancellationToken cancellationToken);
 
     Task<bool> DirectoryExistsAsync(NormalizedPath path, CancellationToken cancellationToken);
-
-    IDisposable WatchDirectory(NormalizedPath path, Action onChanged);
 }

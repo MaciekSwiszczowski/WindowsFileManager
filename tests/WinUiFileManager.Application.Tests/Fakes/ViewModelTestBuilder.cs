@@ -1,6 +1,8 @@
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Infrastructure.FileSystem;
+using WinUiFileManager.Infrastructure.Scheduling;
 using WinUiFileManager.Presentation.ViewModels;
 using WinUiFileManager.Application.Abstractions;
 
@@ -23,6 +25,9 @@ public sealed class ViewModelTestBuilder
 
         var fsService = new WindowsFileSystemService(
             pathService, NullLogger<WindowsFileSystemService>.Instance);
+        var changeStream = new WindowsDirectoryChangeStream(
+            NullLogger<WindowsDirectoryChangeStream>.Instance);
+        var schedulers = new RxSchedulerProvider();
         var fileIdentityService = new NtfsFileIdentityService(new FileIdentityInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
@@ -56,10 +61,10 @@ public sealed class ViewModelTestBuilder
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
         var leftPane = new FilePaneViewModel(
-            openEntry, fsService, volumePolicy, pathService,
+            openEntry, fsService, changeStream, schedulers, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
         var rightPane = new FilePaneViewModel(
-            openEntry, fsService, volumePolicy, pathService,
+            openEntry, fsService, changeStream, schedulers, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
         var inspector = new FileInspectorViewModel(
             fileIdentityService,

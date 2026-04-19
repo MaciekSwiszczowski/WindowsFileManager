@@ -7,6 +7,7 @@ $repoRoot = Split-Path -Parent $PSScriptRoot
 $toolPath = Join-Path $repoRoot '.tools\dotnet-coverage.exe'
 $resultsRoot = Join-Path $repoRoot 'TestResults\Coverage'
 $summaryPath = Join-Path $resultsRoot 'coverage-summary.json'
+$solutionPath = Join-Path $repoRoot 'WinUiFileManager.sln'
 
 $excludedFileNames = @(
     'SelectionSet.cs',
@@ -18,17 +19,20 @@ $testRuns = @(
     @{
         Name = 'Application'
         ResultsDirectory = Join-Path $resultsRoot 'Application'
-        TestExe = Join-Path $repoRoot 'tests\WinUiFileManager.Application.Tests\bin\x64\Debug\net10.0-windows10.0.19041.0\WinUiFileManager.Application.Tests.exe'
+        ProjectPath = Join-Path $repoRoot 'tests\WinUiFileManager.Application.Tests\WinUiFileManager.Application.Tests.csproj'
+        AssemblyName = 'WinUiFileManager.Application.Tests'
     },
     @{
         Name = 'Infrastructure'
         ResultsDirectory = Join-Path $resultsRoot 'Infrastructure'
-        TestExe = Join-Path $repoRoot 'tests\WinUiFileManager.Infrastructure.Tests\bin\x64\Debug\net10.0-windows10.0.19041.0\WinUiFileManager.Infrastructure.Tests.exe'
+        ProjectPath = Join-Path $repoRoot 'tests\WinUiFileManager.Infrastructure.Tests\WinUiFileManager.Infrastructure.Tests.csproj'
+        AssemblyName = 'WinUiFileManager.Infrastructure.Tests'
     },
     @{
         Name = 'Interop'
         ResultsDirectory = Join-Path $resultsRoot 'Interop'
-        TestExe = Join-Path $repoRoot 'tests\WinUiFileManager.Interop.Tests\bin\x64\Debug\net10.0-windows10.0.19041.0\WinUiFileManager.Interop.Tests.exe'
+        ProjectPath = Join-Path $repoRoot 'tests\WinUiFileManager.Interop.Tests\WinUiFileManager.Interop.Tests.csproj'
+        AssemblyName = 'WinUiFileManager.Interop.Tests'
     }
 )
 
@@ -39,6 +43,70 @@ function Ensure-CoverageTool {
 
     New-Item -ItemType Directory -Path (Split-Path -Parent $toolPath) -Force | Out-Null
     & dotnet tool install --tool-path (Split-Path -Parent $toolPath) dotnet-coverage
+}
+
+function Invoke-CheckedCommand {
+    param(
+        [Parameter(Mandatory)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory)]
+        [string[]]$ArgumentList,
+
+        [string]$FailureMessage = 'Command failed.'
+    )
+
+    $commandOutput = & $FilePath @ArgumentList 2>&1
+    foreach ($line in @($commandOutput)) {
+        Write-Host $line
+    }
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "$FailureMessage Exit code: $LASTEXITCODE"
+    }
+}
+
+function Resolve-TestExecutable {
+    param(
+        [Parameter(Mandatory)]
+        [hashtable]$Run
+    )
+
+    $projectDirectory = Split-Path -Parent $Run.ProjectPath
+    $binDirectory = Join-Path $projectDirectory 'bin'
+
+    $candidateExecutables = @(
+        Get-ChildItem -Path $binDirectory -Recurse -File -Filter "$($Run.AssemblyName).exe" -ErrorAction SilentlyContinue |
+            Sort-Object -Property LastWriteTimeUtc, FullName -Descending
+    )
+
+    if ($candidateExecutables.Count -eq 0) {
+        throw "Coverage collection cannot continue because the test executable for $($Run.Name) was not produced under $binDirectory."
+    }
+
+    return $candidateExecutables[0].FullName
+}
+
+function Ensure-BuildArtifacts {
+    New-Item -ItemType Directory -Path $resultsRoot -Force | Out-Null
+
+    Invoke-CheckedCommand `
+        -FilePath 'dotnet' `
+        -ArgumentList @(
+            'build'
+            $solutionPath
+            '-v'
+            'minimal'
+            '-nologo'
+            '-m:1'
+            '/nodeReuse:false'
+            '-p:NuGetAudit=false'
+        ) `
+        -FailureMessage 'Solution build failed before coverage collection.'
+
+    foreach ($run in $testRuns) {
+        $run.TestExe = Resolve-TestExecutable -Run $run
+    }
 }
 
 function Collect-Coverage {
@@ -63,15 +131,34 @@ function Collect-Coverage {
         '--nologo'
     )
 
-    & $toolPath @arguments
+    if (-not (Test-Path $Run.TestExe)) {
+        throw "Missing test executable for $($Run.Name): $($Run.TestExe)"
+    }
+
+    if (Test-Path $outputPath) {
+        Remove-Item -LiteralPath $outputPath -Force
+    }
+
+    Invoke-CheckedCommand -FilePath $toolPath -ArgumentList $arguments -FailureMessage "Coverage collection failed for $($Run.Name)."
+
+    if (-not (Test-Path $outputPath)) {
+        throw "Coverage collection did not produce an output file for $($Run.Name): $outputPath"
+    }
+
     return $outputPath
 }
 
 function Get-FileCoverageRows {
     param(
-        [Parameter(Mandatory)]
-        [string[]]$CoverageFiles
+        [AllowEmptyCollection()]
+        [AllowEmptyString()]
+        [string[]]$CoverageFiles = @()
     )
+
+    $CoverageFiles = @($CoverageFiles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path $_) })
+    if ($CoverageFiles.Count -eq 0) {
+        throw 'No coverage files were produced. Build and collection must succeed before coverage can be summarized.'
+    }
 
     $rows = @{}
 
@@ -157,10 +244,15 @@ function Get-CoverageSummary {
 Push-Location $repoRoot
 try {
     Ensure-CoverageTool
+    Ensure-BuildArtifacts
 
     $coverageFiles = foreach ($run in $testRuns) {
-        Collect-Coverage -Run $run
+        $coverageFile = Collect-Coverage -Run $run
+        if (-not [string]::IsNullOrWhiteSpace($coverageFile)) {
+            $coverageFile
+        }
     }
+    $coverageFiles = @($coverageFiles | Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path $_) })
 
     $coverageRows = @(Get-FileCoverageRows -CoverageFiles $coverageFiles)
     $summary = Get-CoverageSummary -CoverageRows $coverageRows

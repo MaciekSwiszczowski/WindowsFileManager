@@ -118,6 +118,16 @@ The application must support:
 - switch active panel
 - preserve per-panel navigation state independently
 
+Panel content must stay in sync with the underlying folder automatically: each
+active pane subscribes to a directory-change stream (`IDirectoryChangeStream`)
+for its current folder. Events are coalesced in a background-scheduled buffer
+window and committed to the pane's `DynamicData.SourceCache` as a single edit
+per window, with only the final bind step observed on the UI thread. The
+schedulers are resolved from `ISchedulerProvider` so tests can substitute a
+`TestScheduler` for deterministic coverage. After bulk copy/move/delete
+operations the shell must not issue an additional pane refresh — the stream is
+the single source of truth for live updates.
+
 Optional but recommended in v1:
 - remember last path per panel on application restart
 
@@ -564,6 +574,7 @@ The system must not rely on UI automation for the main correctness guarantee.
 - reject non-NTFS path
 - refresh after external changes
 - refresh when the current directory was deleted externally and the pane must fall back to the highest existing ancestor
+- directory-change stream coalesces bursty external events into batched pane updates using the injected `ISchedulerProvider`, verified with `TestScheduler`
 
 #### Copy
 - single file copy

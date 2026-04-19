@@ -1,5 +1,8 @@
 using System.IO.Enumeration;
-using System.Runtime.CompilerServices;
+using System.Reactive.Concurrency;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -8,13 +11,11 @@ using WinUiFileManager.Domain.ValueObjects;
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
 /// <summary>
-/// Enumerates directory contents, maps file-system metadata into entry models, and exposes
-/// lightweight active-folder watch subscriptions for pane refresh.
+/// Enumerates directory contents and maps file-system metadata into entry models.
+/// Active-folder change notifications live in <see cref="WindowsDirectoryChangeStream"/>.
 /// </summary>
 public sealed class WindowsFileSystemService : IFileSystemService
 {
-    private const int DefaultBatchSize = 512;
-
     private static readonly EnumerationOptions EnumerationOptions = new()
     {
         AttributesToSkip = 0,
@@ -36,61 +37,65 @@ public sealed class WindowsFileSystemService : IFileSystemService
         NormalizedPath path,
         CancellationToken cancellationToken)
     {
-        var entries = new List<FileSystemEntryModel>();
-
-        await foreach (var batch in EnumerateDirectoryBatchesAsync(path, DefaultBatchSize, DefaultBatchSize, cancellationToken))
-        {
-            entries.AddRange(batch);
-        }
-
-        return entries;
+        var entries = await ObserveDirectoryEntries(path, Scheduler.Immediate, cancellationToken)
+            .ToList()
+            .ToTask(cancellationToken);
+        return (IReadOnlyList<FileSystemEntryModel>)entries;
     }
 
-    public async IAsyncEnumerable<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryBatchesAsync(
+    public IObservable<FileSystemEntryModel> ObserveDirectoryEntries(
         NormalizedPath path,
-        int initialBatchSize,
-        int batchSize,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
+        IScheduler scheduler,
+        CancellationToken cancellationToken)
     {
-        if (!Directory.Exists(path.DisplayPath))
+        ArgumentNullException.ThrowIfNull(scheduler);
+
+        return Observable.Create<FileSystemEntryModel>(observer =>
         {
-            _logger.LogWarning("Directory does not exist: {Path}", path.DisplayPath);
-            yield break;
-        }
+            var unsubscribe = new CancellationDisposable();
+            var linked = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, unsubscribe.Token);
 
-        if (initialBatchSize <= 0)
+            var scheduled = scheduler.Schedule(() => PumpEntries(path, linked.Token, observer));
+
+            return new CompositeDisposable(scheduled, unsubscribe, linked);
+        });
+    }
+
+    private void PumpEntries(
+        NormalizedPath path,
+        CancellationToken cancellationToken,
+        IObserver<FileSystemEntryModel> observer)
+    {
+        try
         {
-            initialBatchSize = DefaultBatchSize;
-        }
-
-        if (batchSize <= 0)
-        {
-            batchSize = DefaultBatchSize;
-        }
-
-        var targetBatchSize = initialBatchSize;
-        var batch = new List<FileSystemEntryModel>(targetBatchSize);
-
-        foreach (var entry in CreateDirectoryEnumerable(path.DisplayPath))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            batch.Add(entry);
-
-            if (batch.Count < targetBatchSize)
+            if (!Directory.Exists(path.DisplayPath))
             {
-                continue;
+                _logger.LogWarning("Directory does not exist: {Path}", path.DisplayPath);
+                observer.OnCompleted();
+                return;
             }
 
-            yield return batch;
-            targetBatchSize = batchSize;
-            batch = new List<FileSystemEntryModel>(targetBatchSize);
+            foreach (var entry in CreateDirectoryEnumerable(path.DisplayPath))
+            {
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    observer.OnCompleted();
+                    return;
+                }
 
-            await Task.Yield();
+                observer.OnNext(entry);
+            }
+
+            observer.OnCompleted();
         }
-
-        if (batch.Count > 0)
+        catch (OperationCanceledException)
         {
-            yield return batch;
+            observer.OnCompleted();
+        }
+        catch (Exception ex)
+        {
+            observer.OnError(ex);
         }
     }
 
@@ -131,19 +136,6 @@ public sealed class WindowsFileSystemService : IFileSystemService
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Task.FromResult(Directory.Exists(path.DisplayPath));
-    }
-
-    public IDisposable WatchDirectory(NormalizedPath path, Action onChanged)
-    {
-        ArgumentNullException.ThrowIfNull(onChanged);
-
-        if (!Directory.Exists(path.DisplayPath))
-        {
-            _logger.LogDebug("Skipping directory watcher for missing path: {Path}", path.DisplayPath);
-            return NullDisposable.Instance;
-        }
-
-        return new ResilientDirectoryWatcher(path.DisplayPath, onChanged, _logger);
     }
 
     private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)

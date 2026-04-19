@@ -502,8 +502,12 @@ Opening a file must not disturb pane state.
 - missing selected items are removed from selection
 - inactive pane unchanged unless explicitly refreshed too
 
+### Note: passive (stream-driven) updates
+- routine pane updates after copy/move/delete or any external change happen automatically through the directory-change stream and do not require `Ctrl+R`
+- `Ctrl+R` remains available as an explicit "rebuild from disk" action (e.g. after removable media changes) and is the only refresh that restores the current-item by name
+
 ### Special case: current directory deleted externally
-- if the pane's current directory no longer exists, refresh rolls back to the highest existing ancestor directory
+- if the pane's current directory no longer exists, the refresh (or a stream-invalidation event) rolls back to the highest existing ancestor directory
 - focus remains in the launching pane list
 - active pane does not change
 

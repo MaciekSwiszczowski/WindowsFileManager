@@ -1,3 +1,6 @@
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
 using TUnit.Core;
 using WinUiFileManager.Domain.Enums;
@@ -136,19 +139,69 @@ public sealed class WindowsFileSystemServiceTests
     }
 
     [Test]
-    public async Task Test_WatchDirectory_RaisesChangeCallback_ForCreatedFile()
+    public async Task Test_ObserveDirectoryEntries_EmitsEachEntryAndCompletes()
     {
+        // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
+        fixture.CreateFile("alpha.txt");
+        fixture.CreateFile("beta.log");
+        fixture.CreateDirectory("gamma");
         var sut = CreateService();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
-        using var changed = new ManualResetEventSlim(false);
-        using var subscription = sut.WatchDirectory(path, () => changed.Set());
 
-        fixture.CreateFile("watched.txt", sizeInBytes: 32);
+        // Act
+        var entries = await sut
+            .ObserveDirectoryEntries(path, Scheduler.Immediate, CancellationToken.None)
+            .ToList()
+            .ToTask();
 
-        var signaled = await Task.Run(() => changed.Wait(TimeSpan.FromSeconds(5)));
+        // Assert
+        await Assert.That(entries.Count).IsEqualTo(3);
+        await Assert.That(entries.Any(e => e.Name == "alpha.txt")).IsTrue();
+        await Assert.That(entries.Any(e => e.Name == "beta.log")).IsTrue();
+        await Assert.That(entries.Any(e => e.Name == "gamma")).IsTrue();
+    }
 
-        await Assert.That(signaled).IsTrue();
+    [Test]
+    public async Task Test_ObserveDirectoryEntries_MissingDirectory_CompletesWithoutEntries()
+    {
+        // Arrange
+        using var fixture = new NtfsTempDirectoryFixture();
+        var sut = CreateService();
+        var path = NormalizedPath.FromUserInput(Path.Combine(fixture.RootPath, "does-not-exist"));
+
+        // Act
+        var entries = await sut
+            .ObserveDirectoryEntries(path, Scheduler.Immediate, CancellationToken.None)
+            .ToList()
+            .ToTask();
+
+        // Assert
+        await Assert.That(entries.Count).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task Test_ObserveDirectoryEntries_HonorsCancellation()
+    {
+        // Arrange
+        using var fixture = new NtfsTempDirectoryFixture();
+        for (var i = 0; i < 200; i++)
+        {
+            fixture.CreateFile($"file{i:D3}.dat");
+        }
+        var sut = CreateService();
+        var path = NormalizedPath.FromUserInput(fixture.RootPath);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // Act
+        var entries = await sut
+            .ObserveDirectoryEntries(path, Scheduler.Immediate, cts.Token)
+            .ToList()
+            .ToTask();
+
+        // Assert
+        await Assert.That(entries.Count).IsEqualTo(0);
     }
 
     private static WindowsFileSystemService CreateService()

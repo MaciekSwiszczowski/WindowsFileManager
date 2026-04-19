@@ -183,8 +183,7 @@ public sealed partial class MainShellViewModel : ObservableObject
                     CollisionPolicy.Ask,
                     parallelOptions,
                     progress,
-                    cancellationToken),
-                refreshInactivePane: true);
+                    cancellationToken));
         }
         catch (Exception ex)
         {
@@ -227,8 +226,7 @@ public sealed partial class MainShellViewModel : ObservableObject
                     CollisionPolicy.Ask,
                     parallelOptions,
                     progress,
-                    cancellationToken),
-                refreshInactivePane: true);
+                    cancellationToken));
         }
         catch (Exception ex)
         {
@@ -267,8 +265,7 @@ public sealed partial class MainShellViewModel : ObservableObject
                 (progress, cancellationToken) => _deleteHandler.ExecuteAsync(
                     items,
                     progress,
-                    cancellationToken),
-                refreshInactivePane: false);
+                    cancellationToken));
         }
         catch (Exception ex)
         {
@@ -560,8 +557,7 @@ public sealed partial class MainShellViewModel : ObservableObject
 
     private async Task RunTrackedOperationAsync(
         OperationType operationType,
-        Func<IProgress<OperationProgressEvent>, CancellationToken, Task<OperationSummary>> executeAsync,
-        bool refreshInactivePane)
+        Func<IProgress<OperationProgressEvent>, CancellationToken, Task<OperationSummary>> executeAsync)
     {
         OperationProgress.Start(operationType);
         var progressDialog = await _dialogService.ShowOperationProgressAsync(
@@ -585,13 +581,12 @@ public sealed partial class MainShellViewModel : ObservableObject
             await progressDialog.CloseAsync(CancellationToken.None);
 
             await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
 
-            if (refreshInactivePane)
-            {
-                await InactivePane.RefreshCommand.ExecuteAsync(null);
-            }
-
+            // Pane content is kept in sync by the active-folder directory change stream
+            // (WindowsDirectoryChangeStream + the pane's Rx pipeline). No explicit refresh
+            // is needed here: the self-inflicted watcher events coalesce into a few
+            // buffered batches on a background scheduler while we were showing the result
+            // dialog, and each batch commits a single SourceCache edit on the UI thread.
             FocusActivePaneRequested?.Invoke();
         }
         finally

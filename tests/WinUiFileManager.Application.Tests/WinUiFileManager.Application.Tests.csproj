@@ -14,5 +14,6 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Reactive.Testing" />
   </ItemGroup>
 </Project>

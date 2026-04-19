@@ -5,6 +5,7 @@ using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Logging;
 using WinUiFileManager.Infrastructure.Persistence;
 using WinUiFileManager.Infrastructure.Planning;
+using WinUiFileManager.Infrastructure.Scheduling;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
 
@@ -20,7 +21,9 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<INtfsVolumePolicyService, NtfsVolumePolicyService>();
         services.AddSingleton<IPathNormalizationService, WindowsPathNormalizationService>();
+        services.AddSingleton<ISchedulerProvider, RxSchedulerProvider>();
         services.AddSingleton<IFileSystemService, WindowsFileSystemService>();
+        services.AddSingleton<IDirectoryChangeStream, WindowsDirectoryChangeStream>();
         services.AddSingleton<IFileIdentityService, NtfsFileIdentityService>();
         services.AddSingleton<IFileOperationService, WindowsFileOperationService>();
         services.AddSingleton<IFileOperationPlanner, WindowsFileOperationPlanner>();

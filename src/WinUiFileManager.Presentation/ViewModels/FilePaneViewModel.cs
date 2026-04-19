@@ -535,7 +535,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 continue;
             }
 
-            if (change.Kind == DirectoryChangeKind.Renamed && change.OldPath is { } oldPath)
+            if (change is { Kind: DirectoryChangeKind.Renamed, OldPath: { } oldPath })
             {
                 removedPaths.Add(oldPath.DisplayPath);
                 perPath.Remove(oldPath.DisplayPath);
@@ -712,7 +712,10 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private static string? GetParentPath(string path)
     {
         var trimmedPath = path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        if (trimmedPath.Length == 2 && trimmedPath[1] == ':')
+        if (trimmedPath is
+            [
+                _, ':'
+            ])
         {
             return null;
         }

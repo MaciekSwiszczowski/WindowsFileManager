@@ -54,6 +54,27 @@ public sealed partial class FileInspectorViewModel : ObservableObject
     [ObservableProperty]
     public partial string FileId { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial string InUse { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string LockBy { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string LockPid { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string LockSvc { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Usage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CanSw { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string CanCls { get; set; } = string.Empty;
+
     public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
 
     public Visibility EmptyStateVisibility => HasItem ? Visibility.Collapsed : Visibility.Visible;
@@ -119,8 +140,18 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             StatusMessage = string.Empty;
 
             var fileIdTask = _fileIdentityService.GetFileIdAsync(entry.Model.FullPath.DisplayPath, loadToken);
-            var completedTask = await Task.WhenAny(fileIdTask, Task.Delay(TimeSpan.FromSeconds(5), loadToken));
-            if (completedTask != fileIdTask)
+            var lockDiagnosticsTask = _fileIdentityService.GetLockDiagnosticsAsync(entry.Model.FullPath.DisplayPath, loadToken);
+
+            var fileIdLoaded = await TryApplyWithTimeoutAsync(
+                fileIdTask,
+                TimeSpan.FromSeconds(5),
+                loadToken,
+                fileId =>
+                {
+                    FileId = fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
+                });
+
+            if (!fileIdLoaded)
             {
                 if (currentVersion != _selectionVersion || loadToken.IsCancellationRequested)
                 {
@@ -128,16 +159,29 @@ public sealed partial class FileInspectorViewModel : ObservableObject
                 }
 
                 FileId = "Unavailable";
-                return;
             }
 
-            var fileId = await fileIdTask;
-            if (currentVersion != _selectionVersion)
+            var lockDiagnosticsLoaded = await TryApplyWithTimeoutAsync(
+                lockDiagnosticsTask,
+                TimeSpan.FromSeconds(5),
+                loadToken,
+                PopulateLockDiagnosticsFields);
+
+            if (!lockDiagnosticsLoaded)
             {
-                return;
-            }
+                if (currentVersion != _selectionVersion || loadToken.IsCancellationRequested)
+                {
+                    return;
+                }
 
-            FileId = fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
+                InUse = "N/A";
+                LockBy = "N/A";
+                LockPid = "N/A";
+                LockSvc = "N/A";
+                Usage = "N/A";
+                CanSw = "N/A";
+                CanCls = "N/A";
+            }
         }
         catch (OperationCanceledException)
         {
@@ -184,6 +228,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         AppendLine(builder, "Last Write Time (UTC)", LastWriteTimeUtc);
         AppendLine(builder, "Attributes", Attributes);
         AppendLine(builder, "NTFS File/Folder ID", FileId);
+        AppendLine(builder, "In Use", InUse);
+        AppendLine(builder, "Locked By", LockBy);
+        AppendLine(builder, "Lock PIDs", LockPid);
+        AppendLine(builder, "Lock Services", LockSvc);
+        AppendLine(builder, "Usage", Usage);
+        AppendLine(builder, "Can Switch To", CanSw);
+        AppendLine(builder, "Can Close", CanCls);
 
         await _clipboardService.SetTextAsync(builder.ToString().TrimEnd(), CancellationToken.None);
     }
@@ -215,6 +266,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         LastWriteTimeUtc = FormatUtc(entry.LastWriteTimeUtc);
         Attributes = entry.Attributes;
         FileId = "Loading...";
+        InUse = "Loading...";
+        LockBy = "Loading...";
+        LockPid = "Loading...";
+        LockSvc = "Loading...";
+        Usage = "Loading...";
+        CanSw = "Loading...";
+        CanCls = "Loading...";
     }
 
     private void CancelPendingLoad()
@@ -240,6 +298,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         LastWriteTimeUtc = string.Empty;
         Attributes = string.Empty;
         FileId = string.Empty;
+        InUse = string.Empty;
+        LockBy = string.Empty;
+        LockPid = string.Empty;
+        LockSvc = string.Empty;
+        Usage = string.Empty;
+        CanSw = string.Empty;
+        CanCls = string.Empty;
     }
 
     private static void AppendLine(StringBuilder builder, string label, string value) =>
@@ -271,4 +336,39 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             ? $"{size:F0} {suffixes[suffixIndex]}"
             : $"{size:F2} {suffixes[suffixIndex]}";
     }
+
+    private async Task<bool> TryApplyWithTimeoutAsync<T>(
+        Task<T> task,
+        TimeSpan timeout,
+        CancellationToken cancellationToken,
+        Action<T> apply)
+    {
+        var completed = await Task.WhenAny(task, Task.Delay(timeout, cancellationToken));
+        if (completed != task)
+        {
+            return false;
+        }
+
+        apply(await task);
+        return true;
+    }
+
+    private void PopulateLockDiagnosticsFields(FileLockDiagnostics diagnostics)
+    {
+        InUse = FormatBoolean(diagnostics.InUse);
+        LockBy = diagnostics.LockBy.Count == 0 ? "N/A" : string.Join(Environment.NewLine, diagnostics.LockBy);
+        LockPid = diagnostics.LockPids.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockPids);
+        LockSvc = diagnostics.LockServices.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockServices);
+        Usage = string.IsNullOrWhiteSpace(diagnostics.Usage) ? "N/A" : diagnostics.Usage;
+        CanSw = FormatBoolean(diagnostics.CanSwitchTo);
+        CanCls = FormatBoolean(diagnostics.CanClose);
+    }
+
+    private static string FormatBoolean(bool? value) =>
+        value switch
+        {
+            true => "Yes",
+            false => "No",
+            _ => "N/A"
+        };
 }

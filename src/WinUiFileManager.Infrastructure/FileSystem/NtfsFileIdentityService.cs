@@ -25,4 +25,26 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
 
         return Task.FromResult(fileId);
     }
+
+    public Task<FileLockDiagnostics> GetLockDiagnosticsAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var result = _fileIdentityInterop.GetLockDiagnostics(path);
+        if (!result.Success)
+        {
+            return Task.FromResult(FileLockDiagnostics.None);
+        }
+
+        var diagnostics = new FileLockDiagnostics(
+            inUse: result.InUse,
+            lockBy: result.LockBy,
+            lockPids: result.LockPids,
+            lockServices: result.LockServices,
+            usage: result.Usage,
+            canSwitchTo: result.CanSwitchTo,
+            canClose: result.CanClose);
+
+        return Task.FromResult(diagnostics);
+    }
 }

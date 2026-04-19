@@ -57,4 +57,40 @@ public sealed class FileIdentityInteropTests
         await Assert.That(result2.Success).IsTrue();
         await Assert.That(result1.FileId128!.SequenceEqual(result2.FileId128!)).IsFalse();
     }
+
+    [Test]
+    public async Task Test_GetLockDiagnostics_ReturnsResultForExistingFile()
+    {
+        // Arrange
+        using var fixture = new NtfsTempDirectoryFixture();
+        var filePath = fixture.CreateFile("in_use_probe.txt");
+        var sut = new FileIdentityInterop();
+
+        // Act
+        var result = sut.GetLockDiagnostics(filePath);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result.LockBy).IsNotNull();
+        await Assert.That(result.LockPids).IsNotNull();
+        await Assert.That(result.LockServices).IsNotNull();
+    }
+
+    [Test]
+    public async Task Test_GetLockDiagnostics_ReturnsResultForMissingFile()
+    {
+        // Arrange
+        using var fixture = new NtfsTempDirectoryFixture();
+        var missingPath = Path.Combine(fixture.RootPath, "missing-in-use-probe.txt");
+        var sut = new FileIdentityInterop();
+
+        // Act
+        var result = sut.GetLockDiagnostics(missingPath);
+
+        // Assert
+        await Assert.That(result).IsNotNull();
+        await Assert.That(result.LockBy).IsNotNull();
+        await Assert.That(result.LockPids).IsNotNull();
+        await Assert.That(result.LockServices).IsNotNull();
+    }
 }

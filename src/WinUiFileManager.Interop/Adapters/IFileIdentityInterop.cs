@@ -5,4 +5,6 @@ namespace WinUiFileManager.Interop.Adapters;
 public interface IFileIdentityInterop
 {
     FileIdResult GetFileId(string path);
+
+    FileLockDiagnosticsResult GetLockDiagnostics(string path);
 }

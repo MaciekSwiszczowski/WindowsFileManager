@@ -72,6 +72,13 @@
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Name" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Name" />
@@ -100,6 +107,27 @@
 
                         <TextBlock Grid.Row="8" Grid.Column="0" Text="NTFS ID" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="NTFS File/Folder ID" />
                         <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding FileId}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="9" Grid.Column="0" Text="InUse" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Whether the item is currently reported as being used by one or more processes or services." />
+                        <TextBox Grid.Row="9" Grid.Column="1" Text="{Binding InUse}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="10" Grid.Column="0" Text="LockBy" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="List of locking applications and/or services." />
+                        <TextBox Grid.Row="10" Grid.Column="1" Text="{Binding LockBy}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="11" Grid.Column="0" Text="LockPid" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="PIDs of processes reported by Restart Manager." />
+                        <TextBox Grid.Row="11" Grid.Column="1" Text="{Binding LockPid}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="12" Grid.Column="0" Text="LockSvc" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Service short names reported by Restart Manager." />
+                        <TextBox Grid.Row="12" Grid.Column="1" Text="{Binding LockSvc}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="13" Grid.Column="0" Text="Usage" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Usage type from IFileIsInUse when available." />
+                        <TextBox Grid.Row="13" Grid.Column="1" Text="{Binding Usage}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="14" Grid.Column="0" Text="CanSw" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Whether the UI can switch to the locking application's window." />
+                        <TextBox Grid.Row="14" Grid.Column="1" Text="{Binding CanSw}" Style="{StaticResource InspectorValueStyle}" />
+
+                        <TextBlock Grid.Row="15" Grid.Column="0" Text="CanCls" Style="{StaticResource InspectorLabelStyle}" ToolTipService.ToolTip="Whether the locking application can be politely asked to close the file." />
+                        <TextBox Grid.Row="15" Grid.Column="1" Text="{Binding CanCls}" Style="{StaticResource InspectorValueStyle}" />
                     </Grid>
                 </StackPanel>
 

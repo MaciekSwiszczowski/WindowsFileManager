@@ -33,6 +33,16 @@ At the time of generating this document:
 
 Do not downgrade these choices unless a concrete blocker is proven.
 
+## Build and Sandbox Notes
+
+- Prefer serial builds when working in the Codex sandbox: use `-m:1` for `dotnet build` when you are verifying a repo-wide change.
+- Do not run multiple build commands against the same workspace in parallel. Shared `obj` and `bin` outputs can race on generated cache files.
+- If Rider or another IDE is open, use an isolated sandbox build tree instead of the default project `obj` and `bin` folders: pass `-p:UseCodexIsolatedBuild=true`. This redirects intermediates to `codex-artifacts\obj\<ProjectName>\` and outputs to `codex-artifacts\bin\<ProjectName>\`, which avoids lock contention with the IDE without changing normal developer builds.
+- Restore runs offline-safe: `NuGetAudit` is disabled at the repo level because sandbox builds do not have network access to the NuGet vulnerability feed.
+- If a test project fails on `.msCoverageExtensionSourceRootsMapping_*` during a plain `build`, treat that as a build-environment issue and suppress build-time coverage path-map generation at the repo level instead of changing individual commands.
+- If the WinUI XAML compiler only reports `XamlCompiler.exe exited with code 1`, inspect the generated `obj\...\input.json` and `output.json` under `src/WinUiFileManager.Presentation` before assuming the UI code is broken.
+- When build failures are opaque in the sandbox, verify the smallest project first, then the full solution.
+
 ## Solution and Project Names
 
 Create a solution named:
@@ -549,6 +559,20 @@ Prefer clarity over novelty.
 - `SourceCache.Remove(keys)` and `SourceCache.AddOrUpdate(items)` provide surgical delta updates after file operations, preserving selection state.
 - Re-sorting happens reactively by pushing a new `FileEntryComparer` into the `BehaviorSubject`.
 - `ListView` handles UI virtualization natively — only visible items are rendered regardless of total count.
+
+### Inspector Reactive Loading
+
+- The inspector selection pipeline lives in `MainShellViewModel`, not in `FileInspectorViewModel`.
+- Do not use `Subject` for inspector selection state.
+- Convert pane selection changes into an `IObservable<Unit>` or equivalent signal stream, then derive two separate paths from it.
+- The basic inspector path updates immediately on the UI thread and may only touch already-available selected-entry data.
+- The deferred inspector path must switch to the background scheduler before throttling, then apply `Throttle(TimeSpan.FromMilliseconds(200), ...)` so rapid keyboard navigation collapses into one load once the user pauses.
+- Load deferred inspector batches on the background scheduler. Keep each batch category self-contained so future property groups can be added without changing the selection pipeline.
+- Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
+- Do not read filesystem or WinRT-backed data from the UI thread.
+- Do not update `ObservableCollection` or visible inspector field values from background threads.
+- Use `DynamicData` for large live lists where it already exists in the pane stack; use Rx for event orchestration and throttling, not for manually pushing collection mutations from arbitrary threads.
+- Prefer `static` lambdas where no instance capture is needed.
 
 ### Column Sorting
 

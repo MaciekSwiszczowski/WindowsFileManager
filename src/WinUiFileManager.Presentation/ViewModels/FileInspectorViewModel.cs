@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -9,14 +10,16 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
-public sealed partial class FileInspectorViewModel : ObservableObject
+public sealed partial class FileInspectorViewModel : ObservableObject, IDisposable
 {
+    private static readonly TimeSpan DeferredLoadTimeout = TimeSpan.FromSeconds(5);
+
     private readonly IFileIdentityService _fileIdentityService;
     private readonly IClipboardService _clipboardService;
     private readonly ILogger<FileInspectorViewModel> _logger;
-
-    private CancellationTokenSource? _loadCancellation;
-    private int _selectionVersion;
+    private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<InspectorBatchDefinition> _deferredBatches;
+    private bool _disposed;
 
     [ObservableProperty]
     public partial bool HasItem { get; set; }
@@ -28,54 +31,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject
     public partial string StatusMessage { get; set; } = string.Empty;
 
     [ObservableProperty]
-    public partial string Name { get; set; } = string.Empty;
+    public partial string SearchText { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial string FullPath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Type { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Extension { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Size { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string CreationTimeUtc { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string LastWriteTimeUtc { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Attributes { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string FileId { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string InUse { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string LockBy { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string LockPid { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string LockSvc { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string Usage { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string CanSw { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string CanCls { get; set; } = string.Empty;
+    public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
+    public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];
 
     public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public Visibility EmptyStateVisibility => HasItem ? Visibility.Collapsed : Visibility.Visible;
 
@@ -87,127 +51,37 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         _fileIdentityService = fileIdentityService;
         _clipboardService = clipboardService;
         _logger = logger;
+
+        InitializeFieldDefinitions();
+        _deferredBatches =
+        [
+            new InspectorBatchDefinition(
+                "Identity",
+                IsFinalBatch: false,
+                LoadIdentityBatchAsync),
+            new InspectorBatchDefinition(
+                "Locks",
+                IsFinalBatch: true,
+                LoadLockDiagnosticsBatchAsync)
+        ];
     }
 
-    public async Task UpdateSelectionAsync(
-        IReadOnlyList<FileEntryViewModel> selectedEntries,
-        bool isPaneLoading,
-        CancellationToken cancellationToken = default)
+    public void ApplySelection(FileInspectorSelection selection)
     {
-        CancelPendingLoad();
-
-        if (isPaneLoading)
+        if (_disposed)
         {
-            Clear("Pane is loading...");
             return;
         }
 
-        if (selectedEntries.Count == 0)
+        if (!selection.HasItem)
         {
-            Clear(string.Empty);
+            Clear(selection.StatusMessage);
             return;
         }
 
-        if (selectedEntries.Count != 1)
-        {
-            Clear($"{selectedEntries.Count} items selected.");
-            return;
-        }
-
-        var entry = selectedEntries[0];
-        if (entry.IsParentEntry)
-        {
-            Clear(string.Empty);
-            return;
-        }
-
-        _selectionVersion++;
-        var currentVersion = _selectionVersion;
-        _loadCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        var loadToken = _loadCancellation.Token;
-
-        ClearFieldValues();
-        HasItem = false;
-        IsLoadingDetails = true;
-        StatusMessage = "Loading details...";
-
-        try
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(200), loadToken);
-
-            PopulateBasicFields(entry);
-            HasItem = true;
-            StatusMessage = string.Empty;
-
-            var fileIdTask = _fileIdentityService.GetFileIdAsync(entry.Model.FullPath.DisplayPath, loadToken);
-            var lockDiagnosticsTask = _fileIdentityService.GetLockDiagnosticsAsync(entry.Model.FullPath.DisplayPath, loadToken);
-
-            var fileIdLoaded = await TryApplyWithTimeoutAsync(
-                fileIdTask,
-                TimeSpan.FromSeconds(5),
-                loadToken,
-                fileId =>
-                {
-                    FileId = fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
-                });
-
-            if (!fileIdLoaded)
-            {
-                if (currentVersion != _selectionVersion || loadToken.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                FileId = "Unavailable";
-            }
-
-            var lockDiagnosticsLoaded = await TryApplyWithTimeoutAsync(
-                lockDiagnosticsTask,
-                TimeSpan.FromSeconds(5),
-                loadToken,
-                PopulateLockDiagnosticsFields);
-
-            if (!lockDiagnosticsLoaded)
-            {
-                if (currentVersion != _selectionVersion || loadToken.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                InUse = "N/A";
-                LockBy = "N/A";
-                LockPid = "N/A";
-                LockSvc = "N/A";
-                Usage = "N/A";
-                CanSw = "N/A";
-                CanCls = "N/A";
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogDebug("Inspector update canceled for {Path}", entry.Model.FullPath.DisplayPath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load FileId for {Path}", entry.Model.FullPath.DisplayPath);
-            if (currentVersion == _selectionVersion)
-            {
-                FileId = "Unavailable";
-            }
-        }
-        finally
-        {
-            if (_loadCancellation is not null && _loadCancellation.Token == loadToken)
-            {
-                _loadCancellation.Dispose();
-                _loadCancellation = null;
-            }
-
-            if (currentVersion == _selectionVersion)
-            {
-                IsLoadingDetails = false;
-            }
-        }
+        ApplyBasicSelection(selection);
+        IsLoadingDetails = selection.CanLoadDeferred;
+        StatusMessage = string.Empty;
     }
 
     [RelayCommand]
@@ -219,96 +93,324 @@ public sealed partial class FileInspectorViewModel : ObservableObject
         }
 
         var builder = new StringBuilder();
-        AppendLine(builder, "Name", Name);
-        AppendLine(builder, "Full Path", FullPath);
-        AppendLine(builder, "Type", Type);
-        AppendLine(builder, "Extension", Extension);
-        AppendLine(builder, "Size", Size);
-        AppendLine(builder, "Creation Time (UTC)", CreationTimeUtc);
-        AppendLine(builder, "Last Write Time (UTC)", LastWriteTimeUtc);
-        AppendLine(builder, "Attributes", Attributes);
-        AppendLine(builder, "NTFS File/Folder ID", FileId);
-        AppendLine(builder, "In Use", InUse);
-        AppendLine(builder, "Locked By", LockBy);
-        AppendLine(builder, "Lock PIDs", LockPid);
-        AppendLine(builder, "Lock Services", LockSvc);
-        AppendLine(builder, "Usage", Usage);
-        AppendLine(builder, "Can Switch To", CanSw);
-        AppendLine(builder, "Can Close", CanCls);
+        foreach (var grouping in _fieldMap.Values
+            .OrderBy(field => GetCategorySortOrder(field.Category))
+            .ThenBy(field => field.SortOrder)
+            .GroupBy(field => field.Category))
+        {
+            builder.AppendLine(grouping.Key);
+            foreach (var field in grouping)
+            {
+                builder.Append("  ").Append(field.Key).Append(": ").AppendLine(field.Value);
+            }
+
+            builder.AppendLine();
+        }
 
         await _clipboardService.SetTextAsync(builder.ToString().TrimEnd(), CancellationToken.None);
     }
 
     public void Clear(string statusMessage)
     {
-        _selectionVersion++;
-        CancelPendingLoad();
-        ClearFieldValues();
-        HasItem = false;
         IsLoadingDetails = false;
+        HasItem = false;
         StatusMessage = statusMessage;
+        ClearFieldValues();
+        RefreshVisibleCategories();
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
     }
 
     partial void OnHasItemChanged(bool value)
     {
         OnPropertyChanged(nameof(DetailsVisibility));
+        OnPropertyChanged(nameof(SearchVisibility));
         OnPropertyChanged(nameof(EmptyStateVisibility));
     }
 
-    private void PopulateBasicFields(FileEntryViewModel entry)
+    partial void OnStatusMessageChanged(string value)
     {
-        Name = entry.Name;
-        FullPath = entry.Model.FullPath.DisplayPath;
-        Type = entry.Kind == ItemKind.Directory ? "Folder" : "File";
-        Extension = entry.Extension;
-        Size = FormatSize(entry.SizeBytes);
-        CreationTimeUtc = FormatUtc(entry.CreationTimeUtc);
-        LastWriteTimeUtc = FormatUtc(entry.LastWriteTimeUtc);
-        Attributes = entry.Attributes;
-        FileId = "Loading...";
-        InUse = "Loading...";
-        LockBy = "Loading...";
-        LockPid = "Loading...";
-        LockSvc = "Loading...";
-        Usage = "Loading...";
-        CanSw = "Loading...";
-        CanCls = "Loading...";
+        OnPropertyChanged(nameof(SearchVisibility));
     }
 
-    private void CancelPendingLoad()
+    partial void OnSearchTextChanged(string value)
     {
-        if (_loadCancellation is null)
+        RefreshVisibleCategories();
+    }
+
+    private void InitializeFieldDefinitions()
+    {
+        RegisterField("Basic", "Name", "File or folder name", 0);
+        RegisterField("Basic", "Full Path", "Full selected item path", 1);
+        RegisterField("Basic", "Type", "Item type", 2);
+        RegisterField("Basic", "Extension", "File extension", 3);
+        RegisterField("Basic", "Size", "Size in a human-readable format", 4);
+        RegisterField("Basic", "Creation Time (UTC)", "Creation time in UTC", 5);
+        RegisterField("Basic", "Last Write Time (UTC)", "Last modified time in UTC", 6);
+        RegisterField("Basic", "Attributes", "File system attributes", 7);
+
+        RegisterField("Identity", "NTFS File/Folder ID", "NTFS file identifier", 0);
+
+        RegisterField("Locks", "In Use", "Whether the item is reported as locked or in use", 0);
+        RegisterField("Locks", "Locked By", "Locking applications and services", 1);
+        RegisterField("Locks", "Lock PIDs", "Locking process identifiers", 2);
+        RegisterField("Locks", "Lock Services", "Locking service names", 3);
+        RegisterField("Locks", "Usage", "Usage type reported by IFileIsInUse", 4);
+        RegisterField("Locks", "Can Switch To", "Whether the locking app can be brought to foreground", 5);
+        RegisterField("Locks", "Can Close", "Whether the locking app can be asked to close the file", 6);
+
+        RefreshVisibleCategories();
+    }
+
+    private void RegisterField(string category, string key, string tooltip, int sortOrder)
+    {
+        var field = new FileInspectorFieldViewModel(category, key, tooltip, string.Empty, sortOrder);
+        _fieldMap.Add(key, field);
+    }
+
+    private void ApplyBasicSelection(FileInspectorSelection selection)
+    {
+        SetFieldValue("Name", selection.Name);
+        SetFieldValue("Full Path", selection.FullPath);
+        SetFieldValue("Type", selection.Kind == ItemKind.Directory ? "Folder" : "File");
+        SetFieldValue("Extension", selection.Extension);
+        SetFieldValue("Size", FormatSize(selection.SizeBytes));
+        SetFieldValue("Creation Time (UTC)", FormatUtc(selection.CreationTimeUtc));
+        SetFieldValue("Last Write Time (UTC)", FormatUtc(selection.LastWriteTimeUtc));
+        SetFieldValue("Attributes", selection.Attributes);
+
+        if (selection.CanLoadDeferred)
         {
-            return;
+            SetDeferredPlaceholder("NTFS File/Folder ID");
+            SetDeferredPlaceholder("In Use");
+            SetDeferredPlaceholder("Locked By");
+            SetDeferredPlaceholder("Lock PIDs");
+            SetDeferredPlaceholder("Lock Services");
+            SetDeferredPlaceholder("Usage");
+            SetDeferredPlaceholder("Can Switch To");
+            SetDeferredPlaceholder("Can Close");
+        }
+        else
+        {
+            ClearDeferredFields();
         }
 
-        _loadCancellation.Cancel();
-        _loadCancellation.Dispose();
-        _loadCancellation = null;
+        HasItem = true;
+        RefreshVisibleCategories();
+    }
+
+    private void SetDeferredPlaceholder(string key)
+    {
+        SetFieldValue(key, "Loading...");
+    }
+
+    private void ClearDeferredFields()
+    {
+        SetFieldValue("NTFS File/Folder ID", string.Empty);
+        SetFieldValue("In Use", string.Empty);
+        SetFieldValue("Locked By", string.Empty);
+        SetFieldValue("Lock PIDs", string.Empty);
+        SetFieldValue("Lock Services", string.Empty);
+        SetFieldValue("Usage", string.Empty);
+        SetFieldValue("Can Switch To", string.Empty);
+        SetFieldValue("Can Close", string.Empty);
+    }
+
+    private void SetFieldValue(string key, string value)
+    {
+        if (_fieldMap.TryGetValue(key, out var field))
+        {
+            field.Value = value;
+        }
     }
 
     private void ClearFieldValues()
     {
-        Name = string.Empty;
-        FullPath = string.Empty;
-        Type = string.Empty;
-        Extension = string.Empty;
-        Size = string.Empty;
-        CreationTimeUtc = string.Empty;
-        LastWriteTimeUtc = string.Empty;
-        Attributes = string.Empty;
-        FileId = string.Empty;
-        InUse = string.Empty;
-        LockBy = string.Empty;
-        LockPid = string.Empty;
-        LockSvc = string.Empty;
-        Usage = string.Empty;
-        CanSw = string.Empty;
-        CanCls = string.Empty;
+        foreach (var field in _fieldMap.Values)
+        {
+            field.Value = string.Empty;
+        }
     }
 
-    private static void AppendLine(StringBuilder builder, string label, string value) =>
-        builder.Append(label).Append(": ").AppendLine(value);
+    private void RefreshVisibleCategories()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (!HasItem)
+        {
+            Categories.Clear();
+            VisibleFields.Clear();
+            OnPropertyChanged(nameof(HasVisibleFields));
+            return;
+        }
+
+        var search = SearchText.Trim();
+        var hasSearch = !string.IsNullOrWhiteSpace(search);
+        var filteredFields = _fieldMap.Values
+            .Where(field => !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(field => GetCategorySortOrder(field.Category))
+            .ThenBy(field => field.SortOrder)
+            .ToList();
+
+        Categories.Clear();
+        VisibleFields.Clear();
+        foreach (var grouping in filteredFields.GroupBy(field => field.Category))
+        {
+            var category = new FileInspectorCategoryViewModel(grouping.Key);
+            foreach (var field in grouping.OrderBy(field => field.SortOrder))
+            {
+                category.Fields.Add(field);
+                VisibleFields.Add(field);
+            }
+
+            Categories.Add(category);
+        }
+
+        OnPropertyChanged(nameof(HasVisibleFields));
+    }
+
+    public bool HasVisibleFields => Categories.Count > 0;
+
+    private int GetCategorySortOrder(string category) => category switch
+    {
+        "Basic" => 0,
+        "Identity" => 1,
+        "Locks" => 2,
+        _ => int.MaxValue
+    };
+
+    public async Task<FileInspectorDeferredBatchResult[]> LoadDeferredBatchesAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        if (_disposed || !selection.CanLoadDeferred)
+        {
+            return [];
+        }
+
+        var results = new List<FileInspectorDeferredBatchResult>(_deferredBatches.Count);
+        foreach (var batch in _deferredBatches)
+        {
+            var updates = await batch.LoadAsync(selection, cancellationToken);
+            results.Add(new FileInspectorDeferredBatchResult(
+                batch.Category,
+                batch.IsFinalBatch,
+                updates));
+        }
+
+        return [.. results];
+    }
+
+    private async Task<FileInspectorFieldUpdate[]> LoadIdentityBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var fileId = await _fileIdentityService.GetFileIdAsync(selection.FullPath, timeoutCts.Token);
+            return [new FileInspectorFieldUpdate(
+                "NTFS File/Folder ID",
+                fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay)];
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load NTFS file id for {Path}", selection.FullPath);
+            return [new FileInspectorFieldUpdate("NTFS File/Folder ID", "Unavailable")];
+        }
+    }
+
+    private async Task<FileInspectorFieldUpdate[]> LoadLockDiagnosticsBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetLockDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            return
+            [
+                new FileInspectorFieldUpdate("In Use", FormatBoolean(diagnostics.InUse)),
+                new FileInspectorFieldUpdate(
+                    "Locked By",
+                    diagnostics.LockBy.Count == 0 ? "N/A" : string.Join(Environment.NewLine, diagnostics.LockBy)),
+                new FileInspectorFieldUpdate(
+                    "Lock PIDs",
+                    diagnostics.LockPids.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockPids)),
+                new FileInspectorFieldUpdate(
+                    "Lock Services",
+                    diagnostics.LockServices.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockServices)),
+                new FileInspectorFieldUpdate(
+                    "Usage",
+                    string.IsNullOrWhiteSpace(diagnostics.Usage) ? "N/A" : diagnostics.Usage),
+                new FileInspectorFieldUpdate("Can Switch To", FormatBoolean(diagnostics.CanSwitchTo)),
+                new FileInspectorFieldUpdate("Can Close", FormatBoolean(diagnostics.CanClose))
+            ];
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load lock diagnostics for {Path}", selection.FullPath);
+            return
+            [
+                new FileInspectorFieldUpdate("In Use", "N/A"),
+                new FileInspectorFieldUpdate("Locked By", "N/A"),
+                new FileInspectorFieldUpdate("Lock PIDs", "N/A"),
+                new FileInspectorFieldUpdate("Lock Services", "N/A"),
+                new FileInspectorFieldUpdate("Usage", "N/A"),
+                new FileInspectorFieldUpdate("Can Switch To", "N/A"),
+                new FileInspectorFieldUpdate("Can Close", "N/A")
+            ];
+        }
+    }
+
+    public void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
+    {
+        if (_disposed || !_hasCurrentSelection)
+        {
+            return;
+        }
+
+        foreach (var update in batchResult.Updates)
+        {
+            SetFieldValue(update.Key, update.Value);
+        }
+
+        RefreshVisibleCategories();
+
+        if (batchResult.IsFinalBatch)
+        {
+            IsLoadingDetails = false;
+            if (HasItem)
+            {
+                StatusMessage = string.Empty;
+            }
+        }
+    }
+
+    private bool _hasCurrentSelection => HasItem;
 
     private static string FormatUtc(DateTime value) =>
         value == DateTime.MinValue
@@ -337,33 +439,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             : $"{size:F2} {suffixes[suffixIndex]}";
     }
 
-    private async Task<bool> TryApplyWithTimeoutAsync<T>(
-        Task<T> task,
-        TimeSpan timeout,
-        CancellationToken cancellationToken,
-        Action<T> apply)
-    {
-        var completed = await Task.WhenAny(task, Task.Delay(timeout, cancellationToken));
-        if (completed != task)
-        {
-            return false;
-        }
-
-        apply(await task);
-        return true;
-    }
-
-    private void PopulateLockDiagnosticsFields(FileLockDiagnostics diagnostics)
-    {
-        InUse = FormatBoolean(diagnostics.InUse);
-        LockBy = diagnostics.LockBy.Count == 0 ? "N/A" : string.Join(Environment.NewLine, diagnostics.LockBy);
-        LockPid = diagnostics.LockPids.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockPids);
-        LockSvc = diagnostics.LockServices.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockServices);
-        Usage = string.IsNullOrWhiteSpace(diagnostics.Usage) ? "N/A" : diagnostics.Usage;
-        CanSw = FormatBoolean(diagnostics.CanSwitchTo);
-        CanCls = FormatBoolean(diagnostics.CanClose);
-    }
-
     private static string FormatBoolean(bool? value) =>
         value switch
         {
@@ -371,4 +446,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject
             false => "No",
             _ => "N/A"
         };
+
+    private sealed record InspectorBatchDefinition(
+        string Category,
+        bool IsFinalBatch,
+        Func<FileInspectorSelection, CancellationToken, Task<FileInspectorFieldUpdate[]>> LoadAsync);
 }

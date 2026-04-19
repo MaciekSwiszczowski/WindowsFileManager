@@ -1,10 +1,9 @@
 using WinUiFileManager.Application.Favourites;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Scheduling;
 using WinUiFileManager.Presentation.ViewModels;
-using WinUiFileManager.Application.Abstractions;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
@@ -16,6 +15,8 @@ public sealed class ViewModelTestBuilder
     public FakeFavouritesRepository FavouritesRepository { get; } = new();
     public FakeShellService ShellService { get; } = new();
     public IFileOperationService? FileOperationServiceOverride { get; set; }
+    public IFileIdentityService? FileIdentityServiceOverride { get; set; }
+    public ISchedulerProvider? SchedulerProviderOverride { get; set; }
 
     public MainShellViewModel Build()
     {
@@ -27,8 +28,8 @@ public sealed class ViewModelTestBuilder
             pathService, NullLogger<WindowsFileSystemService>.Instance);
         var changeStream = new WindowsDirectoryChangeStream(
             NullLogger<WindowsDirectoryChangeStream>.Instance);
-        var schedulers = new RxSchedulerProvider();
-        var fileIdentityService = new NtfsFileIdentityService(new FileIdentityInterop());
+        var schedulers = SchedulerProviderOverride ?? new RxSchedulerProvider();
+        var fileIdentityService = FileIdentityServiceOverride ?? new NtfsFileIdentityService(new FileIdentityInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
             NullLogger<WindowsFileOperationPlanner>.Instance);
@@ -86,6 +87,7 @@ public sealed class ViewModelTestBuilder
             persistPaneState,
             DialogService,
             FavouritesRepository,
+            schedulers,
             NullLogger<MainShellViewModel>.Instance,
             inspector,
             leftPane,

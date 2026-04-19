@@ -19,7 +19,21 @@ public sealed partial class FileInspectorView : UserControl
         {
             _viewModel = value;
             DataContext = value;
+            if (value is not null)
+            {
+                SearchBox.Text = value.SearchText;
+            }
         }
+    }
+
+    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        ViewModel.SearchText = SearchBox.Text;
     }
 
     private void OnCopyAllClick(object sender, RoutedEventArgs e)

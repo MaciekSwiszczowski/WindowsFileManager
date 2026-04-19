@@ -12,5 +12,19 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DebugType>portable</DebugType>
+    <DisableRarCache>true</DisableRarCache>
+    <NuGetAudit>false</NuGetAudit>
+    <RestoreDisableParallel>true</RestoreDisableParallel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">
+    <UseAppHost>false</UseAppHost>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(UseCodexIsolatedBuild)' == 'true'">
+    <CodexBuildRoot Condition="'$(CodexBuildRoot)' == ''">$(MSBuildThisFileDirectory)codex-artifacts\</CodexBuildRoot>
+    <BaseIntermediateOutputPath>$(CodexBuildRoot)obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(BaseIntermediateOutputPath)</MSBuildProjectExtensionsPath>
+    <BaseOutputPath>$(CodexBuildRoot)bin\$(MSBuildProjectName)\</BaseOutputPath>
   </PropertyGroup>
 </Project>

@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reactive;
+using System.Reactive.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -15,8 +17,10 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
-public sealed partial class MainShellViewModel : ObservableObject
+public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 {
+    private static readonly TimeSpan InspectorDeferredLoadThrottle = TimeSpan.FromMilliseconds(200);
+
     private readonly ISettingsRepository _settingsRepository;
     private readonly CopySelectionCommandHandler _copyHandler;
     private readonly MoveSelectionCommandHandler _moveHandler;
@@ -31,7 +35,10 @@ public sealed partial class MainShellViewModel : ObservableObject
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly IDialogService _dialogService;
     private readonly IFavouritesRepository _favouritesRepository;
+    private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<MainShellViewModel> _logger;
+    private readonly IDisposable _inspectorImmediateSubscription;
+    private readonly IDisposable _inspectorDeferredSubscription;
 
     private AppSettings _currentSettings = new();
 
@@ -99,6 +106,7 @@ public sealed partial class MainShellViewModel : ObservableObject
         PersistPaneStateCommandHandler persistPaneStateHandler,
         IDialogService dialogService,
         IFavouritesRepository favouritesRepository,
+        ISchedulerProvider schedulers,
         ILogger<MainShellViewModel> logger,
         FileInspectorViewModel inspector,
         FilePaneViewModel leftPane,
@@ -118,6 +126,7 @@ public sealed partial class MainShellViewModel : ObservableObject
         _persistPaneStateHandler = persistPaneStateHandler;
         _dialogService = dialogService;
         _favouritesRepository = favouritesRepository;
+        _schedulers = schedulers;
         _logger = logger;
         Inspector = inspector;
 
@@ -128,6 +137,30 @@ public sealed partial class MainShellViewModel : ObservableObject
 
         leftPane.PropertyChanged += OnPanePropertyChanged;
         rightPane.PropertyChanged += OnPanePropertyChanged;
+
+        var inspectorSelectionSignals = CreateInspectorSelectionSignalObservable()
+            .Publish()
+            .RefCount();
+
+        _inspectorImmediateSubscription = inspectorSelectionSignals
+            .Select(CreateCurrentInspectorSelection)
+            .DistinctUntilChanged()
+            .ObserveOn(_schedulers.MainThread)
+            .Subscribe(
+                Inspector.ApplySelection,
+                HandleInspectorImmediateUpdateError);
+
+        _inspectorDeferredSubscription = inspectorSelectionSignals
+            .ObserveOn(_schedulers.Background)
+            .Throttle(InspectorDeferredLoadThrottle, _schedulers.Background)
+            .Select(CreateCurrentInspectorSelection)
+            .DistinctUntilChanged()
+            .Select(CreateDeferredLoadObservable)
+            .Switch()
+            .ObserveOn(_schedulers.MainThread)
+            .Subscribe(
+                Inspector.ApplyDeferredBatch,
+                HandleInspectorDeferredUpdateError);
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
@@ -140,7 +173,6 @@ public sealed partial class MainShellViewModel : ObservableObject
         RightPane.IsActive = value == RightPane;
         OnPropertyChanged(nameof(InactivePane));
         UpdateStatusText();
-        RefreshInspector();
     }
 
     [RelayCommand]
@@ -461,7 +493,6 @@ public sealed partial class MainShellViewModel : ObservableObject
 
             ActivePane = _currentSettings.LastActivePane == PaneId.Right ? RightPane : LeftPane;
             UpdateStatusText();
-            RefreshInspector();
         }
         catch (Exception ex)
         {
@@ -546,13 +577,74 @@ public sealed partial class MainShellViewModel : ObservableObject
             or nameof(FilePaneViewModel.SelectedCount)
             or nameof(FilePaneViewModel.IsLoading))
         {
-            RefreshInspector();
+            UpdateStatusText();
         }
     }
 
-    private void RefreshInspector()
+    private IObservable<Unit> CreateInspectorSelectionSignalObservable()
     {
-        _ = Inspector.UpdateSelectionAsync(ActivePane.GetSelectedEntries(), ActivePane.IsLoading);
+        var activePaneChanges = Observable
+            .FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                handler => PropertyChanged += handler,
+                handler => PropertyChanged -= handler)
+            .Where(static args => args.EventArgs.PropertyName == nameof(ActivePane))
+            .Select(static _ => Unit.Default);
+
+        return Observable.Merge(
+                CreatePaneSelectionObservable(LeftPane),
+                CreatePaneSelectionObservable(RightPane),
+                activePaneChanges)
+            .StartWith(Unit.Default);
+    }
+
+    private IObservable<Unit> CreatePaneSelectionObservable(FilePaneViewModel pane)
+    {
+        return Observable
+            .FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                handler => pane.PropertyChanged += handler,
+                handler => pane.PropertyChanged -= handler)
+            .Where(static args => args.EventArgs.PropertyName is
+                nameof(FilePaneViewModel.CurrentItem)
+                or nameof(FilePaneViewModel.SelectedCount)
+                or nameof(FilePaneViewModel.IsLoading))
+            .Select(static _ => Unit.Default);
+    }
+
+    private FileInspectorSelection CreateCurrentInspectorSelection()
+    {
+        return FileInspectorSelection.FromSelection(
+            ActivePane.GetSelectedEntries(),
+            ActivePane.IsLoading);
+    }
+
+    private void HandleInspectorImmediateUpdateError(Exception ex)
+    {
+        _logger.LogError(ex, "Inspector immediate update failed");
+    }
+
+    private void HandleInspectorDeferredUpdateError(Exception ex)
+    {
+        _logger.LogError(ex, "Inspector deferred update failed");
+    }
+
+    private IObservable<FileInspectorDeferredBatchResult> CreateDeferredLoadObservable(FileInspectorSelection selection)
+    {
+        if (!selection.CanLoadDeferred)
+        {
+            return Observable.Empty<FileInspectorDeferredBatchResult>();
+        }
+
+        return Observable.FromAsync(ct => Inspector.LoadDeferredBatchesAsync(selection, ct))
+            .SelectMany(static results => results.ToObservable());
+    }
+
+    public void Dispose()
+    {
+        LeftPane.PropertyChanged -= OnPanePropertyChanged;
+        RightPane.PropertyChanged -= OnPanePropertyChanged;
+        _inspectorImmediateSubscription.Dispose();
+        _inspectorDeferredSubscription.Dispose();
+        Inspector.Dispose();
     }
 
     private async Task RunTrackedOperationAsync(

@@ -1,5 +1,14 @@
 <Project>
   <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <DisableBuildTimeCoveragePathMaps Condition="'$(DisableBuildTimeCoveragePathMaps)' == '' and '$(IsTestProject)' == 'true'">true</DisableBuildTimeCoveragePathMaps>
   </PropertyGroup>
+
+  <Target
+    Name="DisableBuildTimeCoveragePathMapsForSandboxedBuilds"
+    BeforeTargets="MsCoverageExtensionReferencedPathMaps"
+    Condition="'$(DisableBuildTimeCoveragePathMaps)' == 'true'">
+    <ItemGroup>
+      <AnnotatedProjects Remove="@(AnnotatedProjects)" />
+    </ItemGroup>
+  </Target>
 </Project>

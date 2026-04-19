@@ -21,6 +21,9 @@ The implementation is split by category. Each category lists:
 6. Never remove, rewrite, or synthesize Mark of the Web / `Zone.Identifier` data from the inspector.
 7. If a category fails, capture the error and continue.
 8. Use `RetrievePropertiesAsync(null)` for the raw property bag.
+9. Grouped inspector categories are long-lived UI objects. Update field values and field visibility in place; do not rebuild the category collection for every selection or deferred batch.
+10. Unsupported selections such as multiselection or the synthetic parent row `..` must produce an empty inspector state. Selection-signature code must treat `..` as a synthetic token and must not dereference a missing backing model.
+11. In the grouped inspector UI, render category contents with a simple two-column grid (`Property` fixed width, `Value` star width). Do not use nested `TableView` controls for grouped categories, because they can measure to desired width and prevent the value column from filling the available inspector space.
 
 ## Category 0 – Item acquisition
 

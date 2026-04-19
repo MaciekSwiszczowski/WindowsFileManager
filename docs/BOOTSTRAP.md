@@ -577,6 +577,8 @@ Prefer clarity over novelty.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
 - Do not read filesystem or WinRT-backed data from the UI thread.
 - Do not update `ObservableCollection` or visible inspector field values from background threads.
+- The grouped inspector UI must keep category view models alive across selection changes. Do not rebuild the category collection on every update; only update field values and field visibility within existing category objects.
+- Grouped inspector categories use persistent `Expander` sections, but the inner property list should be rendered with a simple two-column `Grid` layout, not nested `TableView` controls. Use a fixed `Property` column and a star-sized `Value` column so the value side always takes the remaining inspector width.
 - Use `DynamicData` for large live lists where it already exists in the pane stack; use Rx for event orchestration and throttling, not for manually pushing collection mutations from arbitrary threads.
 - Prefer `static` lambdas where no instance capture is needed.
 - Do not replace lambdas with helper methods just to satisfy this rule. The rule is about marking existing non-capturing lambdas as `static`, not refactoring lambda-based Rx or DynamicData pipelines into method groups or helper methods unless there is a separate readability reason.
@@ -603,6 +605,10 @@ Prefer clarity over novelty.
   - `Owner`, `Group`, `DACL Summary`, `SACL Summary`, `Inherited`, and `Protected` belong in `Security`.
   - `Has Thumbnail` and `Association` belong in `Thumbnails`, while any preview UI stays optional.
 - The inspector header must include a manual Refresh action so the user can re-read diagnostics after external changes, such as closing or killing the locking process.
+- Unsupported inspector selections must clear the inspector completely:
+  - multiselection does not show inspector content
+  - the synthetic parent row `..` does not show inspector content
+  - selection-signature code must never dereference `entry.Model` for the synthetic parent row
 
 ### Column Sorting
 

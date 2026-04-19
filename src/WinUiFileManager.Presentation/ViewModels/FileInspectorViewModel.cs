@@ -23,6 +23,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private readonly IClipboardService _clipboardService;
     private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<InspectorBatchDefinition> _deferredBatches;
     private long _currentSelectionVersion;
     private bool _disposed;
@@ -39,14 +40,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial ImageSource? ThumbnailSource { get; set; }
-
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
     public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];
 
     public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility ThumbnailVisibility => ThumbnailSource is null ? Visibility.Collapsed : Visibility.Visible;
     public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
         ? Visibility.Visible
         : Visibility.Collapsed;
@@ -125,13 +122,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         var builder = new StringBuilder();
-        foreach (var grouping in VisibleFields
-            .OrderBy(field => GetCategorySortOrder(field.Category))
-            .ThenBy(field => field.SortOrder)
-            .GroupBy(field => field.Category))
+        foreach (var grouping in Categories
+            .Where(static category => category.VisibleFields.Count > 0)
+            .OrderBy(category => GetCategorySortOrder(category.Name)))
         {
-            builder.AppendLine(grouping.Key);
-            foreach (var field in grouping)
+            builder.AppendLine(grouping.Name);
+            foreach (var field in grouping.VisibleFields.OrderBy(static field => field.SortOrder))
             {
                 builder.Append("  ").Append(field.Key).Append(": ").AppendLine(field.Value);
             }
@@ -156,7 +152,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         IsLoadingDetails = false;
         HasItem = false;
         StatusMessage = statusMessage;
-        ThumbnailSource = null;
         ClearFieldValues();
         RefreshVisibleCategories();
     }
@@ -176,11 +171,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         OnPropertyChanged(nameof(DetailsVisibility));
         OnPropertyChanged(nameof(SearchVisibility));
         OnPropertyChanged(nameof(EmptyStateVisibility));
-    }
-
-    partial void OnThumbnailSourceChanged(ImageSource? value)
-    {
-        OnPropertyChanged(nameof(ThumbnailVisibility));
     }
 
     partial void OnStatusMessageChanged(string value)
@@ -239,8 +229,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Security", "Inherited", "Whether the permissions are inherited.", 4);
         RegisterField("Security", "Protected", "Whether inherited permissions are blocked.", 5);
 
-        RegisterField("Thumbnails", "Has Thumbnail", "Whether Windows could provide a thumbnail for the selected item.", 0);
-        RegisterField("Thumbnails", "Association", "Shell association or file type hint used for the thumbnail, when available.", 1);
+        RegisterField("Thumbnails", "Thumbnail", "Thumbnail preview reported by Windows, when available.", 0);
+        RegisterField("Thumbnails", "Has Thumbnail", "Whether Windows could provide a thumbnail for the selected item.", 1);
+        RegisterField("Thumbnails", "Association", "Shell association or file type hint used for the thumbnail, when available.", 2);
 
         RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
         RegisterField("Locks", "In Use", "Whether Windows currently reports the item as in use. Best-effort diagnostic.", 1);
@@ -258,6 +249,27 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     {
         var field = new FileInspectorFieldViewModel(category, key, tooltip, string.Empty, sortOrder);
         _fieldMap.Add(key, field);
+        GetOrCreateCategory(category).Fields.Add(field);
+    }
+
+    private FileInspectorCategoryViewModel GetOrCreateCategory(string category)
+    {
+        if (_categoryMap.TryGetValue(category, out var existingCategory))
+        {
+            return existingCategory;
+        }
+
+        var createdCategory = new FileInspectorCategoryViewModel(category);
+        _categoryMap.Add(category, createdCategory);
+        var insertIndex = 0;
+        while (insertIndex < Categories.Count
+               && GetCategorySortOrder(Categories[insertIndex].Name) <= GetCategorySortOrder(category))
+        {
+            insertIndex++;
+        }
+
+        Categories.Insert(insertIndex, createdCategory);
+        return createdCategory;
     }
 
     private void ApplyBasicSelection(FileInspectorSelection selection)
@@ -298,10 +310,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         SetFieldValue("SACL Summary", string.Empty);
         SetFieldValue("Inherited", string.Empty);
         SetFieldValue("Protected", string.Empty);
+        SetFieldValue("Thumbnail", string.Empty);
         SetFieldValue("Has Thumbnail", string.Empty);
         SetFieldValue("Association", string.Empty);
         ClearLockFields();
-        ThumbnailSource = null;
+        SetFieldThumbnailSource("Thumbnail", null);
     }
 
     private void ApplyNtfsFlags(FileAttributes attributes)
@@ -339,11 +352,21 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
     }
 
+    private void SetFieldThumbnailSource(string key, ImageSource? value)
+    {
+        if (_fieldMap.TryGetValue(key, out var field))
+        {
+            field.ThumbnailSource = value;
+        }
+    }
+
     private void ClearFieldValues()
     {
         foreach (var field in _fieldMap.Values)
         {
             field.Value = string.Empty;
+            field.ThumbnailSource = null;
+            field.IsVisible = false;
         }
     }
 
@@ -356,39 +379,39 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         if (!HasItem)
         {
-            Categories.Clear();
             VisibleFields.Clear();
+            foreach (var category in Categories)
+            {
+                category.RefreshVisibleFields();
+            }
+
             OnPropertyChanged(nameof(HasVisibleFields));
             return;
         }
 
         var search = SearchText.Trim();
         var hasSearch = !string.IsNullOrWhiteSpace(search);
-        var filteredFields = _fieldMap.Values
-            .Where(static field => !string.IsNullOrWhiteSpace(field.Value))
-            .Where(field => !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(field => GetCategorySortOrder(field.Category))
-            .ThenBy(field => field.SortOrder)
-            .ToList();
-
-        Categories.Clear();
         VisibleFields.Clear();
-        foreach (var grouping in filteredFields.GroupBy(field => field.Category))
+
+        foreach (var field in _fieldMap.Values)
         {
-            var category = new FileInspectorCategoryViewModel(grouping.Key);
-            foreach (var field in grouping.OrderBy(field => field.SortOrder))
+            field.IsVisible = !string.IsNullOrWhiteSpace(field.Value)
+                && (!hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase));
+        }
+
+        foreach (var category in Categories.OrderBy(category => GetCategorySortOrder(category.Name)))
+        {
+            category.RefreshVisibleFields();
+            foreach (var field in category.VisibleFields)
             {
-                category.Fields.Add(field);
                 VisibleFields.Add(field);
             }
-
-            Categories.Add(category);
         }
 
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 
-    public bool HasVisibleFields => Categories.Count > 0;
+    public bool HasVisibleFields => Categories.Any(static category => category.VisibleFields.Count > 0);
 
     private int GetCategorySortOrder(string category) => category switch
     {
@@ -762,7 +785,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         if (thumbnailBytes is null || thumbnailBytes.Length == 0)
         {
-            ThumbnailSource = null;
+            SetFieldThumbnailSource("Thumbnail", null);
             return;
         }
 
@@ -774,6 +797,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                 writer.WriteBytes(thumbnailBytes);
                 await writer.StoreAsync();
                 await writer.FlushAsync();
+                _ = writer.DetachStream();
             }
 
             stream.Seek(0);
@@ -782,7 +806,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
             if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
             {
-                ThumbnailSource = bitmap;
+                SetFieldThumbnailSource("Thumbnail", bitmap);
+                SetFieldValue("Thumbnail", "Preview");
+                RefreshVisibleCategories();
             }
         }
         catch (Exception ex)
@@ -790,7 +816,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             _logger.LogDebug(ex, "Failed to materialize thumbnail preview.");
             if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
             {
-                ThumbnailSource = null;
+                SetFieldThumbnailSource("Thumbnail", null);
             }
         }
     }

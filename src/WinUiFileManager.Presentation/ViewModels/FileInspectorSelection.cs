@@ -34,7 +34,7 @@ public sealed record FileInspectorSelection(
 
         if (selectedEntries.Count != 1)
         {
-            return Empty($"{selectedEntries.Count} items selected.", refreshVersion);
+            return Empty(string.Empty, refreshVersion);
         }
 
         var entry = selectedEntries[0];

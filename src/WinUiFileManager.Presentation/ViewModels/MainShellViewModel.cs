@@ -644,8 +644,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 handler => pane.PropertyChanged -= handler)
             .Where(static args => args.EventArgs.PropertyName is
                 nameof(FilePaneViewModel.CurrentItem)
-                or nameof(FilePaneViewModel.SelectedCount)
-                or nameof(FilePaneViewModel.IsLoading))
+                or nameof(FilePaneViewModel.SelectedCount))
             .Select(static _ => Unit.Default);
     }
 
@@ -674,7 +673,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
         return string.Join(
             '\u001f',
-            selectedEntries.Select(static entry => entry.Model.FullPath.DisplayPath));
+            selectedEntries.Select(static entry => entry.IsParentEntry ? ".." : entry.Model.FullPath.DisplayPath));
     }
 
     public void Dispose()

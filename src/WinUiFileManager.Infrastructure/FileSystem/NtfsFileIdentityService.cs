@@ -215,6 +215,7 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
 
                 if (thumbnail is not null)
                 {
+                    thumbnail.Seek(0);
                     using var input = thumbnail.AsStreamForRead();
                     using var memory = new MemoryStream();
                     await input.CopyToAsync(memory, cancellationToken);

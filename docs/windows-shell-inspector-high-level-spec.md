@@ -148,8 +148,11 @@ The inspector UI groups deferred details under `IDs`, `Locks`, `Links`, `Streams
 - The long explanation belongs in the tooltip and should be phrased in plain user-facing language. Do not expose internal API, COM, or interface names.
 - Multi-value diagnostics such as `LockBy`, `ADSList`, `OvCls`, and raw properties may render as a multi-line value cell.
 - `Thumb` should render as an image row; all other fields remain key-value rows.
+- When the inspector UI is grouped by category, each category section should persist across updates. Selecting a new item should update the existing category contents, not recreate the whole grouped UI.
+- In the grouped UI, each category section should render its rows as a simple two-column grid with a fixed `Property` column and a flexible `Value` column. The `Value` side must always take the remaining available inspector width.
 - Expensive categories should not block first paint. Show them progressively.
 - Every row should support copy-to-clipboard of the value.
+- Unsupported selections such as multiselection or the synthetic `..` parent row should hide inspector content instead of showing partial or stale state.
 
 ## Recommended loading policy
 

@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.UI.Xaml;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Tests.Fakes;
 using WinUiFileManager.Domain.Enums;
@@ -28,8 +29,8 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(GetFieldValue(sut, "Basic", "Type")).IsEqualTo("File");
         await Assert.That(GetFieldValue(sut, "NTFS", "Archive")).IsEqualTo("Yes");
         await Assert.That(GetFieldValue(sut, "NTFS", "Read Only")).IsEqualTo("No");
-        await Assert.That(sut.Categories.Any(static category => category.Name == "IDs")).IsFalse();
-        await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsFalse();
+        await Assert.That(GetVisibleCategories(sut).Any(static category => category.Name == "IDs")).IsFalse();
+        await Assert.That(GetVisibleCategories(sut).Any(static category => category.Name == "Locks")).IsFalse();
     }
 
     [Test]
@@ -82,16 +83,18 @@ public sealed class FileInspectorViewModelTests
 
         sut.SearchText = "folder";
 
-        await Assert.That(sut.Categories.Count).IsEqualTo(1);
-        await Assert.That(sut.Categories[0].Name).IsEqualTo("Basic");
-        await Assert.That(sut.Categories[0].Fields.Count).IsEqualTo(1);
-        await Assert.That(sut.Categories[0].Fields[0].Key).IsEqualTo("Type");
+        var visibleCategories = GetVisibleCategories(sut);
+        await Assert.That(visibleCategories.Count).IsEqualTo(1);
+        await Assert.That(visibleCategories[0].Name).IsEqualTo("Basic");
+        await Assert.That(visibleCategories[0].VisibleFields.Count).IsEqualTo(1);
+        await Assert.That(visibleCategories[0].VisibleFields[0].Key).IsEqualTo("Type");
 
         sut.SearchText = "path";
 
-        await Assert.That(sut.Categories.Count).IsEqualTo(1);
-        await Assert.That(sut.Categories[0].Fields.Count).IsEqualTo(1);
-        await Assert.That(sut.Categories[0].Fields[0].Key).IsEqualTo("Full Path");
+        visibleCategories = GetVisibleCategories(sut);
+        await Assert.That(visibleCategories.Count).IsEqualTo(1);
+        await Assert.That(visibleCategories[0].VisibleFields.Count).IsEqualTo(1);
+        await Assert.That(visibleCategories[0].VisibleFields[0].Key).IsEqualTo("Full Path");
     }
 
     [Test]
@@ -113,8 +116,8 @@ public sealed class FileInspectorViewModelTests
         }
 
         await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("False");
-        await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsTrue();
-        await Assert.That(sut.Categories.Single(static category => category.Name == "Locks").Fields.Count).IsEqualTo(1);
+        await Assert.That(GetVisibleCategories(sut).Any(static category => category.Name == "Locks")).IsTrue();
+        await Assert.That(sut.Categories.Single(static category => category.Name == "Locks").VisibleFields.Count).IsEqualTo(1);
     }
 
     private static FileInspectorViewModel CreateSubject(IFileIdentityService identityService)
@@ -149,6 +152,13 @@ public sealed class FileInspectorViewModelTests
             .Fields
             .Single(f => f.Key == key)
             .Value;
+    }
+
+    private static List<FileInspectorCategoryViewModel> GetVisibleCategories(FileInspectorViewModel sut)
+    {
+        return sut.Categories
+            .Where(static category => category.Visibility == Visibility.Visible)
+            .ToList();
     }
 
     private sealed class RecordingFileIdentityService : IFileIdentityService

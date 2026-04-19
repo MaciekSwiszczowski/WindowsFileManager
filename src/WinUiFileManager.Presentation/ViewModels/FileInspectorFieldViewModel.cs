@@ -1,4 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -27,5 +29,21 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     [ObservableProperty]
     public partial string Value { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial ImageSource? ThumbnailSource { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsVisible { get; set; }
+
+    public Visibility ValueVisibility => ThumbnailSource is null ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility ThumbnailVisibility => ThumbnailSource is null ? Visibility.Collapsed : Visibility.Visible;
+
     public string SearchText => string.Concat(_searchPrefix, Value);
+
+    partial void OnThumbnailSourceChanged(ImageSource? value)
+    {
+        OnPropertyChanged(nameof(ValueVisibility));
+        OnPropertyChanged(nameof(ThumbnailVisibility));
+    }
 }

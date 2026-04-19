@@ -28,7 +28,7 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(GetFieldValue(sut, "Basic", "Type")).IsEqualTo("File");
         await Assert.That(GetFieldValue(sut, "NTFS", "Archive")).IsEqualTo("Yes");
         await Assert.That(GetFieldValue(sut, "NTFS", "Read Only")).IsEqualTo("No");
-        await Assert.That(sut.Categories.Any(static category => category.Name == "Identity")).IsFalse();
+        await Assert.That(sut.Categories.Any(static category => category.Name == "IDs")).IsFalse();
         await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsFalse();
     }
 
@@ -53,14 +53,18 @@ public sealed class FileInspectorViewModelTests
             sut.ApplyDeferredBatch(batch);
         }
 
-        await Assert.That(batches.Count).IsEqualTo(2);
+        await Assert.That(batches.Count).IsEqualTo(6);
         await Assert.That(identityService.FileIdRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.FileIdRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
         await Assert.That(identityService.LockRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.LockRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
-        await Assert.That(GetFieldValue(sut, "Identity", "NTFS File/Folder ID")).IsEqualTo("020304");
+        await Assert.That(GetFieldValue(sut, "IDs", "NTFS File/Folder ID")).IsEqualTo("020304");
         await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("True");
         await Assert.That(GetFieldValue(sut, "Locks", "In Use")).IsEqualTo("Yes");
+        await Assert.That(GetFieldValue(sut, "Links", "Link Target")).IsEqualTo(string.Empty);
+        await Assert.That(GetFieldValue(sut, "Streams", "Alternate Stream Count")).IsEqualTo("1");
+        await Assert.That(GetFieldValue(sut, "Security", "Owner")).IsEqualTo("DOMAIN\\Owner");
+        await Assert.That(GetFieldValue(sut, "Thumbnails", "Has Thumbnail")).IsEqualTo("Yes");
         await Assert.That(sut.IsLoadingDetails).IsFalse();
     }
 
@@ -160,6 +164,53 @@ public sealed class FileInspectorViewModelTests
                 : new NtfsFileId([0x01, 0x02, 0x03]));
         }
 
+        public Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            FileIdRequests.Add(path);
+            return Task.FromResult(new FileIdentityDetails(
+                path.Contains("beta", StringComparison.OrdinalIgnoreCase)
+                    ? new NtfsFileId([0x02, 0x03, 0x04])
+                    : new NtfsFileId([0x01, 0x02, 0x03]),
+                "0000ABCD",
+                "0x00000000000000FE",
+                "1",
+                Path.GetFullPath(path)));
+        }
+
+        public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileLinkDiagnosticsDetails(
+                @"C:\Temp\Target.docx",
+                "Symbolic link",
+                "Reparse point",
+                string.Empty,
+                string.Empty));
+        }
+
+        public Task<FileStreamDiagnosticsDetails> GetStreamDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileStreamDiagnosticsDetails("1", ["Zone.Identifier:$DATA (24 bytes)"]));
+        }
+
+        public Task<FileSecurityDiagnosticsDetails> GetSecurityDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileSecurityDiagnosticsDetails(
+                "DOMAIN\\Owner",
+                "DOMAIN\\Group",
+                "Allow 2, Deny 1, Inherited 1",
+                "Success 0, Failure 0",
+                true,
+                false));
+        }
+
+        public Task<FileThumbnailDiagnosticsDetails> GetThumbnailDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            var thumbnailBytes = Convert.FromBase64String(
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO2Zb9kAAAAASUVORK5CYII=");
+
+            return Task.FromResult(new FileThumbnailDiagnosticsDetails(thumbnailBytes, Path.GetExtension(path)));
+        }
+
         public Task<FileLockDiagnostics> GetLockDiagnosticsAsync(string path, CancellationToken cancellationToken)
         {
             LockRequests.Add(path);
@@ -179,6 +230,36 @@ public sealed class FileInspectorViewModelTests
         public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
         {
             return Task.FromResult(new NtfsFileId([0x01, 0x02, 0x03]));
+        }
+
+        public Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileIdentityDetails(
+                new NtfsFileId([0x01, 0x02, 0x03]),
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                Path.GetFullPath(path)));
+        }
+
+        public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileLinkDiagnosticsDetails(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+        }
+
+        public Task<FileStreamDiagnosticsDetails> GetStreamDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileStreamDiagnosticsDetails("0", []));
+        }
+
+        public Task<FileSecurityDiagnosticsDetails> GetSecurityDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileSecurityDiagnosticsDetails(string.Empty, string.Empty, string.Empty, string.Empty, null, null));
+        }
+
+        public Task<FileThumbnailDiagnosticsDetails> GetThumbnailDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileThumbnailDiagnosticsDetails(null, string.Empty));
         }
 
         public Task<FileLockDiagnostics> GetLockDiagnosticsAsync(string path, CancellationToken cancellationToken)

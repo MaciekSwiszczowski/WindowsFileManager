@@ -6,9 +6,12 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
+using Windows.Storage.Streams;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -36,10 +39,14 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
+    [ObservableProperty]
+    public partial ImageSource? ThumbnailSource { get; set; }
+
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
     public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];
 
     public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility ThumbnailVisibility => ThumbnailSource is null ? Visibility.Collapsed : Visibility.Visible;
     public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
         ? Visibility.Visible
         : Visibility.Collapsed;
@@ -64,13 +71,29 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _deferredBatches =
         [
             new InspectorBatchDefinition(
-                "Identity",
+                "IDs",
                 IsFinalBatch: false,
                 LoadIdentityBatchAsync),
             new InspectorBatchDefinition(
                 "Locks",
+                IsFinalBatch: false,
+                LoadLockDiagnosticsBatchAsync),
+            new InspectorBatchDefinition(
+                "Links",
+                IsFinalBatch: false,
+                LoadLinkBatchAsync),
+            new InspectorBatchDefinition(
+                "Streams",
+                IsFinalBatch: false,
+                LoadStreamBatchAsync),
+            new InspectorBatchDefinition(
+                "Security",
+                IsFinalBatch: false,
+                LoadSecurityBatchAsync),
+            new InspectorBatchDefinition(
+                "Thumbnails",
                 IsFinalBatch: true,
-                LoadLockDiagnosticsBatchAsync)
+                LoadThumbnailBatchAsync)
         ];
     }
 
@@ -133,6 +156,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         IsLoadingDetails = false;
         HasItem = false;
         StatusMessage = statusMessage;
+        ThumbnailSource = null;
         ClearFieldValues();
         RefreshVisibleCategories();
     }
@@ -152,6 +176,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         OnPropertyChanged(nameof(DetailsVisibility));
         OnPropertyChanged(nameof(SearchVisibility));
         OnPropertyChanged(nameof(EmptyStateVisibility));
+    }
+
+    partial void OnThumbnailSourceChanged(ImageSource? value)
+    {
+        OnPropertyChanged(nameof(ThumbnailVisibility));
     }
 
     partial void OnStatusMessageChanged(string value)
@@ -188,7 +217,30 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("NTFS", "Sparse", "Whether the item is stored as a sparse file.", 9);
         RegisterField("NTFS", "Reparse Point", "Whether the item is a reparse point.", 10);
 
-        RegisterField("Identity", "NTFS File/Folder ID", "NTFS file identifier", 0);
+        RegisterField("IDs", "NTFS File/Folder ID", "NTFS file identifier", 0);
+        RegisterField("IDs", "Volume Serial", "Volume serial number of the drive that contains the item.", 1);
+        RegisterField("IDs", "Legacy File Index", "Legacy NTFS file index, when available.", 2);
+        RegisterField("IDs", "Hard Link Count", "How many hard links point to the same file record, when available.", 3);
+        RegisterField("IDs", "Final Path", "The resolved final path reported by Windows.", 4);
+
+        RegisterField("Links", "Link Target", "Target path of a symbolic link, junction, or shell shortcut.", 0);
+        RegisterField("Links", "Link Status", "What kind of link Windows reports for the item.", 1);
+        RegisterField("Links", "Reparse Tag", "Reparse point classification reported by Windows.", 2);
+        RegisterField("Links", "Reparse Data", "Additional reparse data, when Windows can provide it.", 3);
+        RegisterField("Links", "Object ID", "NTFS object identifier, when available.", 4);
+
+        RegisterField("Streams", "Alternate Stream Count", "How many alternate data streams the item has.", 0);
+        RegisterField("Streams", "Alternate Streams", "Names and sizes of alternate data streams.", 1);
+
+        RegisterField("Security", "Owner", "Owner of the file or folder.", 0);
+        RegisterField("Security", "Group", "Primary group of the file or folder.", 1);
+        RegisterField("Security", "DACL Summary", "Summary of access rules from the discretionary access control list.", 2);
+        RegisterField("Security", "SACL Summary", "Summary of audit rules from the system access control list.", 3);
+        RegisterField("Security", "Inherited", "Whether the permissions are inherited.", 4);
+        RegisterField("Security", "Protected", "Whether inherited permissions are blocked.", 5);
+
+        RegisterField("Thumbnails", "Has Thumbnail", "Whether Windows could provide a thumbnail for the selected item.", 0);
+        RegisterField("Thumbnails", "Association", "Shell association or file type hint used for the thumbnail, when available.", 1);
 
         RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
         RegisterField("Locks", "In Use", "Whether Windows currently reports the item as in use. Best-effort diagnostic.", 1);
@@ -220,14 +272,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         SetFieldValue("Attributes", selection.Attributes);
         ApplyNtfsFlags(selection.AttributesFlags);
 
-        if (selection.CanLoadDeferred)
-        {
-            ClearDeferredFields();
-        }
-        else
-        {
-            ClearDeferredFields();
-        }
+        ClearDeferredFields();
 
         HasItem = true;
         RefreshVisibleCategories();
@@ -236,7 +281,27 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private void ClearDeferredFields()
     {
         SetFieldValue("NTFS File/Folder ID", string.Empty);
+        SetFieldValue("Volume Serial", string.Empty);
+        SetFieldValue("Legacy File Index", string.Empty);
+        SetFieldValue("Hard Link Count", string.Empty);
+        SetFieldValue("Final Path", string.Empty);
+        SetFieldValue("Link Target", string.Empty);
+        SetFieldValue("Link Status", string.Empty);
+        SetFieldValue("Reparse Tag", string.Empty);
+        SetFieldValue("Reparse Data", string.Empty);
+        SetFieldValue("Object ID", string.Empty);
+        SetFieldValue("Alternate Stream Count", string.Empty);
+        SetFieldValue("Alternate Streams", string.Empty);
+        SetFieldValue("Owner", string.Empty);
+        SetFieldValue("Group", string.Empty);
+        SetFieldValue("DACL Summary", string.Empty);
+        SetFieldValue("SACL Summary", string.Empty);
+        SetFieldValue("Inherited", string.Empty);
+        SetFieldValue("Protected", string.Empty);
+        SetFieldValue("Has Thumbnail", string.Empty);
+        SetFieldValue("Association", string.Empty);
         ClearLockFields();
+        ThumbnailSource = null;
     }
 
     private void ApplyNtfsFlags(FileAttributes attributes)
@@ -329,8 +394,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     {
         "Basic" => 0,
         "NTFS" => 1,
-        "Identity" => 2,
+        "IDs" => 2,
         "Locks" => 3,
+        "Links" => 4,
+        "Streams" => 5,
+        "Security" => 6,
+        "Thumbnails" => 7,
         _ => int.MaxValue
     };
 
@@ -345,16 +414,17 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         foreach (var batch in _deferredBatches)
         {
-            var updates = await batch.LoadAsync(selection, cancellationToken);
+            var loadResult = await batch.LoadAsync(selection, cancellationToken);
             yield return new FileInspectorDeferredBatchResult(
                 selection.RefreshVersion,
                 batch.Category,
                 batch.IsFinalBatch,
-                updates);
+                loadResult.Updates,
+                loadResult.ThumbnailBytes);
         }
     }
 
-    private async Task<FileInspectorFieldUpdate[]> LoadIdentityBatchAsync(
+    private async Task<InspectorBatchLoadResult> LoadIdentityBatchAsync(
         FileInspectorSelection selection,
         CancellationToken cancellationToken)
     {
@@ -363,10 +433,17 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(DeferredLoadTimeout);
 
-            var fileId = await _fileIdentityService.GetFileIdAsync(selection.FullPath, timeoutCts.Token);
-            return [new FileInspectorFieldUpdate(
-                "NTFS File/Folder ID",
-                fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay)];
+            var details = await _fileIdentityService.GetIdentityDetailsAsync(selection.FullPath, timeoutCts.Token);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate(
+                    "NTFS File/Folder ID",
+                    details.FileId == NtfsFileId.None ? "Unavailable" : details.FileId.HexDisplay),
+                new FileInspectorFieldUpdate("Volume Serial", details.VolumeSerial),
+                new FileInspectorFieldUpdate("Legacy File Index", details.LegacyFileIndex),
+                new FileInspectorFieldUpdate("Hard Link Count", details.HardLinkCount),
+                new FileInspectorFieldUpdate("Final Path", details.FinalPath)
+            ]);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -374,12 +451,161 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load NTFS file id for {Path}", selection.FullPath);
-            return [new FileInspectorFieldUpdate("NTFS File/Folder ID", "Unavailable")];
+            _logger.LogWarning(ex, "Failed to load identity details for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult([new FileInspectorFieldUpdate("NTFS File/Folder ID", "Unavailable")]);
         }
     }
 
-    private async Task<FileInspectorFieldUpdate[]> LoadLockDiagnosticsBatchAsync(
+    private async Task<InspectorBatchLoadResult> LoadLinkBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetLinkDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Link Target", diagnostics.LinkTarget),
+                new FileInspectorFieldUpdate("Link Status", diagnostics.LinkStatus),
+                new FileInspectorFieldUpdate("Reparse Tag", diagnostics.ReparseTag),
+                new FileInspectorFieldUpdate("Reparse Data", diagnostics.ReparseData),
+                new FileInspectorFieldUpdate("Object ID", diagnostics.ObjectId)
+            ]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load link diagnostics for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Link Target", string.Empty),
+                new FileInspectorFieldUpdate("Link Status", string.Empty),
+                new FileInspectorFieldUpdate("Reparse Tag", string.Empty),
+                new FileInspectorFieldUpdate("Reparse Data", string.Empty),
+                new FileInspectorFieldUpdate("Object ID", string.Empty)
+            ]);
+        }
+    }
+
+    private async Task<InspectorBatchLoadResult> LoadStreamBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetStreamDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            var hasStreams = !string.IsNullOrWhiteSpace(diagnostics.AlternateStreamCount)
+                && diagnostics.AlternateStreamCount != "0";
+
+            return hasStreams
+                ? new InspectorBatchLoadResult([
+                    new FileInspectorFieldUpdate("Alternate Stream Count", diagnostics.AlternateStreamCount),
+                    new FileInspectorFieldUpdate(
+                        "Alternate Streams",
+                        diagnostics.AlternateStreams.Count == 0
+                            ? string.Empty
+                            : string.Join(Environment.NewLine, diagnostics.AlternateStreams))
+                ])
+                : new InspectorBatchLoadResult([
+                    new FileInspectorFieldUpdate("Alternate Stream Count", string.Empty),
+                    new FileInspectorFieldUpdate("Alternate Streams", string.Empty)
+                ]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load stream diagnostics for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Alternate Stream Count", string.Empty),
+                new FileInspectorFieldUpdate("Alternate Streams", string.Empty)
+            ]);
+        }
+    }
+
+    private async Task<InspectorBatchLoadResult> LoadSecurityBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetSecurityDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Owner", diagnostics.Owner),
+                new FileInspectorFieldUpdate("Group", diagnostics.Group),
+                new FileInspectorFieldUpdate("DACL Summary", diagnostics.DaclSummary),
+                new FileInspectorFieldUpdate("SACL Summary", diagnostics.SaclSummary),
+                new FileInspectorFieldUpdate("Inherited", FormatOptionalBoolean(diagnostics.Inherited)),
+                new FileInspectorFieldUpdate("Protected", FormatOptionalBoolean(diagnostics.Protected))
+            ]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load security diagnostics for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Owner", string.Empty),
+                new FileInspectorFieldUpdate("Group", string.Empty),
+                new FileInspectorFieldUpdate("DACL Summary", string.Empty),
+                new FileInspectorFieldUpdate("SACL Summary", string.Empty),
+                new FileInspectorFieldUpdate("Inherited", string.Empty),
+                new FileInspectorFieldUpdate("Protected", string.Empty)
+            ]);
+        }
+    }
+
+    private async Task<InspectorBatchLoadResult> LoadThumbnailBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetThumbnailDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Has Thumbnail", diagnostics.ThumbnailBytes is { Length: > 0 } ? "Yes" : "No"),
+                new FileInspectorFieldUpdate("Association", diagnostics.ProgId)
+            ], diagnostics.ThumbnailBytes);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load thumbnail diagnostics for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Has Thumbnail", "No"),
+                new FileInspectorFieldUpdate("Association", string.Empty)
+            ]);
+        }
+    }
+
+    private async Task<InspectorBatchLoadResult> LoadLockDiagnosticsBatchAsync(
         FileInspectorSelection selection,
         CancellationToken cancellationToken)
     {
@@ -391,7 +617,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             var diagnostics = await _fileIdentityService.GetLockDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
             if (!HasPositiveLockEvidence(diagnostics))
             {
-                return
+                return new InspectorBatchLoadResult(
                 [
                     new FileInspectorFieldUpdate("Is locked", "False"),
                     new FileInspectorFieldUpdate("In Use", string.Empty),
@@ -401,10 +627,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                     new FileInspectorFieldUpdate("Usage", string.Empty),
                     new FileInspectorFieldUpdate("Can Switch To", string.Empty),
                     new FileInspectorFieldUpdate("Can Close", string.Empty)
-                ];
+                ]);
             }
 
-            return
+            return new InspectorBatchLoadResult(
             [
                 new FileInspectorFieldUpdate("Is locked", "True"),
                 new FileInspectorFieldUpdate("In Use", FormatOptionalBoolean(diagnostics.InUse)),
@@ -422,7 +648,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                     string.IsNullOrWhiteSpace(diagnostics.Usage) ? string.Empty : diagnostics.Usage),
                 new FileInspectorFieldUpdate("Can Switch To", FormatOptionalBoolean(diagnostics.CanSwitchTo)),
                 new FileInspectorFieldUpdate("Can Close", FormatOptionalBoolean(diagnostics.CanClose))
-            ];
+            ]);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -431,7 +657,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load lock diagnostics for {Path}", selection.FullPath);
-            return
+            return new InspectorBatchLoadResult(
             [
                 new FileInspectorFieldUpdate("Is locked", "False"),
                 new FileInspectorFieldUpdate("In Use", string.Empty),
@@ -441,7 +667,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                 new FileInspectorFieldUpdate("Usage", string.Empty),
                 new FileInspectorFieldUpdate("Can Switch To", string.Empty),
                 new FileInspectorFieldUpdate("Can Close", string.Empty)
-            ];
+            ]);
         }
     }
 
@@ -460,6 +686,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         foreach (var update in batchResult.Updates)
         {
             SetFieldValue(update.Key, update.Value);
+        }
+
+        if (batchResult.Category == "Thumbnails")
+        {
+            _ = ApplyThumbnailSourceAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
 
         RefreshVisibleCategories();
@@ -522,8 +753,54 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
     private static string FormatFlag(bool value) => value ? "Yes" : "No";
 
+    private async Task ApplyThumbnailSourceAsync(long selectionVersion, byte[]? thumbnailBytes)
+    {
+        if (_disposed || !_hasCurrentSelection || selectionVersion != _currentSelectionVersion)
+        {
+            return;
+        }
+
+        if (thumbnailBytes is null || thumbnailBytes.Length == 0)
+        {
+            ThumbnailSource = null;
+            return;
+        }
+
+        try
+        {
+            using var stream = new InMemoryRandomAccessStream();
+            using (var writer = new DataWriter(stream))
+            {
+                writer.WriteBytes(thumbnailBytes);
+                await writer.StoreAsync();
+                await writer.FlushAsync();
+            }
+
+            stream.Seek(0);
+            var bitmap = new BitmapImage();
+            await bitmap.SetSourceAsync(stream);
+
+            if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
+            {
+                ThumbnailSource = bitmap;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "Failed to materialize thumbnail preview.");
+            if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
+            {
+                ThumbnailSource = null;
+            }
+        }
+    }
+
     private sealed record InspectorBatchDefinition(
         string Category,
         bool IsFinalBatch,
-        Func<FileInspectorSelection, CancellationToken, Task<FileInspectorFieldUpdate[]>> LoadAsync);
+        Func<FileInspectorSelection, CancellationToken, Task<InspectorBatchLoadResult>> LoadAsync);
+
+    private sealed record InspectorBatchLoadResult(
+        IReadOnlyList<FileInspectorFieldUpdate> Updates,
+        byte[]? ThumbnailBytes = null);
 }

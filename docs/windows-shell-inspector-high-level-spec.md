@@ -39,10 +39,12 @@ The inspector must cover three layers:
 9. Security
 10. In-use
 11. Cloud
-12. Thumbnail / associations
+12. Thumbnails / associations
 13. PE version
 14. Raw property bag
 15. Optional ReFS / volume context
+
+The inspector UI groups deferred details under `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails`. `NTFS` stays immediate.
 
 ## Field catalog
 

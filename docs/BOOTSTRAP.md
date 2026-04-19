@@ -570,7 +570,8 @@ Prefer clarity over novelty.
 - Inspector refresh must reuse the same reactive pipeline. A manual Refresh action should emit a refresh signal into the observable stream and force the current single selection to be re-read, even when the selected row did not change.
 - Deferred inspector invalidation must be based on the actual selection identity, not on unrelated pane loading churn. Do not bump the deferred selection token just because `IsLoading` changed.
 - Load deferred inspector batches on the background scheduler. Keep each batch category self-contained so future property groups can be added without changing the selection pipeline.
-- Deferred categories such as `Identity` and `Locks` must be loaded independently as separate batches. `NTFS File/Folder ID` belongs to the `Identity` batch and must not be folded into the immediate/basic selection path.
+- Deferred categories such as `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails` must be loaded independently as separate batches. `NTFS File/Folder ID` belongs to the `IDs` batch and must not be folded into the immediate/basic selection path.
+- The `Thumbnails` batch can surface both a preview and lightweight association metadata. Keep the preview optional and hide it entirely when no thumbnail bytes are available.
 - The `NTFS` category is immediate and belongs with the cheap basic state. It should surface managed file attributes as separate Yes/No rows such as `Read Only`, `Hidden`, `System`, `Archive`, `Temporary`, `Offline`, `Not Content Indexed`, `Encrypted`, `Compressed`, `Sparse`, and `Reparse Point`.
 - Deferred batches must be applied incrementally as they complete. Do not wait for all deferred categories to finish before publishing the first completed batch to the UI.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
@@ -595,6 +596,12 @@ Prefer clarity over novelty.
   - `Lock PIDs` helps correlate the lock with Task Manager or Process Explorer.
   - `Lock Services` helps identify background-service locks.
   - `Usage`, `Can Switch To`, and `Can Close` are advanced diagnostics and must be described in plain language.
+- Keep identity / link / stream / security / thumbnail labels equally plain-language:
+  - `NTFS File/Folder ID`, `Volume Serial`, `Legacy File Index`, `Hard Link Count`, and `Final Path` belong in `IDs`.
+  - `Link Target`, `Link Status`, `Reparse Tag`, `Reparse Data`, and `Object ID` belong in `Links`.
+  - `Alternate Stream Count` and `Alternate Streams` belong in `Streams`.
+  - `Owner`, `Group`, `DACL Summary`, `SACL Summary`, `Inherited`, and `Protected` belong in `Security`.
+  - `Has Thumbnail` and `Association` belong in `Thumbnails`, while any preview UI stays optional.
 - The inspector header must include a manual Refresh action so the user can re-read diagnostics after external changes, such as closing or killing the locking process.
 
 ### Column Sorting

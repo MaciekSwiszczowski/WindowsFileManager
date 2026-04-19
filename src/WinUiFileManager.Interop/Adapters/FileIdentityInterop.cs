@@ -90,6 +90,69 @@ public sealed class FileIdentityInterop : IFileIdentityInterop
         }
     }
 
+    public FileIdentityDetailsResult GetIdentityDetails(string path)
+    {
+        try
+        {
+            var fileId = GetFileId(path);
+            var finalPath = Path.GetFullPath(path);
+
+            return new FileIdentityDetailsResult(
+                fileId.Success,
+                fileId.FileId128,
+                null,
+                null,
+                null,
+                finalPath,
+                fileId.ErrorMessage);
+        }
+        catch (Exception ex)
+        {
+            return new FileIdentityDetailsResult(false, null, null, null, null, path, ex.Message);
+        }
+    }
+
+    public FileLinkDiagnosticsResult GetLinkDiagnostics(string path)
+    {
+        try
+        {
+            FileSystemInfo info = File.Exists(path) ? new FileInfo(path) : new DirectoryInfo(path);
+            var linkTarget = info.LinkTarget ?? string.Empty;
+            var reparseTag = info.Attributes.HasFlag(FileAttributes.ReparsePoint)
+                ? "Reparse point"
+                : string.Empty;
+
+            return new FileLinkDiagnosticsResult(
+                true,
+                linkTarget,
+                string.IsNullOrWhiteSpace(linkTarget) ? string.Empty : "Link target reported by Windows",
+                reparseTag,
+                string.Empty,
+                string.Empty,
+                null);
+        }
+        catch (Exception ex)
+        {
+            return new FileLinkDiagnosticsResult(false, null, null, null, null, null, ex.Message);
+        }
+    }
+
+    public FileStreamDiagnosticsResult GetStreamDiagnostics(string path)
+    {
+        return new FileStreamDiagnosticsResult(true, 0, [], null);
+    }
+
+    public FileSecurityDiagnosticsResult GetSecurityDiagnostics(string path)
+    {
+        return new FileSecurityDiagnosticsResult(true, null, null, null, null, null, null, null);
+    }
+
+    public FileThumbnailDiagnosticsResult GetThumbnailDiagnostics(string path)
+    {
+        var progId = Path.GetExtension(path);
+        return new FileThumbnailDiagnosticsResult(true, null, progId, null);
+    }
+
     private static unsafe FileIdResult GetFileIdFromHandle(
         Microsoft.Win32.SafeHandles.SafeFileHandle safeHandle)
     {

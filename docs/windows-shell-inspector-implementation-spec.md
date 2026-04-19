@@ -126,7 +126,7 @@ The implementation is split by category. Each category lists:
 |---|---|---|
 | all NTFS flags | [`FileSystemInfo.Attributes`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0>) | Derive each flag as a simple Yes/No boolean from the current file-system attributes. This category is immediate and must not wait on any background handle-based diagnostic. |
 
-## Category 3 – Stable item identity and final path
+## Category 3 – IDs / stable item identity and final path
 
 ### APIs
 
@@ -324,7 +324,7 @@ The implementation is split by category. Each category lists:
 | `CfInfo` | [`CfGetPlaceholderInfo`](<https://learn.microsoft.com/en-us/windows/win32/api/cfapi/nf-cfapi-cfgetplaceholderinfo>) | Advanced placeholder details. |
 | `CusSt` | raw Property System + provider-specific values | `StorageProviderItemProperty` documents the provider-defined state shape; reading is usually via WinRT property surfaces / Property System, not via `SetAsync`. |
 
-## Category 11 – Thumbnail and handler diagnostics
+## Category 11 – Thumbnails and handler diagnostics
 
 ### APIs
 

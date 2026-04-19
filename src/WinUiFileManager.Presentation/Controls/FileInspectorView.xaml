@@ -22,6 +22,7 @@
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
@@ -54,14 +55,32 @@
                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
             </StackPanel>
 
-            <TextBox Grid.Row="2"
+            <Border Grid.Row="2"
+                    Padding="12"
+                    CornerRadius="8"
+                    BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                    BorderThickness="1"
+                    Background="{ThemeResource SystemControlBackgroundAltHighBrush}"
+                    Visibility="{Binding ThumbnailVisibility}">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Thumbnail"
+                               FontWeight="SemiBold" />
+                    <Image Source="{Binding ThumbnailSource}"
+                           MaxWidth="240"
+                           MaxHeight="160"
+                           HorizontalAlignment="Left"
+                           Stretch="Uniform" />
+                </StackPanel>
+            </Border>
+
+            <TextBox Grid.Row="3"
                      x:Name="SearchBox"
                      PlaceholderText="Search property or value"
                      Visibility="{Binding SearchVisibility}"
                      TextChanged="OnSearchTextChanged" />
 
             <tv:TableView
-                Grid.Row="3"
+                Grid.Row="4"
                 Visibility="{Binding DetailsVisibility}"
                 ItemsSource="{Binding VisibleFields}"
                 AutoGenerateColumns="False"

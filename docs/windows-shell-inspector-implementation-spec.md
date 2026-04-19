@@ -24,6 +24,8 @@ The implementation is split by category. Each category lists:
 9. Grouped inspector categories are long-lived UI objects. Update field values and field visibility in place; do not rebuild the category collection for every selection or deferred batch.
 10. Unsupported selections such as multiselection or the synthetic parent row `..` must produce an empty inspector state. Selection-signature code must treat `..` as a synthetic token and must not dereference a missing backing model.
 11. In the grouped inspector UI, render category contents with a simple two-column grid (`Property` fixed width, `Value` star width). Do not use nested `TableView` controls for grouped categories, because they can measure to desired width and prevent the value column from filling the available inspector space.
+12. If the grouped inspector lives inside a `ScrollViewer`, host the categories inside one finite-width parent and prefer `ItemsRepeater` + `StackLayout` over nested `ItemsControl` presenters. The grouped host must determine width; templates must not rely on inner presenters to stretch rows.
+13. Any shell-facing action that opens Explorer UI, including the standard Properties dialog, must pass the display path rather than the internal normalized `\\?\` path.
 
 ## Category 0 – Item acquisition
 

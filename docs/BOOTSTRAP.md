@@ -579,6 +579,7 @@ Prefer clarity over novelty.
 - Do not update `ObservableCollection` or visible inspector field values from background threads.
 - The grouped inspector UI must keep category view models alive across selection changes. Do not rebuild the category collection on every update; only update field values and field visibility within existing category objects.
 - Grouped inspector categories use persistent `Expander` sections, but the inner property list should be rendered with a simple two-column `Grid` layout, not nested `TableView` controls. Use a fixed `Property` column and a star-sized `Value` column so the value side always takes the remaining inspector width.
+- When the grouped inspector is inside a `ScrollViewer`, do not rely on nested `ItemsControl` presenters to stretch category content. Host the grouped content inside a finite-width parent and prefer `ItemsRepeater` + `StackLayout` so the expander host, not item presenters, controls width.
 - Use `DynamicData` for large live lists where it already exists in the pane stack; use Rx for event orchestration and throttling, not for manually pushing collection mutations from arbitrary threads.
 - Prefer `static` lambdas where no instance capture is needed.
 - Do not replace lambdas with helper methods just to satisfy this rule. The rule is about marking existing non-capturing lambdas as `static`, not refactoring lambda-based Rx or DynamicData pipelines into method groups or helper methods unless there is a separate readability reason.
@@ -762,6 +763,7 @@ Do not store volatile UI selection state unless required later.
 - The app must be long-path aware.
 - Normalize paths for engine operations.
 - Preserve user-visible path text separately from engine-normalized path form when useful.
+- Shell UI integrations such as the Windows Properties dialog must receive the user-visible display path, not the internal normalized `\\?\` form.
 - Test long paths explicitly.
 
 ## Error Handling Rules

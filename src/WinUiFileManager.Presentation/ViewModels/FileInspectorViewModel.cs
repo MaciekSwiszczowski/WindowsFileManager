@@ -21,11 +21,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
     private readonly IFileIdentityService _fileIdentityService;
     private readonly IClipboardService _clipboardService;
+    private readonly IShellService _shellService;
     private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<InspectorBatchDefinition> _deferredBatches;
     private long _currentSelectionVersion;
+    private string _currentFullPath = string.Empty;
     private bool _disposed;
 
     [ObservableProperty]
@@ -58,10 +60,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     public FileInspectorViewModel(
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
+        IShellService shellService,
         ILogger<FileInspectorViewModel> logger)
     {
         _fileIdentityService = fileIdentityService;
         _clipboardService = clipboardService;
+        _shellService = shellService;
         _logger = logger;
 
         InitializeFieldDefinitions();
@@ -147,11 +151,25 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
     }
 
+    [RelayCommand]
+    private async Task ShowPropertiesAsync()
+    {
+        if (!HasItem || string.IsNullOrWhiteSpace(_currentFullPath))
+        {
+            return;
+        }
+
+        await _shellService.ShowPropertiesAsync(
+            NormalizedPath.FromUserInput(_currentFullPath),
+            CancellationToken.None);
+    }
+
     public void Clear(string statusMessage)
     {
         IsLoadingDetails = false;
         HasItem = false;
         StatusMessage = statusMessage;
+        _currentFullPath = string.Empty;
         ClearFieldValues();
         RefreshVisibleCategories();
     }
@@ -283,6 +301,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         SetFieldValue("Last Write Time (UTC)", FormatUtc(selection.LastWriteTimeUtc));
         SetFieldValue("Attributes", selection.Attributes);
         ApplyNtfsFlags(selection.AttributesFlags);
+        _currentFullPath = selection.FullPath;
 
         ClearDeferredFields();
 

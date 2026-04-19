@@ -70,6 +70,7 @@ public sealed class ViewModelTestBuilder
         var inspector = new FileInspectorViewModel(
             fileIdentityService,
             ClipboardService,
+            ShellService,
             NullLogger<FileInspectorViewModel>.Instance);
 
         return new MainShellViewModel(

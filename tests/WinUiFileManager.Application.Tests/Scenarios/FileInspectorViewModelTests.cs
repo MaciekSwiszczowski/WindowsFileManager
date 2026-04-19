@@ -120,11 +120,34 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(sut.Categories.Single(static category => category.Name == "Locks").VisibleFields.Count).IsEqualTo(1);
     }
 
+    [Test]
+    public async Task Test_ShowPropertiesCommand_UsesShellServiceForCurrentSelection()
+    {
+        var shellService = new FakeShellService();
+        var sut = new FileInspectorViewModel(
+            new RecordingFileIdentityService(),
+            new FakeClipboardService(),
+            shellService,
+            NullLogger<FileInspectorViewModel>.Instance);
+        var entry = CreateEntry(
+            name: "image.jpg",
+            fullPath: @"C:\temp\image.jpg",
+            kind: ItemKind.File,
+            size: 128);
+
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+
+        await sut.ShowPropertiesCommand.ExecuteAsync(null);
+
+        await Assert.That(shellService.LastPropertiesPath?.DisplayPath).IsEqualTo(@"C:\temp\image.jpg");
+    }
+
     private static FileInspectorViewModel CreateSubject(IFileIdentityService identityService)
     {
         return new FileInspectorViewModel(
             identityService,
             new FakeClipboardService(),
+            new FakeShellService(),
             NullLogger<FileInspectorViewModel>.Instance);
     }
 

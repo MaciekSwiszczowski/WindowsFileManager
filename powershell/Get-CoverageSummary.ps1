@@ -9,11 +9,7 @@ $resultsRoot = Join-Path $repoRoot 'TestResults\Coverage'
 $summaryPath = Join-Path $resultsRoot 'coverage-summary.json'
 $solutionPath = Join-Path $repoRoot 'WinUiFileManager.sln'
 
-$excludedFileNames = @(
-    'SelectionSet.cs',
-    'StructuredOperationLogger.cs',
-    'WindowsShellService.cs'
-)
+$excludedFileNames = @()
 
 $testRuns = @(
     @{

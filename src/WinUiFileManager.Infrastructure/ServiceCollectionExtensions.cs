@@ -2,7 +2,6 @@ using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Infrastructure.Execution;
 using WinUiFileManager.Infrastructure.FileSystem;
-using WinUiFileManager.Infrastructure.Logging;
 using WinUiFileManager.Infrastructure.Persistence;
 using WinUiFileManager.Infrastructure.Planning;
 using WinUiFileManager.Infrastructure.Scheduling;
@@ -33,7 +32,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
 
         services.AddSingleton<Application.Abstractions.ITimeProvider, SystemTimeProvider>();
-        services.AddSingleton<StructuredOperationLogger>();
 
         return services;
     }

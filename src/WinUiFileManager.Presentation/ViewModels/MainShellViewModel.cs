@@ -143,24 +143,27 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .RefCount();
 
         _inspectorImmediateSubscription = inspectorSelectionSignals
-            .Select(CreateCurrentInspectorSelection)
+            .Select(_ => CreateCurrentInspectorSelection())
             .DistinctUntilChanged()
             .ObserveOn(_schedulers.MainThread)
             .Subscribe(
                 Inspector.ApplySelection,
-                HandleInspectorImmediateUpdateError);
+                ex => _logger.LogError(ex, "Inspector immediate update failed"));
 
         _inspectorDeferredSubscription = inspectorSelectionSignals
             .ObserveOn(_schedulers.Background)
             .Throttle(InspectorDeferredLoadThrottle, _schedulers.Background)
-            .Select(CreateCurrentInspectorSelection)
+            .Select(_ => CreateCurrentInspectorSelection())
             .DistinctUntilChanged()
-            .Select(CreateDeferredLoadObservable)
+            .Select(selection => selection.CanLoadDeferred
+                ? Observable.FromAsync(ct => Inspector.LoadDeferredBatchesAsync(selection, ct))
+                    .SelectMany(static results => results.ToObservable())
+                : Observable.Empty<FileInspectorDeferredBatchResult>())
             .Switch()
             .ObserveOn(_schedulers.MainThread)
             .Subscribe(
                 Inspector.ApplyDeferredBatch,
-                HandleInspectorDeferredUpdateError);
+                ex => _logger.LogError(ex, "Inspector deferred update failed"));
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
@@ -617,27 +620,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             ActivePane.IsLoading);
     }
 
-    private void HandleInspectorImmediateUpdateError(Exception ex)
-    {
-        _logger.LogError(ex, "Inspector immediate update failed");
-    }
-
-    private void HandleInspectorDeferredUpdateError(Exception ex)
-    {
-        _logger.LogError(ex, "Inspector deferred update failed");
-    }
-
-    private IObservable<FileInspectorDeferredBatchResult> CreateDeferredLoadObservable(FileInspectorSelection selection)
-    {
-        if (!selection.CanLoadDeferred)
-        {
-            return Observable.Empty<FileInspectorDeferredBatchResult>();
-        }
-
-        return Observable.FromAsync(ct => Inspector.LoadDeferredBatchesAsync(selection, ct))
-            .SelectMany(static results => results.ToObservable());
-    }
-
     public void Dispose()
     {
         LeftPane.PropertyChanged -= OnPanePropertyChanged;
@@ -693,7 +675,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Func<T, bool>? shouldFlushImmediately = null) : IProgress<T>, IDisposable
     {
         private static readonly TimeSpan MinimumUpdateInterval = TimeSpan.FromMilliseconds(50);
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
         private T? _pendingValue;
         private bool _hasPendingValue;

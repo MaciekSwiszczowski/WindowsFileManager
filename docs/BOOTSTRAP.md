@@ -573,6 +573,7 @@ Prefer clarity over novelty.
 - Do not update `ObservableCollection` or visible inspector field values from background threads.
 - Use `DynamicData` for large live lists where it already exists in the pane stack; use Rx for event orchestration and throttling, not for manually pushing collection mutations from arbitrary threads.
 - Prefer `static` lambdas where no instance capture is needed.
+- Do not replace lambdas with helper methods just to satisfy this rule. The rule is about marking existing non-capturing lambdas as `static`, not refactoring lambda-based Rx or DynamicData pipelines into method groups or helper methods unless there is a separate readability reason.
 
 ### Column Sorting
 

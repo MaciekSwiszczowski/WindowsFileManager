@@ -71,7 +71,7 @@
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch">
-                <Grid Width="{Binding ElementName=SearchBox, Path=ActualWidth}"
+                <Grid Width="{Binding InspectorContentWidth}"
                       HorizontalAlignment="Left">
                     <ItemsRepeater ItemsSource="{Binding Categories}">
                         <ItemsRepeater.Layout>
@@ -82,6 +82,7 @@
                                 <Expander Header="{Binding Name}"
                                           Visibility="{Binding Visibility}"
                                           IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                          Width="{Binding ContentWidth}"
                                           HorizontalAlignment="Stretch"
                                           HorizontalContentAlignment="Stretch">
                                     <Border BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"

@@ -9,6 +9,7 @@ public sealed partial class FileInspectorView : UserControl
     public FileInspectorView()
     {
         InitializeComponent();
+        SizeChanged += OnViewSizeChanged;
     }
 
     private FileInspectorViewModel? _viewModel;
@@ -22,6 +23,7 @@ public sealed partial class FileInspectorView : UserControl
             if (value is not null)
             {
                 SearchBox.Text = value.SearchText;
+                value.UpdateInspectorContentWidth(GetInspectorContentWidth());
             }
         }
     }
@@ -55,5 +57,26 @@ public sealed partial class FileInspectorView : UserControl
         {
             await ViewModel.ShowPropertiesCommand.ExecuteAsync(null);
         }
+    }
+
+    private void OnViewSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        ViewModel.UpdateInspectorContentWidth(GetInspectorContentWidth());
+    }
+
+    private double GetInspectorContentWidth()
+    {
+        var searchWidth = SearchBox.ActualWidth;
+        if (searchWidth > 0)
+        {
+            return searchWidth;
+        }
+
+        return InspectorContentGrid.ActualWidth;
     }
 }

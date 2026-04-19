@@ -18,6 +18,9 @@ public sealed partial class FileInspectorCategoryViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsExpanded { get; set; } = true;
 
+    [ObservableProperty]
+    public partial double ContentWidth { get; set; }
+
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
 
     public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];

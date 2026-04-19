@@ -26,6 +26,7 @@ The implementation is split by category. Each category lists:
 11. In the grouped inspector UI, render category contents with a simple two-column grid (`Property` fixed width, `Value` star width). Do not use nested `TableView` controls for grouped categories, because they can measure to desired width and prevent the value column from filling the available inspector space.
 12. If the grouped inspector lives inside a `ScrollViewer`, host the categories inside one finite-width parent and prefer `ItemsRepeater` + `StackLayout` over nested `ItemsControl` presenters. The grouped host must determine width; templates must not rely on inner presenters to stretch rows.
 13. Any shell-facing action that opens Explorer UI, including the standard Properties dialog, must pass the display path rather than the internal normalized `\\?\` path.
+14. If repeater/template stretch still produces content-width measurement, measure the available width in the view and push it into the grouped category view models. Bind each category section to that measured width so the `Value` column gets a real finite remainder.
 
 ## Category 0 – Item acquisition
 

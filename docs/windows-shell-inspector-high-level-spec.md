@@ -151,6 +151,7 @@ The inspector UI groups deferred details under `IDs`, `Locks`, `Links`, `Streams
 - When the inspector UI is grouped by category, each category section should persist across updates. Selecting a new item should update the existing category contents, not recreate the whole grouped UI.
 - In the grouped UI, each category section should render its rows as a simple two-column grid with a fixed `Property` column and a flexible `Value` column. The `Value` side must always take the remaining available inspector width.
 - When grouped categories live inside a `ScrollViewer`, the grouped host must own the finite width. Do not depend on nested `ItemsControl` presenters to stretch each category; prefer a finite-width host with repeater-style layout so the `Value` column actually receives the remaining width.
+- If WinUI layout still measures grouped categories to content, the control may publish the measured available width into the grouped category view models and bind category width explicitly. Correct width is more important than keeping the layout purely declarative.
 - Expensive categories should not block first paint. Show them progressively.
 - Every row should support copy-to-clipboard of the value.
 - Unsupported selections such as multiselection or the synthetic `..` parent row should hide inspector content instead of showing partial or stale state.

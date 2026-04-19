@@ -567,13 +567,33 @@ Prefer clarity over novelty.
 - Convert pane selection changes into an `IObservable<Unit>` or equivalent signal stream, then derive two separate paths from it.
 - The basic inspector path updates immediately on the UI thread and may only touch already-available selected-entry data.
 - The deferred inspector path must switch to the background scheduler before throttling, then apply `Throttle(TimeSpan.FromMilliseconds(200), ...)` so rapid keyboard navigation collapses into one load once the user pauses.
+- Inspector refresh must reuse the same reactive pipeline. A manual Refresh action should emit a refresh signal into the observable stream and force the current single selection to be re-read, even when the selected row did not change.
 - Load deferred inspector batches on the background scheduler. Keep each batch category self-contained so future property groups can be added without changing the selection pipeline.
+- Deferred categories such as `Identity` and `Locks` must be loaded independently as separate batches. `NTFS File/Folder ID` belongs to the `Identity` batch and must not be folded into the immediate/basic selection path.
+- Deferred batches must be applied incrementally as they complete. Do not wait for all deferred categories to finish before publishing the first completed batch to the UI.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
 - Do not read filesystem or WinRT-backed data from the UI thread.
 - Do not update `ObservableCollection` or visible inspector field values from background threads.
 - Use `DynamicData` for large live lists where it already exists in the pane stack; use Rx for event orchestration and throttling, not for manually pushing collection mutations from arbitrary threads.
 - Prefer `static` lambdas where no instance capture is needed.
 - Do not replace lambdas with helper methods just to satisfy this rule. The rule is about marking existing non-capturing lambdas as `static`, not refactoring lambda-based Rx or DynamicData pipelines into method groups or helper methods unless there is a separate readability reason.
+
+### Inspector Field Visibility And Tooltips
+
+- Inspector tooltips must explain the user-facing meaning of the property. Do not expose implementation details such as internal Win32, COM, Shell, or interface names in tooltips.
+- Inspector rows are dynamic. A field should be shown only when its value is non-empty.
+- The `Locks` category must contain a stable summary property named `Is locked`. Once lock diagnostics have loaded, this property stays visible in the category and shows `True` or `False` based on the other lock diagnostics in that category.
+- `Is locked` must be `True` only when there is positive lock evidence in the category, such as `In Use = Yes`, a non-empty locker list, non-empty lock PIDs or services, non-empty usage text, or affirmative capability flags. Missing data or all-empty diagnostics must not be treated as locked.
+- Do not show temporary `Loading...` rows for deferred categories.
+- Do not show category-specific loading messages while deferred categories are being fetched. Keep deferred rows hidden until real values arrive.
+- When a file or folder is locked, show `Is locked = True` and only the additional lock fields that have non-empty values.
+- When a file or folder is not locked, show `Is locked = False` and hide the other empty lock fields.
+- Keep lock-diagnostic labels and tooltips easy to understand:
+  - `Locked By` identifies the applications or services using the item.
+  - `Lock PIDs` helps correlate the lock with Task Manager or Process Explorer.
+  - `Lock Services` helps identify background-service locks.
+  - `Usage`, `Can Switch To`, and `Can Close` are advanced diagnostics and must be described in plain language.
+- The inspector header must include a manual Refresh action so the user can re-read diagnostics after external changes, such as closing or killing the locking process.
 
 ### Column Sorting
 

@@ -29,6 +29,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
@@ -37,14 +38,21 @@
                            FontWeight="SemiBold" />
 
                 <Button Grid.Column="1"
+                        Content="Refresh"
+                        Click="OnRefreshClick"
+                        IsEnabled="{Binding HasItem}" />
+
+                <Button Grid.Column="2"
                         Content="Copy All"
                         Click="OnCopyAllClick"
                         IsEnabled="{Binding HasItem}" />
             </Grid>
 
-            <TextBlock Grid.Row="1"
-                       Text="{Binding StatusMessage}"
-                       Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+            <StackPanel Grid.Row="1" Spacing="4">
+                <TextBlock Text="{Binding StatusMessage}"
+                           Visibility="{Binding StatusMessageVisibility}"
+                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
+            </StackPanel>
 
             <TextBox Grid.Row="2"
                      x:Name="SearchBox"

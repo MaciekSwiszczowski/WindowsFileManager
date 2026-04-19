@@ -40,4 +40,9 @@ public sealed partial class FileInspectorView : UserControl
     {
         ViewModel?.CopyAllCommand.Execute(null);
     }
+
+    private void OnRefreshClick(object sender, RoutedEventArgs e)
+    {
+        ViewModel?.RefreshCommand.Execute(null);
+    }
 }

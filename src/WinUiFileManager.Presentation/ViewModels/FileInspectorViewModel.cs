@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Text;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
@@ -40,8 +42,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
         ? Visibility.Visible
         : Visibility.Collapsed;
+    public Visibility StatusMessageVisibility => string.IsNullOrWhiteSpace(StatusMessage)
+        ? Visibility.Collapsed
+        : Visibility.Visible;
 
     public Visibility EmptyStateVisibility => HasItem ? Visibility.Collapsed : Visibility.Visible;
+
+    public event EventHandler? RefreshRequested;
 
     public FileInspectorViewModel(
         IFileIdentityService fileIdentityService,
@@ -93,7 +100,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         var builder = new StringBuilder();
-        foreach (var grouping in _fieldMap.Values
+        foreach (var grouping in VisibleFields
             .OrderBy(field => GetCategorySortOrder(field.Category))
             .ThenBy(field => field.SortOrder)
             .GroupBy(field => field.Category))
@@ -108,6 +115,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         await _clipboardService.SetTextAsync(builder.ToString().TrimEnd(), CancellationToken.None);
+    }
+
+    [RelayCommand]
+    private void Refresh()
+    {
+        if (HasItem)
+        {
+            RefreshRequested?.Invoke(this, EventArgs.Empty);
+        }
     }
 
     public void Clear(string statusMessage)
@@ -139,6 +155,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     partial void OnStatusMessageChanged(string value)
     {
         OnPropertyChanged(nameof(SearchVisibility));
+        OnPropertyChanged(nameof(StatusMessageVisibility));
     }
 
     partial void OnSearchTextChanged(string value)
@@ -159,13 +176,14 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         RegisterField("Identity", "NTFS File/Folder ID", "NTFS file identifier", 0);
 
-        RegisterField("Locks", "In Use", "Whether the item is reported as locked or in use", 0);
-        RegisterField("Locks", "Locked By", "Locking applications and services", 1);
-        RegisterField("Locks", "Lock PIDs", "Locking process identifiers", 2);
-        RegisterField("Locks", "Lock Services", "Locking service names", 3);
-        RegisterField("Locks", "Usage", "Usage type reported by IFileIsInUse", 4);
-        RegisterField("Locks", "Can Switch To", "Whether the locking app can be brought to foreground", 5);
-        RegisterField("Locks", "Can Close", "Whether the locking app can be asked to close the file", 6);
+        RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
+        RegisterField("Locks", "In Use", "Whether Windows currently reports the item as in use. Best-effort diagnostic.", 1);
+        RegisterField("Locks", "Locked By", "Applications or services that Windows reports as using this item.", 2);
+        RegisterField("Locks", "Lock PIDs", "Process IDs of applications using this item. Useful in Task Manager or Process Explorer.", 3);
+        RegisterField("Locks", "Lock Services", "Service names associated with the lock, when available.", 4);
+        RegisterField("Locks", "Usage", "How the owning application is using the item, when Windows can determine it.", 5);
+        RegisterField("Locks", "Can Switch To", "Whether Windows reports that the owning application can be brought to the foreground.", 6);
+        RegisterField("Locks", "Can Close", "Whether Windows reports that the owning application supports a cooperative close request.", 7);
 
         RefreshVisibleCategories();
     }
@@ -189,14 +207,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         if (selection.CanLoadDeferred)
         {
-            SetDeferredPlaceholder("NTFS File/Folder ID");
-            SetDeferredPlaceholder("In Use");
-            SetDeferredPlaceholder("Locked By");
-            SetDeferredPlaceholder("Lock PIDs");
-            SetDeferredPlaceholder("Lock Services");
-            SetDeferredPlaceholder("Usage");
-            SetDeferredPlaceholder("Can Switch To");
-            SetDeferredPlaceholder("Can Close");
+            ClearDeferredFields();
         }
         else
         {
@@ -207,14 +218,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RefreshVisibleCategories();
     }
 
-    private void SetDeferredPlaceholder(string key)
-    {
-        SetFieldValue(key, "Loading...");
-    }
-
     private void ClearDeferredFields()
     {
         SetFieldValue("NTFS File/Folder ID", string.Empty);
+        ClearLockFields();
+    }
+
+    private void ClearLockFields()
+    {
+        SetFieldValue("Is locked", string.Empty);
         SetFieldValue("In Use", string.Empty);
         SetFieldValue("Locked By", string.Empty);
         SetFieldValue("Lock PIDs", string.Empty);
@@ -258,6 +270,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         var search = SearchText.Trim();
         var hasSearch = !string.IsNullOrWhiteSpace(search);
         var filteredFields = _fieldMap.Values
+            .Where(static field => !string.IsNullOrWhiteSpace(field.Value))
             .Where(field => !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase))
             .OrderBy(field => GetCategorySortOrder(field.Category))
             .ThenBy(field => field.SortOrder)
@@ -290,26 +303,23 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _ => int.MaxValue
     };
 
-    public async Task<FileInspectorDeferredBatchResult[]> LoadDeferredBatchesAsync(
+    public async IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
         FileInspectorSelection selection,
-        CancellationToken cancellationToken)
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         if (_disposed || !selection.CanLoadDeferred)
         {
-            return [];
+            yield break;
         }
 
-        var results = new List<FileInspectorDeferredBatchResult>(_deferredBatches.Count);
         foreach (var batch in _deferredBatches)
         {
             var updates = await batch.LoadAsync(selection, cancellationToken);
-            results.Add(new FileInspectorDeferredBatchResult(
+            yield return new FileInspectorDeferredBatchResult(
                 batch.Category,
                 batch.IsFinalBatch,
-                updates));
+                updates);
         }
-
-        return [.. results];
     }
 
     private async Task<FileInspectorFieldUpdate[]> LoadIdentityBatchAsync(
@@ -347,23 +357,39 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             timeoutCts.CancelAfter(DeferredLoadTimeout);
 
             var diagnostics = await _fileIdentityService.GetLockDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            if (!HasPositiveLockEvidence(diagnostics))
+            {
+                return
+                [
+                    new FileInspectorFieldUpdate("Is locked", "False"),
+                    new FileInspectorFieldUpdate("In Use", string.Empty),
+                    new FileInspectorFieldUpdate("Locked By", string.Empty),
+                    new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
+                    new FileInspectorFieldUpdate("Lock Services", string.Empty),
+                    new FileInspectorFieldUpdate("Usage", string.Empty),
+                    new FileInspectorFieldUpdate("Can Switch To", string.Empty),
+                    new FileInspectorFieldUpdate("Can Close", string.Empty)
+                ];
+            }
+
             return
             [
-                new FileInspectorFieldUpdate("In Use", FormatBoolean(diagnostics.InUse)),
+                new FileInspectorFieldUpdate("Is locked", "True"),
+                new FileInspectorFieldUpdate("In Use", FormatOptionalBoolean(diagnostics.InUse)),
                 new FileInspectorFieldUpdate(
                     "Locked By",
-                    diagnostics.LockBy.Count == 0 ? "N/A" : string.Join(Environment.NewLine, diagnostics.LockBy)),
+                    diagnostics.LockBy.Count == 0 ? string.Empty : string.Join(Environment.NewLine, diagnostics.LockBy)),
                 new FileInspectorFieldUpdate(
                     "Lock PIDs",
-                    diagnostics.LockPids.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockPids)),
+                    diagnostics.LockPids.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockPids)),
                 new FileInspectorFieldUpdate(
                     "Lock Services",
-                    diagnostics.LockServices.Count == 0 ? "N/A" : string.Join(", ", diagnostics.LockServices)),
+                    diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices)),
                 new FileInspectorFieldUpdate(
                     "Usage",
-                    string.IsNullOrWhiteSpace(diagnostics.Usage) ? "N/A" : diagnostics.Usage),
-                new FileInspectorFieldUpdate("Can Switch To", FormatBoolean(diagnostics.CanSwitchTo)),
-                new FileInspectorFieldUpdate("Can Close", FormatBoolean(diagnostics.CanClose))
+                    string.IsNullOrWhiteSpace(diagnostics.Usage) ? string.Empty : diagnostics.Usage),
+                new FileInspectorFieldUpdate("Can Switch To", FormatOptionalBoolean(diagnostics.CanSwitchTo)),
+                new FileInspectorFieldUpdate("Can Close", FormatOptionalBoolean(diagnostics.CanClose))
             ];
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -375,13 +401,14 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             _logger.LogWarning(ex, "Failed to load lock diagnostics for {Path}", selection.FullPath);
             return
             [
-                new FileInspectorFieldUpdate("In Use", "N/A"),
-                new FileInspectorFieldUpdate("Locked By", "N/A"),
-                new FileInspectorFieldUpdate("Lock PIDs", "N/A"),
-                new FileInspectorFieldUpdate("Lock Services", "N/A"),
-                new FileInspectorFieldUpdate("Usage", "N/A"),
-                new FileInspectorFieldUpdate("Can Switch To", "N/A"),
-                new FileInspectorFieldUpdate("Can Close", "N/A")
+                new FileInspectorFieldUpdate("Is locked", "False"),
+                new FileInspectorFieldUpdate("In Use", string.Empty),
+                new FileInspectorFieldUpdate("Locked By", string.Empty),
+                new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
+                new FileInspectorFieldUpdate("Lock Services", string.Empty),
+                new FileInspectorFieldUpdate("Usage", string.Empty),
+                new FileInspectorFieldUpdate("Can Switch To", string.Empty),
+                new FileInspectorFieldUpdate("Can Close", string.Empty)
             ];
         }
     }
@@ -412,6 +439,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
     private bool _hasCurrentSelection => HasItem;
 
+    private static bool HasPositiveLockEvidence(FileLockDiagnostics diagnostics) =>
+        diagnostics.InUse == true
+        || diagnostics.LockBy.Count > 0
+        || diagnostics.LockPids.Count > 0
+        || diagnostics.LockServices.Count > 0
+        || !string.IsNullOrWhiteSpace(diagnostics.Usage)
+        || diagnostics.CanSwitchTo == true
+        || diagnostics.CanClose == true;
+
     private static string FormatUtc(DateTime value) =>
         value == DateTime.MinValue
             ? string.Empty
@@ -439,12 +475,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             : $"{size:F2} {suffixes[suffixIndex]}";
     }
 
-    private static string FormatBoolean(bool? value) =>
+    private static string FormatOptionalBoolean(bool? value) =>
         value switch
         {
             true => "Yes",
             false => "No",
-            _ => "N/A"
+            _ => string.Empty
         };
 
     private sealed record InspectorBatchDefinition(

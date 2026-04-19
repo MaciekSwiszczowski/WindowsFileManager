@@ -1,3 +1,4 @@
+using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Tests.Fakes;
@@ -19,13 +20,14 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 4096);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
 
         await Assert.That(sut.HasItem).IsTrue();
         await Assert.That(sut.IsLoadingDetails).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("notes.txt");
         await Assert.That(GetFieldValue(sut, "Basic", "Type")).IsEqualTo("File");
-        await Assert.That(GetFieldValue(sut, "Identity", "NTFS File/Folder ID")).IsEqualTo("Loading...");
+        await Assert.That(sut.Categories.Any(static category => category.Name == "Identity")).IsFalse();
+        await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsFalse();
     }
 
     [Test]
@@ -39,21 +41,23 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 2048);
 
-        var selection = FileInspectorSelection.FromSelection([entry], isPaneLoading: false);
+        var selection = FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0);
         sut.ApplySelection(selection);
 
-        var batches = await sut.LoadDeferredBatchesAsync(selection, CancellationToken.None);
-        foreach (var batch in batches)
+        var batches = new List<FileInspectorDeferredBatchResult>();
+        await foreach (var batch in sut.LoadDeferredBatchesAsync(selection, CancellationToken.None))
         {
+            batches.Add(batch);
             sut.ApplyDeferredBatch(batch);
         }
 
-        await Assert.That(batches.Length).IsEqualTo(2);
+        await Assert.That(batches.Count).IsEqualTo(2);
         await Assert.That(identityService.FileIdRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.FileIdRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
         await Assert.That(identityService.LockRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.LockRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
         await Assert.That(GetFieldValue(sut, "Identity", "NTFS File/Folder ID")).IsEqualTo("020304");
+        await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("True");
         await Assert.That(GetFieldValue(sut, "Locks", "In Use")).IsEqualTo("Yes");
         await Assert.That(sut.IsLoadingDetails).IsFalse();
     }
@@ -68,7 +72,7 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.Directory,
             size: -1);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
 
         sut.SearchText = "folder";
 
@@ -84,7 +88,30 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(sut.Categories[0].Fields[0].Key).IsEqualTo("Full Path");
     }
 
-    private static FileInspectorViewModel CreateSubject(RecordingFileIdentityService identityService)
+    [Test]
+    public async Task Test_LoadDeferredBatchesAsync_ShowsIsLockedFalse_WhenItemIsNotLocked()
+    {
+        var sut = CreateSubject(new UnlockedFileIdentityService());
+        var entry = CreateEntry(
+            name: "report.docx",
+            fullPath: @"C:\temp\report.docx",
+            kind: ItemKind.File,
+            size: 1024);
+
+        var selection = FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0);
+        sut.ApplySelection(selection);
+
+        await foreach (var batch in sut.LoadDeferredBatchesAsync(selection, CancellationToken.None))
+        {
+            sut.ApplyDeferredBatch(batch);
+        }
+
+        await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("False");
+        await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsTrue();
+        await Assert.That(sut.Categories.Single(static category => category.Name == "Locks").Fields.Count).IsEqualTo(1);
+    }
+
+    private static FileInspectorViewModel CreateSubject(IFileIdentityService identityService)
     {
         return new FileInspectorViewModel(
             identityService,
@@ -142,6 +169,26 @@ public sealed class FileInspectorViewModelTests
                 usage: "TestUsage",
                 canSwitchTo: true,
                 canClose: false));
+        }
+    }
+
+    private sealed class UnlockedFileIdentityService : IFileIdentityService
+    {
+        public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new NtfsFileId([0x01, 0x02, 0x03]));
+        }
+
+        public Task<FileLockDiagnostics> GetLockDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileLockDiagnostics(
+                inUse: false,
+                lockBy: [],
+                lockPids: [],
+                lockServices: [],
+                usage: null,
+                canSwitchTo: null,
+                canClose: null));
         }
     }
 }

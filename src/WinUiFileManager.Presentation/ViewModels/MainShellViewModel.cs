@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -39,6 +40,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly ILogger<MainShellViewModel> _logger;
     private readonly IDisposable _inspectorImmediateSubscription;
     private readonly IDisposable _inspectorDeferredSubscription;
+    private long _inspectorRefreshVersion;
 
     private AppSettings _currentSettings = new();
 
@@ -156,8 +158,33 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .Select(_ => CreateCurrentInspectorSelection())
             .DistinctUntilChanged()
             .Select(selection => selection.CanLoadDeferred
-                ? Observable.FromAsync(ct => Inspector.LoadDeferredBatchesAsync(selection, ct))
-                    .SelectMany(static results => results.ToObservable())
+                ? Observable.Create<FileInspectorDeferredBatchResult>(observer =>
+                {
+                    var cancellation = new CancellationTokenSource();
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await foreach (var batch in Inspector.LoadDeferredBatchesAsync(selection, cancellation.Token))
+                            {
+                                observer.OnNext(batch);
+                            }
+                        }
+                        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                        {
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Inspector deferred batch streaming failed");
+                        }
+                        finally
+                        {
+                            observer.OnCompleted();
+                        }
+                    }, cancellation.Token);
+
+                    return new CancellationDisposable(cancellation);
+                })
                 : Observable.Empty<FileInspectorDeferredBatchResult>())
             .Switch()
             .ObserveOn(_schedulers.MainThread)
@@ -593,10 +620,21 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .Where(static args => args.EventArgs.PropertyName == nameof(ActivePane))
             .Select(static _ => Unit.Default);
 
+        var refreshRequests = Observable
+            .FromEventPattern<EventHandler, EventArgs>(
+                handler => Inspector.RefreshRequested += handler,
+                handler => Inspector.RefreshRequested -= handler)
+            .Select(_ =>
+            {
+                Interlocked.Increment(ref _inspectorRefreshVersion);
+                return Unit.Default;
+            });
+
         return Observable.Merge(
                 CreatePaneSelectionObservable(LeftPane),
                 CreatePaneSelectionObservable(RightPane),
-                activePaneChanges)
+                activePaneChanges,
+                refreshRequests)
             .StartWith(Unit.Default);
     }
 
@@ -617,7 +655,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         return FileInspectorSelection.FromSelection(
             ActivePane.GetSelectedEntries(),
-            ActivePane.IsLoading);
+            ActivePane.IsLoading,
+            Interlocked.Read(ref _inspectorRefreshVersion));
     }
 
     public void Dispose()

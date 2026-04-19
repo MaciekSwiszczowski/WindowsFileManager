@@ -98,7 +98,7 @@ The implementation is split by category. Each category lists:
 
 - `Name`, `Ext`, `Path`, `Exist`, `Parent`, `Kind`
 - `CTime`, `MTime`, `ATime`, `Size`
-- `Attr`, `RO`, `Hid`, `Sys`, `Arc`, `Tmp`, `Offl`, `NIdx`, `Efs`, `Cmp`, `Sprs`, `RPt`
+- `Attr`
 - `LnTgt` for symlink / junction scenarios
 
 ### Required methods
@@ -108,6 +108,23 @@ The implementation is split by category. Each category lists:
 | identity and timestamps | [`FileSystemInfo`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo?view=net-10.0>) | Use `Name`, `FullName`, `Exists`, `CreationTime`, `LastWriteTime`, `LastAccessTime`, `Attributes`. |
 | `Size` | [`FileInfo`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.fileinfo?view=net-10.0>) | Use `Length`; folders have no managed logical size. |
 | `LnTgt` | [`FileSystemInfo.LinkTarget`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.linktarget?view=net-10.0>) | Covers symlinks and junctions, not `.lnk` shell shortcuts. |
+
+## Category 2A – NTFS attribute flags
+
+### APIs
+
+- [`FileSystemInfo`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo?view=net-10.0>)
+- [`FileInfo`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.fileinfo?view=net-10.0>)
+
+### Keys served from this category
+
+- `RO`, `Hid`, `Sys`, `Arc`, `Tmp`, `Offl`, `NIdx`, `Efs`, `Cmp`, `Sprs`, `RPt`
+
+### Required methods
+
+| Key(s) | Method(s) | Notes |
+|---|---|---|
+| all NTFS flags | [`FileSystemInfo.Attributes`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0>) | Derive each flag as a simple Yes/No boolean from the current file-system attributes. This category is immediate and must not wait on any background handle-based diagnostic. |
 
 ## Category 3 – Stable item identity and final path
 
@@ -419,17 +436,17 @@ The implementation is split by category. Each category lists:
 | `Size` | Managed .NET / WinRT |
 | `CSize` | Win32 |
 | `Attr` | Managed .NET / Win32 |
-| `RO` | Managed .NET / Win32 |
-| `Hid` | Managed .NET / Win32 |
-| `Sys` | Managed .NET / Win32 |
-| `Arc` | Managed .NET / Win32 |
-| `Tmp` | Managed .NET / Win32 |
-| `Offl` | Win32 |
-| `NIdx` | Win32 |
-| `Efs` | Win32 |
-| `Cmp` | Win32 |
-| `Sprs` | Win32 |
-| `RPt` | Win32 |
+| `RO` | Managed .NET / Win32 NTFS flags |
+| `Hid` | Managed .NET / Win32 NTFS flags |
+| `Sys` | Managed .NET / Win32 NTFS flags |
+| `Arc` | Managed .NET / Win32 NTFS flags |
+| `Tmp` | Managed .NET / Win32 NTFS flags |
+| `Offl` | Win32 NTFS flags |
+| `NIdx` | Win32 NTFS flags |
+| `Efs` | Win32 NTFS flags |
+| `Cmp` | Win32 NTFS flags |
+| `Sprs` | Win32 NTFS flags |
+| `RPt` | Win32 NTFS flags |
 | `Pin` | Win32 / CfApi |
 | `Unpin` | Win32 / CfApi |
 | `RcOpen` | Win32 / CfApi |

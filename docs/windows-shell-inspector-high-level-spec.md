@@ -31,17 +31,18 @@ The inspector must cover three layers:
 1. Identity
 2. Times and size
 3. Flags
-4. IDs
-5. Links / reparse
-6. Streams
-7. Trust / origin
-8. Security
-9. In-use
-10. Cloud
-11. Thumbnail / associations
-12. PE version
-13. Raw property bag
-14. Optional ReFS / volume context
+4. NTFS
+5. IDs
+6. Links / reparse
+7. Streams
+8. Trust / origin
+9. Security
+10. In-use
+11. Cloud
+12. Thumbnail / associations
+13. PE version
+14. Raw property bag
+15. Optional ReFS / volume context
 
 ## Field catalog
 
@@ -64,17 +65,17 @@ The inspector must cover three layers:
 | Times/Size | Size | F | Logical file size in bytes. | .NET FileInfo / WinRT BasicProperties | Always for files |
 | Times/Size | CSize | F | Bytes actually allocated on disk for a compressed or sparse file. For an uncompressed regular file this is usually close to allocation size, not logical size. | GetCompressedFileSizeW | Lazy for files |
 | Flags | Attr | F/D | Raw combined file attribute flags. | .NET / Win32 | Always |
-| Flags | RO | F/D | Read-only attribute. | .NET / Win32 | Always |
-| Flags | Hid | F/D | Hidden attribute. | .NET / Win32 | Always |
-| Flags | Sys | F/D | System attribute. | .NET / Win32 | Always |
-| Flags | Arc | F/D | Archive attribute. | .NET / Win32 | Default |
-| Flags | Tmp | F/D | Temporary attribute. | .NET / Win32 | Default |
-| Flags | Offl | F/D | Offline attribute. Often present for cloud placeholders or remote storage scenarios. | Win32 attributes | Default |
-| Flags | NIdx | F/D | Not-content-indexed attribute. | Win32 attributes | Default |
-| Flags | Efs | F/D | Encrypted with EFS. | Win32 attributes | Default |
-| Flags | Cmp | F/D | NTFS compression attribute. | Win32 attributes | Default |
-| Flags | Sprs | F/D | Sparse file attribute. | Win32 attributes | Default |
-| Flags | RPt | F/D | Reparse-point attribute. | Win32 attributes | Always |
+| NTFS | RO | F/D | Read-only attribute. | .NET / Win32 | Always |
+| NTFS | Hid | F/D | Hidden attribute. | .NET / Win32 | Always |
+| NTFS | Sys | F/D | System attribute. | .NET / Win32 | Always |
+| NTFS | Arc | F/D | Archive attribute. | .NET / Win32 | Default |
+| NTFS | Tmp | F/D | Temporary attribute. | .NET / Win32 | Default |
+| NTFS | Offl | F/D | Offline attribute. Often present for cloud placeholders or remote storage scenarios. | Win32 attributes | Default |
+| NTFS | NIdx | F/D | Not-content-indexed attribute. | Win32 attributes | Default |
+| NTFS | Efs | F/D | Encrypted with EFS. | Win32 attributes | Default |
+| NTFS | Cmp | F/D | NTFS compression attribute. | Win32 attributes | Default |
+| NTFS | Sprs | F/D | Sparse file attribute. | Win32 attributes | Default |
+| NTFS | RPt | F/D | Reparse-point attribute. | Win32 attributes | Always |
 | Flags | Pin | F/D | Pinned intent bit for cloud files. | Win32 attributes / CfApi | Default |
 | Flags | Unpin | F/D | Unpinned intent bit for cloud files. | Win32 attributes / CfApi | Default |
 | Flags | RcOpen | F/D | Cloud recall-on-open bit. | Win32 attributes / CfApi | Default |
@@ -142,7 +143,7 @@ The inspector must cover three layers:
 ## UX rules
 
 - The short key should be visible in the main inspector row.
-- The long explanation belongs in the tooltip and should be phrased for engineers, not end users.
+- The long explanation belongs in the tooltip and should be phrased in plain user-facing language. Do not expose internal API, COM, or interface names.
 - Multi-value diagnostics such as `LockBy`, `ADSList`, `OvCls`, and raw properties may render as a multi-line value cell.
 - `Thumb` should render as an image row; all other fields remain key-value rows.
 - Expensive categories should not block first paint. Show them progressively.

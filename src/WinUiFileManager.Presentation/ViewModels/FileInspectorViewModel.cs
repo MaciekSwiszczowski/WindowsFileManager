@@ -21,6 +21,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<InspectorBatchDefinition> _deferredBatches;
+    private long _currentSelectionVersion;
     private bool _disposed;
 
     [ObservableProperty]
@@ -87,6 +88,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         ApplyBasicSelection(selection);
+        _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
         StatusMessage = string.Empty;
     }
@@ -174,6 +176,18 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Basic", "Last Write Time (UTC)", "Last modified time in UTC", 6);
         RegisterField("Basic", "Attributes", "File system attributes", 7);
 
+        RegisterField("NTFS", "Read Only", "Whether the item is marked read-only.", 0);
+        RegisterField("NTFS", "Hidden", "Whether the item is hidden.", 1);
+        RegisterField("NTFS", "System", "Whether the item is marked as a system file.", 2);
+        RegisterField("NTFS", "Archive", "Whether the archive attribute is set.", 3);
+        RegisterField("NTFS", "Temporary", "Whether the item is marked temporary.", 4);
+        RegisterField("NTFS", "Offline", "Whether the item is offline or placeholder-backed.", 5);
+        RegisterField("NTFS", "Not Content Indexed", "Whether the item should be excluded from content indexing.", 6);
+        RegisterField("NTFS", "Encrypted", "Whether the item is encrypted with EFS.", 7);
+        RegisterField("NTFS", "Compressed", "Whether the item is compressed by NTFS.", 8);
+        RegisterField("NTFS", "Sparse", "Whether the item is stored as a sparse file.", 9);
+        RegisterField("NTFS", "Reparse Point", "Whether the item is a reparse point.", 10);
+
         RegisterField("Identity", "NTFS File/Folder ID", "NTFS file identifier", 0);
 
         RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
@@ -204,6 +218,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         SetFieldValue("Creation Time (UTC)", FormatUtc(selection.CreationTimeUtc));
         SetFieldValue("Last Write Time (UTC)", FormatUtc(selection.LastWriteTimeUtc));
         SetFieldValue("Attributes", selection.Attributes);
+        ApplyNtfsFlags(selection.AttributesFlags);
 
         if (selection.CanLoadDeferred)
         {
@@ -222,6 +237,21 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     {
         SetFieldValue("NTFS File/Folder ID", string.Empty);
         ClearLockFields();
+    }
+
+    private void ApplyNtfsFlags(FileAttributes attributes)
+    {
+        SetFieldValue("Read Only", FormatFlag(attributes.HasFlag(FileAttributes.ReadOnly)));
+        SetFieldValue("Hidden", FormatFlag(attributes.HasFlag(FileAttributes.Hidden)));
+        SetFieldValue("System", FormatFlag(attributes.HasFlag(FileAttributes.System)));
+        SetFieldValue("Archive", FormatFlag(attributes.HasFlag(FileAttributes.Archive)));
+        SetFieldValue("Temporary", FormatFlag(attributes.HasFlag(FileAttributes.Temporary)));
+        SetFieldValue("Offline", FormatFlag(attributes.HasFlag(FileAttributes.Offline)));
+        SetFieldValue("Not Content Indexed", FormatFlag(attributes.HasFlag(FileAttributes.NotContentIndexed)));
+        SetFieldValue("Encrypted", FormatFlag(attributes.HasFlag(FileAttributes.Encrypted)));
+        SetFieldValue("Compressed", FormatFlag(attributes.HasFlag(FileAttributes.Compressed)));
+        SetFieldValue("Sparse", FormatFlag(attributes.HasFlag(FileAttributes.SparseFile)));
+        SetFieldValue("Reparse Point", FormatFlag(attributes.HasFlag(FileAttributes.ReparsePoint)));
     }
 
     private void ClearLockFields()
@@ -298,8 +328,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private int GetCategorySortOrder(string category) => category switch
     {
         "Basic" => 0,
-        "Identity" => 1,
-        "Locks" => 2,
+        "NTFS" => 1,
+        "Identity" => 2,
+        "Locks" => 3,
         _ => int.MaxValue
     };
 
@@ -316,6 +347,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         {
             var updates = await batch.LoadAsync(selection, cancellationToken);
             yield return new FileInspectorDeferredBatchResult(
+                selection.RefreshVersion,
                 batch.Category,
                 batch.IsFinalBatch,
                 updates);
@@ -420,6 +452,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             return;
         }
 
+        if (batchResult.SelectionVersion != _currentSelectionVersion)
+        {
+            return;
+        }
+
         foreach (var update in batchResult.Updates)
         {
             SetFieldValue(update.Key, update.Value);
@@ -482,6 +519,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             false => "No",
             _ => string.Empty
         };
+
+    private static string FormatFlag(bool value) => value ? "Yes" : "No";
 
     private sealed record InspectorBatchDefinition(
         string Category,

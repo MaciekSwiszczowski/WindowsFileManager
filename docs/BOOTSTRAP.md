@@ -568,8 +568,10 @@ Prefer clarity over novelty.
 - The basic inspector path updates immediately on the UI thread and may only touch already-available selected-entry data.
 - The deferred inspector path must switch to the background scheduler before throttling, then apply `Throttle(TimeSpan.FromMilliseconds(200), ...)` so rapid keyboard navigation collapses into one load once the user pauses.
 - Inspector refresh must reuse the same reactive pipeline. A manual Refresh action should emit a refresh signal into the observable stream and force the current single selection to be re-read, even when the selected row did not change.
+- Deferred inspector invalidation must be based on the actual selection identity, not on unrelated pane loading churn. Do not bump the deferred selection token just because `IsLoading` changed.
 - Load deferred inspector batches on the background scheduler. Keep each batch category self-contained so future property groups can be added without changing the selection pipeline.
 - Deferred categories such as `Identity` and `Locks` must be loaded independently as separate batches. `NTFS File/Folder ID` belongs to the `Identity` batch and must not be folded into the immediate/basic selection path.
+- The `NTFS` category is immediate and belongs with the cheap basic state. It should surface managed file attributes as separate Yes/No rows such as `Read Only`, `Hidden`, `System`, `Archive`, `Temporary`, `Offline`, `Not Content Indexed`, `Encrypted`, `Compressed`, `Sparse`, and `Reparse Point`.
 - Deferred batches must be applied incrementally as they complete. Do not wait for all deferred categories to finish before publishing the first completed batch to the UI.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
 - Do not read filesystem or WinRT-backed data from the UI thread.

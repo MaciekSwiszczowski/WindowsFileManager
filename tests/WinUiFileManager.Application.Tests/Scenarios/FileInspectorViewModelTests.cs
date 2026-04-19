@@ -26,6 +26,8 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(sut.IsLoadingDetails).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("notes.txt");
         await Assert.That(GetFieldValue(sut, "Basic", "Type")).IsEqualTo("File");
+        await Assert.That(GetFieldValue(sut, "NTFS", "Archive")).IsEqualTo("Yes");
+        await Assert.That(GetFieldValue(sut, "NTFS", "Read Only")).IsEqualTo("No");
         await Assert.That(sut.Categories.Any(static category => category.Name == "Identity")).IsFalse();
         await Assert.That(sut.Categories.Any(static category => category.Name == "Locks")).IsFalse();
     }

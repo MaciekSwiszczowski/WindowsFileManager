@@ -40,6 +40,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly ILogger<MainShellViewModel> _logger;
     private readonly IDisposable _inspectorImmediateSubscription;
     private readonly IDisposable _inspectorDeferredSubscription;
+    private string _inspectorSelectionSignature = string.Empty;
     private long _inspectorRefreshVersion;
 
     private AppSettings _currentSettings = new();
@@ -140,23 +141,20 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         leftPane.PropertyChanged += OnPanePropertyChanged;
         rightPane.PropertyChanged += OnPanePropertyChanged;
 
-        var inspectorSelectionSignals = CreateInspectorSelectionSignalObservable()
+        var inspectorSelections = CreateInspectorSelectionSignalObservable()
+            .Select(forceRefresh => CreateCurrentInspectorSelection(forceRefresh))
             .Publish()
             .RefCount();
 
-        _inspectorImmediateSubscription = inspectorSelectionSignals
-            .Select(_ => CreateCurrentInspectorSelection())
-            .DistinctUntilChanged()
+        _inspectorImmediateSubscription = inspectorSelections
             .ObserveOn(_schedulers.MainThread)
             .Subscribe(
                 Inspector.ApplySelection,
                 ex => _logger.LogError(ex, "Inspector immediate update failed"));
 
-        _inspectorDeferredSubscription = inspectorSelectionSignals
+        _inspectorDeferredSubscription = inspectorSelections
             .ObserveOn(_schedulers.Background)
             .Throttle(InspectorDeferredLoadThrottle, _schedulers.Background)
-            .Select(_ => CreateCurrentInspectorSelection())
-            .DistinctUntilChanged()
             .Select(selection => selection.CanLoadDeferred
                 ? Observable.Create<FileInspectorDeferredBatchResult>(observer =>
                 {
@@ -611,31 +609,31 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    private IObservable<Unit> CreateInspectorSelectionSignalObservable()
+    private IObservable<bool> CreateInspectorSelectionSignalObservable()
     {
         var activePaneChanges = Observable
             .FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
                 handler => PropertyChanged += handler,
                 handler => PropertyChanged -= handler)
             .Where(static args => args.EventArgs.PropertyName == nameof(ActivePane))
-            .Select(static _ => Unit.Default);
+            .Select(static _ => false);
 
         var refreshRequests = Observable
             .FromEventPattern<EventHandler, EventArgs>(
                 handler => Inspector.RefreshRequested += handler,
                 handler => Inspector.RefreshRequested -= handler)
-            .Select(_ =>
-            {
-                Interlocked.Increment(ref _inspectorRefreshVersion);
-                return Unit.Default;
-            });
+            .Select(static _ => true);
+
+        var paneSelectionChanges = Observable.Merge(
+                CreatePaneSelectionObservable(LeftPane),
+                CreatePaneSelectionObservable(RightPane))
+            .Select(static _ => false);
 
         return Observable.Merge(
-                CreatePaneSelectionObservable(LeftPane),
-                CreatePaneSelectionObservable(RightPane),
+                paneSelectionChanges,
                 activePaneChanges,
                 refreshRequests)
-            .StartWith(Unit.Default);
+            .StartWith(false);
     }
 
     private IObservable<Unit> CreatePaneSelectionObservable(FilePaneViewModel pane)
@@ -651,12 +649,32 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .Select(static _ => Unit.Default);
     }
 
-    private FileInspectorSelection CreateCurrentInspectorSelection()
+    private FileInspectorSelection CreateCurrentInspectorSelection(bool forceRefresh)
     {
+        var selectedEntries = ActivePane.GetSelectedEntries();
+        var selectionSignature = CreateInspectorSelectionSignature(selectedEntries);
+        if (forceRefresh || !string.Equals(selectionSignature, _inspectorSelectionSignature, StringComparison.Ordinal))
+        {
+            _inspectorSelectionSignature = selectionSignature;
+            _ = Interlocked.Increment(ref _inspectorRefreshVersion);
+        }
+
         return FileInspectorSelection.FromSelection(
-            ActivePane.GetSelectedEntries(),
+            selectedEntries,
             ActivePane.IsLoading,
-            Interlocked.Read(ref _inspectorRefreshVersion));
+            _inspectorRefreshVersion);
+    }
+
+    private static string CreateInspectorSelectionSignature(IReadOnlyList<FileEntryViewModel> selectedEntries)
+    {
+        if (selectedEntries.Count == 0)
+        {
+            return "<none>";
+        }
+
+        return string.Join(
+            '\u001f',
+            selectedEntries.Select(static entry => entry.Model.FullPath.DisplayPath));
     }
 
     public void Dispose()

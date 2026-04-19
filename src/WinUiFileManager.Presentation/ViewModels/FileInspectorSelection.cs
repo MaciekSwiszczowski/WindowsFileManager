@@ -14,7 +14,8 @@ public sealed record FileInspectorSelection(
     long SizeBytes,
     DateTime CreationTimeUtc,
     DateTime LastWriteTimeUtc,
-    string Attributes)
+    string Attributes,
+    FileAttributes AttributesFlags)
 {
     public static FileInspectorSelection FromSelection(
         IReadOnlyList<FileEntryViewModel> selectedEntries,
@@ -54,7 +55,8 @@ public sealed record FileInspectorSelection(
             SizeBytes: entry.SizeBytes,
             CreationTimeUtc: entry.CreationTimeUtc,
             LastWriteTimeUtc: entry.LastWriteTimeUtc,
-            Attributes: entry.Attributes);
+            Attributes: entry.Attributes,
+            AttributesFlags: entry.Model.Attributes);
     }
 
     private static FileInspectorSelection Empty(string statusMessage, long refreshVersion)
@@ -71,6 +73,7 @@ public sealed record FileInspectorSelection(
             SizeBytes: -1,
             CreationTimeUtc: DateTime.MinValue,
             LastWriteTimeUtc: DateTime.MinValue,
-            Attributes: string.Empty);
+            Attributes: string.Empty,
+            AttributesFlags: FileAttributes.None);
     }
 }

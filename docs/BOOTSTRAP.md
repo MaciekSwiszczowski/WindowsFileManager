@@ -574,6 +574,7 @@ Prefer clarity over novelty.
 - The `Thumbnails` batch can surface both a preview and lightweight association metadata. Keep the preview optional and hide it entirely when no thumbnail bytes are available.
 - The `NTFS` category is immediate and belongs with the cheap basic state. It should surface managed file attributes as separate Yes/No rows such as `Read Only`, `Hidden`, `System`, `Archive`, `Temporary`, `Offline`, `Not Content Indexed`, `Encrypted`, `Compressed`, `Sparse`, and `Reparse Point`.
 - The `NTFS` category must also support a deferred live-metadata batch. Use it to refresh NTFS attribute flags from a native handle and to surface the four NTFS timestamps: creation, last access, last write, and MFT change time.
+- `MFT Changed` comes from `FILE_BASIC_INFO.ChangeTime` read through `GetFileInformationByHandleEx`. If that value is always missing, treat the native metadata call path as broken before changing the UI.
 - Deferred batches must be applied incrementally as they complete. Do not wait for all deferred categories to finish before publishing the first completed batch to the UI.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
 - Do not read filesystem or WinRT-backed data from the UI thread.
@@ -611,6 +612,9 @@ Prefer clarity over novelty.
   - `Alternate Stream Count` and `Alternate Streams` belong in `Streams`.
   - `Owner`, `Group`, `DACL Summary`, `SACL Summary`, `Inherited`, and `Protected` belong in `Security`.
   - `Has Thumbnail` and `Association` belong in `Thumbnails`, while any preview UI stays optional.
+- `Cloud` is the last deferred inspector category. Keep it hidden unless the selected item is cloud-controlled by sync-root registration, provider identity, or placeholder state.
+- The cloud summary should prefer plain labels such as `Hydrated`, `Dehydrated`, `Pinned`, `Synced`, and transfer labels like `Upload pending` or `Transferring`. Append provider-defined custom text only when Windows exposes it.
+- Only a narrow subset of NTFS yes/no rows should expose inline toggles: `Read Only`, `Hidden`, `Archive`, `Temporary`, and `Not Content Indexed`. Leave derived, privileged, and provider-managed flags read-only.
 - The inspector header must include a manual Refresh action so the user can re-read diagnostics after external changes, such as closing or killing the locking process.
 - Unsupported inspector selections must clear the inspector completely:
   - multiselection does not show inspector content

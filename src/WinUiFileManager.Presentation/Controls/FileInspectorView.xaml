@@ -147,30 +147,43 @@
                                                                     BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
                                                                     BorderThickness="0,0,0,1"
                                                                     Background="Transparent">
-                                                                <Grid>
-                                                                    <ProgressRing Width="14"
-                                                                                  Height="14"
-                                                                                  IsActive="True"
-                                                                                  HorizontalAlignment="Left"
-                                                                                  VerticalAlignment="Center"
-                                                                                  Visibility="{Binding LoadingVisibility}" />
-                                                                    <TextBlock Text="{Binding DisplayValue}"
-                                                                               Style="{StaticResource InspectorCellStyle}"
-                                                                               Visibility="{Binding ValueVisibility}" />
-                                                                    <Border Width="30"
-                                                                            Height="30"
-                                                                            Padding="0"
-                                                                            Margin="0"
-                                                                            HorizontalAlignment="Left"
-                                                                            VerticalAlignment="Center"
-                                                                            Visibility="{Binding ThumbnailVisibility}">
-                                                                        <Image Source="{Binding ThumbnailSource}"
-                                                                               Width="30"
-                                                                               Height="30"
-                                                                               HorizontalAlignment="Stretch"
-                                                                               VerticalAlignment="Stretch"
-                                                                               Stretch="UniformToFill" />
-                                                                    </Border>
+                                                                <Grid ColumnSpacing="12">
+                                                                    <Grid.ColumnDefinitions>
+                                                                        <ColumnDefinition Width="*" />
+                                                                        <ColumnDefinition Width="Auto" />
+                                                                    </Grid.ColumnDefinitions>
+
+                                                                    <Grid Grid.Column="0">
+                                                                        <ProgressRing Width="14"
+                                                                                      Height="14"
+                                                                                      IsActive="True"
+                                                                                      HorizontalAlignment="Left"
+                                                                                      VerticalAlignment="Center"
+                                                                                      Visibility="{Binding LoadingVisibility}" />
+                                                                        <TextBlock Text="{Binding DisplayValue}"
+                                                                                   Style="{StaticResource InspectorCellStyle}"
+                                                                                   Visibility="{Binding ValueVisibility}" />
+                                                                        <Border Width="30"
+                                                                                Height="30"
+                                                                                Padding="0"
+                                                                                Margin="0"
+                                                                                HorizontalAlignment="Left"
+                                                                                VerticalAlignment="Center"
+                                                                                Visibility="{Binding ThumbnailVisibility}">
+                                                                            <Image Source="{Binding ThumbnailSource}"
+                                                                                   Width="30"
+                                                                                   Height="30"
+                                                                                   HorizontalAlignment="Stretch"
+                                                                                   VerticalAlignment="Stretch"
+                                                                                   Stretch="UniformToFill" />
+                                                                        </Border>
+                                                                    </Grid>
+
+                                                                    <CheckBox Grid.Column="1"
+                                                                              VerticalAlignment="Center"
+                                                                              IsChecked="{Binding IsToggleOn, Mode=OneWay}"
+                                                                              Command="{Binding ToggleCommand}"
+                                                                              Visibility="{Binding ToggleVisibility}" />
                                                                 </Grid>
                                                             </Border>
                                                         </Grid>

@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
@@ -38,6 +39,14 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
+    [ObservableProperty]
+    public partial bool CanToggle { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsToggleOn { get; set; }
+
+    public IAsyncRelayCommand? ToggleCommand { get; private set; }
+
     public string DisplayValue => Value;
 
     public Visibility ValueVisibility => !IsLoading && ThumbnailSource is null
@@ -52,7 +61,16 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     public Visibility RowVisibility => IsVisible ? Visibility.Visible : Visibility.Collapsed;
 
+    public Visibility ToggleVisibility => CanToggle && !IsLoading ? Visibility.Visible : Visibility.Collapsed;
+
     public string SearchText => string.Concat(_searchPrefix, Value);
+
+    public void ConfigureToggle(Func<bool, Task<bool>> toggleAsync)
+    {
+        CanToggle = true;
+        ToggleCommand = new AsyncRelayCommand(() => ToggleAsync(toggleAsync));
+        OnPropertyChanged(nameof(ToggleVisibility));
+    }
 
     partial void OnThumbnailSourceChanged(ImageSource? value)
     {
@@ -67,7 +85,35 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
         OnPropertyChanged(nameof(ValueVisibility));
         OnPropertyChanged(nameof(ThumbnailVisibility));
         OnPropertyChanged(nameof(LoadingVisibility));
+        OnPropertyChanged(nameof(ToggleVisibility));
     }
 
-    partial void OnValueChanged(string value) => OnPropertyChanged(nameof(DisplayValue));
+    partial void OnValueChanged(string value)
+    {
+        OnPropertyChanged(nameof(DisplayValue));
+        if (CanToggle)
+        {
+            IsToggleOn = string.Equals(value, "Yes", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    partial void OnCanToggleChanged(bool value) => OnPropertyChanged(nameof(ToggleVisibility));
+
+    private async Task ToggleAsync(Func<bool, Task<bool>> toggleAsync)
+    {
+        var nextValue = !IsToggleOn;
+        var previousValue = Value;
+        var previousToggle = IsToggleOn;
+
+        IsToggleOn = nextValue;
+        Value = nextValue ? "Yes" : "No";
+
+        if (await toggleAsync(nextValue))
+        {
+            return;
+        }
+
+        IsToggleOn = previousToggle;
+        Value = previousValue;
+    }
 }

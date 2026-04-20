@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Collections.Frozen;
 using System.Text;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -27,6 +28,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<InspectorBatchDefinition> _deferredBatches;
     private readonly HashSet<string> _deferredFieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly FrozenDictionary<string, FileAttributes> ToggleableNtfsFlags =
+        new Dictionary<string, FileAttributes>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Read Only"] = FileAttributes.ReadOnly,
+            ["Hidden"] = FileAttributes.Hidden,
+            ["Archive"] = FileAttributes.Archive,
+            ["Temporary"] = FileAttributes.Temporary,
+            ["Not Content Indexed"] = FileAttributes.NotContentIndexed
+        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private bool _preserveDeferredVisibilityUntilFinalBatch;
@@ -103,8 +113,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                 LoadSecurityBatchAsync),
             new InspectorBatchDefinition(
                 "Thumbnails",
+                IsFinalBatch: false,
+                LoadThumbnailBatchAsync),
+            new InspectorBatchDefinition(
+                "Cloud",
                 IsFinalBatch: true,
-                LoadThumbnailBatchAsync)
+                LoadCloudBatchAsync)
         ];
     }
 
@@ -294,6 +308,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Thumbnails", "Has Thumbnail", "Whether Windows could provide a thumbnail for the selected item.", 1);
         RegisterField("Thumbnails", "Association", "Shell association or file type hint used for the thumbnail, when available.", 2);
 
+        RegisterField("Cloud", "Status", "Combined cloud-file state summary such as hydrated, dehydrated, pinned, synced, or uploading.", 0);
+        RegisterField("Cloud", "Provider", "Cloud provider display name.", 1);
+        RegisterField("Cloud", "Sync Root", "Owning sync-root path or display name.", 2);
+        RegisterField("Cloud", "Root ID", "Sync-root registration identifier.", 3);
+        RegisterField("Cloud", "Provider ID", "Provider identifier from the sync-root registration.", 4);
+        RegisterField("Cloud", "Available", "Whether the selected item is currently available locally.", 5);
+        RegisterField("Cloud", "Transfer", "Current transfer state such as upload, download, or paused, when Windows exposes it.", 6);
+        RegisterField("Cloud", "Custom", "Provider-defined custom cloud status text, when available.", 7);
+
         RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
         RegisterField("Locks", "In Use", "Whether Windows currently reports the item as in use. Best-effort diagnostic.", 1);
         RegisterField("Locks", "Locked By", "Applications or services that Windows reports as using this item.", 2);
@@ -309,6 +332,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private void RegisterField(string category, string key, string tooltip, int sortOrder)
     {
         var field = new FileInspectorFieldViewModel(category, key, tooltip, string.Empty, sortOrder);
+        if (ToggleableNtfsFlags.ContainsKey(key))
+        {
+            field.ConfigureToggle(enabled => ToggleNtfsFlagAsync(key, enabled));
+        }
+
         _fieldMap.Add(key, field);
         Fields.Add(field);
         GetOrCreateCategory(category).Fields.Add(field);
@@ -428,6 +456,36 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
     }
 
+    private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
+    {
+        if (string.IsNullOrWhiteSpace(_currentFullPath)
+            || !ToggleableNtfsFlags.TryGetValue(key, out var flag))
+        {
+            return false;
+        }
+
+        try
+        {
+            var updated = await _fileIdentityService.SetNtfsAttributeFlagAsync(
+                _currentFullPath,
+                flag,
+                enabled,
+                CancellationToken.None);
+
+            if (updated)
+            {
+                RefreshRequested?.Invoke(this, EventArgs.Empty);
+            }
+
+            return updated;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to toggle NTFS flag {Flag} for {Path}", key, _currentFullPath);
+            return false;
+        }
+    }
+
     private void ClearFieldValues()
     {
         foreach (var field in Fields)
@@ -491,6 +549,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         "Streams" => 5,
         "Security" => 6,
         "Thumbnails" => 7,
+        "Cloud" => 8,
         _ => int.MaxValue
     };
 
@@ -738,6 +797,64 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             [
                 new FileInspectorFieldUpdate("Has Thumbnail", "No"),
                 new FileInspectorFieldUpdate("Association", string.Empty)
+            ]);
+        }
+    }
+
+    private async Task<InspectorBatchLoadResult> LoadCloudBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var diagnostics = await _fileIdentityService.GetCloudDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
+            if (!diagnostics.IsCloudControlled)
+            {
+                return new InspectorBatchLoadResult(
+                [
+                    new FileInspectorFieldUpdate("Status", string.Empty),
+                    new FileInspectorFieldUpdate("Provider", string.Empty),
+                    new FileInspectorFieldUpdate("Sync Root", string.Empty),
+                    new FileInspectorFieldUpdate("Root ID", string.Empty),
+                    new FileInspectorFieldUpdate("Provider ID", string.Empty),
+                    new FileInspectorFieldUpdate("Available", string.Empty),
+                    new FileInspectorFieldUpdate("Transfer", string.Empty),
+                    new FileInspectorFieldUpdate("Custom", string.Empty)
+                ]);
+            }
+
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Status", diagnostics.Status),
+                new FileInspectorFieldUpdate("Provider", diagnostics.Provider),
+                new FileInspectorFieldUpdate("Sync Root", diagnostics.SyncRoot),
+                new FileInspectorFieldUpdate("Root ID", diagnostics.SyncRootId),
+                new FileInspectorFieldUpdate("Provider ID", diagnostics.ProviderId),
+                new FileInspectorFieldUpdate("Available", diagnostics.Available),
+                new FileInspectorFieldUpdate("Transfer", diagnostics.Transfer),
+                new FileInspectorFieldUpdate("Custom", diagnostics.Custom)
+            ]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load cloud diagnostics for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Status", string.Empty),
+                new FileInspectorFieldUpdate("Provider", string.Empty),
+                new FileInspectorFieldUpdate("Sync Root", string.Empty),
+                new FileInspectorFieldUpdate("Root ID", string.Empty),
+                new FileInspectorFieldUpdate("Provider ID", string.Empty),
+                new FileInspectorFieldUpdate("Available", string.Empty),
+                new FileInspectorFieldUpdate("Transfer", string.Empty),
+                new FileInspectorFieldUpdate("Custom", string.Empty)
             ]);
         }
     }

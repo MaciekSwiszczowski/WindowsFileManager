@@ -69,7 +69,28 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(GetFieldValue(sut, "Streams", "Alternate Stream Count")).IsEqualTo("1");
         await Assert.That(GetFieldValue(sut, "Security", "Owner")).IsEqualTo("DOMAIN\\Owner");
         await Assert.That(GetFieldValue(sut, "Thumbnails", "Has Thumbnail")).IsEqualTo("Yes");
+        await Assert.That(GetFieldValue(sut, "Cloud", "Status")).IsEqualTo("Pinned, Hydrated, Synced, Upload pending, Provider custom");
         await Assert.That(sut.IsLoadingDetails).IsFalse();
+    }
+
+    [Test]
+    public async Task Test_ToggleNtfsFlagAsync_RequestsAttributeUpdateAndRefresh()
+    {
+        var identityService = new RecordingFileIdentityService();
+        var sut = CreateSubject(identityService);
+        var entry = CreateEntry(
+            name: "alpha.txt",
+            fullPath: @"C:\temp\alpha.txt",
+            kind: ItemKind.File,
+            size: 128);
+
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+
+        var readOnlyField = sut.Fields.Single(static field => field.Key == "Read Only");
+        await readOnlyField.ToggleCommand!.ExecuteAsync(null);
+
+        await Assert.That(identityService.ToggleRequests.Count).IsEqualTo(1);
+        await Assert.That(identityService.ToggleRequests[0]).IsEqualTo((@"C:\temp\alpha.txt", FileAttributes.ReadOnly, true));
     }
 
     [Test]
@@ -235,6 +256,28 @@ public sealed class FileInspectorViewModelTests
                 new DateTime(2026, 4, 20, 10, 3, 0, DateTimeKind.Utc)));
         }
 
+        public List<(string Path, FileAttributes Flag, bool Enabled)> ToggleRequests { get; } = [];
+
+        public Task<bool> SetNtfsAttributeFlagAsync(string path, FileAttributes flag, bool enabled, CancellationToken cancellationToken)
+        {
+            ToggleRequests.Add((path, flag, enabled));
+            return Task.FromResult(true);
+        }
+
+        public Task<FileCloudDiagnosticsDetails> GetCloudDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileCloudDiagnosticsDetails(
+                true,
+                "Pinned, Hydrated, Synced, Upload pending, Provider custom",
+                "OneDrive",
+                @"C:\Users\Lenovo\OneDrive",
+                "SyncRoot-1",
+                "00000000-0000-0000-0000-000000000001",
+                "Yes",
+                "Upload pending",
+                "Provider custom"));
+        }
+
         public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
         {
             return Task.FromResult(new FileLinkDiagnosticsDetails(
@@ -308,6 +351,16 @@ public sealed class FileInspectorViewModelTests
                 DateTime.UtcNow,
                 DateTime.UtcNow,
                 DateTime.UtcNow));
+        }
+
+        public Task<bool> SetNtfsAttributeFlagAsync(string path, FileAttributes flag, bool enabled, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<FileCloudDiagnosticsDetails> GetCloudDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(FileCloudDiagnosticsDetails.None);
         }
 
         public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)

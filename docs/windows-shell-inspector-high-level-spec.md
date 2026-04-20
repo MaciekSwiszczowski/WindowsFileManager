@@ -44,8 +44,9 @@ The inspector must cover three layers:
 14. Raw property bag
 15. Optional ReFS / volume context
 
-The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails`.
+The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, `Streams`, `Security`, `Thumbnails`, and `Cloud`.
 `NTFS` contains cheap immediate flags and a deferred live-metadata refresh for native NTFS timestamps and refreshed attribute bits.
+`Cloud` is the final deferred category and should remain hidden unless the selected item belongs to a sync root or exposes cloud/provider state.
 
 ## Field catalog
 
@@ -158,6 +159,8 @@ The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, 
 - If WinUI layout still measures grouped categories to content, the control may publish the measured available width into the grouped category view models and bind category width explicitly. Correct width is more important than keeping the layout purely declarative.
 - Expensive categories should not block first paint. Show them progressively.
 - The `NTFS` category should expose all four NTFS timestamps together at the top of the category: creation, last access, last write, and MFT change time.
+- The `MFT Changed` value comes from NTFS metadata (`FILE_BASIC_INFO.ChangeTime`), not from the managed `FileSystemInfo` snapshot.
+- For the small subset of binary NTFS flags that are safe to change through normal file attributes, the value cell may include an inline toggle control next to the `Yes` / `No` text.
 - Do not duplicate creation / last-write timestamps in both `Basic` and `NTFS`. `NTFS` owns the timestamp set.
 - Property labels should stay short. Use tooltips for the longer explanation.
 - Every row should support copy-to-clipboard of the value.

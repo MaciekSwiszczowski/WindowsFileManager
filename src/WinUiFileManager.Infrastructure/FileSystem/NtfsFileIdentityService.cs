@@ -5,6 +5,7 @@ using System.Text;
 using Microsoft.Win32.SafeHandles;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
+using Windows.Storage.Provider;
 using Windows.Storage.Streams;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.ValueObjects;
@@ -16,6 +17,10 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
 {
     private const int FindStreamInfoStandard = 0;
     private const uint GetFinalPathNameNormalized = 0;
+    private const System.IO.FileAttributes FileAttributePinned = (System.IO.FileAttributes)0x00080000;
+    private const System.IO.FileAttributes FileAttributeUnpinned = (System.IO.FileAttributes)0x00100000;
+    private const System.IO.FileAttributes FileAttributeRecallOnOpen = (System.IO.FileAttributes)0x00040000;
+    private const System.IO.FileAttributes FileAttributeRecallOnDataAccess = (System.IO.FileAttributes)0x00400000;
 
     private readonly IFileIdentityInterop _fileIdentityInterop;
 
@@ -107,6 +112,73 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         {
             var fallback = GetFallbackNtfsMetadata(path);
             return Task.FromResult(fallback);
+        }
+    }
+
+    public Task<bool> SetNtfsAttributeFlagAsync(string path, System.IO.FileAttributes flag, bool enabled, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            var currentAttributes = File.GetAttributes(path);
+            var updatedAttributes = enabled
+                ? currentAttributes | flag
+                : currentAttributes & ~flag;
+
+            if (updatedAttributes != currentAttributes)
+            {
+                File.SetAttributes(path, updatedAttributes);
+            }
+
+            return Task.FromResult(true);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
+    }
+
+    public async Task<FileCloudDiagnosticsDetails> GetCloudDiagnosticsAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            var attributes = File.GetAttributes(path);
+            var syncRoot = await TryGetSyncRootInfoAsync(path);
+            var storageItem = await TryGetStorageItemAsync(path);
+            var provider = TryGetProviderDisplayName(storageItem);
+            var available = await TryGetAvailabilityAsync(storageItem, cancellationToken);
+            var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem);
+
+            using var handle = OpenMetadataHandle(path);
+            var placeholderState = TryGetPlaceholderState(handle.DangerousGetHandle(), attributes);
+            var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
+            var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
+            var syncRootId = syncRoot?.Id ?? string.Empty;
+            var providerId = syncRoot is null ? string.Empty : syncRoot.ProviderId.ToString();
+            var isCloudControlled =
+                !string.IsNullOrWhiteSpace(syncRootId)
+                || !string.IsNullOrWhiteSpace(provider)
+                || placeholderState != CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE;
+
+            return isCloudControlled
+                ? new FileCloudDiagnosticsDetails(
+                    true,
+                    status,
+                    provider,
+                    syncRootPath,
+                    syncRootId,
+                    providerId,
+                    available,
+                    transferState,
+                    customStatus)
+                : FileCloudDiagnosticsDetails.None;
+        }
+        catch
+        {
+            return FileCloudDiagnosticsDetails.None;
         }
     }
 
@@ -315,6 +387,284 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
             DateTime.MinValue);
     }
 
+    private static CF_PLACEHOLDER_STATE TryGetPlaceholderState(IntPtr handle, System.IO.FileAttributes attributes)
+    {
+        if (!GetFileAttributeTagInfo(
+                handle,
+                FILE_INFO_BY_HANDLE_CLASS.FileAttributeTagInfo,
+                out var tagInfo,
+                (uint)Marshal.SizeOf<FILE_ATTRIBUTE_TAG_INFO>()))
+        {
+            return CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE;
+        }
+
+        return CfGetPlaceholderStateFromAttributeTag((uint)attributes, tagInfo.ReparseTag);
+    }
+
+    private static async Task<StorageProviderSyncRootInfo?> TryGetSyncRootInfoAsync(string path)
+    {
+        var folderPath = Directory.Exists(path)
+            ? path
+            : Path.GetDirectoryName(path);
+
+        while (!string.IsNullOrWhiteSpace(folderPath))
+        {
+            try
+            {
+                var folder = await StorageFolder.GetFolderFromPathAsync(folderPath);
+                return StorageProviderSyncRootManager.GetSyncRootInformationForFolder(folder);
+            }
+            catch
+            {
+                folderPath = Path.GetDirectoryName(folderPath);
+            }
+        }
+
+        return null;
+    }
+
+    private static async Task<IStorageItem?> TryGetStorageItemAsync(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                return await StorageFile.GetFileFromPathAsync(path);
+            }
+
+            if (Directory.Exists(path))
+            {
+                return await StorageFolder.GetFolderFromPathAsync(path);
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private static string TryGetProviderDisplayName(IStorageItem? storageItem)
+    {
+        try
+        {
+            return storageItem switch
+            {
+                StorageFile file => file.Provider?.DisplayName ?? string.Empty,
+                StorageFolder folder => folder.Provider?.DisplayName ?? string.Empty,
+                _ => string.Empty
+            };
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    private static Task<string> TryGetAvailabilityAsync(IStorageItem? storageItem, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            return Task.FromResult(storageItem switch
+            {
+                StorageFile file => file.IsAvailable ? "Yes" : "No",
+                _ => string.Empty
+            });
+        }
+        catch
+        {
+            return Task.FromResult(string.Empty);
+        }
+    }
+
+    private static async Task<(string SyncState, string TransferState, string CustomStatus)> TryGetCloudPropertyValuesAsync(IStorageItem? storageItem)
+    {
+        if (storageItem is null)
+        {
+            return (string.Empty, string.Empty, string.Empty);
+        }
+
+        try
+        {
+            var rawValues = storageItem switch
+            {
+                StorageFile file => await file.Properties.RetrievePropertiesAsync(
+                [
+                    "System.Sync.State",
+                    "System.SyncTransferStatus",
+                    "System.Sync.Status"
+                ]),
+                StorageFolder folder => await folder.Properties.RetrievePropertiesAsync(
+                [
+                    "System.Sync.State",
+                    "System.SyncTransferStatus",
+                    "System.Sync.Status"
+                ]),
+                _ => null
+            };
+
+            if (rawValues is null)
+            {
+                return (string.Empty, string.Empty, string.Empty);
+            }
+
+            var syncState = TryFormatSyncState(rawValues.TryGetValue("System.Sync.State", out var syncStateValue) ? syncStateValue : null);
+            var transferState = TryFormatTransferState(rawValues.TryGetValue("System.SyncTransferStatus", out var transferStateValue) ? transferStateValue : null);
+            var customStatus = rawValues.TryGetValue("System.Sync.Status", out var customValue)
+                ? customValue?.ToString() ?? string.Empty
+                : string.Empty;
+
+            return (syncState, transferState, customStatus);
+        }
+        catch
+        {
+            return (string.Empty, string.Empty, string.Empty);
+        }
+    }
+
+    private static string BuildCloudStatus(
+        System.IO.FileAttributes attributes,
+        CF_PLACEHOLDER_STATE placeholderState,
+        string syncState,
+        string transferState,
+        string customStatus)
+    {
+        var labels = new List<string>();
+
+        if ((attributes & FileAttributePinned) != 0)
+        {
+            labels.Add("Pinned");
+        }
+
+        if ((attributes & FileAttributeUnpinned) != 0)
+        {
+            labels.Add("Unpinned");
+        }
+
+        var isDehydrated =
+            (attributes & System.IO.FileAttributes.Offline) != 0
+            || (attributes & FileAttributeRecallOnOpen) != 0
+            || (attributes & FileAttributeRecallOnDataAccess) != 0
+            || placeholderState.HasFlag(CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_PARTIAL);
+
+        if (isDehydrated)
+        {
+            labels.Add("Dehydrated");
+        }
+        else if (placeholderState != CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE
+                 || (attributes & System.IO.FileAttributes.ReparsePoint) != 0)
+        {
+            labels.Add("Hydrated");
+        }
+
+        if (placeholderState.HasFlag(CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_IN_SYNC)
+            || string.Equals(syncState, "Synced", StringComparison.OrdinalIgnoreCase))
+        {
+            labels.Add("Synced");
+        }
+        else if (!string.IsNullOrWhiteSpace(syncState))
+        {
+            labels.Add(syncState);
+        }
+
+        if (!string.IsNullOrWhiteSpace(transferState))
+        {
+            labels.Add(transferState);
+        }
+
+        if (!string.IsNullOrWhiteSpace(customStatus))
+        {
+            labels.Add(customStatus);
+        }
+
+        return string.Join(", ", labels.Distinct(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static string TryFormatSyncState(object? rawValue)
+    {
+        return TryConvertToUInt32(rawValue) switch
+        {
+            0 => "Not set up",
+            1 => "Not run",
+            2 => "Synced",
+            3 => "Sync errors",
+            4 => "Pending",
+            5 => "Syncing",
+            _ => string.Empty
+        };
+    }
+
+    private static string TryFormatTransferState(object? rawValue)
+    {
+        var value = TryConvertToUInt32(rawValue);
+        if (value is null or 0)
+        {
+            return string.Empty;
+        }
+
+        var labels = new List<string>();
+        if ((value & 0x00000001) != 0)
+        {
+            labels.Add("Upload pending");
+        }
+
+        if ((value & 0x00000002) != 0)
+        {
+            labels.Add("Download pending");
+        }
+
+        if ((value & 0x00000004) != 0)
+        {
+            labels.Add("Transferring");
+        }
+
+        if ((value & 0x00000008) != 0)
+        {
+            labels.Add("Paused");
+        }
+
+        if ((value & 0x00000010) != 0)
+        {
+            labels.Add("Error");
+        }
+
+        if ((value & 0x00000020) != 0)
+        {
+            labels.Add("Fetching metadata");
+        }
+
+        if ((value & 0x00000080) != 0)
+        {
+            labels.Add("Warning");
+        }
+
+        return string.Join(", ", labels);
+    }
+
+    private static uint? TryConvertToUInt32(object? rawValue)
+    {
+        try
+        {
+            return rawValue switch
+            {
+                byte value => value,
+                ushort value => value,
+                uint value => value,
+                ulong value => checked((uint)value),
+                int value when value >= 0 => (uint)value,
+                long value when value >= 0 => checked((uint)value),
+                string value when uint.TryParse(value, out var parsed) => parsed,
+                _ => null
+            };
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private static DateTime FromFileTimeUtc(long fileTime) =>
         fileTime <= 0 ? DateTime.MinValue : DateTime.FromFileTimeUtc(fileTime);
 
@@ -471,18 +821,25 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         uint dwFlagsAndAttributes,
         IntPtr hTemplateFile);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
     private static extern bool GetFileBasicInfo(
         IntPtr hFile,
         FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
         out FILE_BASIC_INFO lpFileInformation,
         uint dwBufferSize);
 
-    [DllImport("kernel32.dll", SetLastError = true)]
+    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
     private static extern bool GetFileIdInfo(
         IntPtr hFile,
         FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
         out FILE_ID_INFO lpFileInformation,
+        uint dwBufferSize);
+
+    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
+    private static extern bool GetFileAttributeTagInfo(
+        IntPtr hFile,
+        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
+        out FILE_ATTRIBUTE_TAG_INFO lpFileInformation,
         uint dwBufferSize);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
@@ -538,6 +895,7 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
     private enum FILE_INFO_BY_HANDLE_CLASS
     {
         FileBasicInfo = 0,
+        FileAttributeTagInfo = 9,
         FileIdInfo = 18
     }
 
@@ -565,8 +923,32 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         public byte[] Identifier;
     }
 
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILE_ATTRIBUTE_TAG_INFO
+    {
+        public uint FileAttributes;
+        public uint ReparseTag;
+    }
+
+    [Flags]
+    private enum CF_PLACEHOLDER_STATE : uint
+    {
+        CF_PLACEHOLDER_STATE_NONE = 0x00000000,
+        CF_PLACEHOLDER_STATE_PLACEHOLDER = 0x00000001,
+        CF_PLACEHOLDER_STATE_SYNC_ROOT = 0x00000002,
+        CF_PLACEHOLDER_STATE_ESSENTIAL_PROP_PRESENT = 0x00000004,
+        CF_PLACEHOLDER_STATE_IN_SYNC = 0x00000008,
+        CF_PLACEHOLDER_STATE_PARTIAL = 0x00000010,
+        CF_PLACEHOLDER_STATE_PARTIALLY_ON_DISK = 0x00000020
+    }
+
     private const uint FILE_READ_ATTRIBUTES = 0x80;
     private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
+
+    [DllImport("cldapi.dll", SetLastError = true)]
+    private static extern CF_PLACEHOLDER_STATE CfGetPlaceholderStateFromAttributeTag(
+        uint fileAttributes,
+        uint reparseTag);
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WIN32_FIND_STREAM_DATA

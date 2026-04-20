@@ -10,6 +10,10 @@ public interface IFileIdentityService
 
     Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken);
 
+    Task<bool> SetNtfsAttributeFlagAsync(string path, FileAttributes flag, bool enabled, CancellationToken cancellationToken);
+
+    Task<FileCloudDiagnosticsDetails> GetCloudDiagnosticsAsync(string path, CancellationToken cancellationToken);
+
     Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken);
 
     Task<FileStreamDiagnosticsDetails> GetStreamDiagnosticsAsync(string path, CancellationToken cancellationToken);

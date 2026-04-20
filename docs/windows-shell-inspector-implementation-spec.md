@@ -29,6 +29,9 @@ The implementation is split by category. Each category lists:
 14. If repeater/template stretch still produces content-width measurement, measure the available width in the view and push it into the grouped category view models. Bind each category section to that measured width so the `Value` column gets a real finite remainder.
 15. Each inspector field must expose an explicit `IsVisible` flag. Keep one stable master field collection for refresh/update work and keep category row membership stable after initialization. Refresh must update existing row values in place and recompute `IsVisible`; it must not add/remove rows or rebuild per-category row collections.
 16. Refresh of the currently selected item is a special case: do not collapse already-visible deferred rows or category expanders while the async reload is running. Keep those rows visible, mark them as loading, and only recompute final deferred visibility when the last batch finishes.
+17. Cloud diagnostics are the last deferred inspector category. Keep the category hidden unless the selected item resolves to a sync root, provider, or cloud placeholder state.
+18. `FILE_BASIC_INFO`, `FILE_ID_INFO`, and `FILE_ATTRIBUTE_TAG_INFO` must be read through `GetFileInformationByHandleEx`. Do not invent fake P/Invoke entrypoint names for those structures.
+19. Inline NTFS toggles are allowed only for attribute bits that can be updated through normal `GetAttributes` / `SetAttributes` semantics. Leave provider-managed and FSCTL-backed bits read-only.
 
 ## Category 0 – Item acquisition
 
@@ -333,6 +336,15 @@ The implementation is split by category. Each category lists:
 | `CfState` | [`CfGetPlaceholderStateFromFileInfo`](<https://learn.microsoft.com/en-us/windows/win32/api/cfapi/nf-cfapi-cfgetplaceholderstatefromfileinfo>) | Feed it data from handle-based file info. |
 | `CfInfo` | [`CfGetPlaceholderInfo`](<https://learn.microsoft.com/en-us/windows/win32/api/cfapi/nf-cfapi-cfgetplaceholderinfo>) | Advanced placeholder details. |
 | `CusSt` | raw Property System + provider-specific values | `StorageProviderItemProperty` documents the provider-defined state shape; reading is usually via WinRT property surfaces / Property System, not via `SetAsync`. |
+
+### Implementation note
+
+- The default inspector surface may collapse the full cloud diagnostics into a short `Status` row plus supporting rows such as `Provider`, `Sync Root`, `Available`, `Transfer`, and `Custom`.
+- A practical summary can be assembled from:
+  - sync-root registration via `StorageProviderSyncRootManager`
+  - provider display name via WinRT storage-item provider surfaces
+  - placeholder state via `CfGetPlaceholderStateFromAttributeTag`
+  - optional property values such as `System.Sync.State`, `System.SyncTransferStatus`, and `System.Sync.Status`
 
 ## Category 11 – Thumbnails and handler diagnostics
 

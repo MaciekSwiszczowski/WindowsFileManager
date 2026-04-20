@@ -382,6 +382,26 @@ public sealed partial class FileEntryTableView : UserControl
                     e.Handled = true;
                 }
                 break;
+
+            case VirtualKey.Home when !ctrl:
+                MoveSelectionToBoundary(moveToLast: false);
+                e.Handled = true;
+                break;
+
+            case VirtualKey.End when !ctrl:
+                MoveSelectionToBoundary(moveToLast: true);
+                e.Handled = true;
+                break;
+
+            case VirtualKey.PageUp when !ctrl:
+                MoveSelectionByPage(-1);
+                e.Handled = true;
+                break;
+
+            case VirtualKey.PageDown when !ctrl:
+                MoveSelectionByPage(1);
+                e.Handled = true;
+                break;
         }
     }
 
@@ -525,6 +545,67 @@ public sealed partial class FileEntryTableView : UserControl
     private static bool IsTypingChar(VirtualKey key) =>
         key is >= VirtualKey.A and <= VirtualKey.Z
             or >= VirtualKey.Number0 and <= VirtualKey.Number9;
+
+    private void MoveSelectionToBoundary(bool moveToLast)
+    {
+        var host = GridViewModel.Host;
+        if (host is null || host.Items.Count == 0)
+        {
+            return;
+        }
+
+        MoveSelectionToIndex(moveToLast ? host.Items.Count - 1 : 0);
+    }
+
+    private void MoveSelectionByPage(int direction)
+    {
+        var host = GridViewModel.Host;
+        if (host is null || host.Items.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = FileTable.SelectedItem is FileEntryViewModel selected
+            ? host.Items.IndexOf(selected)
+            : host.CurrentItem is not null
+                ? host.Items.IndexOf(host.CurrentItem)
+                : 0;
+
+        if (currentIndex < 0)
+        {
+            currentIndex = 0;
+        }
+
+        var visibleRowCount = Math.Max(1, (int)(FileTable.ActualHeight / Math.Max(FileTable.RowHeight, 1d)) - 1);
+        var targetIndex = Math.Clamp(currentIndex + (direction * visibleRowCount), 0, host.Items.Count - 1);
+        MoveSelectionToIndex(targetIndex);
+    }
+
+    private void MoveSelectionToIndex(int index)
+    {
+        var host = GridViewModel.Host;
+        if (host is null || index < 0 || index >= host.Items.Count)
+        {
+            return;
+        }
+
+        var entry = host.Items[index];
+        _syncingSelection = true;
+        try
+        {
+            FileTable.SelectedItems.Clear();
+            FileTable.SelectedItem = entry;
+            host.CurrentItem = entry;
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        FileTable.ScrollRowIntoView(index);
+        SyncTableViewKeyboardAnchor(index);
+        host.NotifySelectionChanged();
+    }
 
     private static char VirtualKeyToChar(VirtualKey key) => key switch
     {

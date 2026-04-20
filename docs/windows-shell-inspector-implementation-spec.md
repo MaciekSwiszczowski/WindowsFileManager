@@ -27,6 +27,8 @@ The implementation is split by category. Each category lists:
 12. If the grouped inspector lives inside a `ScrollViewer`, host the categories inside one finite-width parent and prefer `ItemsRepeater` + `StackLayout` over nested `ItemsControl` presenters. The grouped host must determine width; templates must not rely on inner presenters to stretch rows.
 13. Any shell-facing action that opens Explorer UI, including the standard Properties dialog, must pass the display path rather than the internal normalized `\\?\` path.
 14. If repeater/template stretch still produces content-width measurement, measure the available width in the view and push it into the grouped category view models. Bind each category section to that measured width so the `Value` column gets a real finite remainder.
+15. Each inspector field must expose an explicit `IsVisible` flag. Keep one stable master field collection for refresh/update work and keep category row membership stable after initialization. Refresh must update existing row values in place and recompute `IsVisible`; it must not add/remove rows or rebuild per-category row collections.
+16. Refresh of the currently selected item is a special case: do not collapse already-visible deferred rows or category expanders while the async reload is running. Keep those rows visible, mark them as loading, and only recompute final deferred visibility when the last batch finishes.
 
 ## Category 0 – Item acquisition
 
@@ -125,12 +127,14 @@ The implementation is split by category. Each category lists:
 ### Keys served from this category
 
 - `RO`, `Hid`, `Sys`, `Arc`, `Tmp`, `Offl`, `NIdx`, `Efs`, `Cmp`, `Sprs`, `RPt`
+- `CTime`, `ATime`, `MTime`, `ChgTime`
 
 ### Required methods
 
 | Key(s) | Method(s) | Notes |
 |---|---|---|
-| all NTFS flags | [`FileSystemInfo.Attributes`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0>) | Derive each flag as a simple Yes/No boolean from the current file-system attributes. This category is immediate and must not wait on any background handle-based diagnostic. |
+| immediate NTFS flags | [`FileSystemInfo.Attributes`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0>) | Use the cheap managed snapshot for immediate first paint. |
+| refreshed NTFS flags + `CTime` + `ATime` + `MTime` + `ChgTime` | [`CreateFileW`](<https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew>) + [`GetFileInformationByHandleEx`](<https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex>) with `FileBasicInfo` | Use a native handle opened with normal sharing and `FILE_FLAG_BACKUP_SEMANTICS` for directories. Read `FILE_BASIC_INFO` to refresh attributes and retrieve creation, last access, last write, and change/MFT timestamps. This NTFS metadata load should run as its own deferred batch, and the timestamp rows should be the first rows in the `NTFS` category. |
 
 ## Category 3 – IDs / stable item identity and final path
 

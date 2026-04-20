@@ -120,13 +120,13 @@
                                             </Grid>
 
                                             <ItemsRepeater Grid.Row="1"
-                                                           ItemsSource="{Binding VisibleFields}">
+                                                           ItemsSource="{Binding Fields}">
                                                 <ItemsRepeater.Layout>
                                                     <StackLayout />
                                                 </ItemsRepeater.Layout>
                                                 <ItemsRepeater.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Grid>
+                                                        <Grid Visibility="{Binding RowVisibility}">
                                                             <Grid.ColumnDefinitions>
                                                                 <ColumnDefinition Width="180" />
                                                                 <ColumnDefinition Width="*" />
@@ -148,7 +148,17 @@
                                                                     BorderThickness="0,0,0,1"
                                                                     Background="Transparent">
                                                                 <Grid>
-                                                                    <TextBlock Text="{Binding Value}"
+                                                                    <StackPanel Orientation="Horizontal"
+                                                                                Spacing="8"
+                                                                                VerticalAlignment="Center"
+                                                                                Visibility="{Binding LoadingVisibility}">
+                                                                        <ProgressRing Width="14"
+                                                                                      Height="14"
+                                                                                      IsActive="True" />
+                                                                        <TextBlock Text="{Binding DisplayValue}"
+                                                                                   Style="{StaticResource InspectorCellStyle}" />
+                                                                    </StackPanel>
+                                                                    <TextBlock Text="{Binding DisplayValue}"
                                                                                Style="{StaticResource InspectorCellStyle}"
                                                                                Visibility="{Binding ValueVisibility}" />
                                                                     <Border Width="30"

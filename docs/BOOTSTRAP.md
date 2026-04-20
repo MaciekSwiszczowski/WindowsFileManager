@@ -573,11 +573,16 @@ Prefer clarity over novelty.
 - Deferred categories such as `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails` must be loaded independently as separate batches. `NTFS File/Folder ID` belongs to the `IDs` batch and must not be folded into the immediate/basic selection path.
 - The `Thumbnails` batch can surface both a preview and lightweight association metadata. Keep the preview optional and hide it entirely when no thumbnail bytes are available.
 - The `NTFS` category is immediate and belongs with the cheap basic state. It should surface managed file attributes as separate Yes/No rows such as `Read Only`, `Hidden`, `System`, `Archive`, `Temporary`, `Offline`, `Not Content Indexed`, `Encrypted`, `Compressed`, `Sparse`, and `Reparse Point`.
+- The `NTFS` category must also support a deferred live-metadata batch. Use it to refresh NTFS attribute flags from a native handle and to surface the four NTFS timestamps: creation, last access, last write, and MFT change time.
 - Deferred batches must be applied incrementally as they complete. Do not wait for all deferred categories to finish before publishing the first completed batch to the UI.
 - Return to the UI thread only after the deferred batch results are ready, and only to apply bound view-model state.
 - Do not read filesystem or WinRT-backed data from the UI thread.
 - Do not update `ObservableCollection` or visible inspector field values from background threads.
 - The grouped inspector UI must keep category view models alive across selection changes. Do not rebuild the category collection on every update; only update field values and field visibility within existing category objects.
+- The grouped inspector row model must expose an explicit `IsVisible` flag per field. Refresh walks the stable field objects, updates values in place, and recomputes `IsVisible`. Do not create or destroy inspector rows during refresh.
+- Category membership must also be stable. Create each category's field list once during inspector initialization, keep those row references alive, and let the view hide rows by `IsVisible` instead of rebuilding per-category collections.
+- A refresh of the same selected item must not collapse existing deferred categories or hide already-visible deferred rows while new data is loading. Keep those rows visible, mark them as loading, and defer the final hide/show decision until the last deferred batch completes.
+- During refresh, currently visible deferred rows may render a small spinner or `Loading...` in place of the value. Do not blank the value cell and do not collapse the row during the load, because that causes expander churn and scroll jitter.
 - Grouped inspector categories use persistent `Expander` sections, but the inner property list should be rendered with a simple two-column `Grid` layout, not nested `TableView` controls. Use a fixed `Property` column and a star-sized `Value` column so the value side always takes the remaining inspector width.
 - When the grouped inspector is inside a `ScrollViewer`, do not rely on nested `ItemsControl` presenters to stretch category content. Host the grouped content inside a finite-width parent and prefer `ItemsRepeater` + `StackLayout` so the expander host, not item presenters, controls width.
 - In practice, grouped category width should be driven from measured view size, not only from template stretch. The view may publish the current available content width into the inspector/category view models, and grouped `Expander` sections may bind their width to that measured value.
@@ -601,7 +606,7 @@ Prefer clarity over novelty.
   - `Lock Services` helps identify background-service locks.
   - `Usage`, `Can Switch To`, and `Can Close` are advanced diagnostics and must be described in plain language.
 - Keep identity / link / stream / security / thumbnail labels equally plain-language:
-  - `NTFS File/Folder ID`, `Volume Serial`, `Legacy File Index`, `Hard Link Count`, and `Final Path` belong in `IDs`.
+  - `File ID`, `Volume Serial`, `File Index (64-bit)`, `Hard Link Count`, and `Final Path` belong in `IDs`.
   - `Link Target`, `Link Status`, `Reparse Tag`, `Reparse Data`, and `Object ID` belong in `Links`.
   - `Alternate Stream Count` and `Alternate Streams` belong in `Streams`.
   - `Owner`, `Group`, `DACL Summary`, `SACL Summary`, `Inherited`, and `Protected` belong in `Security`.
@@ -631,6 +636,8 @@ Prefer clarity over novelty.
 - `ListView.SelectionMode="Extended"` enables native single-click, Ctrl+click, and Shift+click multi-selection.
 - `FileListView_SelectionChanged` syncs `ListView.SelectedItems` → `FileEntryViewModel.IsSelected`, so `GetSelectedEntryModels()` correctly returns all selected items.
 - Space/Insert toggle `IsSelected` on the ViewModel and then sync back to `ListView.SelectedItems` to keep visual state consistent.
+- `PageUp`, `PageDown`, `Home`, and `End` must work in the pane grid even if the third-party table control does not implement them correctly. Handle them explicitly in preview key routing so paging/navigation does not depend on undocumented control behavior.
+- The inspector refresh signal must include pane-load completion (`IsLoading` transitioning to `false`). Otherwise the inspector can get stuck after a pane clears itself during loading and never repopulates when loading finishes.
 - After file operations (copy, move, delete, rename, create folder), `FocusActivePaneRequested` re-focuses the active pane's file list.
 
 ### Command Bar

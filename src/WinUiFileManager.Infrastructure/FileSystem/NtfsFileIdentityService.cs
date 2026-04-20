@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using System.Text;
+using Microsoft.Win32.SafeHandles;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Streams;
@@ -27,13 +28,15 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var result = _fileIdentityInterop.GetFileId(path);
-
-        var fileId = result is { Success: true, FileId128: not null }
-            ? new NtfsFileId(result.FileId128)
-            : NtfsFileId.None;
-
-        return Task.FromResult(fileId);
+        try
+        {
+            using var handle = OpenMetadataHandle(path);
+            return Task.FromResult(GetFileIdFromHandle(handle.DangerousGetHandle()));
+        }
+        catch
+        {
+            return Task.FromResult(NtfsFileId.None);
+        }
     }
 
     public Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken)
@@ -42,22 +45,18 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
 
         try
         {
-            var fileIdResult = _fileIdentityInterop.GetFileId(path);
-            var fileId = fileIdResult is { Success: true, FileId128: not null }
-                ? new NtfsFileId(fileIdResult.FileId128)
-                : NtfsFileId.None;
+            using var handle = OpenMetadataHandle(path);
+            var rawHandle = handle.DangerousGetHandle();
+            var fileId = GetFileIdFromHandle(rawHandle);
 
-            using var stream = OpenReadHandle(path);
-            var handle = stream.SafeFileHandle.DangerousGetHandle();
-
-            var legacyInfo = TryGetLegacyFileInfo(handle, out var legacyError);
+            var legacyInfo = TryGetLegacyFileInfo(rawHandle, out var legacyError);
             if (!string.IsNullOrWhiteSpace(legacyError))
             {
                 _ = legacyError;
             }
 
             var volumeSerial = TryGetVolumeSerial(path);
-            var finalPath = TryGetFinalPath(handle) ?? Path.GetFullPath(path);
+            var finalPath = TryGetFinalPath(rawHandle) ?? Path.GetFullPath(path);
 
             return Task.FromResult(new FileIdentityDetails(
                 fileId,
@@ -77,6 +76,37 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
                 string.Empty,
                 path))
             ;
+        }
+    }
+
+    public Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        try
+        {
+            using var handle = OpenMetadataHandle(path);
+            var rawHandle = handle.DangerousGetHandle();
+            if (!GetFileBasicInfo(
+                    rawHandle,
+                    FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo,
+                    out var basicInfo,
+                    (uint)Marshal.SizeOf<FILE_BASIC_INFO>()))
+            {
+                throw new InvalidOperationException($"GetFileInformationByHandleEx failed: {Marshal.GetLastPInvokeError()}");
+            }
+
+            return Task.FromResult(new FileNtfsMetadataDetails(
+                (System.IO.FileAttributes)basicInfo.FileAttributes,
+                FromFileTimeUtc(basicInfo.CreationTime),
+                FromFileTimeUtc(basicInfo.LastAccessTime),
+                FromFileTimeUtc(basicInfo.LastWriteTime),
+                FromFileTimeUtc(basicInfo.ChangeTime)));
+        }
+        catch
+        {
+            var fallback = GetFallbackNtfsMetadata(path);
+            return Task.FromResult(fallback);
         }
     }
 
@@ -253,14 +283,56 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         return Task.FromResult(diagnostics);
     }
 
-    private static FileStream OpenReadHandle(string path) =>
-        new(
+    private static SafeFileHandle OpenMetadataHandle(string path)
+    {
+        var flags = Directory.Exists(path) ? FILE_FLAG_BACKUP_SEMANTICS : 0u;
+        var handle = CreateFileW(
             path,
-            FileMode.Open,
-            FileAccess.Read,
+            FILE_READ_ATTRIBUTES,
             FileShare.ReadWrite | FileShare.Delete,
-            bufferSize: 1,
-            FileOptions.None);
+            IntPtr.Zero,
+            FileMode.Open,
+            flags,
+            IntPtr.Zero);
+
+        if (handle.IsInvalid)
+        {
+            throw new InvalidOperationException($"CreateFileW failed: {Marshal.GetLastPInvokeError()}");
+        }
+
+        return handle;
+    }
+
+    private static FileNtfsMetadataDetails GetFallbackNtfsMetadata(string path)
+    {
+        FileSystemInfo info = File.Exists(path) ? new FileInfo(path) : new DirectoryInfo(path);
+        info.Refresh();
+        return new FileNtfsMetadataDetails(
+            info.Attributes,
+            info.CreationTimeUtc,
+            info.LastAccessTimeUtc,
+            info.LastWriteTimeUtc,
+            DateTime.MinValue);
+    }
+
+    private static DateTime FromFileTimeUtc(long fileTime) =>
+        fileTime <= 0 ? DateTime.MinValue : DateTime.FromFileTimeUtc(fileTime);
+
+    private static NtfsFileId GetFileIdFromHandle(IntPtr handle)
+    {
+        if (!GetFileIdInfo(
+                handle,
+                FILE_INFO_BY_HANDLE_CLASS.FileIdInfo,
+                out var fileIdInfo,
+                (uint)Marshal.SizeOf<FILE_ID_INFO>()))
+        {
+            return NtfsFileId.None;
+        }
+
+        return fileIdInfo.FileId.Identifier is { Length: 16 } identifier
+            ? new NtfsFileId(identifier)
+            : NtfsFileId.None;
+    }
 
     private static BY_HANDLE_FILE_INFORMATION? TryGetLegacyFileInfo(
         IntPtr handle,
@@ -390,6 +462,30 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         out BY_HANDLE_FILE_INFORMATION lpFileInformation);
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        FileShare dwShareMode,
+        IntPtr lpSecurityAttributes,
+        FileMode dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileBasicInfo(
+        IntPtr hFile,
+        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
+        out FILE_BASIC_INFO lpFileInformation,
+        uint dwBufferSize);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool GetFileIdInfo(
+        IntPtr hFile,
+        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
+        out FILE_ID_INFO lpFileInformation,
+        uint dwBufferSize);
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     private static extern bool GetVolumeInformationW(
         string lpRootPathName,
         StringBuilder? lpVolumeNameBuffer,
@@ -438,6 +534,39 @@ public sealed class NtfsFileIdentityService : IFileIdentityService
         public uint nFileIndexHigh;
         public uint nFileIndexLow;
     }
+
+    private enum FILE_INFO_BY_HANDLE_CLASS
+    {
+        FileBasicInfo = 0,
+        FileIdInfo = 18
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILE_BASIC_INFO
+    {
+        public long CreationTime;
+        public long LastAccessTime;
+        public long LastWriteTime;
+        public long ChangeTime;
+        public uint FileAttributes;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILE_ID_INFO
+    {
+        public ulong VolumeSerialNumber;
+        public FILE_ID_128 FileId;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct FILE_ID_128
+    {
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
+        public byte[] Identifier;
+    }
+
+    private const uint FILE_READ_ATTRIBUTES = 0x80;
+    private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct WIN32_FIND_STREAM_DATA

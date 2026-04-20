@@ -8,6 +8,8 @@ public interface IFileIdentityService
 
     Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken);
 
+    Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken);
+
     Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken);
 
     Task<FileStreamDiagnosticsDetails> GetStreamDiagnosticsAsync(string path, CancellationToken cancellationToken);

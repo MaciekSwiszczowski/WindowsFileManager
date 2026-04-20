@@ -638,7 +638,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     private IObservable<Unit> CreatePaneSelectionObservable(FilePaneViewModel pane)
     {
-        return Observable
+        var selectionChanges = Observable
             .FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
                 handler => pane.PropertyChanged += handler,
                 handler => pane.PropertyChanged -= handler)
@@ -646,6 +646,18 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 nameof(FilePaneViewModel.CurrentItem)
                 or nameof(FilePaneViewModel.SelectedCount))
             .Select(static _ => Unit.Default);
+
+        var loadCompletionChanges = Observable
+            .FromEventPattern<PropertyChangedEventHandler, PropertyChangedEventArgs>(
+                handler => pane.PropertyChanged += handler,
+                handler => pane.PropertyChanged -= handler)
+            .Where(static args =>
+                args.EventArgs.PropertyName == nameof(FilePaneViewModel.IsLoading)
+                && args.Sender is FilePaneViewModel paneViewModel
+                && !paneViewModel.IsLoading)
+            .Select(static _ => Unit.Default);
+
+        return Observable.Merge(selectionChanges, loadCompletionChanges);
     }
 
     private FileInspectorSelection CreateCurrentInspectorSelection(bool forceRefresh)

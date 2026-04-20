@@ -26,8 +26,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<InspectorBatchDefinition> _deferredBatches;
+    private readonly HashSet<string> _deferredFieldKeys = new(StringComparer.OrdinalIgnoreCase);
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
+    private bool _preserveDeferredVisibilityUntilFinalBatch;
     private bool _disposed;
 
     [ObservableProperty]
@@ -45,8 +47,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial double InspectorContentWidth { get; set; }
 
+    public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
+
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
-    public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];
 
     public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
     public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
@@ -74,6 +77,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         InitializeFieldDefinitions();
         _deferredBatches =
         [
+            new InspectorBatchDefinition(
+                "NTFS",
+                IsFinalBatch: false,
+                LoadNtfsBatchAsync),
             new InspectorBatchDefinition(
                 "IDs",
                 IsFinalBatch: false,
@@ -114,7 +121,19 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             return;
         }
 
-        ApplyBasicSelection(selection);
+        var isSameItem = HasItem
+            && string.Equals(_currentFullPath, selection.FullPath, StringComparison.OrdinalIgnoreCase);
+        var isSameVersion = selection.RefreshVersion == _currentSelectionVersion;
+
+        if (isSameItem && isSameVersion)
+        {
+            IsLoadingDetails = selection.CanLoadDeferred;
+            StatusMessage = string.Empty;
+            return;
+        }
+
+        var preserveDeferredVisibility = isSameItem && !isSameVersion;
+        ApplyBasicSelection(selection, preserveDeferredVisibility);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
         StatusMessage = string.Empty;
@@ -130,11 +149,13 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         var builder = new StringBuilder();
         foreach (var grouping in Categories
-            .Where(static category => category.VisibleFields.Count > 0)
+            .Where(static category => category.HasVisibleFields)
             .OrderBy(category => GetCategorySortOrder(category.Name)))
         {
             builder.AppendLine(grouping.Name);
-            foreach (var field in grouping.VisibleFields.OrderBy(static field => field.SortOrder))
+            foreach (var field in Fields
+                .Where(field => field.IsVisible && string.Equals(field.Category, grouping.Name, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(static field => field.SortOrder))
             {
                 builder.Append("  ").Append(field.Key).Append(": ").AppendLine(field.Value);
             }
@@ -173,6 +194,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         HasItem = false;
         StatusMessage = statusMessage;
         _currentFullPath = string.Empty;
+        _preserveDeferredVisibilityUntilFinalBatch = false;
         ClearFieldValues();
         RefreshVisibleCategories();
     }
@@ -227,25 +249,27 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Basic", "Type", "Item type", 2);
         RegisterField("Basic", "Extension", "File extension", 3);
         RegisterField("Basic", "Size", "Size in a human-readable format", 4);
-        RegisterField("Basic", "Creation Time (UTC)", "Creation time in UTC", 5);
-        RegisterField("Basic", "Last Write Time (UTC)", "Last modified time in UTC", 6);
-        RegisterField("Basic", "Attributes", "File system attributes", 7);
+        RegisterField("Basic", "Attributes", "File system attributes", 5);
 
-        RegisterField("NTFS", "Read Only", "Whether the item is marked read-only.", 0);
-        RegisterField("NTFS", "Hidden", "Whether the item is hidden.", 1);
-        RegisterField("NTFS", "System", "Whether the item is marked as a system file.", 2);
-        RegisterField("NTFS", "Archive", "Whether the archive attribute is set.", 3);
-        RegisterField("NTFS", "Temporary", "Whether the item is marked temporary.", 4);
-        RegisterField("NTFS", "Offline", "Whether the item is offline or placeholder-backed.", 5);
-        RegisterField("NTFS", "Not Content Indexed", "Whether the item should be excluded from content indexing.", 6);
-        RegisterField("NTFS", "Encrypted", "Whether the item is encrypted with EFS.", 7);
-        RegisterField("NTFS", "Compressed", "Whether the item is compressed by NTFS.", 8);
-        RegisterField("NTFS", "Sparse", "Whether the item is stored as a sparse file.", 9);
-        RegisterField("NTFS", "Reparse Point", "Whether the item is a reparse point.", 10);
+        RegisterField("NTFS", "Created", "NTFS creation time in UTC.", 0);
+        RegisterField("NTFS", "Accessed", "NTFS last access time in UTC.", 1);
+        RegisterField("NTFS", "Modified", "NTFS last write time in UTC.", 2);
+        RegisterField("NTFS", "MFT Changed", "NTFS metadata change time in UTC.", 3);
+        RegisterField("NTFS", "Read Only", "Whether the item is marked read-only.", 4);
+        RegisterField("NTFS", "Hidden", "Whether the item is hidden.", 5);
+        RegisterField("NTFS", "System", "Whether the item is marked as a system file.", 6);
+        RegisterField("NTFS", "Archive", "Whether the archive attribute is set.", 7);
+        RegisterField("NTFS", "Temporary", "Whether the item is marked temporary.", 8);
+        RegisterField("NTFS", "Offline", "Whether the item is offline or placeholder-backed.", 9);
+        RegisterField("NTFS", "Not Content Indexed", "Whether the item should be excluded from content indexing.", 10);
+        RegisterField("NTFS", "Encrypted", "Whether the item is encrypted with EFS.", 11);
+        RegisterField("NTFS", "Compressed", "Whether the item is compressed by NTFS.", 12);
+        RegisterField("NTFS", "Sparse", "Whether the item is stored as a sparse file.", 13);
+        RegisterField("NTFS", "Reparse Point", "Whether the item is a reparse point.", 14);
 
-        RegisterField("IDs", "NTFS File/Folder ID", "NTFS file identifier", 0);
+        RegisterField("IDs", "File ID", "128-bit NTFS identifier for the selected file system entry.", 0);
         RegisterField("IDs", "Volume Serial", "Volume serial number of the drive that contains the item.", 1);
-        RegisterField("IDs", "Legacy File Index", "Legacy NTFS file index, when available.", 2);
+        RegisterField("IDs", "File Index (64-bit)", "Older 64-bit file index from the legacy Windows API. Diagnostic/compatibility value only.", 2);
         RegisterField("IDs", "Hard Link Count", "How many hard links point to the same file record, when available.", 3);
         RegisterField("IDs", "Final Path", "The resolved final path reported by Windows.", 4);
 
@@ -285,7 +309,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     {
         var field = new FileInspectorFieldViewModel(category, key, tooltip, string.Empty, sortOrder);
         _fieldMap.Add(key, field);
+        Fields.Add(field);
         GetOrCreateCategory(category).Fields.Add(field);
+        if (!string.Equals(category, "Basic", StringComparison.OrdinalIgnoreCase))
+        {
+            _deferredFieldKeys.Add(key);
+        }
     }
 
     private FileInspectorCategoryViewModel GetOrCreateCategory(string category)
@@ -309,50 +338,42 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         return createdCategory;
     }
 
-    private void ApplyBasicSelection(FileInspectorSelection selection)
+    private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
     {
         SetFieldValue("Name", selection.Name);
         SetFieldValue("Full Path", selection.FullPath);
         SetFieldValue("Type", selection.Kind == ItemKind.Directory ? "Folder" : "File");
         SetFieldValue("Extension", selection.Extension);
         SetFieldValue("Size", FormatSize(selection.SizeBytes));
-        SetFieldValue("Creation Time (UTC)", FormatUtc(selection.CreationTimeUtc));
-        SetFieldValue("Last Write Time (UTC)", FormatUtc(selection.LastWriteTimeUtc));
         SetFieldValue("Attributes", selection.Attributes);
-        ApplyNtfsFlags(selection.AttributesFlags);
         _currentFullPath = selection.FullPath;
 
-        ClearDeferredFields();
+        if (preserveDeferredVisibility)
+        {
+            BeginDeferredRefresh();
+        }
+        else
+        {
+            ApplyNtfsFlags(selection.AttributesFlags);
+            ClearDeferredFields();
+        }
 
         HasItem = true;
-        RefreshVisibleCategories();
+        _preserveDeferredVisibilityUntilFinalBatch = preserveDeferredVisibility;
+        RefreshVisibleCategories(preserveDeferredVisibility);
     }
 
     private void ClearDeferredFields()
     {
-        SetFieldValue("NTFS File/Folder ID", string.Empty);
-        SetFieldValue("Volume Serial", string.Empty);
-        SetFieldValue("Legacy File Index", string.Empty);
-        SetFieldValue("Hard Link Count", string.Empty);
-        SetFieldValue("Final Path", string.Empty);
-        SetFieldValue("Link Target", string.Empty);
-        SetFieldValue("Link Status", string.Empty);
-        SetFieldValue("Reparse Tag", string.Empty);
-        SetFieldValue("Reparse Data", string.Empty);
-        SetFieldValue("Object ID", string.Empty);
-        SetFieldValue("Alternate Stream Count", string.Empty);
-        SetFieldValue("Alternate Streams", string.Empty);
-        SetFieldValue("Owner", string.Empty);
-        SetFieldValue("Group", string.Empty);
-        SetFieldValue("DACL Summary", string.Empty);
-        SetFieldValue("SACL Summary", string.Empty);
-        SetFieldValue("Inherited", string.Empty);
-        SetFieldValue("Protected", string.Empty);
-        SetFieldValue("Thumbnail", string.Empty);
-        SetFieldValue("Has Thumbnail", string.Empty);
-        SetFieldValue("Association", string.Empty);
-        ClearLockFields();
-        SetFieldThumbnailSource("Thumbnail", null);
+        foreach (var key in _deferredFieldKeys)
+        {
+            SetFieldValue(key, string.Empty);
+            SetFieldLoading(key, false);
+            if (string.Equals(key, "Thumbnail", StringComparison.OrdinalIgnoreCase))
+            {
+                SetFieldThumbnailSource(key, null);
+            }
+        }
     }
 
     private void ApplyNtfsFlags(FileAttributes attributes)
@@ -398,17 +419,26 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
     }
 
+    private void SetFieldLoading(string key, bool isLoading)
+    {
+        if (_fieldMap.TryGetValue(key, out var field))
+        {
+            field.IsLoading = isLoading;
+        }
+    }
+
     private void ClearFieldValues()
     {
-        foreach (var field in _fieldMap.Values)
+        foreach (var field in Fields)
         {
             field.Value = string.Empty;
             field.ThumbnailSource = null;
+            field.IsLoading = false;
             field.IsVisible = false;
         }
     }
 
-    private void RefreshVisibleCategories()
+    private void RefreshVisibleCategories(bool preserveDeferredVisibility = false)
     {
         if (_disposed)
         {
@@ -417,10 +447,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         if (!HasItem)
         {
-            VisibleFields.Clear();
             foreach (var category in Categories)
             {
-                category.RefreshVisibleFields();
+                category.RefreshVisibility();
             }
 
             OnPropertyChanged(nameof(HasVisibleFields));
@@ -429,27 +458,27 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
         var search = SearchText.Trim();
         var hasSearch = !string.IsNullOrWhiteSpace(search);
-        VisibleFields.Clear();
-
-        foreach (var field in _fieldMap.Values)
+        foreach (var field in Fields)
         {
-            field.IsVisible = !string.IsNullOrWhiteSpace(field.Value)
-                && (!hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase));
+            if (preserveDeferredVisibility
+                && IsDeferredField(field)
+                && field.IsVisible)
+            {
+                continue;
+            }
+
+            field.IsVisible = ShouldFieldBeVisible(field, search, hasSearch);
         }
 
         foreach (var category in Categories.OrderBy(category => GetCategorySortOrder(category.Name)))
         {
-            category.RefreshVisibleFields();
-            foreach (var field in category.VisibleFields)
-            {
-                VisibleFields.Add(field);
-            }
+            category.RefreshVisibility();
         }
 
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 
-    public bool HasVisibleFields => Categories.Any(static category => category.VisibleFields.Count > 0);
+    public bool HasVisibleFields => Categories.Any(static category => category.HasVisibleFields);
 
     private int GetCategorySortOrder(string category) => category switch
     {
@@ -485,6 +514,52 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
     }
 
+    private async Task<InspectorBatchLoadResult> LoadNtfsBatchAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(DeferredLoadTimeout);
+
+            var details = await _fileIdentityService.GetNtfsMetadataDetailsAsync(selection.FullPath, timeoutCts.Token);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Read Only", FormatFlag(details.Attributes.HasFlag(FileAttributes.ReadOnly))),
+                new FileInspectorFieldUpdate("Hidden", FormatFlag(details.Attributes.HasFlag(FileAttributes.Hidden))),
+                new FileInspectorFieldUpdate("System", FormatFlag(details.Attributes.HasFlag(FileAttributes.System))),
+                new FileInspectorFieldUpdate("Archive", FormatFlag(details.Attributes.HasFlag(FileAttributes.Archive))),
+                new FileInspectorFieldUpdate("Temporary", FormatFlag(details.Attributes.HasFlag(FileAttributes.Temporary))),
+                new FileInspectorFieldUpdate("Offline", FormatFlag(details.Attributes.HasFlag(FileAttributes.Offline))),
+                new FileInspectorFieldUpdate("Not Content Indexed", FormatFlag(details.Attributes.HasFlag(FileAttributes.NotContentIndexed))),
+                new FileInspectorFieldUpdate("Encrypted", FormatFlag(details.Attributes.HasFlag(FileAttributes.Encrypted))),
+                new FileInspectorFieldUpdate("Compressed", FormatFlag(details.Attributes.HasFlag(FileAttributes.Compressed))),
+                new FileInspectorFieldUpdate("Sparse", FormatFlag(details.Attributes.HasFlag(FileAttributes.SparseFile))),
+                new FileInspectorFieldUpdate("Reparse Point", FormatFlag(details.Attributes.HasFlag(FileAttributes.ReparsePoint))),
+                new FileInspectorFieldUpdate("Created", FormatRequiredUtc(details.CreationTimeUtc)),
+                new FileInspectorFieldUpdate("Accessed", FormatRequiredUtc(details.LastAccessTimeUtc)),
+                new FileInspectorFieldUpdate("Modified", FormatRequiredUtc(details.LastWriteTimeUtc)),
+                new FileInspectorFieldUpdate("MFT Changed", FormatRequiredUtc(details.ChangeTimeUtc))
+            ]);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load NTFS metadata for {Path}", selection.FullPath);
+            return new InspectorBatchLoadResult(
+            [
+                new FileInspectorFieldUpdate("Created", "Unavailable"),
+                new FileInspectorFieldUpdate("Accessed", "Unavailable"),
+                new FileInspectorFieldUpdate("Modified", "Unavailable"),
+                new FileInspectorFieldUpdate("MFT Changed", "Unavailable")
+            ]);
+        }
+    }
+
     private async Task<InspectorBatchLoadResult> LoadIdentityBatchAsync(
         FileInspectorSelection selection,
         CancellationToken cancellationToken)
@@ -498,10 +573,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             return new InspectorBatchLoadResult(
             [
                 new FileInspectorFieldUpdate(
-                    "NTFS File/Folder ID",
+                    "File ID",
                     details.FileId == NtfsFileId.None ? "Unavailable" : details.FileId.HexDisplay),
                 new FileInspectorFieldUpdate("Volume Serial", details.VolumeSerial),
-                new FileInspectorFieldUpdate("Legacy File Index", details.LegacyFileIndex),
+                new FileInspectorFieldUpdate("File Index (64-bit)", details.LegacyFileIndex),
                 new FileInspectorFieldUpdate("Hard Link Count", details.HardLinkCount),
                 new FileInspectorFieldUpdate("Final Path", details.FinalPath)
             ]);
@@ -513,7 +588,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load identity details for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult([new FileInspectorFieldUpdate("NTFS File/Folder ID", "Unavailable")]);
+            return new InspectorBatchLoadResult([new FileInspectorFieldUpdate("File ID", "Unavailable")]);
         }
     }
 
@@ -747,6 +822,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         foreach (var update in batchResult.Updates)
         {
             SetFieldValue(update.Key, update.Value);
+            SetFieldLoading(update.Key, false);
         }
 
         if (batchResult.Category == "Thumbnails")
@@ -754,7 +830,15 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             _ = ApplyThumbnailSourceAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
 
-        RefreshVisibleCategories();
+        if (batchResult.IsFinalBatch)
+        {
+            _preserveDeferredVisibilityUntilFinalBatch = false;
+            RefreshVisibleCategories();
+        }
+        else
+        {
+            RefreshVisibleCategories(_preserveDeferredVisibilityUntilFinalBatch);
+        }
 
         if (batchResult.IsFinalBatch)
         {
@@ -780,6 +864,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private static string FormatUtc(DateTime value) =>
         value == DateTime.MinValue
             ? string.Empty
+            : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+
+    private static string FormatRequiredUtc(DateTime value) =>
+        value == DateTime.MinValue
+            ? "Unavailable"
             : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
 
     private static string FormatSize(long sizeBytes)
@@ -813,6 +902,41 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         };
 
     private static string FormatFlag(bool value) => value ? "Yes" : "No";
+
+    private void BeginDeferredRefresh()
+    {
+        foreach (var key in _deferredFieldKeys)
+        {
+            if (!_fieldMap.TryGetValue(key, out var field))
+            {
+                continue;
+            }
+
+            if (field.IsVisible)
+            {
+                field.IsLoading = true;
+            }
+        }
+    }
+
+    private static bool ShouldFieldBeVisible(FileInspectorFieldViewModel field, string search, bool hasSearch)
+    {
+        if (field.IsLoading)
+        {
+            return true;
+        }
+
+        var hasValue = field.ThumbnailSource is not null || !string.IsNullOrWhiteSpace(field.Value);
+        if (!hasValue)
+        {
+            return false;
+        }
+
+        return !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsDeferredField(FileInspectorFieldViewModel field) =>
+        _deferredFieldKeys.Contains(field.Key);
 
     private async Task ApplyThumbnailSourceAsync(long selectionVersion, byte[]? thumbnailBytes)
     {

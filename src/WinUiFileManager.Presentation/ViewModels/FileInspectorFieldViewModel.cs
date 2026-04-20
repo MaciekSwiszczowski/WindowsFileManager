@@ -35,9 +35,22 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsVisible { get; set; }
 
-    public Visibility ValueVisibility => ThumbnailSource is null ? Visibility.Visible : Visibility.Collapsed;
+    [ObservableProperty]
+    public partial bool IsLoading { get; set; }
 
-    public Visibility ThumbnailVisibility => ThumbnailSource is null ? Visibility.Collapsed : Visibility.Visible;
+    public string DisplayValue => IsLoading ? "Loading..." : Value;
+
+    public Visibility ValueVisibility => ThumbnailSource is null || IsLoading
+        ? Visibility.Visible
+        : Visibility.Collapsed;
+
+    public Visibility ThumbnailVisibility => ThumbnailSource is null || IsLoading
+        ? Visibility.Collapsed
+        : Visibility.Visible;
+
+    public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
+
+    public Visibility RowVisibility => IsVisible ? Visibility.Visible : Visibility.Collapsed;
 
     public string SearchText => string.Concat(_searchPrefix, Value);
 
@@ -46,4 +59,16 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
         OnPropertyChanged(nameof(ValueVisibility));
         OnPropertyChanged(nameof(ThumbnailVisibility));
     }
+
+    partial void OnIsVisibleChanged(bool value) => OnPropertyChanged(nameof(RowVisibility));
+
+    partial void OnIsLoadingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(DisplayValue));
+        OnPropertyChanged(nameof(ValueVisibility));
+        OnPropertyChanged(nameof(ThumbnailVisibility));
+        OnPropertyChanged(nameof(LoadingVisibility));
+    }
+
+    partial void OnValueChanged(string value) => OnPropertyChanged(nameof(DisplayValue));
 }

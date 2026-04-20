@@ -54,12 +54,15 @@ public sealed class FileInspectorViewModelTests
             sut.ApplyDeferredBatch(batch);
         }
 
-        await Assert.That(batches.Count).IsEqualTo(6);
+        await Assert.That(batches.Count).IsEqualTo(7);
         await Assert.That(identityService.FileIdRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.FileIdRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
         await Assert.That(identityService.LockRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.LockRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
-        await Assert.That(GetFieldValue(sut, "IDs", "NTFS File/Folder ID")).IsEqualTo("020304");
+        await Assert.That(GetFieldValue(sut, "NTFS", "Read Only")).IsEqualTo("No");
+        await Assert.That(GetFieldValue(sut, "NTFS", "Accessed")).IsNotEqualTo(string.Empty);
+        await Assert.That(GetFieldValue(sut, "NTFS", "MFT Changed")).IsNotEqualTo(string.Empty);
+        await Assert.That(GetFieldValue(sut, "IDs", "File ID")).IsEqualTo("020304");
         await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("True");
         await Assert.That(GetFieldValue(sut, "Locks", "In Use")).IsEqualTo("Yes");
         await Assert.That(GetFieldValue(sut, "Links", "Link Target")).IsEqualTo(string.Empty);
@@ -86,15 +89,15 @@ public sealed class FileInspectorViewModelTests
         var visibleCategories = GetVisibleCategories(sut);
         await Assert.That(visibleCategories.Count).IsEqualTo(1);
         await Assert.That(visibleCategories[0].Name).IsEqualTo("Basic");
-        await Assert.That(visibleCategories[0].VisibleFields.Count).IsEqualTo(1);
-        await Assert.That(visibleCategories[0].VisibleFields[0].Key).IsEqualTo("Type");
+        await Assert.That(GetVisibleFields(sut, visibleCategories[0]).Count).IsEqualTo(1);
+        await Assert.That(GetVisibleFields(sut, visibleCategories[0])[0].Key).IsEqualTo("Type");
 
         sut.SearchText = "path";
 
         visibleCategories = GetVisibleCategories(sut);
         await Assert.That(visibleCategories.Count).IsEqualTo(1);
-        await Assert.That(visibleCategories[0].VisibleFields.Count).IsEqualTo(1);
-        await Assert.That(visibleCategories[0].VisibleFields[0].Key).IsEqualTo("Full Path");
+        await Assert.That(GetVisibleFields(sut, visibleCategories[0]).Count).IsEqualTo(1);
+        await Assert.That(GetVisibleFields(sut, visibleCategories[0])[0].Key).IsEqualTo("Full Path");
     }
 
     [Test]
@@ -117,7 +120,9 @@ public sealed class FileInspectorViewModelTests
 
         await Assert.That(GetFieldValue(sut, "Locks", "Is locked")).IsEqualTo("False");
         await Assert.That(GetVisibleCategories(sut).Any(static category => category.Name == "Locks")).IsTrue();
-        await Assert.That(sut.Categories.Single(static category => category.Name == "Locks").VisibleFields.Count).IsEqualTo(1);
+        await Assert.That(GetVisibleFields(
+            sut,
+            sut.Categories.Single(static category => category.Name == "Locks")).Count).IsEqualTo(1);
     }
 
     [Test]
@@ -170,10 +175,10 @@ public sealed class FileInspectorViewModelTests
 
     private static string GetFieldValue(FileInspectorViewModel sut, string category, string key)
     {
-        return sut.Categories
-            .Single(c => c.Name == category)
-            .Fields
-            .Single(f => f.Key == key)
+        return sut.Fields
+            .Single(f =>
+                string.Equals(f.Category, category, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase))
             .Value;
     }
 
@@ -181,6 +186,16 @@ public sealed class FileInspectorViewModelTests
     {
         return sut.Categories
             .Where(static category => category.Visibility == Visibility.Visible)
+            .ToList();
+    }
+
+    private static List<FileInspectorFieldViewModel> GetVisibleFields(
+        FileInspectorViewModel sut,
+        FileInspectorCategoryViewModel category)
+    {
+        return sut.Fields
+            .Where(field => field.IsVisible && string.Equals(field.Category, category.Name, StringComparison.OrdinalIgnoreCase))
+            .OrderBy(static field => field.SortOrder)
             .ToList();
     }
 
@@ -208,6 +223,16 @@ public sealed class FileInspectorViewModelTests
                 "0x00000000000000FE",
                 "1",
                 Path.GetFullPath(path)));
+        }
+
+        public Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileNtfsMetadataDetails(
+                FileAttributes.Archive,
+                new DateTime(2026, 4, 20, 10, 0, 0, DateTimeKind.Utc),
+                new DateTime(2026, 4, 20, 10, 1, 0, DateTimeKind.Utc),
+                new DateTime(2026, 4, 20, 10, 2, 0, DateTimeKind.Utc),
+                new DateTime(2026, 4, 20, 10, 3, 0, DateTimeKind.Utc)));
         }
 
         public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
@@ -273,6 +298,16 @@ public sealed class FileInspectorViewModelTests
                 string.Empty,
                 string.Empty,
                 Path.GetFullPath(path)));
+        }
+
+        public Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileNtfsMetadataDetails(
+                FileAttributes.Archive,
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                DateTime.UtcNow));
         }
 
         public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)

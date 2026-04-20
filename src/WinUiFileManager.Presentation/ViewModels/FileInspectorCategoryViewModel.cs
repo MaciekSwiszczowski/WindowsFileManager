@@ -1,7 +1,8 @@
-using System.Collections.ObjectModel;
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
-
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WinUiFileManager.Presentation.ViewModels;
@@ -21,21 +22,17 @@ public sealed partial class FileInspectorCategoryViewModel : ObservableObject
     [ObservableProperty]
     public partial double ContentWidth { get; set; }
 
+    [ObservableProperty]
+    public partial bool HasVisibleFields { get; set; }
+
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
 
-    public ObservableCollection<FileInspectorFieldViewModel> VisibleFields { get; } = [];
+    public Visibility Visibility => HasVisibleFields ? Visibility.Visible : Visibility.Collapsed;
 
-    public Visibility Visibility => VisibleFields.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
-
-    public void RefreshVisibleFields()
+    public void RefreshVisibility()
     {
-        VisibleFields.Clear();
-
-        foreach (var field in Fields.Where(static field => field.IsVisible))
-        {
-            VisibleFields.Add(field);
-        }
-
-        OnPropertyChanged(nameof(Visibility));
+        HasVisibleFields = Fields.Any(static field => field.IsVisible);
     }
+
+    partial void OnHasVisibleFieldsChanged(bool value) => OnPropertyChanged(nameof(Visibility));
 }

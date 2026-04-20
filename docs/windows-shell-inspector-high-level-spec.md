@@ -44,7 +44,8 @@ The inspector must cover three layers:
 14. Raw property bag
 15. Optional ReFS / volume context
 
-The inspector UI groups deferred details under `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails`. `NTFS` stays immediate.
+The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, `Streams`, `Security`, and `Thumbnails`.
+`NTFS` contains cheap immediate flags and a deferred live-metadata refresh for native NTFS timestamps and refreshed attribute bits.
 
 ## Field catalog
 
@@ -149,10 +150,16 @@ The inspector UI groups deferred details under `IDs`, `Locks`, `Links`, `Streams
 - Multi-value diagnostics such as `LockBy`, `ADSList`, `OvCls`, and raw properties may render as a multi-line value cell.
 - `Thumb` should render as an image row; all other fields remain key-value rows.
 - When the inspector UI is grouped by category, each category section should persist across updates. Selecting a new item should update the existing category contents, not recreate the whole grouped UI.
+- The row model inside each category should expose an explicit `IsVisible` state. Existing row objects must stay alive across selections; only row values and `IsVisible` change.
+- Category row membership should also be stable. Create each category's row list once, keep those row references alive, and let the view hide rows by `IsVisible` instead of rebuilding category row collections during refresh.
+- When the same item is refreshed, already-visible deferred rows should stay visible and show a loading indicator instead of disappearing. Final row visibility may change only after the deferred load completes.
 - In the grouped UI, each category section should render its rows as a simple two-column grid with a fixed `Property` column and a flexible `Value` column. The `Value` side must always take the remaining available inspector width.
 - When grouped categories live inside a `ScrollViewer`, the grouped host must own the finite width. Do not depend on nested `ItemsControl` presenters to stretch each category; prefer a finite-width host with repeater-style layout so the `Value` column actually receives the remaining width.
 - If WinUI layout still measures grouped categories to content, the control may publish the measured available width into the grouped category view models and bind category width explicitly. Correct width is more important than keeping the layout purely declarative.
 - Expensive categories should not block first paint. Show them progressively.
+- The `NTFS` category should expose all four NTFS timestamps together at the top of the category: creation, last access, last write, and MFT change time.
+- Do not duplicate creation / last-write timestamps in both `Basic` and `NTFS`. `NTFS` owns the timestamp set.
+- Property labels should stay short. Use tooltips for the longer explanation.
 - Every row should support copy-to-clipboard of the value.
 - Unsupported selections such as multiselection or the synthetic `..` parent row should hide inspector content instead of showing partial or stale state.
 - Shell-facing actions such as opening the Windows Properties dialog must use the normal display path, not the internal long-path `\\?\` representation.

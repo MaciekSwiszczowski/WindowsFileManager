@@ -148,16 +148,12 @@
                                                                     BorderThickness="0,0,0,1"
                                                                     Background="Transparent">
                                                                 <Grid>
-                                                                    <StackPanel Orientation="Horizontal"
-                                                                                Spacing="8"
-                                                                                VerticalAlignment="Center"
-                                                                                Visibility="{Binding LoadingVisibility}">
-                                                                        <ProgressRing Width="14"
-                                                                                      Height="14"
-                                                                                      IsActive="True" />
-                                                                        <TextBlock Text="{Binding DisplayValue}"
-                                                                                   Style="{StaticResource InspectorCellStyle}" />
-                                                                    </StackPanel>
+                                                                    <ProgressRing Width="14"
+                                                                                  Height="14"
+                                                                                  IsActive="True"
+                                                                                  HorizontalAlignment="Left"
+                                                                                  VerticalAlignment="Center"
+                                                                                  Visibility="{Binding LoadingVisibility}" />
                                                                     <TextBlock Text="{Binding DisplayValue}"
                                                                                Style="{StaticResource InspectorCellStyle}"
                                                                                Visibility="{Binding ValueVisibility}" />

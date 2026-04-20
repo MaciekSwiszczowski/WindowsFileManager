@@ -121,7 +121,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             return;
         }
 
-        var isSameItem = HasItem
+        var hadItem = HasItem;
+        var isSameItem = hadItem
             && string.Equals(_currentFullPath, selection.FullPath, StringComparison.OrdinalIgnoreCase);
         var isSameVersion = selection.RefreshVersion == _currentSelectionVersion;
 
@@ -132,7 +133,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             return;
         }
 
-        var preserveDeferredVisibility = isSameItem && !isSameVersion;
+        var preserveDeferredVisibility = hadItem;
         ApplyBasicSelection(selection, preserveDeferredVisibility);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
@@ -948,6 +949,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         if (thumbnailBytes is null || thumbnailBytes.Length == 0)
         {
             SetFieldThumbnailSource("Thumbnail", null);
+            SetFieldLoading("Thumbnail", false);
             return;
         }
 
@@ -970,6 +972,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             {
                 SetFieldThumbnailSource("Thumbnail", bitmap);
                 SetFieldValue("Thumbnail", "Preview");
+                SetFieldLoading("Thumbnail", false);
                 RefreshVisibleCategories();
             }
         }
@@ -979,6 +982,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
             {
                 SetFieldThumbnailSource("Thumbnail", null);
+                SetFieldLoading("Thumbnail", false);
             }
         }
     }

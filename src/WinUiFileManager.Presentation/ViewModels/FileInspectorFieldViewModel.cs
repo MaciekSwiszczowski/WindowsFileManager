@@ -38,15 +38,15 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
-    public string DisplayValue => IsLoading ? "Loading..." : Value;
+    public string DisplayValue => Value;
 
-    public Visibility ValueVisibility => ThumbnailSource is null || IsLoading
+    public Visibility ValueVisibility => !IsLoading && ThumbnailSource is null
         ? Visibility.Visible
         : Visibility.Collapsed;
 
-    public Visibility ThumbnailVisibility => ThumbnailSource is null || IsLoading
-        ? Visibility.Collapsed
-        : Visibility.Visible;
+    public Visibility ThumbnailVisibility => !IsLoading && ThumbnailSource is not null
+        ? Visibility.Visible
+        : Visibility.Collapsed;
 
     public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
 
@@ -64,7 +64,6 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     partial void OnIsLoadingChanged(bool value)
     {
-        OnPropertyChanged(nameof(DisplayValue));
         OnPropertyChanged(nameof(ValueVisibility));
         OnPropertyChanged(nameof(ThumbnailVisibility));
         OnPropertyChanged(nameof(LoadingVisibility));

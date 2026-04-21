@@ -83,27 +83,97 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
 
     private static AppSettings ToDomain(SettingsDto dto) =>
         new(
-            dto.ParallelExecutionEnabled,
-            dto.MaxDegreeOfParallelism,
-            string.IsNullOrEmpty(dto.LastLeftPanePath)
+            parallelExecutionEnabled: dto.ParallelExecutionEnabled,
+            maxDegreeOfParallelism: dto.MaxDegreeOfParallelism,
+            lastLeftPanePath: string.IsNullOrEmpty(dto.LastLeftPanePath)
                 ? (NormalizedPath?)null
                 : NormalizedPath.FromUserInput(dto.LastLeftPanePath),
-            string.IsNullOrEmpty(dto.LastRightPanePath)
+            lastRightPanePath: string.IsNullOrEmpty(dto.LastRightPanePath)
                 ? (NormalizedPath?)null
                 : NormalizedPath.FromUserInput(dto.LastRightPanePath),
-            Enum.TryParse<PaneId>(dto.LastActivePane, ignoreCase: true, out var pane)
+            lastActivePane: Enum.TryParse<PaneId>(dto.LastActivePane, ignoreCase: true, out var pane)
                 ? pane
                 : PaneId.Left,
-            dto.InspectorVisible,
-            dto.InspectorWidth > 0 ? dto.InspectorWidth : 340d);
+            inspectorVisible: dto.InspectorVisible,
+            inspectorWidth: dto.InspectorWidth > 0 ? dto.InspectorWidth : 340d,
+            leftPaneWidth: dto.LeftPaneWidth is > 0 ? dto.LeftPaneWidth.Value : 600d,
+            leftPaneColumns: ToDomain(dto.LeftPaneColumns),
+            rightPaneColumns: ToDomain(dto.RightPaneColumns),
+            leftPaneSort: ToDomain(dto.LeftPaneSort),
+            rightPaneSort: ToDomain(dto.RightPaneSort),
+            mainWindowPlacement: ToDomain(dto.MainWindowPlacement));
+
+    private static PaneColumnLayout? ToDomain(PaneColumnLayoutDto? dto) =>
+        dto is null
+            ? null
+            : new PaneColumnLayout(
+                NameWidth: dto.NameWidth > 0 ? dto.NameWidth : PaneColumnLayout.Default.NameWidth,
+                ExtensionWidth: dto.ExtensionWidth > 0 ? dto.ExtensionWidth : PaneColumnLayout.Default.ExtensionWidth,
+                SizeWidth: dto.SizeWidth > 0 ? dto.SizeWidth : PaneColumnLayout.Default.SizeWidth,
+                ModifiedWidth: dto.ModifiedWidth > 0 ? dto.ModifiedWidth : PaneColumnLayout.Default.ModifiedWidth,
+                AttributesWidth: dto.AttributesWidth > 0 ? dto.AttributesWidth : PaneColumnLayout.Default.AttributesWidth);
+
+    private static SortState? ToDomain(SortStateDto? dto) =>
+        dto is null
+            ? null
+            : new SortState(
+                Column: Enum.TryParse<SortColumn>(dto.Column, ignoreCase: true, out var column)
+                    ? column
+                    : SortColumn.Name,
+                Ascending: dto.Ascending);
+
+    private static WindowPlacement? ToDomain(WindowPlacementDto? dto) =>
+        dto is null
+            ? null
+            : new WindowPlacement(
+                X: dto.X,
+                Y: dto.Y,
+                Width: dto.Width > 0 ? dto.Width : WindowPlacement.Default.Width,
+                Height: dto.Height > 0 ? dto.Height : WindowPlacement.Default.Height,
+                IsMaximized: dto.IsMaximized);
 
     private static SettingsDto ToDto(AppSettings settings) =>
-        new(
-            settings.ParallelExecutionEnabled,
-            settings.MaxDegreeOfParallelism,
-            settings.LastLeftPanePath?.DisplayPath,
-            settings.LastRightPanePath?.DisplayPath,
-            settings.LastActivePane.ToString(),
-            settings.InspectorVisible,
-            settings.InspectorWidth);
+        new()
+        {
+            ParallelExecutionEnabled = settings.ParallelExecutionEnabled,
+            MaxDegreeOfParallelism = settings.MaxDegreeOfParallelism,
+            LastLeftPanePath = settings.LastLeftPanePath?.DisplayPath,
+            LastRightPanePath = settings.LastRightPanePath?.DisplayPath,
+            LastActivePane = settings.LastActivePane.ToString(),
+            InspectorVisible = settings.InspectorVisible,
+            InspectorWidth = settings.InspectorWidth,
+            LeftPaneWidth = settings.LeftPaneWidth,
+            LeftPaneColumns = ToDto(settings.LeftPaneColumns),
+            RightPaneColumns = ToDto(settings.RightPaneColumns),
+            LeftPaneSort = ToDto(settings.LeftPaneSort),
+            RightPaneSort = ToDto(settings.RightPaneSort),
+            MainWindowPlacement = ToDto(settings.MainWindowPlacement)
+        };
+
+    private static PaneColumnLayoutDto ToDto(PaneColumnLayout layout) =>
+        new()
+        {
+            NameWidth = layout.NameWidth,
+            ExtensionWidth = layout.ExtensionWidth,
+            SizeWidth = layout.SizeWidth,
+            ModifiedWidth = layout.ModifiedWidth,
+            AttributesWidth = layout.AttributesWidth
+        };
+
+    private static SortStateDto ToDto(SortState state) =>
+        new()
+        {
+            Column = state.Column.ToString(),
+            Ascending = state.Ascending
+        };
+
+    private static WindowPlacementDto ToDto(WindowPlacement placement) =>
+        new()
+        {
+            X = placement.X,
+            Y = placement.Y,
+            Width = placement.Width,
+            Height = placement.Height,
+            IsMaximized = placement.IsMaximized
+        };
 }

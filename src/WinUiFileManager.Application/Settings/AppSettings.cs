@@ -12,7 +12,13 @@ public sealed record AppSettings
         NormalizedPath? lastRightPanePath = null,
         PaneId lastActivePane = PaneId.Left,
         bool inspectorVisible = true,
-        double inspectorWidth = 340d)
+        double inspectorWidth = 340d,
+        double leftPaneWidth = 600d,
+        PaneColumnLayout? leftPaneColumns = null,
+        PaneColumnLayout? rightPaneColumns = null,
+        SortState? leftPaneSort = null,
+        SortState? rightPaneSort = null,
+        WindowPlacement? mainWindowPlacement = null)
     {
         ParallelExecutionEnabled = parallelExecutionEnabled;
         MaxDegreeOfParallelism = maxDegreeOfParallelism;
@@ -21,6 +27,12 @@ public sealed record AppSettings
         LastActivePane = lastActivePane;
         InspectorVisible = inspectorVisible;
         InspectorWidth = inspectorWidth;
+        LeftPaneWidth = leftPaneWidth;
+        LeftPaneColumns = leftPaneColumns ?? PaneColumnLayout.Default;
+        RightPaneColumns = rightPaneColumns ?? PaneColumnLayout.Default;
+        LeftPaneSort = leftPaneSort ?? SortState.Default;
+        RightPaneSort = rightPaneSort ?? SortState.Default;
+        MainWindowPlacement = mainWindowPlacement ?? WindowPlacement.Default;
     }
 
     public bool ParallelExecutionEnabled { get; init; }
@@ -36,4 +48,16 @@ public sealed record AppSettings
     public bool InspectorVisible { get; init; }
 
     public double InspectorWidth { get; init; }
+
+    public double LeftPaneWidth { get; init; }
+
+    public PaneColumnLayout LeftPaneColumns { get; init; }
+
+    public PaneColumnLayout RightPaneColumns { get; init; }
+
+    public SortState LeftPaneSort { get; init; }
+
+    public SortState RightPaneSort { get; init; }
+
+    public WindowPlacement MainWindowPlacement { get; init; }
 }

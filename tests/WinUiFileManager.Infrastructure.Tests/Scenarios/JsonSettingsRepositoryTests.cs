@@ -96,6 +96,75 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         await Assert.That(loaded.LastActivePane).IsEqualTo(settings.LastActivePane);
     }
 
+    [Test]
+    public async Task Test_SaveAndLoad_RoundTripsLayoutFields()
+    {
+        // Arrange
+        var sut = CreateRepository();
+        var settings = new AppSettings(
+            leftPaneWidth: 512d,
+            inspectorWidth: 400d,
+            leftPaneColumns: new PaneColumnLayout(
+                NameWidth: 350d,
+                ExtensionWidth: 45d,
+                SizeWidth: 80d,
+                ModifiedWidth: 140d,
+                AttributesWidth: 55d),
+            rightPaneColumns: PaneColumnLayout.Default,
+            leftPaneSort: new SortState(SortColumn.Size, Ascending: false),
+            rightPaneSort: new SortState(SortColumn.Modified, Ascending: true),
+            mainWindowPlacement: new WindowPlacement(
+                X: 120,
+                Y: 80,
+                Width: 1600,
+                Height: 1000,
+                IsMaximized: false));
+
+        // Act
+        await sut.SaveAsync(settings, CancellationToken.None);
+        var loaded = await CreateRepository().LoadAsync(CancellationToken.None);
+
+        // Assert
+        await Assert.That(loaded.LeftPaneWidth).IsEqualTo(512d);
+        await Assert.That(loaded.InspectorWidth).IsEqualTo(400d);
+        await Assert.That(loaded.LeftPaneColumns.NameWidth).IsEqualTo(350d);
+        await Assert.That(loaded.LeftPaneColumns.ModifiedWidth).IsEqualTo(140d);
+        await Assert.That(loaded.LeftPaneSort.Column).IsEqualTo(SortColumn.Size);
+        await Assert.That(loaded.LeftPaneSort.Ascending).IsFalse();
+        await Assert.That(loaded.RightPaneSort.Column).IsEqualTo(SortColumn.Modified);
+        await Assert.That(loaded.MainWindowPlacement.X).IsEqualTo(120);
+        await Assert.That(loaded.MainWindowPlacement.Width).IsEqualTo(1600);
+        await Assert.That(loaded.MainWindowPlacement.IsMaximized).IsFalse();
+    }
+
+    [Test]
+    public async Task Test_LoadAsync_UsesDefaultsForMissingLayoutFields()
+    {
+        // Arrange
+        var legacyJson = """
+            {
+              "parallelExecutionEnabled": false,
+              "maxDegreeOfParallelism": 4,
+              "lastLeftPanePath": null,
+              "lastRightPanePath": null,
+              "lastActivePane": "Left",
+              "inspectorVisible": true,
+              "inspectorWidth": 340
+            }
+            """;
+        await File.WriteAllTextAsync(_tempFilePath, legacyJson, CancellationToken.None);
+        var sut = CreateRepository();
+
+        // Act
+        var loaded = await sut.LoadAsync(CancellationToken.None);
+
+        // Assert
+        await Assert.That(loaded.LeftPaneWidth).IsEqualTo(600d);
+        await Assert.That(loaded.LeftPaneColumns).IsEqualTo(PaneColumnLayout.Default);
+        await Assert.That(loaded.LeftPaneSort).IsEqualTo(SortState.Default);
+        await Assert.That(loaded.MainWindowPlacement).IsEqualTo(WindowPlacement.Default);
+    }
+
     private JsonSettingsRepository CreateRepository()
     {
         return new JsonSettingsRepository(NullLogger<JsonSettingsRepository>.Instance, _tempFilePath);

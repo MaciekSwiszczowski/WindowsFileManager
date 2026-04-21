@@ -69,6 +69,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial double InspectorWidth { get; set; } = 340d;
 
+    public WindowPlacement MainWindowPlacement { get; set; } = WindowPlacement.Default;
+
     public OperationProgressViewModel OperationProgress { get; } = new();
 
     public bool ParallelExecutionEnabled
@@ -502,6 +504,13 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
             IsInspectorVisible = _currentSettings.InspectorVisible;
             InspectorWidth = _currentSettings.InspectorWidth;
+            LeftPaneWidth = _currentSettings.LeftPaneWidth;
+            MainWindowPlacement = _currentSettings.MainWindowPlacement;
+
+            LeftPane.ColumnLayout = _currentSettings.LeftPaneColumns;
+            RightPane.ColumnLayout = _currentSettings.RightPaneColumns;
+            LeftPane.ApplySortState(_currentSettings.LeftPaneSort);
+            RightPane.ApplySortState(_currentSettings.RightPaneSort);
 
             await Task.WhenAll(
                 LoadFavouritesAsync(),
@@ -546,13 +555,20 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await _persistPaneStateHandler.ExecuteAsync(
-                LeftPane.CurrentNormalizedPath,
-                RightPane.CurrentNormalizedPath,
-                ActivePane.PaneId,
-                IsInspectorVisible,
-                InspectorWidth,
-                cancellationToken);
+            var request = new PersistPaneStateRequest(
+                LeftPanePath: LeftPane.CurrentNormalizedPath,
+                RightPanePath: RightPane.CurrentNormalizedPath,
+                ActivePane: ActivePane.PaneId,
+                InspectorVisible: IsInspectorVisible,
+                InspectorWidth: InspectorWidth,
+                LeftPaneWidth: LeftPaneWidth,
+                LeftPaneColumns: LeftPane.ColumnLayout,
+                RightPaneColumns: RightPane.ColumnLayout,
+                LeftPaneSort: LeftPane.SortState,
+                RightPaneSort: RightPane.SortState,
+                MainWindowPlacement: MainWindowPlacement);
+
+            await _persistPaneStateHandler.ExecuteAsync(request, cancellationToken);
         }
         catch (Exception ex)
         {

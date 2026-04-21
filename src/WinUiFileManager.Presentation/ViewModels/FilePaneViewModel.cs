@@ -60,10 +60,17 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public partial string? IncrementalSearchText { get; private set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SortState))]
     public partial SortColumn SortBy { get; set; } = SortColumn.Name;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SortState))]
     public partial bool SortAscending { get; set; } = true;
+
+    [ObservableProperty]
+    public partial PaneColumnLayout ColumnLayout { get; set; } = PaneColumnLayout.Default;
+
+    public SortState SortState => new(SortBy, SortAscending);
 
     public ObservableCollection<VolumeInfo> AvailableDrives { get; } = [];
 
@@ -120,6 +127,13 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             SortAscending = true;
         }
 
+        _sortComparer.OnNext(new FileEntryComparer(SortBy, SortAscending));
+    }
+
+    public void ApplySortState(SortState state)
+    {
+        SortBy = state.Column;
+        SortAscending = state.Ascending;
         _sortComparer.OnNext(new FileEntryComparer(SortBy, SortAscending));
     }
 

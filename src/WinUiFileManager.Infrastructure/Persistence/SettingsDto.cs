@@ -2,35 +2,29 @@ namespace WinUiFileManager.Infrastructure.Persistence;
 
 internal sealed record SettingsDto
 {
-    public SettingsDto(
-        bool parallelExecutionEnabled,
-        int maxDegreeOfParallelism,
-        string? lastLeftPanePath,
-        string? lastRightPanePath,
-        string lastActivePane,
-        bool inspectorVisible,
-        double inspectorWidth)
-    {
-        ParallelExecutionEnabled = parallelExecutionEnabled;
-        MaxDegreeOfParallelism = maxDegreeOfParallelism;
-        LastLeftPanePath = lastLeftPanePath;
-        LastRightPanePath = lastRightPanePath;
-        LastActivePane = lastActivePane;
-        InspectorVisible = inspectorVisible;
-        InspectorWidth = inspectorWidth;
-    }
-
     public bool ParallelExecutionEnabled { get; init; }
 
-    public int MaxDegreeOfParallelism { get; init; }
+    public int MaxDegreeOfParallelism { get; init; } = 4;
 
     public string? LastLeftPanePath { get; init; }
 
     public string? LastRightPanePath { get; init; }
 
-    public string LastActivePane { get; init; }
+    public string LastActivePane { get; init; } = "Left";
 
-    public bool InspectorVisible { get; init; }
+    public bool InspectorVisible { get; init; } = true;
 
-    public double InspectorWidth { get; init; }
+    public double InspectorWidth { get; init; } = 340d;
+
+    public double? LeftPaneWidth { get; init; }
+
+    public PaneColumnLayoutDto? LeftPaneColumns { get; init; }
+
+    public PaneColumnLayoutDto? RightPaneColumns { get; init; }
+
+    public SortStateDto? LeftPaneSort { get; init; }
+
+    public SortStateDto? RightPaneSort { get; init; }
+
+    public WindowPlacementDto? MainWindowPlacement { get; init; }
 }

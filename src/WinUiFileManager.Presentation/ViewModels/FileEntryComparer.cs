@@ -1,3 +1,5 @@
+using WinUiFileManager.Domain.Enums;
+
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed class FileEntryComparer : IComparer<FileEntryViewModel>

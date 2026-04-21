@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Settings;
 
@@ -18,33 +16,35 @@ public sealed class PersistPaneStateCommandHandler
         _logger = logger;
     }
 
-    public async Task ExecuteAsync(
-        NormalizedPath? leftPanePath,
-        NormalizedPath? rightPanePath,
-        PaneId activePane,
-        bool inspectorVisible,
-        double inspectorWidth,
-        CancellationToken ct)
+    public async Task ExecuteAsync(PersistPaneStateRequest request, CancellationToken ct)
     {
         var current = await _settingsRepository.LoadAsync(ct);
 
         var updated = current with
         {
-            LastLeftPanePath = leftPanePath,
-            LastRightPanePath = rightPanePath,
-            LastActivePane = activePane,
-            InspectorVisible = inspectorVisible,
-            InspectorWidth = inspectorWidth
+            LastLeftPanePath = request.LeftPanePath,
+            LastRightPanePath = request.RightPanePath,
+            LastActivePane = request.ActivePane,
+            InspectorVisible = request.InspectorVisible,
+            InspectorWidth = request.InspectorWidth,
+            LeftPaneWidth = request.LeftPaneWidth,
+            LeftPaneColumns = request.LeftPaneColumns,
+            RightPaneColumns = request.RightPaneColumns,
+            LeftPaneSort = request.LeftPaneSort,
+            RightPaneSort = request.RightPaneSort,
+            MainWindowPlacement = request.MainWindowPlacement
         };
 
         await _settingsRepository.SaveAsync(updated, ct);
 
         _logger.LogInformation(
-            "Pane state persisted: Left={Left}, Right={Right}, Active={Active}, InspectorVisible={InspectorVisible}, InspectorWidth={InspectorWidth}",
-            leftPanePath?.DisplayPath,
-            rightPanePath?.DisplayPath,
-            activePane,
-            inspectorVisible,
-            inspectorWidth);
+            "Pane state persisted: Left={Left}, Right={Right}, Active={Active}, InspectorVisible={InspectorVisible}, InspectorWidth={InspectorWidth}, LeftPaneWidth={LeftPaneWidth}, Placement={Placement}",
+            request.LeftPanePath?.DisplayPath,
+            request.RightPanePath?.DisplayPath,
+            request.ActivePane,
+            request.InspectorVisible,
+            request.InspectorWidth,
+            request.LeftPaneWidth,
+            request.MainWindowPlacement);
     }
 }

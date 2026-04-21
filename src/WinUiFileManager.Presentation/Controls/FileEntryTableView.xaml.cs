@@ -95,8 +95,20 @@ public sealed partial class FileEntryTableView : UserControl
             if (GridViewModel.Host is not null)
             {
                 FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
+                FilePaneTableSortSync.SyncColumnWidths(FileTable, GridViewModel.Host.ColumnLayout);
             }
         });
+    }
+
+    public void CaptureColumnLayoutIntoHost()
+    {
+        if (GridViewModel.Host is null)
+        {
+            return;
+        }
+
+        GridViewModel.Host.ColumnLayout =
+            FilePaneTableSortSync.CaptureColumnWidths(FileTable, GridViewModel.Host.ColumnLayout);
     }
 
     public void FocusGrid()
@@ -172,6 +184,18 @@ public sealed partial class FileEntryTableView : UserControl
 
     private void OnHostPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FilePaneViewModel.ColumnLayout))
+        {
+            var layoutHost = GridViewModel.Host;
+            if (layoutHost is not null)
+            {
+                DispatcherQueue.TryEnqueue(() =>
+                    FilePaneTableSortSync.SyncColumnWidths(FileTable, layoutHost.ColumnLayout));
+            }
+
+            return;
+        }
+
         if (e.PropertyName != nameof(FilePaneViewModel.CurrentItem))
         {
             return;

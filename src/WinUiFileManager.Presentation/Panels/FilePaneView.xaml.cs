@@ -70,6 +70,11 @@ public sealed partial class FilePaneView
         EntryTable.ClearRowSelection();
     }
 
+    public void CaptureColumnLayout()
+    {
+        EntryTable.CaptureColumnLayoutIntoHost();
+    }
+
     public void SetActive(bool isActive)
     {
         PaneBorder.BorderThickness = isActive ? new Thickness(2) : new Thickness(1);

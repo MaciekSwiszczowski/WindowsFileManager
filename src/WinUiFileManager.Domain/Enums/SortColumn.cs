@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Presentation.ViewModels;
+namespace WinUiFileManager.Domain.Enums;
 
 public enum SortColumn
 {

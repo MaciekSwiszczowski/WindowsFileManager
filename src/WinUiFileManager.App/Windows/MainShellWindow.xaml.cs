@@ -5,6 +5,7 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using WinUiFileManager.Domain.Enums;
+using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
@@ -56,6 +57,7 @@ public sealed partial class MainShellWindow : Window
         if (_viewModel is not null)
         {
             await _viewModel.InitializeAsync();
+            ApplyPlacement(_viewModel.MainWindowPlacement);
         }
     }
 
@@ -71,12 +73,72 @@ public sealed partial class MainShellWindow : Window
 
         try
         {
+            ShellView.CapturePaneColumnLayouts();
+            _viewModel.MainWindowPlacement = CaptureCurrentPlacement();
             await _viewModel.PersistStateAsync();
         }
         finally
         {
             this.Close();
         }
+    }
+
+    private void ApplyPlacement(WindowPlacement placement)
+    {
+        var clamped = ClampToPrimaryDisplay(placement);
+
+        if (clamped.HasRestoredPosition)
+        {
+            AppWindow.MoveAndResize(new global::Windows.Graphics.RectInt32(
+                clamped.X,
+                clamped.Y,
+                clamped.Width,
+                clamped.Height));
+        }
+        else
+        {
+            AppWindow.Resize(new global::Windows.Graphics.SizeInt32(clamped.Width, clamped.Height));
+        }
+
+        if (clamped.IsMaximized && AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.Maximize();
+        }
+    }
+
+    private WindowPlacement CaptureCurrentPlacement()
+    {
+        var position = AppWindow.Position;
+        var size = AppWindow.Size;
+        var isMaximized = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+
+        return new WindowPlacement(
+            X: position.X,
+            Y: position.Y,
+            Width: size.Width,
+            Height: size.Height,
+            IsMaximized: isMaximized);
+    }
+
+    private static WindowPlacement ClampToPrimaryDisplay(WindowPlacement placement)
+    {
+        if (!placement.HasRestoredPosition)
+        {
+            return placement;
+        }
+
+        var probePoint = new global::Windows.Graphics.PointInt32(placement.X, placement.Y);
+        var display = DisplayArea.GetFromPoint(probePoint, DisplayAreaFallback.None);
+        if (display is null)
+        {
+            var primary = DisplayArea.Primary;
+            var work = primary.WorkArea;
+            var centeredX = work.X + Math.Max(0, (work.Width - placement.Width) / 2);
+            var centeredY = work.Y + Math.Max(0, (work.Height - placement.Height) / 2);
+            return placement with { X = centeredX, Y = centeredY };
+        }
+
+        return placement;
     }
 
     public void ToggleTheme()

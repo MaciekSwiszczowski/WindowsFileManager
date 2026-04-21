@@ -22,6 +22,12 @@ public sealed partial class MainShellView : UserControl
 
     public Action? ToggleThemeAction { get; set; }
 
+    public void CapturePaneColumnLayouts()
+    {
+        LeftPaneView.CaptureColumnLayout();
+        RightPaneView.CaptureColumnLayout();
+    }
+
     private MainShellViewModel? ViewModel => DataContext as MainShellViewModel;
 
     public void Initialize(MainShellViewModel viewModel)

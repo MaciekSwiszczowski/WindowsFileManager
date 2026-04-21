@@ -20,7 +20,7 @@
         x:Name="FileTable"
         ItemsSource="{Binding Items}"
         AutoGenerateColumns="False"
-        IsReadOnly="True"
+        IsReadOnly="False"
         SelectionMode="Extended"
         SelectionUnit="Row"
         CanReorderColumns="False"
@@ -32,6 +32,8 @@
         UseSystemFocusVisuals="True"
         Sorting="FileTable_Sorting"
         SelectionChanged="FileTable_SelectionChanged"
+        PreparingCellForEdit="FileTable_PreparingCellForEdit"
+        CellEditEnding="FileTable_CellEditEnding"
         KeyDown="FileTable_KeyDown"
         GotFocus="FileTable_GotFocus">
         <tv:TableView.Resources>
@@ -57,20 +59,37 @@
                              Color="{ThemeResource SystemAccentColor}" />
         </tv:TableView.Resources>
         <tv:TableView.Columns>
-            <tv:TableViewTextColumn
+            <tv:TableViewTemplateColumn
+                x:Name="NameColumn"
                 Header="Name"
                 SortMemberPath="Name"
-                Binding="{Binding Name}"
                 MinWidth="100"
                 Width="320"
-                ElementStyle="{StaticResource EllipsisTextCellStyle}"
-                CanSort="True" />
+                IsReadOnly="False"
+                CanSort="True">
+                <tv:TableViewTemplateColumn.CellTemplate>
+                    <DataTemplate>
+                        <TextBlock
+                            Text="{Binding Name}"
+                            Style="{StaticResource EllipsisTextCellStyle}" />
+                    </DataTemplate>
+                </tv:TableViewTemplateColumn.CellTemplate>
+                <tv:TableViewTemplateColumn.EditingTemplate>
+                    <DataTemplate>
+                        <TextBox
+                            Text="{Binding EditBuffer, Mode=OneWay}"
+                            VerticalContentAlignment="Center"
+                            IsSpellCheckEnabled="False" />
+                    </DataTemplate>
+                </tv:TableViewTemplateColumn.EditingTemplate>
+            </tv:TableViewTemplateColumn>
             <tv:TableViewTextColumn
                 Header="Ext"
                 SortMemberPath="Extension"
                 Binding="{Binding Extension}"
                 Width="40"
                 MinWidth="32"
+                IsReadOnly="True"
                 ElementStyle="{StaticResource MutedEllipsisCellStyle}"
                 CanSort="True" />
             <tv:TableViewTextColumn
@@ -79,6 +98,7 @@
                 Binding="{Binding Size}"
                 Width="70"
                 MinWidth="56"
+                IsReadOnly="True"
                 ElementStyle="{StaticResource RightAlignEllipsisCellStyle}"
                 CanSort="True" />
             <tv:TableViewTextColumn
@@ -87,6 +107,7 @@
                 Binding="{Binding LastWriteTime}"
                 Width="120"
                 MinWidth="100"
+                IsReadOnly="True"
                 ElementStyle="{StaticResource EllipsisTextCellStyle}"
                 CanSort="True" />
             <tv:TableViewTextColumn
@@ -95,6 +116,7 @@
                 Binding="{Binding Attributes}"
                 Width="50"
                 MinWidth="40"
+                IsReadOnly="True"
                 ElementStyle="{StaticResource MutedEllipsisCellStyle}"
                 CanSort="True" />
         </tv:TableView.Columns>

@@ -79,7 +79,6 @@ public sealed class ViewModelTestBuilder
             moveHandler,
             deleteHandler,
             createFolderHandler,
-            renameHandler,
             copyFullPath,
             addFavourite,
             removeFavourite,

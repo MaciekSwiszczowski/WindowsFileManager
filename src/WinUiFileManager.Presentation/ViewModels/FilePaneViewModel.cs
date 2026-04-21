@@ -72,6 +72,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public SortState SortState => new(SortBy, SortAscending);
 
+    public event EventHandler<FileEntryViewModel>? RenameRequested;
+
     public ObservableCollection<VolumeInfo> AvailableDrives { get; } = [];
 
     [ObservableProperty]
@@ -376,6 +378,23 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void NotifySelectionChanged()
     {
         OnPropertyChanged(nameof(SelectedCount));
+    }
+
+    public void BeginRenameCurrent()
+    {
+        if (IsLoading)
+        {
+            return;
+        }
+
+        var current = CurrentItem;
+        if (current is null || current.IsParentEntry)
+        {
+            return;
+        }
+
+        current.EditBuffer = current.Name;
+        RenameRequested?.Invoke(this, current);
     }
 
     public void Dispose()

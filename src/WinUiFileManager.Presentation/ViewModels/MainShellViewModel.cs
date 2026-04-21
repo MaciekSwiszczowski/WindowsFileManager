@@ -27,7 +27,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly MoveSelectionCommandHandler _moveHandler;
     private readonly DeleteSelectionCommandHandler _deleteHandler;
     private readonly CreateFolderCommandHandler _createFolderHandler;
-    private readonly RenameEntryCommandHandler _renameHandler;
     private readonly CopyFullPathCommandHandler _copyFullPathHandler;
     private readonly AddFavouriteCommandHandler _addFavouriteHandler;
     private readonly RemoveFavouriteCommandHandler _removeFavouriteHandler;
@@ -105,7 +104,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         MoveSelectionCommandHandler moveHandler,
         DeleteSelectionCommandHandler deleteHandler,
         CreateFolderCommandHandler createFolderHandler,
-        RenameEntryCommandHandler renameHandler,
         CopyFullPathCommandHandler copyFullPathHandler,
         AddFavouriteCommandHandler addFavouriteHandler,
         RemoveFavouriteCommandHandler removeFavouriteHandler,
@@ -125,7 +123,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         _moveHandler = moveHandler;
         _deleteHandler = deleteHandler;
         _createFolderHandler = createFolderHandler;
-        _renameHandler = renameHandler;
         _copyFullPathHandler = copyFullPathHandler;
         _addFavouriteHandler = addFavouriteHandler;
         _removeFavouriteHandler = removeFavouriteHandler;
@@ -374,36 +371,16 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task RenameAsync()
+    private Task RenameAsync()
     {
         var currentItem = ActivePane.CurrentItem;
         if (currentItem is null || currentItem.IsParentEntry)
         {
-            return;
+            return Task.CompletedTask;
         }
 
-        try
-        {
-            var newName = await _dialogService.ShowRenameDialogAsync(
-                currentItem.Name, CancellationToken.None);
-
-            if (string.IsNullOrWhiteSpace(newName) || newName == currentItem.Name)
-            {
-                return;
-            }
-
-            var summary = await _renameHandler.ExecuteAsync(
-                currentItem.Model, newName, CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Rename operation failed");
-            StatusText = $"Error: {ex.Message}";
-        }
+        ActivePane.BeginRenameCurrent();
+        return Task.CompletedTask;
     }
 
     [RelayCommand]

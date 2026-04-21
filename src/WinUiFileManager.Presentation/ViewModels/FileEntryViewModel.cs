@@ -11,6 +11,9 @@ public sealed partial class FileEntryViewModel : ObservableObject
     [ObservableProperty]
     public partial bool IsSelected { get; set; }
 
+    [ObservableProperty]
+    public partial string EditBuffer { get; set; } = string.Empty;
+
     public FileEntryViewModel(FileSystemEntryModel model)
     {
         Model = model;

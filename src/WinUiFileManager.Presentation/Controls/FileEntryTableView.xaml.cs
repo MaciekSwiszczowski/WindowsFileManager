@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -48,6 +49,16 @@ public sealed partial class FileEntryTableView : UserControl
             "SelectionStartCellSlot",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
+    private static readonly MethodInfo? GetCellFromSlotMethod =
+        typeof(TableView).GetMethod(
+            "GetCellFromSlot",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
+    private static readonly MethodInfo? BeginCellEditingMethod =
+        typeof(TableViewCell).GetMethod(
+            "BeginCellEditing",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
     private bool _syncingSelection;
     private FilePaneViewModel? _currentItemSyncHost;
 
@@ -80,6 +91,7 @@ public sealed partial class FileEntryTableView : UserControl
         if (_currentItemSyncHost is not null)
         {
             _currentItemSyncHost.PropertyChanged -= OnHostPropertyChanged;
+            _currentItemSyncHost.RenameRequested -= OnHostRenameRequested;
         }
 
         GridViewModel.Attach(host);
@@ -88,6 +100,7 @@ public sealed partial class FileEntryTableView : UserControl
         if (host is not null)
         {
             host.PropertyChanged += OnHostPropertyChanged;
+            host.RenameRequested += OnHostRenameRequested;
         }
 
         DispatcherQueue.TryEnqueue(() =>
@@ -380,6 +393,85 @@ public sealed partial class FileEntryTableView : UserControl
     private void FileTable_GotFocus(object sender, RoutedEventArgs e) =>
         ActivationRequested?.Invoke();
 
+    private void OnHostRenameRequested(object? sender, FileEntryViewModel entry)
+    {
+        DispatcherQueue.TryEnqueue(() => BeginEditingNameCell(entry));
+    }
+
+    private void BeginEditingNameCell(FileEntryViewModel entry, int retries = 5)
+    {
+        var host = GridViewModel.Host;
+        if (host is null)
+        {
+            return;
+        }
+
+        var rowIndex = host.Items.IndexOf(entry);
+        if (rowIndex < 0)
+        {
+            return;
+        }
+
+        var slot = new TableViewCellSlot(rowIndex, FileTable.Columns.IndexOf(NameColumn));
+
+        _syncingSelection = true;
+        try
+        {
+            FileTable.SelectedItem = entry;
+            FileTable.CurrentCellSlot = slot;
+            FileTable.ScrollRowIntoView(rowIndex);
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        SyncTableViewKeyboardAnchor(rowIndex);
+
+        if (TryGetCellFromSlot(slot) is not TableViewCell cell)
+        {
+            if (retries > 0)
+            {
+                DispatcherQueue.TryEnqueue(() => BeginEditingNameCell(entry, retries - 1));
+            }
+
+            return;
+        }
+
+        _ = TryBeginCellEditingAsync(cell);
+    }
+
+    private void FileTable_PreparingCellForEdit(object sender, TableViewPreparingCellForEditEventArgs e)
+    {
+        if (!ReferenceEquals(e.Column, NameColumn))
+        {
+            return;
+        }
+
+        if (FindDescendant<TextBox>(e.EditingElement) is TextBox nameEditor)
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                nameEditor.Focus(FocusState.Programmatic);
+                nameEditor.SelectAll();
+            });
+        }
+    }
+
+    private void FileTable_CellEditEnding(object sender, TableViewCellEditEndingEventArgs e)
+    {
+        if (!ReferenceEquals(e.Column, NameColumn))
+        {
+            return;
+        }
+
+        if (e.EditAction == TableViewEditAction.Commit
+            && e.DataItem is FileEntryViewModel entry
+            && FindDescendant<TextBox>(e.EditingElement) is TextBox textBox)
+        {
+            entry.EditBuffer = textBox.Text;
+        }
+    }
     // PreviewKeyDown fires before the TableView's internal handling.
     // Enter is handled here so the TableView cannot consume it first.
     // Arrow / Home / End / Shift+Arrow etc. are left to the control's own
@@ -390,6 +482,11 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive)
+        {
+            return;
+        }
+
+        if (IsTextInputSource(e.OriginalSource as DependencyObject))
         {
             return;
         }
@@ -433,6 +530,11 @@ public sealed partial class FileEntryTableView : UserControl
     {
         var host = GridViewModel.Host;
         if (host is null || !host.IsInteractive)
+        {
+            return;
+        }
+
+        if (IsTextInputSource(e.OriginalSource as DependencyObject))
         {
             return;
         }
@@ -569,6 +671,80 @@ public sealed partial class FileEntryTableView : UserControl
     private static bool IsTypingChar(VirtualKey key) =>
         key is >= VirtualKey.A and <= VirtualKey.Z
             or >= VirtualKey.Number0 and <= VirtualKey.Number9;
+
+    private TableViewCell? TryGetCellFromSlot(TableViewCellSlot slot)
+    {
+        try
+        {
+            return GetCellFromSlotMethod?.Invoke(FileTable, [slot]) as TableViewCell;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static async Task TryBeginCellEditingAsync(TableViewCell cell)
+    {
+        try
+        {
+            var result = BeginCellEditingMethod?.Invoke(cell, [new RoutedEventArgs()]);
+            switch (result)
+            {
+                case Task<bool> boolTask:
+                    await boolTask.ConfigureAwait(true);
+                    break;
+                case Task task:
+                    await task.ConfigureAwait(true);
+                    break;
+            }
+        }
+        catch
+        {
+            // If the library changes its internal editing entry point, rename
+            // simply won't enter edit mode until this helper is updated.
+        }
+    }
+
+    private static T? FindDescendant<T>(DependencyObject? source)
+        where T : DependencyObject
+    {
+        if (source is T match)
+        {
+            return match;
+        }
+
+        if (source is null)
+        {
+            return null;
+        }
+
+        var childCount = VisualTreeHelper.GetChildrenCount(source);
+        for (var i = 0; i < childCount; i++)
+        {
+            if (FindDescendant<T>(VisualTreeHelper.GetChild(source, i)) is { } descendant)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsTextInputSource(DependencyObject? source)
+    {
+        while (source is not null)
+        {
+            if (source is TextBox or PasswordBox or RichEditBox or AutoSuggestBox)
+            {
+                return true;
+            }
+
+            source = VisualTreeHelper.GetParent(source);
+        }
+
+        return false;
+    }
 
     private void MoveSelectionToBoundary(bool moveToLast)
     {

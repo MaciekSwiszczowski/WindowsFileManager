@@ -22,39 +22,19 @@ Acceptance:
 - cancel request is routed and reflected in final summary
 - no always-visible progress container is added between command bar and panes
 
-### 2. Centralized Shortcut Registry
-Replace scattered keyboard shortcut handling with one reusable shortcut map/service.
+### 2. Centralized Shortcut Registry — DELIVERED BY `SPEC_KEYBOARD_SHORTCUTS_GAPS.md`
 
-Required behavior:
-- one source of truth for command-to-shortcut mappings
-- command bar tooltip text generated from the same source
-- context routing preserved (dialogs, text input, pane list, shell)
+Subsumed by `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3 (`ShortcutRegistry`). The registry is the single source of truth for command-to-shortcut mappings and drives tooltip generation. Close this item here; track remaining work in that spec.
 
-Acceptance:
-- shortcuts are defined in one place
-- existing keyboard behavior remains unchanged
+### 3. Persistence Enhancements — DELIVERED BY `SPEC_UI_LAYOUT_AND_RESIZING.md`
 
-### 3. Persistence Enhancements
-Extend persisted UI state beyond current pane path and inspector visibility/width.
+Subsumed by `SPEC_UI_LAYOUT_AND_RESIZING.md` §5 (persistence). Left-pane width, inspector width, per-pane column layout, per-pane sort, and main-window placement are all persisted together. Close this item here; track remaining work in that spec.
 
-Required behavior:
-- persist and restore main window size and placement/state
-- persist and restore per-pane sort column and direction
-- persist and restore table column widths
+### 4. Favourites Management Surface — DEFERRED
 
-Acceptance:
-- restarting app restores these UI states reliably
+Per human-owner direction (2026-04-21), de-prioritized. The favourites popup and any dedicated management surface are on the backlog but will not receive investment in the current roadmap. The underlying repository and command handlers remain supported; the UI polish is paused. See `SPEC_FEATURE_LOW_HANGING_FRUIT.md` → Deferred → D1 for the canonical statement.
 
-### 4. Favourites Management Surface
-Add a dedicated favourites management UI in addition to the quick flyout.
-
-Required behavior:
-- list favourites with display name and path
-- remove and rename/edit display name
-- open selected favourite in active pane
-
-Acceptance:
-- users can fully manage favourites without editing files/settings directly
+Do not implement against this item without a priority change from the human owner.
 
 ### 5. UI Artifact Cleanup
 Remove or integrate unused dialog/view-model artifacts that are not part of the active UI flow.

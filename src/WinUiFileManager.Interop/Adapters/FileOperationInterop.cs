@@ -1,3 +1,4 @@
+#pragma warning disable RS0030 // FileOperationInterop is the approved boundary for direct System.IO copy/move calls until CopyFile2 lands.
 using System.ComponentModel;
 using WinUiFileManager.Interop.Types;
 

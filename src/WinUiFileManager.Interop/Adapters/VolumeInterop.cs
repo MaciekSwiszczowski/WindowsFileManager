@@ -1,3 +1,4 @@
+#pragma warning disable RS0030 // VolumeInterop is the adapter behind the cached NTFS volume policy service.
 using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;

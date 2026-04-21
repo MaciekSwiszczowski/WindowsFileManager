@@ -19,7 +19,7 @@ public sealed class BlockingFileOperationInterop : IFileOperationInterop
     public InteropResult CopyFile(string source, string destination, bool overwrite)
     {
         _started.TrySetResult();
-        _release.Wait(TimeSpan.FromSeconds(5));
+        _ = SpinWait.SpinUntil(() => _release.IsSet, TimeSpan.FromSeconds(5));
         return InteropResult.Ok();
     }
 

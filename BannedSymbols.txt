@@ -1,0 +1,27 @@
+# Sync-over-async — see SPEC_BUG_FIXES.md B5.
+M:System.Threading.Tasks.Task.get_Result;Use await.
+M:System.Threading.Tasks.Task`1.get_Result;Use await.
+M:System.Threading.Tasks.Task.Wait;Use await.
+M:System.Threading.Tasks.Task.Wait(System.Int32);Use await.
+M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Use await.
+
+# Force file operations through IFileOperationInterop (CopyFile2 path with cancellation).
+M:System.IO.File.Copy(System.String,System.String);Route through IFileOperationInterop.CopyFile.
+M:System.IO.File.Copy(System.String,System.String,System.Boolean);Route through IFileOperationInterop.CopyFile.
+M:System.IO.File.Move(System.String,System.String);Route through IFileOperationInterop.MoveFile.
+M:System.IO.File.Move(System.String,System.String,System.Boolean);Route through IFileOperationInterop.MoveFile.
+
+# Force volume queries through INtfsVolumePolicyService (cached) — see SPEC_BUG_FIXES.md B6.
+P:System.IO.DriveInfo.DriveFormat;Route through INtfsVolumePolicyService (cached).
+P:System.IO.DriveInfo.VolumeLabel;Route through INtfsVolumePolicyService (cached).
+
+# Every new native call must go through NativeMethods.txt (CsWin32). See SPEC_NUGET_MODERNIZATION.md §1.
+T:System.Runtime.InteropServices.DllImportAttribute;Add the API to NativeMethods.txt and use the CsWin32-generated PInvoke wrapper.
+
+# SynchronizationContext.Current is captured eagerly by RxSchedulerProvider — direct use elsewhere is a trap.
+P:System.Threading.SynchronizationContext.Current;Inject DispatcherQueue or ISchedulerProvider explicitly.
+
+# No hand-rolled GC in shipped code.
+M:System.GC.Collect;Remove. Measure with dotnet-counters instead.
+M:System.GC.Collect(System.Int32);Remove. Measure with dotnet-counters instead.
+M:System.GC.Collect(System.Int32,System.GCCollectionMode);Remove. Measure with dotnet-counters instead.

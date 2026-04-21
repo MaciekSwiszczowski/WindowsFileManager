@@ -72,7 +72,7 @@ public sealed class WindowsDirectoryChangeStreamTests
             .Subscribe(change => ready.TrySetResult(change));
 
         // Act
-        File.Move(oldFullPath, newFullPath);
+        new FileInfo(oldFullPath).MoveTo(newFullPath);
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);

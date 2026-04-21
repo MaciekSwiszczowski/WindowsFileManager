@@ -51,6 +51,10 @@
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+
   <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">
     <UseAppHost>false</UseAppHost>
   </PropertyGroup>

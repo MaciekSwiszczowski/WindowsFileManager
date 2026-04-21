@@ -1,3 +1,4 @@
+#pragma warning disable RS0030 // Legacy DllImport declarations stay quarantined here until the CsWin32 migration batch replaces them.
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Extensions.Logging;

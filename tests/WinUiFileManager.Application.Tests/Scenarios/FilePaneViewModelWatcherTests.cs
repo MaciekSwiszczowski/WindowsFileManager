@@ -100,7 +100,7 @@ public sealed class FilePaneViewModelWatcherTests
         var watchedPath = pane.CurrentNormalizedPath!.Value;
 
         // Act
-        File.Move(oldFullPath, newFullPath);
+        new FileInfo(oldFullPath).MoveTo(newFullPath);
         stream.Push(watchedPath, new DirectoryChange(
             DirectoryChangeKind.Renamed,
             NormalizedPath.FromUserInput(newFullPath),

@@ -85,8 +85,6 @@ public sealed class ViewModelOperationProgressTests
 
     private sealed class SynchronizationContextScope : IDisposable
     {
-        private readonly SynchronizationContext? _previous = SynchronizationContext.Current;
-
         public SynchronizationContextScope(SynchronizationContext? next)
         {
             SynchronizationContext.SetSynchronizationContext(next);
@@ -94,7 +92,7 @@ public sealed class ViewModelOperationProgressTests
 
         public void Dispose()
         {
-            SynchronizationContext.SetSynchronizationContext(_previous);
+            SynchronizationContext.SetSynchronizationContext(null);
         }
     }
 }

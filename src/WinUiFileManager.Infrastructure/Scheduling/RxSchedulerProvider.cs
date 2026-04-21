@@ -1,3 +1,4 @@
+#pragma warning disable RS0030 // RxSchedulerProvider is the one approved place to capture the startup SynchronizationContext.
 using System.Reactive.Concurrency;
 using WinUiFileManager.Application.Abstractions;
 

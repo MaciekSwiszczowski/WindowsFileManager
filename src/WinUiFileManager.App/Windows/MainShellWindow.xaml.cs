@@ -33,7 +33,7 @@ public sealed partial class MainShellWindow : Window
     private MainShellViewModel? _viewModel;
     private bool _statePersisted;
 
-    private void OnShellViewLoaded(object sender, RoutedEventArgs e)
+    private async void OnShellViewLoaded(object sender, RoutedEventArgs e)
     {
         if (_initialized)
         {
@@ -53,15 +53,10 @@ public sealed partial class MainShellWindow : Window
         ShellView.Initialize(_viewModel);
         ShellView.ToggleThemeAction = ToggleTheme;
 
-        DispatcherQueue.TryEnqueue(
-            Microsoft.UI.Dispatching.DispatcherQueuePriority.Low,
-            async () =>
-            {
-                if (_viewModel is not null)
-                {
-                    await _viewModel.InitializeAsync();
-                }
-            });
+        if (_viewModel is not null)
+        {
+            await _viewModel.InitializeAsync();
+        }
     }
 
     private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)

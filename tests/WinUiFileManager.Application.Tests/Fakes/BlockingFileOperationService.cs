@@ -24,6 +24,7 @@ public sealed class BlockingFileOperationService : IFileOperationService
         ExecuteCallCount++;
         LastPlan = plan;
         LastCancellationToken = cancellationToken;
+        _started.TrySetResult();
 
         var firstItem = plan.Items.FirstOrDefault();
         progress?.Report(new OperationProgressEvent(
@@ -34,8 +35,6 @@ public sealed class BlockingFileOperationService : IFileOperationService
             0,
             firstItem?.SourcePath,
             "Processing item"));
-
-        _started.TrySetResult();
 
         try
         {

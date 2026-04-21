@@ -192,7 +192,7 @@ public sealed class WindowsFileSystemServiceTests
         var sut = CreateService();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         using var cts = new CancellationTokenSource();
-        cts.Cancel();
+        await cts.CancelAsync();
 
         // Act
         var entries = await sut

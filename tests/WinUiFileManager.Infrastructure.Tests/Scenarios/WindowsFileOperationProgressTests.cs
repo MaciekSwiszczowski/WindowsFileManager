@@ -54,7 +54,7 @@ public sealed class WindowsFileOperationProgressTests
         await Assert.That(startedEvent.TotalItems).IsEqualTo(1);
         await Assert.That(executeTask.IsCompleted).IsFalse();
 
-        cancellation.Cancel();
+        await cancellation.CancelAsync();
         interop.Release();
 
         var summary = await executeTask;

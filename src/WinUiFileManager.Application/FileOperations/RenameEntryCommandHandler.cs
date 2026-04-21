@@ -21,7 +21,7 @@ public sealed class RenameEntryCommandHandler
         _logger = logger;
     }
 
-    public async Task<OperationSummary> ExecuteAsync(
+    public Task<OperationSummary> ExecuteAsync(
         FileSystemEntryModel entry,
         string newName,
         CancellationToken ct)
@@ -56,6 +56,6 @@ public sealed class RenameEntryCommandHandler
             CollisionPolicy.Ask,
             new ParallelExecutionOptions());
 
-        return await _operationService.ExecuteAsync(plan, new Progress<OperationProgressEvent>(), ct);
+        return _operationService.ExecuteAsync(plan, new Progress<OperationProgressEvent>(), ct);
     }
 }

@@ -88,10 +88,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _deferredBatches =
         [
             new InspectorBatchDefinition(
-                "NTFS",
-                IsFinalBatch: false,
-                LoadNtfsBatchAsync),
-            new InspectorBatchDefinition(
                 "IDs",
                 IsFinalBatch: false,
                 LoadIdentityBatchAsync),
@@ -340,7 +336,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _fieldMap.Add(key, field);
         Fields.Add(field);
         GetOrCreateCategory(category).Fields.Add(field);
-        if (!string.Equals(category, "Basic", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(category, "Basic", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(category, "NTFS", StringComparison.OrdinalIgnoreCase))
         {
             _deferredFieldKeys.Add(key);
         }
@@ -629,9 +626,14 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
             using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeoutCts.CancelAfter(DeferredLoadTimeout);
 
+            var ntfsDetails = await _fileIdentityService.GetNtfsMetadataDetailsAsync(selection.FullPath, timeoutCts.Token);
             var details = await _fileIdentityService.GetIdentityDetailsAsync(selection.FullPath, timeoutCts.Token);
             return new InspectorBatchLoadResult(
             [
+                new FileInspectorFieldUpdate("Created", FormatRequiredUtc(ntfsDetails.CreationTimeUtc)),
+                new FileInspectorFieldUpdate("Accessed", FormatRequiredUtc(ntfsDetails.LastAccessTimeUtc)),
+                new FileInspectorFieldUpdate("Modified", FormatRequiredUtc(ntfsDetails.LastWriteTimeUtc)),
+                new FileInspectorFieldUpdate("MFT Changed", FormatRequiredUtc(ntfsDetails.ChangeTimeUtc)),
                 new FileInspectorFieldUpdate(
                     "File ID",
                     details.FileId == NtfsFileId.None ? "Unavailable" : details.FileId.HexDisplay),
@@ -1073,12 +1075,11 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         try
         {
             using var stream = new InMemoryRandomAccessStream();
-            using (var writer = new DataWriter(stream))
+            using (var writer = new DataWriter())
             {
                 writer.WriteBytes(thumbnailBytes);
-                await writer.StoreAsync();
-                await writer.FlushAsync();
-                _ = writer.DetachStream();
+                var buffer = writer.DetachBuffer();
+                await stream.WriteAsync(buffer);
             }
 
             stream.Seek(0);

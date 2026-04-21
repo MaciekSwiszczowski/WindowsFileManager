@@ -281,9 +281,9 @@ public sealed class FileInspectorViewModelTests
         public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
         {
             return Task.FromResult(new FileLinkDiagnosticsDetails(
-                @"C:\Temp\Target.docx",
-                "Symbolic link",
-                "Reparse point",
+                string.Empty,
+                string.Empty,
+                string.Empty,
                 string.Empty,
                 string.Empty));
         }

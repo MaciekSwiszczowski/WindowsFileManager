@@ -263,7 +263,7 @@ public sealed partial class MainShellView : UserControl
         RightPaneView.SetActive(!leftActive);
     }
 
-    private void OnFocusActivePaneRequested()
+    private void OnFocusActivePaneRequested(object? sender, EventArgs e)
     {
         DispatcherQueue.TryEnqueue(() => GetActivePaneView().FocusFileList());
     }

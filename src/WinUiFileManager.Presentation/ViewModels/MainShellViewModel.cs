@@ -359,7 +359,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
             await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
             await ActivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke();
+            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
@@ -392,7 +392,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
             await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
             await ActivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke();
+            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
         }
         catch (Exception ex)
         {
@@ -489,10 +489,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private async Task RefreshActivePaneAsync()
-    {
-        await ActivePane.RefreshCommand.ExecuteAsync(null);
-    }
+    private Task RefreshActivePaneAsync() => ActivePane.RefreshCommand.ExecuteAsync(null);
 
     public async Task InitializeAsync()
     {
@@ -560,7 +557,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    public event Action? FocusActivePaneRequested;
+    public event EventHandler? FocusActivePaneRequested;
 
     public void UpdateStatusText()
     {
@@ -706,15 +703,12 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             operationType,
             () => OperationProgress.CancelCommand.Execute(null),
             CancellationToken.None);
-        using var progress = new ThrottledSynchronizationContextProgress<OperationProgressEvent>(
+        var progress = new Progress<OperationProgressEvent>(
             progressEvent =>
             {
                 OperationProgress.ReportProgress(progressEvent);
                 progressDialog.ReportProgress(progressEvent);
-            },
-            static progressEvent => progressEvent.CompletedItems == 0
-                || progressEvent.TotalItems == 0
-                || progressEvent.CompletedItems >= progressEvent.TotalItems);
+            });
 
         try
         {
@@ -729,7 +723,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             // is needed here: the self-inflicted watcher events coalesce into a few
             // buffered batches on a background scheduler while we were showing the result
             // dialog, and each batch commits a single SourceCache edit on the UI thread.
-            FocusActivePaneRequested?.Invoke();
+            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
         }
         finally
         {
@@ -738,117 +732,4 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    private sealed class ThrottledSynchronizationContextProgress<T>(
-        Action<T> handler,
-        Func<T, bool>? shouldFlushImmediately = null) : IProgress<T>, IDisposable
-    {
-        private static readonly TimeSpan MinimumUpdateInterval = TimeSpan.FromMilliseconds(50);
-        private readonly Lock _gate = new();
-        private readonly SynchronizationContext? _synchronizationContext = SynchronizationContext.Current;
-        private T? _pendingValue;
-        private bool _hasPendingValue;
-        private bool _flushScheduled;
-        private long _lastPublishedTimestamp;
-
-        public void Report(T value)
-        {
-            if (shouldFlushImmediately?.Invoke(value) == true || ShouldPublishNow())
-            {
-                Publish(value);
-                return;
-            }
-
-            lock (_gate)
-            {
-                _pendingValue = value;
-                _hasPendingValue = true;
-
-                if (_flushScheduled)
-                {
-                    return;
-                }
-
-                _flushScheduled = true;
-            }
-
-            _ = FlushLaterAsync();
-        }
-
-        public void Dispose()
-        {
-            T? pendingValue = default;
-            var hasPendingValue = false;
-
-            lock (_gate)
-            {
-                if (_hasPendingValue)
-                {
-                    pendingValue = _pendingValue;
-                    hasPendingValue = true;
-                    _hasPendingValue = false;
-                    _pendingValue = default;
-                }
-            }
-
-            if (hasPendingValue)
-            {
-                Publish(pendingValue!);
-            }
-        }
-
-        private bool ShouldPublishNow()
-        {
-            var lastPublishedTimestamp = Interlocked.Read(ref _lastPublishedTimestamp);
-            if (lastPublishedTimestamp == 0)
-            {
-                return true;
-            }
-
-            return Stopwatch.GetElapsedTime(lastPublishedTimestamp) >= MinimumUpdateInterval;
-        }
-
-        private async Task FlushLaterAsync()
-        {
-            await Task.Delay(MinimumUpdateInterval).ConfigureAwait(false);
-
-            T? pendingValue = default;
-            var hasPendingValue = false;
-
-            lock (_gate)
-            {
-                _flushScheduled = false;
-                if (_hasPendingValue)
-                {
-                    pendingValue = _pendingValue;
-                    hasPendingValue = true;
-                    _hasPendingValue = false;
-                    _pendingValue = default;
-                }
-            }
-
-            if (hasPendingValue)
-            {
-                Publish(pendingValue!);
-            }
-        }
-
-        private void Publish(T value)
-        {
-            Interlocked.Exchange(ref _lastPublishedTimestamp, Stopwatch.GetTimestamp());
-
-            if (_synchronizationContext is null)
-            {
-                handler(value);
-                return;
-            }
-
-            _synchronizationContext.Post(
-                static state =>
-                {
-                    var (callback, reportedValue) = ((Action<T>, T))state!;
-                    callback(reportedValue);
-                },
-                (handler, value));
-        }
-    }
 }

@@ -12,9 +12,9 @@ public sealed class CopyFullPathCommandHandler
         _clipboardService = clipboardService;
     }
 
-    public async Task ExecuteAsync(IReadOnlyList<FileSystemEntryModel> entries, CancellationToken ct)
+    public Task ExecuteAsync(IReadOnlyList<FileSystemEntryModel> entries, CancellationToken ct)
     {
         var text = string.Join(Environment.NewLine, entries.Select(e => e.FullPath.DisplayPath));
-        await _clipboardService.SetTextAsync(text, ct);
+        return _clipboardService.SetTextAsync(text, ct);
     }
 }

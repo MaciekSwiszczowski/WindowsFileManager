@@ -5,7 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <Deterministic>true</Deterministic>
@@ -15,7 +16,40 @@
     <DisableRarCache>true</DisableRarCache>
     <NuGetAudit>false</NuGetAudit>
     <RestoreDisableParallel>true</RestoreDisableParallel>
+    <WarningsAsErrors>
+      CA2007;CA2012;CA2016;CA1849;
+      VSTHRD100;VSTHRD103;VSTHRD110;VSTHRD200;
+      MA0040;MA0041;MA0134;
+      AF0001;AF0004;
+      CS1998;
+      IDISP001;IDISP003;IDISP004;IDISP007;
+      RS0030
+    </WarningsAsErrors>
+    <NoWarn>
+      CA1848;IDE0005;IDE0040;EPC12;ERP022;MA0051;CA1838;
+      CA1711;CA1873;CA1707;CA2007;
+      VSTHRD100;VSTHRD103;VSTHRD110;VSTHRD200;
+      MA0004;MA0040;MA0041;MA0134;
+      AF0001;AF0004;
+      CS1998;
+      MA0046;MA0006;MA0011;MA0099;MA0158;
+      MA0049;
+      CA1001;CA1068;CA1305;CA1712;CA1822;CA1826;CA1859;
+      IDISP001;IDISP003;IDISP006;IDISP007;IDISP016;
+      EPC13;AsyncFixer03;VSTHRD002;VSTHRD003;
+      IDE0011
+    </NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="IDisposableAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="AsyncFixer" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and $([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests'))">
     <UseAppHost>false</UseAppHost>

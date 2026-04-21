@@ -17,11 +17,11 @@ public sealed class RefreshPaneCommandHandler
         _logger = logger;
     }
 
-    public async Task<IReadOnlyList<FileSystemEntryModel>> ExecuteAsync(
+    public Task<IReadOnlyList<FileSystemEntryModel>> ExecuteAsync(
         NormalizedPath currentPath,
         CancellationToken ct)
     {
         _logger.LogDebug("Refreshing pane for path: {Path}", currentPath);
-        return await _fileSystemService.EnumerateDirectoryAsync(currentPath, ct);
+        return _fileSystemService.EnumerateDirectoryAsync(currentPath, ct);
     }
 }

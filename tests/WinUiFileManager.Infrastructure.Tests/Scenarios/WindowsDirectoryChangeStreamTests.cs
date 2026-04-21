@@ -29,11 +29,8 @@ public sealed class WindowsDirectoryChangeStreamTests
         // Act
         fixture.CreateFile("created.txt");
 
-        var completed = await Task.WhenAny(ready.Task, Task.Delay(EventTimeout));
-
         // Assert
-        await Assert.That(completed).IsEqualTo((Task)ready.Task);
-        var signalled = await ready.Task;
+        var signalled = await ready.Task.WaitAsync(EventTimeout);
         await Assert.That(signalled.Path.DisplayPath).Contains("created.txt");
     }
 
@@ -54,11 +51,8 @@ public sealed class WindowsDirectoryChangeStreamTests
         // Act
         File.Delete(fullPath);
 
-        var completed = await Task.WhenAny(ready.Task, Task.Delay(EventTimeout));
-
         // Assert
-        await Assert.That(completed).IsEqualTo((Task)ready.Task);
-        var signalled = await ready.Task;
+        var signalled = await ready.Task.WaitAsync(EventTimeout);
         await Assert.That(signalled.Path.DisplayPath).Contains("to-delete.txt");
     }
 
@@ -80,11 +74,8 @@ public sealed class WindowsDirectoryChangeStreamTests
         // Act
         File.Move(oldFullPath, newFullPath);
 
-        var completed = await Task.WhenAny(ready.Task, Task.Delay(EventTimeout));
-
         // Assert
-        await Assert.That(completed).IsEqualTo((Task)ready.Task);
-        var signalled = await ready.Task;
+        var signalled = await ready.Task.WaitAsync(EventTimeout);
         await Assert.That(signalled.Path.DisplayPath).Contains("new.txt");
         await Assert.That(signalled.OldPath).IsNotNull();
         await Assert.That(signalled.OldPath!.Value.DisplayPath).Contains("old.txt");
@@ -105,10 +96,8 @@ public sealed class WindowsDirectoryChangeStreamTests
             .Where(c => c.Kind == DirectoryChangeKind.Invalidated)
             .Subscribe(change => ready.TrySetResult(change));
 
-        var completed = await Task.WhenAny(ready.Task, Task.Delay(EventTimeout));
-
         // Assert
-        await Assert.That(completed).IsEqualTo((Task)ready.Task);
+        await ready.Task.WaitAsync(EventTimeout);
     }
 
     [Test]
@@ -119,15 +108,25 @@ public sealed class WindowsDirectoryChangeStreamTests
         var sut = CreateStream();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         var count = 0;
-        var subscription = sut.Watch(path).Subscribe(_ => Interlocked.Increment(ref count));
+        var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using (sut.Watch(path)
+            .Where(c => c.Kind == DirectoryChangeKind.Created)
+            .Subscribe(_ =>
+            {
+                Interlocked.Increment(ref count);
+                ready.TrySetResult();
+            }))
+        {
+            // Act
+            fixture.CreateFile("before-dispose.txt");
+            await ready.Task.WaitAsync(EventTimeout);
+        }
 
-        // Act
-        subscription.Dispose();
         fixture.CreateFile("after-dispose.txt");
         await Task.Delay(TimeSpan.FromMilliseconds(500));
 
         // Assert
-        await Assert.That(count).IsEqualTo(0);
+        await Assert.That(count).IsEqualTo(1);
     }
 
     private static WindowsDirectoryChangeStream CreateStream()

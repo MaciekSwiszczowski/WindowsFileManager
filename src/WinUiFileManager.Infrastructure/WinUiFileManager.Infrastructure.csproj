@@ -15,4 +15,10 @@
     <PackageReference Include="Microsoft.Extensions.Options" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinUiFileManager.Application.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Interop.Tests" />
+  </ItemGroup>
 </Project>

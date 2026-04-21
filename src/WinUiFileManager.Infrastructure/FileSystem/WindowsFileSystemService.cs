@@ -14,7 +14,7 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 /// Enumerates directory contents and maps file-system metadata into entry models.
 /// Active-folder change notifications live in <see cref="WindowsDirectoryChangeStream"/>.
 /// </summary>
-public sealed class WindowsFileSystemService : IFileSystemService
+internal sealed class WindowsFileSystemService : IFileSystemService
 {
     private static readonly EnumerationOptions EnumerationOptions = new()
     {
@@ -71,7 +71,7 @@ public sealed class WindowsFileSystemService : IFileSystemService
         {
             if (!Directory.Exists(path.DisplayPath))
             {
-                _logger.LogWarning("Directory does not exist: {Path}", path.DisplayPath);
+                WindowsFileSystemServiceLog.DirectoryDoesNotExist(_logger, path.DisplayPath);
                 observer.OnCompleted();
                 return;
             }

@@ -5,7 +5,7 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Persistence;
 
-public sealed class JsonFavouritesRepository : IFavouritesRepository
+internal sealed class JsonFavouritesRepository : IFavouritesRepository
 {
     private readonly string _filePath;
     private static readonly JsonSerializerOptions JsonOptions = new()

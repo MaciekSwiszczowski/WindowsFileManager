@@ -5,7 +5,7 @@ using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.Services;
 
-public sealed class NtfsVolumePolicyService : INtfsVolumePolicyService
+internal sealed class NtfsVolumePolicyService : INtfsVolumePolicyService
 {
     private readonly IVolumeInterop _volumeInterop;
 

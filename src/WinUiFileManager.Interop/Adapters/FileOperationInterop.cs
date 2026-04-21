@@ -4,7 +4,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;
 
-public sealed class FileOperationInterop : IFileOperationInterop
+internal sealed class FileOperationInterop : IFileOperationInterop
 {
     public InteropResult CopyFile(string source, string destination, bool overwrite)
     {

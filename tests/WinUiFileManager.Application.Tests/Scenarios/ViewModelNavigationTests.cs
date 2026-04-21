@@ -1,4 +1,4 @@
-﻿using TUnit.Core;
+using TUnit.Core;
 using WinUiFileManager.Application.Tests.Fakes;
 using WinUiFileManager.Application.Tests.Fixtures;
 using WinUiFileManager.Presentation.ViewModels;
@@ -119,3 +119,4 @@ public sealed class ViewModelNavigationTests
         await Assert.That(pane.CurrentPath).IsEqualTo(fixture.RootPath);
     }
 }
+

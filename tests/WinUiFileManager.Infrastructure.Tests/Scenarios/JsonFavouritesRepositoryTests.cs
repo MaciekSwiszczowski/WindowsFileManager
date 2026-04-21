@@ -5,6 +5,9 @@ using WinUiFileManager.Infrastructure.Persistence;
 
 namespace WinUiFileManager.Infrastructure.Tests.Scenarios;
 
+/// <summary>
+/// Validates round-trip persistence and failure handling for the favourites repository.
+/// </summary>
 /// <remarks>
 /// These tests use the real app-data path at %LOCALAPPDATA%\WinUiFileManager\favourites.json.
 /// Each test adds/removes its own uniquely-identified favourite to avoid corrupting real data.

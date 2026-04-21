@@ -1,25 +1,29 @@
-namespace WinUiFileManager.App.Composition;
-
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Application.Abstractions;
+using TUnit.Core;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
-using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
-public static class ServiceConfiguration
+namespace WinUiFileManager.Application.Tests.Scenarios;
+
+public sealed class ServiceRegistrationValidationTests
 {
-    public static ServiceProvider ConfigureServices()
+    [Test]
+    public async Task Test_ServiceGraph_BuildsWithValidation()
     {
         var services = new ServiceCollection();
 
         services.AddLogging();
-
         services.AddInfrastructureServices();
+
+        services.AddSingleton<IDialogService, Fakes.FakeDialogService>();
+        services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
+        services.AddSingleton<IShellService, Fakes.FakeShellService>();
+        services.AddSingleton<IFavouritesRepository, Fakes.FakeFavouritesRepository>();
+        services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();
 
         services.AddSingleton<OpenEntryCommandHandler>();
         services.AddSingleton<NavigateUpCommandHandler>();
@@ -40,25 +44,21 @@ public static class ServiceConfiguration
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
-        services.AddSingleton<WinUiDialogService>();
-        services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<WinUiDialogService>());
-        services.AddSingleton<IClipboardService, WinUiClipboardService>();
-
         services.AddTransient<FilePaneViewModel>();
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
 
-        services.AddTransient<WinUiFileManager.App.Windows.MainShellWindow>();
-
-#if DEBUG
-        return services.BuildServiceProvider(new ServiceProviderOptions
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
         {
             ValidateOnBuild = true,
             ValidateScopes = true,
         });
-#else
-        return services.BuildServiceProvider();
-#endif
+
+        var shell = provider.GetRequiredService<MainShellViewModel>();
+
+        await Assert.That(shell).IsNotNull();
+        await Assert.That(shell.LeftPane).IsNotNull();
+        await Assert.That(shell.RightPane).IsNotNull();
     }
 }

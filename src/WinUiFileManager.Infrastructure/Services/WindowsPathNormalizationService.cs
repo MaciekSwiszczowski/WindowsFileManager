@@ -4,7 +4,7 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Services;
 
-public sealed class WindowsPathNormalizationService : IPathNormalizationService
+internal sealed class WindowsPathNormalizationService : IPathNormalizationService
 {
     public NormalizedPath Normalize(string path) => NormalizedPath.FromUserInput(path);
 

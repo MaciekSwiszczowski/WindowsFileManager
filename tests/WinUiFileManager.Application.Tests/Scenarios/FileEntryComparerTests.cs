@@ -1,4 +1,4 @@
-﻿using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.ViewModels;
 using WinUiFileManager.Domain.Enums;
 using TUnit.Core;
@@ -15,9 +15,9 @@ public sealed class FileEntryComparerTests
         var file1 = CreateFileEntry("a.txt");
         var file2 = CreateFileEntry("b.txt");
         var dir1 = CreateDirEntry("subdir");
-        
+
         var sut = new FileEntryComparer(SortColumn.Name, true);
-        
+
         // Act & Assert
         await Assert.That(sut.Compare(parent, file1)).IsLessThan(0);
         await Assert.That(sut.Compare(parent, file2)).IsLessThan(0);
@@ -32,9 +32,9 @@ public sealed class FileEntryComparerTests
         var parent = FileEntryViewModel.CreateParentEntry();
         var file1 = CreateFileEntry("a.txt");
         var file2 = CreateFileEntry("b.txt");
-        
+
         var sut = new FileEntryComparer(SortColumn.Name, false);
-        
+
         // Act & Assert
         await Assert.That(sut.Compare(parent, file1)).IsLessThan(0);
         await Assert.That(sut.Compare(parent, file2)).IsLessThan(0);
@@ -47,9 +47,9 @@ public sealed class FileEntryComparerTests
         // Arrange
         var file = CreateFileEntry("a.txt");
         var dir = CreateDirEntry("z_dir");
-        
+
         var sut = new FileEntryComparer(SortColumn.Name, true);
-        
+
         // Act & Assert
         await Assert.That(sut.Compare(dir, file)).IsLessThan(0);
         await Assert.That(sut.Compare(file, dir)).IsGreaterThan(0);
@@ -85,3 +85,4 @@ public sealed class FileEntryComparerTests
         return new FileEntryViewModel(model);
     }
 }
+

@@ -14,7 +14,7 @@ using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
-public sealed class NtfsFileIdentityService : IFileIdentityService
+internal sealed class NtfsFileIdentityService : IFileIdentityService
 {
     private const int FindStreamInfoStandard = 0;
     private const uint GetFinalPathNameNormalized = 0;

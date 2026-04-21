@@ -10,7 +10,7 @@ namespace WinUiFileManager.Infrastructure.Scheduling;
 /// construction time from the current <see cref="SynchronizationContext"/>
 /// (i.e. the UI dispatcher when the application starts up).
 /// </summary>
-public sealed class RxSchedulerProvider : ISchedulerProvider
+internal sealed class RxSchedulerProvider : ISchedulerProvider
 {
     public RxSchedulerProvider()
     {

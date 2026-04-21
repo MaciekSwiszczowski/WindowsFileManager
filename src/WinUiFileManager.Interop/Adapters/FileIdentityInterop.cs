@@ -8,7 +8,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;
 
-public sealed class FileIdentityInterop : IFileIdentityInterop
+internal sealed class FileIdentityInterop : IFileIdentityInterop
 {
     private const int ErrorSuccess = 0;
     private const int ErrorMoreData = 234;

@@ -14,7 +14,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Infrastructure.Execution;
 
-public sealed class WindowsFileOperationService : IFileOperationService
+internal sealed class WindowsFileOperationService : IFileOperationService
 {
     private readonly IFileOperationInterop _fileOperationInterop;
     private readonly ILogger<WindowsFileOperationService> _logger;
@@ -37,9 +37,7 @@ public sealed class WindowsFileOperationService : IFileOperationService
         {
             if (!Directory.Exists(requiredDestinationRoot.DisplayPath))
             {
-                _logger.LogWarning(
-                    "Destination directory does not exist: {Path}",
-                    requiredDestinationRoot.DisplayPath);
+                WindowsFileOperationServiceLog.DestinationDirectoryMissing(_logger, requiredDestinationRoot.DisplayPath);
                 return new OperationSummary(
                     plan.Type,
                     OperationStatus.Failed,
@@ -103,9 +101,7 @@ public sealed class WindowsFileOperationService : IFileOperationService
         catch (OperationCanceledException)
         {
             wasCancelled = true;
-            _logger.LogWarning(
-                "Operation {OperationType} cancelled after {Completed}/{Total} items",
-                plan.Type, completedCount, plan.Items.Count);
+            WindowsFileOperationServiceLog.OperationCancelled(_logger, plan.Type, completedCount, plan.Items.Count);
         }
 
         if (plan.Type == OperationType.Move && !wasCancelled)
@@ -298,9 +294,12 @@ public sealed class WindowsFileOperationService : IFileOperationService
                 null);
         }
 
-        _logger.LogError(
-            "Operation {Type} failed for {Path}: error {ErrorCode} - {Message}",
-            type, item.SourcePath.DisplayPath, interopResult.NativeErrorCode, interopResult.ErrorMessage);
+        WindowsFileOperationServiceLog.OperationFailed(
+            _logger,
+            type,
+            item.SourcePath.DisplayPath,
+            interopResult.NativeErrorCode,
+            interopResult.ErrorMessage ?? "Unknown error");
 
         var error = new OperationError(
             item.SourcePath,
@@ -341,7 +340,7 @@ public sealed class WindowsFileOperationService : IFileOperationService
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Failed to remove source directory after move: {Path}", dir);
+                WindowsFileOperationServiceLog.MoveSourceCleanupFailed(_logger, ex, dir);
             }
         }
     }

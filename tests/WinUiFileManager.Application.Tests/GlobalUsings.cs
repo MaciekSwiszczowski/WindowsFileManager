@@ -1,4 +1,4 @@
-﻿// Global using directives
+// Global using directives
 
 global using Microsoft.Extensions.Logging.Abstractions;
 global using TUnit.Core;
@@ -14,3 +14,4 @@ global using WinUiFileManager.Infrastructure.FileSystem;
 global using WinUiFileManager.Infrastructure.Planning;
 global using WinUiFileManager.Infrastructure.Services;
 global using WinUiFileManager.Interop.Adapters;
+

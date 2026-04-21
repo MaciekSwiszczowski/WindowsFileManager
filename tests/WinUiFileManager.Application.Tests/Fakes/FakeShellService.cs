@@ -1,4 +1,4 @@
-﻿using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
@@ -20,3 +20,4 @@ public sealed class FakeShellService : IShellService
         return Task.CompletedTask;
     }
 }
+

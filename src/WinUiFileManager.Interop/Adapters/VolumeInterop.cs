@@ -3,7 +3,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;
 
-public sealed class VolumeInterop : IVolumeInterop
+internal sealed class VolumeInterop : IVolumeInterop
 {
     public IReadOnlyList<DriveVolumeInfo> GetVolumes()
     {

@@ -7,7 +7,7 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Persistence;
 
-public sealed class JsonSettingsRepository : ISettingsRepository
+internal sealed class JsonSettingsRepository : ISettingsRepository
 {
     private readonly string _filePath;
     private static readonly JsonSerializerOptions JsonOptions = new()

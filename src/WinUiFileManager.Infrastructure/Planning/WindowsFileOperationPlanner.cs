@@ -7,7 +7,7 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Planning;
 
-public sealed class WindowsFileOperationPlanner : IFileOperationPlanner
+internal sealed class WindowsFileOperationPlanner : IFileOperationPlanner
 {
     private static readonly EnumerationOptions RecursiveEnumerationOptions = new()
     {

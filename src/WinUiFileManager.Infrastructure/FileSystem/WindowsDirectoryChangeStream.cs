@@ -16,7 +16,7 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 /// the directory on Invalidated and, if the directory itself disappeared, fall back to the
 /// nearest existing ancestor.
 /// </summary>
-public sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
+internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 {
     private readonly ILogger<WindowsDirectoryChangeStream> _logger;
 

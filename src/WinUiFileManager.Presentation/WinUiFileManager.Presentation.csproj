@@ -20,4 +20,10 @@
   <ItemGroup>
     <Folder Include="Converters\" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinUiFileManager.Application.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Interop.Tests" />
+  </ItemGroup>
 </Project>

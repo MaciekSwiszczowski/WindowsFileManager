@@ -453,11 +453,11 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
         catch (OperationCanceledException)
         {
-            _logger.LogDebug("Pane load canceled for {Path}", path);
+            FilePaneViewModelLog.PaneLoadCanceled(_logger, path.DisplayPath);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to load directory {Path}", path);
+            FilePaneViewModelLog.DirectoryLoadFailed(_logger, ex, path.DisplayPath);
             ErrorMessage = ex.Message;
             CurrentItem = null;
             NotifySelectionChanged();
@@ -501,14 +501,11 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 .ObserveOn(_schedulers.MainThread)
                 .Subscribe(
                     batch => ApplyWatcherBatch(watchedPath, batch),
-                    ex => _logger.LogError(
-                        ex,
-                        "Directory watcher pipeline failed for {Path}",
-                        watchedPath.DisplayPath));
+                    ex => FilePaneViewModelLog.DirectoryWatcherPipelineFailed(_logger, ex, watchedPath.DisplayPath));
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to start directory watcher for {Path}", path.DisplayPath);
+            FilePaneViewModelLog.DirectoryWatcherStartFailed(_logger, ex, path.DisplayPath);
         }
     }
 
@@ -585,9 +582,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     {
         if (batch.NeedsFullRescan)
         {
-            _logger.LogInformation(
-                "Directory watcher for {Path} requested a full rescan.",
-                watchedPath.DisplayPath);
+            FilePaneViewModelLog.DirectoryWatcherRequestedFullRescan(_logger, watchedPath.DisplayPath);
             _ = RefreshCurrentDirectoryAsync(CancellationToken.None);
             return;
         }
@@ -665,8 +660,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
         if (!string.Equals(existingPath.Value.DisplayPath, currentPath.DisplayPath, StringComparison.OrdinalIgnoreCase))
         {
-            _logger.LogInformation(
-                "Directory {MissingPath} no longer exists. Falling back to existing ancestor {ExistingPath}.",
+            FilePaneViewModelLog.DirectoryFallbackToExistingAncestor(
+                _logger,
                 currentPath.DisplayPath,
                 existingPath.Value.DisplayPath);
 

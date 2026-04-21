@@ -16,4 +16,11 @@
     <AdditionalFiles Remove="$(MSBuildProjectDirectory)\..\..\BannedSymbols.txt" />
     <AdditionalFiles Include="BannedSymbols.Interop.txt" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinUiFileManager.Application.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Interop.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure" />
+  </ItemGroup>
 </Project>

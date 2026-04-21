@@ -11,4 +11,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="System.Reactive" />
   </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinUiFileManager.Application.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure.Tests" />
+    <InternalsVisibleTo Include="WinUiFileManager.Interop.Tests" />
+  </ItemGroup>
 </Project>

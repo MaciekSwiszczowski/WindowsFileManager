@@ -7,7 +7,7 @@ using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Services;
 
-public sealed class WindowsShellService : IShellService
+internal sealed class WindowsShellService : IShellService
 {
     private readonly ILogger<WindowsShellService> _logger;
 

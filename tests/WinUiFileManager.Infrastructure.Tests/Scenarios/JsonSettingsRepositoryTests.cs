@@ -7,6 +7,9 @@ using WinUiFileManager.Infrastructure.Persistence;
 
 namespace WinUiFileManager.Infrastructure.Tests.Scenarios;
 
+/// <summary>
+/// Validates round-trip persistence and default loading behavior for the settings repository.
+/// </summary>
 /// <remarks>
 /// These tests use the real app-data path at %LOCALAPPDATA%\WinUiFileManager\settings.json.
 /// Each test backs up and restores the original file to avoid corrupting real settings.

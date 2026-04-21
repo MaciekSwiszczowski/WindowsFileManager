@@ -64,6 +64,9 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public partial bool IsInspectorVisible { get; set; } = true;
 
     [ObservableProperty]
+    public partial double LeftPaneWidth { get; set; } = 600d;
+
+    [ObservableProperty]
     public partial double InspectorWidth { get; set; } = 340d;
 
     public OperationProgressViewModel OperationProgress { get; } = new();
@@ -579,11 +582,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private void ToggleInspector()
     {
         IsInspectorVisible = !IsInspectorVisible;
-    }
-
-    public void SetInspectorWidth(double width)
-    {
-        InspectorWidth = Math.Clamp(width, 260d, 640d);
     }
 
     private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)

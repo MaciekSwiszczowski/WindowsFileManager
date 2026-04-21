@@ -14,11 +14,6 @@ namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView : UserControl
 {
-    private readonly InputCursor _horizontalResizeCursor = InputSystemCursor.Create(InputSystemCursorShape.SizeWestEast);
-    private bool _isResizingInspector;
-    private double _inspectorResizeStartX;
-    private double _inspectorResizeStartWidth;
-
     public MainShellView()
     {
         InitializeComponent();
@@ -188,15 +183,15 @@ public sealed partial class MainShellView : UserControl
     {
         DispatcherQueue.TryEnqueue(() =>
         {
-            UpdateStatusBar();
-            if (e.PropertyName == nameof(MainShellViewModel.ActivePane))
+            switch (e.PropertyName)
             {
-                UpdateActivePaneBorders();
-            }
-            if (e.PropertyName is nameof(MainShellViewModel.IsInspectorVisible)
-                or nameof(MainShellViewModel.InspectorWidth))
-            {
-                UpdateInspectorLayout();
+                case nameof(MainShellViewModel.ActivePane):
+                    UpdateStatusBar();
+                    UpdateActivePaneBorders();
+                    break;
+                case nameof(MainShellViewModel.IsInspectorVisible):
+                    UpdateInspectorLayout();
+                    break;
             }
         });
     }
@@ -284,72 +279,11 @@ public sealed partial class MainShellView : UserControl
         }
 
         var isVisible = ViewModel.IsInspectorVisible;
-        InspectorColumn.Width = isVisible
-            ? new GridLength(ViewModel.InspectorWidth, GridUnitType.Pixel)
-            : new GridLength(0, GridUnitType.Pixel);
         InspectorSplitterColumn.Width = isVisible
             ? new GridLength(6, GridUnitType.Pixel)
             : new GridLength(0, GridUnitType.Pixel);
         InspectorView.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
-        InspectorResizeHandle.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnInspectorResizePointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (ViewModel?.IsInspectorVisible != true || sender is not UIElement element)
-        {
-            return;
-        }
-
-        ProtectedCursor = _horizontalResizeCursor;
-        _isResizingInspector = true;
-        _inspectorResizeStartX = e.GetCurrentPoint(this).Position.X;
-        _inspectorResizeStartWidth = ViewModel.InspectorWidth;
-        element.CapturePointer(e.Pointer);
-        e.Handled = true;
-    }
-
-    private void OnInspectorResizePointerMoved(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isResizingInspector || ViewModel is null)
-        {
-            return;
-        }
-
-        var currentX = e.GetCurrentPoint(this).Position.X;
-        var delta = _inspectorResizeStartX - currentX;
-        ViewModel.SetInspectorWidth(_inspectorResizeStartWidth + delta);
-        UpdateInspectorLayout();
-        e.Handled = true;
-    }
-
-    private void OnInspectorResizePointerReleased(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isResizingInspector || sender is not UIElement element)
-        {
-            return;
-        }
-
-        _isResizingInspector = false;
-        element.ReleasePointerCapture(e.Pointer);
-        ProtectedCursor = null;
-        e.Handled = true;
-    }
-
-    private void OnInspectorResizePointerEntered(object sender, PointerRoutedEventArgs e)
-    {
-        if (ViewModel?.IsInspectorVisible == true)
-        {
-            ProtectedCursor = _horizontalResizeCursor;
-        }
-    }
-
-    private void OnInspectorResizePointerExited(object sender, PointerRoutedEventArgs e)
-    {
-        if (!_isResizingInspector)
-        {
-            ProtectedCursor = null;
-        }
+        InspectorGridSplitter.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private static bool IsModifierDown(VirtualKey key) =>

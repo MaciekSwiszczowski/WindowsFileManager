@@ -1,9 +1,7 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Collections.ObjectModel;
-using Microsoft.UI.Xaml;
+using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using Microsoft.UI.Xaml;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -18,9 +16,6 @@ public sealed partial class FileInspectorCategoryViewModel : ObservableObject
 
     [ObservableProperty]
     public partial bool IsExpanded { get; set; } = true;
-
-    [ObservableProperty]
-    public partial double ContentWidth { get; set; }
 
     [ObservableProperty]
     public partial bool HasVisibleFields { get; set; }

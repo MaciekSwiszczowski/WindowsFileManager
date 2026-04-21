@@ -54,9 +54,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    [ObservableProperty]
-    public partial double InspectorContentWidth { get; set; }
-
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
 
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
@@ -220,21 +217,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _disposed = true;
     }
 
-    public void UpdateInspectorContentWidth(double width)
-    {
-        var normalizedWidth = width > 0 ? width : 0;
-        if (Math.Abs(InspectorContentWidth - normalizedWidth) < 0.5)
-        {
-            return;
-        }
-
-        InspectorContentWidth = normalizedWidth;
-        foreach (var category in Categories)
-        {
-            category.ContentWidth = normalizedWidth;
-        }
-    }
-
     partial void OnHasItemChanged(bool value)
     {
         OnPropertyChanged(nameof(DetailsVisibility));
@@ -351,7 +333,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         var createdCategory = new FileInspectorCategoryViewModel(category);
-        createdCategory.ContentWidth = InspectorContentWidth;
         _categoryMap.Add(category, createdCategory);
         var insertIndex = 0;
         while (insertIndex < Categories.Count

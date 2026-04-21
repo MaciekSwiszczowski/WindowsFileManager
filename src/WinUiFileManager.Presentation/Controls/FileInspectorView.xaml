@@ -71,132 +71,128 @@
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch">
-                <Grid Width="{Binding InspectorContentWidth}"
-                      HorizontalAlignment="Left">
-                    <ItemsRepeater ItemsSource="{Binding Categories}">
-                        <ItemsRepeater.Layout>
-                            <StackLayout Spacing="8" />
-                        </ItemsRepeater.Layout>
-                        <ItemsRepeater.ItemTemplate>
-                            <DataTemplate>
-                                <Expander Header="{Binding Name}"
-                                          Visibility="{Binding Visibility}"
-                                          IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
-                                          Width="{Binding ContentWidth}"
-                                          HorizontalAlignment="Stretch"
-                                          HorizontalContentAlignment="Stretch">
-                                    <Border BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                            BorderThickness="1"
-                                            CornerRadius="4"
-                                            HorizontalAlignment="Stretch">
-                                        <Grid>
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
+                <ItemsRepeater ItemsSource="{Binding Categories}">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="8" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <Expander Header="{Binding Name}"
+                                      Visibility="{Binding Visibility}"
+                                      IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                                      HorizontalAlignment="Stretch"
+                                      HorizontalContentAlignment="Stretch">
+                                <Border BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        HorizontalAlignment="Stretch">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
 
-                                            <Grid Grid.Row="0"
-                                                  Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
-                                                <Grid.ColumnDefinitions>
-                                                    <ColumnDefinition Width="180" />
-                                                    <ColumnDefinition Width="*" />
-                                                </Grid.ColumnDefinitions>
+                                        <Grid Grid.Row="0"
+                                              Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="180" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
 
-                                                <Border Grid.Column="0"
-                                                        Padding="16,10"
-                                                        BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                                        BorderThickness="0,0,1,1">
-                                                    <TextBlock Text="Property"
-                                                               FontWeight="SemiBold" />
-                                                </Border>
+                                            <Border Grid.Column="0"
+                                                    Padding="16,10"
+                                                    BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                                    BorderThickness="0,0,1,1">
+                                                <TextBlock Text="Property"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
 
-                                                <Border Grid.Column="1"
-                                                        Padding="16,10"
-                                                        BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                                        BorderThickness="0,0,0,1">
-                                                    <TextBlock Text="Value"
-                                                               FontWeight="SemiBold" />
-                                                </Border>
-                                            </Grid>
-
-                                            <ItemsRepeater Grid.Row="1"
-                                                           ItemsSource="{Binding Fields}">
-                                                <ItemsRepeater.Layout>
-                                                    <StackLayout />
-                                                </ItemsRepeater.Layout>
-                                                <ItemsRepeater.ItemTemplate>
-                                                    <DataTemplate>
-                                                        <Grid Visibility="{Binding RowVisibility}">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="180" />
-                                                                <ColumnDefinition Width="*" />
-                                                            </Grid.ColumnDefinitions>
-
-                                                            <Border Grid.Column="0"
-                                                                    Padding="16,10"
-                                                                    BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                                                    BorderThickness="0,0,1,1"
-                                                                    Background="Transparent"
-                                                                    ToolTipService.ToolTip="{Binding Tooltip}">
-                                                                <TextBlock Text="{Binding Key}"
-                                                                           Style="{StaticResource InspectorCellStyle}" />
-                                                            </Border>
-
-                                                            <Border Grid.Column="1"
-                                                                    Padding="16,10"
-                                                                    BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                                                    BorderThickness="0,0,0,1"
-                                                                    Background="Transparent">
-                                                                <Grid ColumnSpacing="12">
-                                                                    <Grid.ColumnDefinitions>
-                                                                        <ColumnDefinition Width="*" />
-                                                                        <ColumnDefinition Width="Auto" />
-                                                                    </Grid.ColumnDefinitions>
-
-                                                                    <Grid Grid.Column="0">
-                                                                        <ProgressRing Width="14"
-                                                                                      Height="14"
-                                                                                      IsActive="True"
-                                                                                      HorizontalAlignment="Left"
-                                                                                      VerticalAlignment="Center"
-                                                                                      Visibility="{Binding LoadingVisibility}" />
-                                                                        <TextBlock Text="{Binding DisplayValue}"
-                                                                                   Style="{StaticResource InspectorCellStyle}"
-                                                                                   Visibility="{Binding ValueVisibility}" />
-                                                                        <Border Width="30"
-                                                                                Height="30"
-                                                                                Padding="0"
-                                                                                Margin="0"
-                                                                                HorizontalAlignment="Left"
-                                                                                VerticalAlignment="Center"
-                                                                                Visibility="{Binding ThumbnailVisibility}">
-                                                                            <Image Source="{Binding ThumbnailSource}"
-                                                                                   Width="30"
-                                                                                   Height="30"
-                                                                                   HorizontalAlignment="Stretch"
-                                                                                   VerticalAlignment="Stretch"
-                                                                                   Stretch="UniformToFill" />
-                                                                        </Border>
-                                                                    </Grid>
-
-                                                                    <CheckBox Grid.Column="1"
-                                                                              VerticalAlignment="Center"
-                                                                              IsChecked="{Binding IsToggleOn, Mode=OneWay}"
-                                                                              Command="{Binding ToggleCommand}"
-                                                                              Visibility="{Binding ToggleVisibility}" />
-                                                                </Grid>
-                                                            </Border>
-                                                        </Grid>
-                                                    </DataTemplate>
-                                                </ItemsRepeater.ItemTemplate>
-                                            </ItemsRepeater>
+                                            <Border Grid.Column="1"
+                                                    Padding="16,10"
+                                                    BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                                    BorderThickness="0,0,0,1">
+                                                <TextBlock Text="Value"
+                                                           FontWeight="SemiBold" />
+                                            </Border>
                                         </Grid>
-                                    </Border>
-                                </Expander>
-                            </DataTemplate>
-                        </ItemsRepeater.ItemTemplate>
-                    </ItemsRepeater>
-                </Grid>
+
+                                        <ItemsRepeater Grid.Row="1"
+                                                       ItemsSource="{Binding Fields}">
+                                            <ItemsRepeater.Layout>
+                                                <StackLayout />
+                                            </ItemsRepeater.Layout>
+                                            <ItemsRepeater.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Visibility="{Binding RowVisibility}">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="180" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <Border Grid.Column="0"
+                                                                Padding="16,10"
+                                                                BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                                                BorderThickness="0,0,1,1"
+                                                                Background="Transparent"
+                                                                ToolTipService.ToolTip="{Binding Tooltip}">
+                                                            <TextBlock Text="{Binding Key}"
+                                                                       Style="{StaticResource InspectorCellStyle}" />
+                                                        </Border>
+
+                                                        <Border Grid.Column="1"
+                                                                Padding="16,10"
+                                                                BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                                                BorderThickness="0,0,0,1"
+                                                                Background="Transparent">
+                                                            <Grid ColumnSpacing="12">
+                                                                <Grid.ColumnDefinitions>
+                                                                    <ColumnDefinition Width="*" />
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <Grid Grid.Column="0">
+                                                                    <ProgressRing Width="14"
+                                                                                  Height="14"
+                                                                                  IsActive="True"
+                                                                                  HorizontalAlignment="Left"
+                                                                                  VerticalAlignment="Center"
+                                                                                  Visibility="{Binding LoadingVisibility}" />
+                                                                    <TextBlock Text="{Binding DisplayValue}"
+                                                                               Style="{StaticResource InspectorCellStyle}"
+                                                                               Visibility="{Binding ValueVisibility}" />
+                                                                    <Border Width="30"
+                                                                            Height="30"
+                                                                            Padding="0"
+                                                                            Margin="0"
+                                                                            HorizontalAlignment="Left"
+                                                                            VerticalAlignment="Center"
+                                                                            Visibility="{Binding ThumbnailVisibility}">
+                                                                        <Image Source="{Binding ThumbnailSource}"
+                                                                               Width="30"
+                                                                               Height="30"
+                                                                               HorizontalAlignment="Stretch"
+                                                                               VerticalAlignment="Stretch"
+                                                                               Stretch="UniformToFill" />
+                                                                    </Border>
+                                                                </Grid>
+
+                                                                <CheckBox Grid.Column="1"
+                                                                          VerticalAlignment="Center"
+                                                                          IsChecked="{Binding IsToggleOn, Mode=OneWay}"
+                                                                          Command="{Binding ToggleCommand}"
+                                                                          Visibility="{Binding ToggleVisibility}" />
+                                                            </Grid>
+                                                        </Border>
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsRepeater.ItemTemplate>
+                                        </ItemsRepeater>
+                                    </Grid>
+                                </Border>
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
             </ScrollViewer>
         </Grid>
     </Border>

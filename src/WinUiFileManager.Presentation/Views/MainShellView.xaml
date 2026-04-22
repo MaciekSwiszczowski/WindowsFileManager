@@ -111,12 +111,16 @@
             <panels:FilePaneView x:Name="LeftPaneView" Grid.Column="0" />
             <toolkit:GridSplitter Grid.Column="1"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                  DragIncrement="8"
+                                  KeyboardIncrement="8"
                                   ResizeBehavior="PreviousAndNext"
                                   ResizeDirection="Columns" />
             <panels:FilePaneView x:Name="RightPaneView" Grid.Column="2" />
             <toolkit:GridSplitter x:Name="InspectorGridSplitter"
                                   Grid.Column="3"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+                                  DragIncrement="8"
+                                  KeyboardIncrement="8"
                                   ResizeBehavior="PreviousAndNext"
                                   ResizeDirection="Columns" />
             <controls:FileInspectorView x:Name="InspectorView" Grid.Column="4" />

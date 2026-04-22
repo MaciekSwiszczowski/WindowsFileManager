@@ -78,7 +78,8 @@
                     <KeyboardAccelerator Key="C" Modifiers="Control,Shift" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
-            <AppBarToggleButton IsChecked="{x:Bind ViewModel.IsInspectorVisible, Mode=TwoWay}"
+            <AppBarToggleButton x:Name="InspectorToggleButton"
+                                IsChecked="{x:Bind ViewModel.IsInspectorVisible, Mode=TwoWay}"
                                 ToolTipService.ToolTip="Toggle Inspector (Ctrl+I)">
                 <AppBarToggleButton.Icon>
                     <SymbolIcon Symbol="Preview" />
@@ -104,8 +105,8 @@
                 <ColumnDefinition x:Name="RightPaneColumn" Width="*" MinWidth="320" />
                 <ColumnDefinition x:Name="InspectorSplitterColumn" Width="6" />
                 <ColumnDefinition x:Name="InspectorColumn"
-                                  Width="{x:Bind ViewModel.InspectorWidth, Mode=TwoWay, Converter={StaticResource PixelGridLengthConverter}}"
-                                  MinWidth="260" />
+                                  Width="{x:Bind ViewModel.InspectorColumnWidth, Mode=TwoWay, Converter={StaticResource PixelGridLengthConverter}}"
+                                  MinWidth="{x:Bind ViewModel.InspectorMinWidth, Mode=OneWay}" />
             </Grid.ColumnDefinitions>
 
             <panels:FilePaneView x:Name="LeftPaneView" Grid.Column="0" />

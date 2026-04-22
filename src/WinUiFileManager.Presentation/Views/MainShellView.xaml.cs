@@ -38,6 +38,7 @@ public sealed partial class MainShellView : UserControl
     public void Initialize(MainShellViewModel viewModel)
     {
         DataContext = viewModel;
+        Bindings.Update();
         LeftPaneView.ViewModel = viewModel.LeftPane;
         RightPaneView.ViewModel = viewModel.RightPane;
         InspectorView.ViewModel = viewModel.Inspector;
@@ -186,6 +187,11 @@ public sealed partial class MainShellView : UserControl
 
         LeftPaneView.ReleaseFileTableWidth();
         RightPaneView.ReleaseFileTableWidth();
+        if (ViewModel?.IsInspectorVisible == true)
+        {
+            ViewModel.UpdateInspectorWidthFromLayout(InspectorColumn.ActualWidth);
+        }
+
         _fileTablesFrozenForSplitterDrag = false;
     }
 
@@ -261,6 +267,7 @@ public sealed partial class MainShellView : UserControl
                     UpdateActivePaneBorders();
                     break;
                 case nameof(MainShellViewModel.IsInspectorVisible):
+                    Bindings.Update();
                     UpdateInspectorLayout();
                     break;
             }
@@ -300,6 +307,7 @@ public sealed partial class MainShellView : UserControl
         }
 
         var isVisible = ViewModel.IsInspectorVisible;
+        InspectorToggleButton.IsChecked = isVisible;
         InspectorSplitterColumn.Width = isVisible
             ? new GridLength(6, GridUnitType.Pixel)
             : new GridLength(0, GridUnitType.Pixel);

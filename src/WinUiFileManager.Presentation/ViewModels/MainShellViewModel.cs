@@ -21,6 +21,7 @@ namespace WinUiFileManager.Presentation.ViewModels;
 public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan InspectorDeferredLoadThrottle = TimeSpan.FromMilliseconds(200);
+    private const double MinVisibleInspectorWidth = 260d;
 
     private readonly ISettingsRepository _settingsRepository;
     private readonly CopySelectionCommandHandler _copyHandler;
@@ -58,12 +59,15 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public partial FileInspectorViewModel Inspector { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
+    [NotifyPropertyChangedFor(nameof(InspectorMinWidth))]
     public partial bool IsInspectorVisible { get; set; } = true;
 
     [ObservableProperty]
     public partial double LeftPaneWidth { get; set; } = 600d;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
     public partial double InspectorWidth { get; set; } = 340d;
 
     public WindowPlacement MainWindowPlacement { get; set; } = WindowPlacement.Default;
@@ -196,6 +200,34 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public FilePaneViewModel InactivePane => ActivePane == LeftPane ? RightPane : LeftPane;
 
     public string ActivePaneLabel => $"{ActivePane.PaneLabel} active";
+
+    public double InspectorColumnWidth
+    {
+        get => IsInspectorVisible
+            ? Math.Max(InspectorWidth, MinVisibleInspectorWidth)
+            : 0d;
+        set
+        {
+            if (value <= 0d)
+            {
+                return;
+            }
+
+            InspectorWidth = Math.Max(value, MinVisibleInspectorWidth);
+        }
+    }
+
+    public double InspectorMinWidth => IsInspectorVisible ? MinVisibleInspectorWidth : 0d;
+
+    public void UpdateInspectorWidthFromLayout(double width)
+    {
+        if (width <= 0d)
+        {
+            return;
+        }
+
+        InspectorWidth = Math.Max(width, MinVisibleInspectorWidth);
+    }
 
     partial void OnActivePaneChanged(FilePaneViewModel value)
     {

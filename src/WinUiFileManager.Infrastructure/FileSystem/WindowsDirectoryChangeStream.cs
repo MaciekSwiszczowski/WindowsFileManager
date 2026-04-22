@@ -1,5 +1,5 @@
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Disposables;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -31,7 +31,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
         {
             var subscription = new DirectoryWatcherSubscription(path.DisplayPath, _logger, observer);
             subscription.Start();
-            return Disposable.Create(subscription, static s => s.Dispose());
+            return subscription;
         });
     }
 
@@ -41,7 +41,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
         private readonly ILogger _logger;
         private readonly IObserver<DirectoryChange> _observer;
         private readonly object _gate = new();
-        private FileSystemWatcher? _watcher;
+        private readonly SerialDisposable _watcher = new();
         private bool _disposed;
 
         public DirectoryWatcherSubscription(string path, ILogger logger, IObserver<DirectoryChange> observer)
@@ -58,8 +58,6 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
         public void Dispose()
         {
-            FileSystemWatcher? toDispose;
-
             lock (_gate)
             {
                 if (_disposed)
@@ -68,11 +66,8 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 }
 
                 _disposed = true;
-                toDispose = _watcher;
-                _watcher = null;
+                _watcher.Dispose();
             }
-
-            toDispose?.Dispose();
         }
 
         private void CreateAndStart()
@@ -84,7 +79,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 return;
             }
 
-            FileSystemWatcher? created = null;
+            FileSystemWatcher created;
 
             try
             {
@@ -104,23 +99,23 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 created.Renamed += OnRenamed;
                 created.Error += OnError;
                 created.EnableRaisingEvents = true;
-
-                lock (_gate)
-                {
-                    if (_disposed)
-                    {
-                        created.Dispose();
-                        return;
-                    }
-
-                    _watcher = created;
-                }
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to create directory watcher for {Path}", _path);
-                created?.Dispose();
                 EmitInvalidated();
+                return;
+            }
+
+            lock (_gate)
+            {
+                if (_disposed)
+                {
+                    created.Dispose();
+                    return;
+                }
+
+                _watcher.Disposable = created;
             }
         }
 
@@ -148,8 +143,6 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
         private void OnError(object? sender, ErrorEventArgs e)
         {
-            FileSystemWatcher? toDispose;
-
             lock (_gate)
             {
                 if (_disposed)
@@ -162,11 +155,9 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                     "Directory watcher failed for {Path}. Emitting Invalidated and recreating watcher.",
                     _path);
 
-                toDispose = _watcher;
-                _watcher = null;
+                _watcher.Disposable = null;
             }
 
-            toDispose?.Dispose();
             EmitInvalidated();
             CreateAndStart();
         }

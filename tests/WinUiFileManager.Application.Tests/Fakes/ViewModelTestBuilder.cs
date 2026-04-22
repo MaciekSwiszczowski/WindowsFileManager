@@ -3,6 +3,7 @@ using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure.Scheduling;
+using Microsoft.Extensions.Logging;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
@@ -61,18 +62,7 @@ public sealed class ViewModelTestBuilder
         var persistPaneState = new PersistPaneStateCommandHandler(
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
-        var leftPane = new FilePaneViewModel(
-            openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
-            NullLogger<FilePaneViewModel>.Instance);
-        var rightPane = new FilePaneViewModel(
-            openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
-            NullLogger<FilePaneViewModel>.Instance);
-        var inspector = new FileInspectorViewModel(
-            fileIdentityService,
-            ClipboardService,
-            ShellService,
-            NullLogger<FileInspectorViewModel>.Instance);
-
+#pragma warning disable IDISP004 // Ownership of the created child view-models transfers to MainShellViewModel.
         return new MainShellViewModel(
             SettingsRepository,
             copyHandler,
@@ -90,8 +80,49 @@ public sealed class ViewModelTestBuilder
             FavouritesRepository,
             schedulers,
             NullLogger<MainShellViewModel>.Instance,
-            inspector,
-            leftPane,
-            rightPane);
+            CreateInspectorViewModel(
+                fileIdentityService,
+                ClipboardService,
+                ShellService),
+            CreatePaneViewModel(
+                openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
+                NullLogger<FilePaneViewModel>.Instance),
+            CreatePaneViewModel(
+                openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
+                NullLogger<FilePaneViewModel>.Instance));
+#pragma warning restore IDISP004
+    }
+
+    private static FilePaneViewModel CreatePaneViewModel(
+        OpenEntryCommandHandler openEntry,
+        RenameEntryCommandHandler renameHandler,
+        WindowsFileSystemService fsService,
+        WindowsDirectoryChangeStream changeStream,
+        ISchedulerProvider schedulers,
+        NtfsVolumePolicyService volumePolicy,
+        WindowsPathNormalizationService pathService,
+        ILogger<FilePaneViewModel> logger)
+    {
+        return new FilePaneViewModel(
+            openEntry,
+            renameHandler,
+            fsService,
+            changeStream,
+            schedulers,
+            volumePolicy,
+            pathService,
+            logger);
+    }
+
+    private static FileInspectorViewModel CreateInspectorViewModel(
+        IFileIdentityService fileIdentityService,
+        IClipboardService clipboardService,
+        IShellService shellService)
+    {
+        return new FileInspectorViewModel(
+            fileIdentityService,
+            clipboardService,
+            shellService,
+            NullLogger<FileInspectorViewModel>.Instance);
     }
 }

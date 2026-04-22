@@ -10,7 +10,7 @@ public sealed class ViewModelRenameCommandTests
         fixture.CreateFile("source/old.txt", sizeInBytes: 32);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
@@ -33,7 +33,7 @@ public sealed class ViewModelRenameCommandTests
         var originalPath = fixture.CreateFile("source/old.txt", sizeInBytes: 32);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
@@ -59,7 +59,7 @@ public sealed class ViewModelRenameCommandTests
         fixture.CreateFile("source/existing.txt", sizeInBytes: 16);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
@@ -86,7 +86,7 @@ public sealed class ViewModelRenameCommandTests
         fixture.CreateFile("source/other.txt", sizeInBytes: 16);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);

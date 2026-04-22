@@ -162,7 +162,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .Select(selection => selection.CanLoadDeferred
                 ? Observable.Create<FileInspectorDeferredBatchResult>(observer =>
                 {
-                    var cancellation = new CancellationTokenSource();
+                    var cancellation = new CancellationDisposable();
                     _ = Task.Run(async () =>
                     {
                         try
@@ -172,7 +172,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                                 observer.OnNext(batch);
                             }
                         }
-                        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+                        catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
                         {
                         }
                         catch (Exception ex)
@@ -185,7 +185,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                         }
                     }, cancellation.Token);
 
-                    return new CancellationDisposable(cancellation);
+                    return cancellation;
                 })
                 : Observable.Empty<FileInspectorDeferredBatchResult>())
             .Switch()
@@ -676,7 +676,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         _inspectorImmediateSubscription.Dispose();
         _inspectorDeferredSubscription.Dispose();
-        Inspector.Dispose();
     }
 
     private async Task RunTrackedOperationAsync(

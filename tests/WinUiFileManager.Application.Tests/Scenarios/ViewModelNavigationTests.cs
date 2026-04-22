@@ -14,7 +14,7 @@ public sealed class ViewModelNavigationTests
         using var fixture = new NtfsTempDirectoryFixture();
         var subFolder = fixture.CreateDirectory("SubFolder");
         var builder = new ViewModelTestBuilder();
-        var shell = builder.Build();
+        using var shell = builder.Build();
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(fixture.RootPath);
@@ -36,7 +36,7 @@ public sealed class ViewModelNavigationTests
         using var fixture = new NtfsTempDirectoryFixture();
         var subFolder = fixture.CreateDirectory("SubFolder");
         var builder = new ViewModelTestBuilder();
-        var shell = builder.Build();
+        using var shell = builder.Build();
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(subFolder);
@@ -60,7 +60,7 @@ public sealed class ViewModelNavigationTests
         fixture.CreateFile("two.txt");
 
         var builder = new ViewModelTestBuilder();
-        var shell = builder.Build();
+        using var shell = builder.Build();
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(fixture.RootPath);
@@ -83,7 +83,7 @@ public sealed class ViewModelNavigationTests
         var levelTwo = Directory.CreateDirectory(Path.Combine(levelOne, "LevelTwo")).FullName;
 
         var builder = new ViewModelTestBuilder();
-        var shell = builder.Build();
+        using var shell = builder.Build();
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(levelTwo);
@@ -106,7 +106,7 @@ public sealed class ViewModelNavigationTests
         var levelThree = Directory.CreateDirectory(Path.Combine(levelTwo, "LevelThree")).FullName;
 
         var builder = new ViewModelTestBuilder();
-        var shell = builder.Build();
+        using var shell = builder.Build();
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(levelThree);

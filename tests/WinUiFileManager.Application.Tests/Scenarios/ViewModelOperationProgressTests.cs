@@ -19,7 +19,7 @@ public sealed class ViewModelOperationProgressTests
             FileOperationServiceOverride = operationService
         };
 
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 
@@ -63,7 +63,7 @@ public sealed class ViewModelOperationProgressTests
             FileOperationServiceOverride = operationService
         };
 
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 

@@ -12,7 +12,7 @@ public sealed class ViewModelCopyPathCommandTests
         var filePath = fixture.CreateFile("source/myfile.txt", sizeInBytes: 16);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 

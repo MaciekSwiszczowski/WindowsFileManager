@@ -13,7 +13,7 @@ public sealed class ViewModelCreateFolderCommandTests
 
         var builder = new ViewModelTestBuilder();
         builder.DialogService.CreateFolderResult = "MyNewFolder";
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 

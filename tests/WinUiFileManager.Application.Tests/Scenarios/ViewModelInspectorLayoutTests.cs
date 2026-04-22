@@ -6,7 +6,7 @@ public sealed class ViewModelInspectorLayoutTests
     public async Task Test_InspectorColumnWidth_CollapsesWhenInspectorHidden()
     {
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.InspectorWidth = 412d;
 
         vm.IsInspectorVisible = false;
@@ -19,7 +19,7 @@ public sealed class ViewModelInspectorLayoutTests
     public async Task Test_InspectorColumnWidth_UsesMinimumWhenVisible()
     {
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.InspectorWidth = 100d;
         vm.IsInspectorVisible = true;
 
@@ -31,7 +31,7 @@ public sealed class ViewModelInspectorLayoutTests
     public async Task Test_UpdateInspectorWidthFromLayout_ClampsAndStoresVisibleWidth()
     {
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
 
         vm.UpdateInspectorWidthFromLayout(180d);
 

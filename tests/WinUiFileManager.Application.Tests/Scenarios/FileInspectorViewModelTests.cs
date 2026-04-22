@@ -14,7 +14,7 @@ public sealed class FileInspectorViewModelTests
     [Test]
     public async Task Test_ApplySelection_ShowsBasicFieldsImmediately()
     {
-        var sut = CreateSubject(new RecordingFileIdentityService());
+        using var sut = CreateSubject(new RecordingFileIdentityService());
         var entry = CreateEntry(
             name: "notes.txt",
             fullPath: @"C:\temp\notes.txt",
@@ -37,7 +37,7 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_LoadDeferredBatchesAsync_LoadsRequestedDeferredFields()
     {
         var identityService = new RecordingFileIdentityService();
-        var sut = CreateSubject(identityService);
+        using var sut = CreateSubject(identityService);
         var entry = CreateEntry(
             name: "beta.txt",
             fullPath: @"C:\temp\beta.txt",
@@ -77,7 +77,7 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_ToggleNtfsFlagAsync_RequestsAttributeUpdateAndRefresh()
     {
         var identityService = new RecordingFileIdentityService();
-        var sut = CreateSubject(identityService);
+        using var sut = CreateSubject(identityService);
         var entry = CreateEntry(
             name: "alpha.txt",
             fullPath: @"C:\temp\alpha.txt",
@@ -96,7 +96,7 @@ public sealed class FileInspectorViewModelTests
     [Test]
     public async Task Test_SearchText_FiltersByKeyAndValue()
     {
-        var sut = CreateSubject(new RecordingFileIdentityService());
+        using var sut = CreateSubject(new RecordingFileIdentityService());
         var entry = CreateEntry(
             name: "docs",
             fullPath: @"C:\temp\docs",
@@ -124,7 +124,7 @@ public sealed class FileInspectorViewModelTests
     [Test]
     public async Task Test_LoadDeferredBatchesAsync_ShowsIsLockedFalse_WhenItemIsNotLocked()
     {
-        var sut = CreateSubject(new UnlockedFileIdentityService());
+        using var sut = CreateSubject(new UnlockedFileIdentityService());
         var entry = CreateEntry(
             name: "report.docx",
             fullPath: @"C:\temp\report.docx",
@@ -150,7 +150,7 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_ShowPropertiesCommand_UsesShellServiceForCurrentSelection()
     {
         var shellService = new FakeShellService();
-        var sut = new FileInspectorViewModel(
+        using var sut = new FileInspectorViewModel(
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             shellService,

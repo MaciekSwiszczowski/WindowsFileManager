@@ -11,7 +11,7 @@ public sealed class ViewModelStatusBarDisplayTests
         fixture.CreateFile("source/beta.txt", sizeInBytes: 16);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
 
@@ -31,7 +31,7 @@ public sealed class ViewModelStatusBarDisplayTests
         fixture.CreateFile("source/beta.txt", sizeInBytes: 20);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
 
@@ -46,7 +46,7 @@ public sealed class ViewModelStatusBarDisplayTests
     public async Task Test_MainShell_ActivePaneLabel_FollowsActivePane()
     {
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
 
         await Assert.That(vm.ActivePaneLabel).IsEqualTo("Left active");
 

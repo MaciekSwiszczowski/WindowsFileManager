@@ -12,7 +12,7 @@ public sealed class ViewModelDeleteCommandTests
         var filePath = fixture.CreateFile("source/target.txt", sizeInBytes: 64);
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 
@@ -42,7 +42,7 @@ public sealed class ViewModelDeleteCommandTests
 
         var builder = new ViewModelTestBuilder();
         builder.DialogService.DeleteConfirmationResult = false;
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 

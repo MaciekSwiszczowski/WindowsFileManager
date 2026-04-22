@@ -11,7 +11,7 @@ public sealed class ViewModelFavouritesCommandTests
         var destDir = fixture.CreateDirectory("dest");
 
         var builder = new ViewModelTestBuilder();
-        var vm = builder.Build();
+        using var vm = builder.Build();
         vm.LeftPane.PaneId = PaneId.Left;
         vm.RightPane.PaneId = PaneId.Right;
 

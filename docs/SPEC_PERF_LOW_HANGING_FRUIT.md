@@ -167,7 +167,7 @@ These came up during the review but were either speculative, already tracked, or
 - `CommunityToolkit.HighPerformance.StringPool` for file extensions — tracked by `SPEC_NUGET_MODERNIZATION.md` §3; deferred.
 - Any `FileSystemWatcher` tuning — tracked by `SPEC_BUG_FIXES.md` B-2.
 - Cancellation re-throw in `NtfsFileIdentityService` — tracked by `SPEC_NATIVE_MODERNIZATION.md` M-2.
-- Selection-total-bytes re-enumeration in the status bar — the status bar is gone after U-5; the replacement VM computed property can enumerate on demand, deferred to whoever implements it if it turns out to hurt.
+- Selection-total-bytes re-enumeration in the status bar — the old shell code-behind path is gone after U-5; the replacement VM computed property can enumerate on demand, deferred to whoever implements it if it turns out to hurt.
 
 ## 4. Acceptance
 

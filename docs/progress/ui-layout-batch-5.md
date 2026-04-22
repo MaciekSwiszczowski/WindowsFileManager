@@ -11,9 +11,9 @@
 - `ViewModelStatusBarDisplayTests.cs` covers the search suffix, selected-byte aggregate, and active-pane label.
 
 ## What's next
-- Run the U-4 manual acceptance checklist from `docs/progress/ui-layout-batch-4.md` on a Windows 11 workstation at 100% and 150% DPI.
-- Only after the manual U-4 pass is green, flip `ui-layout-batch-4.md` from `in progress` to `complete`.
-- Continue with `SPEC_RENAME_BUGS.md` R-1 once U-4 manual acceptance is closed.
+- Continue with `SPEC_RENAME_BUGS.md` R-1.
+- Keep the UI-layout spec aligned with the shipped splitter-freeze optimization.
+- Treat the UI-layout spec as closed unless new shell behavior is intentionally added.
 
 ## Acceptance results
 - [x] `FilePaneViewModel` exposes `PaneLabel`, `ItemCountDisplay`, and `SelectedDisplay`.
@@ -27,7 +27,7 @@
 ## Surprises
 - `MainShellViewModel` was the right place to assign `PaneId` values. That keeps `ActivePaneLabel` deterministic for first render without introducing another shell-level subscription.
 - `StatusText` and its active-pane property-change plumbing were dead after the XAML move, so they were removed instead of being left as an unused parallel path.
-- U-4's manual wrap-up is still pending. This batch intentionally does not edit `ui-layout-batch-4.md` because the workstation-only checks were not run here.
+- U-4 manual wrap-up completed after this note was first written. The spec/progress docs now record U-4 and U-5 as fully closed.
 
 ## Context hints for the next agent
 - The status bar is now pure binding flow: `MainShellView.xaml` -> `MainShellViewModel.ActivePaneLabel` / `ActivePane.*Display`.

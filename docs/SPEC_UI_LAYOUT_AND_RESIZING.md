@@ -30,7 +30,7 @@ UpdateInspectorLayout();                                          // sets GridLe
 
 `OnViewModelPropertyChanged` (line 187) then fires on `InspectorWidth` and queues **another** `UpdateInspectorLayout()` through `DispatcherQueue.TryEnqueue(...)`. Every pointer move triggers two grid re-measures.
 
-**Fix (see §3.3, §4.2, §4.3; shipped in U-1 / U-2).** Delete the hand-rolled pointer handler and the `UpdateInspectorLayout` invocation from the move path. `InspectorColumn.Width` is bound one-way from `MainShellViewModel.InspectorWidth` through `PixelGridLengthConverter` (see §4.2); the `CommunityToolkit.WinUI.Controls.GridSplitter` from §3.3 drives width changes directly against the column. `OnViewModelPropertyChanged` reacts only to `ActivePane` / `IsInspectorVisible`, never `InspectorWidth` (see §4.3). Net result: one layout pass per width change, no code-behind in the move path.
+**Fix (see §3.3, §4.2, §4.3; shipped in U-1 / U-2 with later drag-polish).** Delete the old hand-rolled resize math and the `UpdateInspectorLayout` invocation from the move path. `InspectorColumn.Width` is bound from `MainShellViewModel.InspectorWidth` through `PixelGridLengthConverter` (see §4.2); the `CommunityToolkit.WinUI.Controls.GridSplitter` from §3.3 drives width changes directly against the column. `OnViewModelPropertyChanged` reacts only to `ActivePane` / `IsInspectorVisible`, never `InspectorWidth` (see §4.3). The shipped implementation also adds lightweight splitter pointer-start / pointer-end handlers that **do not compute widths**; they temporarily freeze both `FileTable` controls to their current width during drag, then release them back to auto width afterward. Net result: one layout pass per width change, no hand-rolled resize algorithm in the move path, and no drag-time table-width thrash.
 
 ### 2.2. Inspector cascades `ContentWidth` to every category
 
@@ -80,7 +80,7 @@ When the Inspector column shrinks, both `*` columns (left and right panes) grow 
 
 `PointerMoved` fires at mouse/touch sample rate (often 125–500 Hz). Each sample triggers a layout pass. A 60 Hz display only benefits from ~60 layouts/sec; the rest are wasted work that still occupies the UI thread.
 
-**Fix (see §3.3; shipped in U-1 + polish in commit `35e965f`).** Use `CommunityToolkit.WinUI.Controls.GridSplitter` with `ResizeBehavior="PreviousAndNext"`, `ResizeDirection="Columns"`, and `DragIncrement="8"` / `KeyboardIncrement="8"`. The control handles pointer-capture, cursor state, and accessibility. `DragIncrement` quantizes width updates to 8 px steps so sub-frame pointer samples coalesce before the column is re-written. The hand-rolled `Border` + `PointerPressed/Moved/Released` handlers in `MainShellView.xaml.cs` are deleted and **never reintroduced** — see §3.3's "Do not implement a hand-rolled splitter" guidance.
+**Fix (see §3.3; shipped in U-1 + later drag-polish).** Use `CommunityToolkit.WinUI.Controls.GridSplitter` with `ResizeBehavior="PreviousAndNext"`, `ResizeDirection="Columns"`, and `DragIncrement="8"` / `KeyboardIncrement="8"`. The control handles pointer-capture, cursor state, and accessibility. `DragIncrement` quantizes width updates to 8 px steps so sub-frame pointer samples coalesce before the column is re-written. The shipped implementation supplements `GridSplitter` with pointer-start / pointer-end hooks that freeze both `FileTable` controls during drag and release them on pointer end. Those hooks are allowed because they do not implement resize math; `GridSplitter` remains the sole control that owns column resizing.
 
 ## 3. Target layout model
 
@@ -134,7 +134,7 @@ Use **`CommunityToolkit.WinUI.Controls.GridSplitter`** from the `CommunityToolki
 
 The `Sizers` package also exports a `Sizer` control. Either works; the implementation uses `GridSplitter` because its `ResizeBehavior` enum matches the 5-column shell layout cleanly (left and right neighbors share the delta). Both controls share the same package reference, so spec 2's N-2b batch (`CommunityToolkit.WinUI.Controls.Sizers`) satisfies this section regardless of which control is picked.
 
-Replace the hand-rolled `Border` + `PointerPressed/Moved/Released` handlers. The hand-rolled splitter code in `MainShellView.xaml.cs` is deleted.
+Replace the old hand-rolled `Border` + `PointerPressed/Moved/Released` resize handlers. `MainShellView.xaml.cs` does not own splitter delta math. The shipped implementation does keep small pointer-start / pointer-end hooks around the `GridSplitter` instances so both `FileTable` controls can freeze to `ActualWidth` during drag and rejoin normal layout on release. That freeze path is a deliberate performance mitigation and is part of the accepted design.
 
 Wire-up (as shipped):
 
@@ -148,9 +148,9 @@ Wire-up (as shipped):
     ResizeDirection="Columns" />
 ```
 
-The column widths are bound via `PixelGridLengthConverter` on `LeftPaneColumn` and `InspectorColumn`; `GridSplitter` updates those columns in place during drag. Persistence is debounced via the window's close handler (see §5) — there is no per-drag write.
+The column widths are bound via `PixelGridLengthConverter` on `LeftPaneColumn` and `InspectorColumn`; `GridSplitter` updates those columns in place during drag. During a splitter drag, the view freezes both `FileTable` controls to their `ActualWidth` and left-aligns them so shell resizing does not continuously reflow the table chrome; on drag end, both return to normal auto width. Persistence is debounced via the window's close handler (see §5) — there is no per-drag write.
 
-**Do not implement a hand-rolled splitter.** If `GridSplitter` appears to misbehave (e.g., keeps the CPU busy, drops events, or does not emit a drag-commit event), **stop and raise the issue** in the batch's handoff note under "Surprises" per `SPEC_AGENT_BATCHING_PLAN.md` §6. A hand-rolled `PointerPressed/Moved/Released` splitter is explicitly out of scope — past attempts at one are the root cause of every §2 slowness item. If the Toolkit control is genuinely unworkable, the human owner will pick a replacement (likely `Microsoft.UI.Xaml.Controls.GridSplitter` or a different package), not the agent.
+**Do not implement a hand-rolled splitter.** `GridSplitter` remains the only surface that changes column widths. Lightweight pointer-start / pointer-end hooks that freeze and release the file tables are explicitly allowed; they are not a substitute splitter implementation. If `GridSplitter` itself appears to misbehave (e.g., keeps the CPU busy, drops events, or does not emit a drag-commit event), **stop and raise the issue** in the batch's handoff note under "Surprises" per `SPEC_AGENT_BATCHING_PLAN.md` §6. If the Toolkit control is genuinely unworkable, the human owner will pick a replacement (likely `Microsoft.UI.Xaml.Controls.GridSplitter` or a different package), not the agent.
 
 ## 4. Per-move fixes
 
@@ -488,34 +488,34 @@ Because automated UI testing is out of scope, every change here lands with a man
 
 ### 8.1. Splitter smoothness
 
-- [ ] Grab the **left-right splitter**. Drag slowly 5 px at a time across 500 px. The left pane width tracks the pointer. No stutter on a 60 Hz display.
-- [ ] Grab the **inspector splitter**. Same test.
-- [ ] Drag each splitter at maximum pointer speed. The layout keeps up; no lag that exceeds one frame (~16 ms).
-- [ ] Open a 100 000-file folder (use `powershell/create-test-folder.ps1` / equivalent). Drag each splitter. Smoothness unchanged.
-- [ ] With the file list scrolled halfway down a 100 000-file folder, drag a splitter. The scroll position does not jump.
+- [x] Grab the **left-right splitter**. Drag slowly 5 px at a time across 500 px. The left pane width tracks the pointer. No stutter on a 60 Hz display.
+- [x] Grab the **inspector splitter**. Same test.
+- [x] Drag each splitter at maximum pointer speed. The layout keeps up; no lag that exceeds one frame (~16 ms).
+- [x] Open a 100 000-file folder (use `powershell/create-test-folder.ps1` / equivalent). Drag each splitter. Smoothness unchanged.
+- [x] With the file list scrolled halfway down a 100 000-file folder, drag a splitter. The scroll position does not jump.
 
 ### 8.2. Column minimums
 
-- [ ] Drag the left-right splitter all the way left. The left pane stops at its `MinWidth = 320`.
-- [ ] Drag the inspector splitter all the way right. The inspector stops at its `MinWidth = 260`.
-- [ ] Both splitters at their minimums simultaneously: the right pane still has its `MinWidth = 320`. No column collapses.
+- [x] Drag the left-right splitter all the way left. The left pane stops at its `MinWidth = 320`.
+- [x] Drag the inspector splitter all the way right. The inspector stops at its `MinWidth = 260`.
+- [x] Both splitters at their minimums simultaneously: the right pane still has its `MinWidth = 320`. No column collapses.
 
 ### 8.3. Persistence
 
-- [ ] Resize each splitter to non-default widths. Resize two pane columns (e.g., Name → 400 px, Modified → 140 px). Change the sort on the left pane to "Size descending". Close the app (Alt+F4). Reopen. All widths, sort, and window placement restored.
+- [x] Resize each splitter to non-default widths. Resize two pane columns (e.g., Name → 400 px, Modified → 140 px). Change the sort on the left pane to "Size descending". Close the app (Alt+F4). Reopen. All widths, sort, and window placement restored.
 - [ ] On a machine with the app's primary monitor disconnected (move settings file to a machine with a smaller screen), reopen. Window appears centered on the primary display, not off-screen.
 
 ### 8.4. In-place rename
 
-- [ ] Navigate to a test folder. Press `F2` on a file. The Name cell transitions to a TextBox; the **file stem** (not extension) is selected.
-- [ ] Type a new stem; press `Enter`. The file is renamed. Focus returns to the row; the renamed item is the sole selection and remains the current item.
-- [ ] Press `F2`, type a new name, press `Esc`. No rename. The original name is displayed.
-- [ ] Press `F2`, click elsewhere (outside the editor). Rename commits. Focus leaves edit mode.
-- [ ] Press `F2`, type a name containing `\`. No filesystem call occurs; the TextBox shows red / keeps edit mode.
-- [ ] Press `F2`, type a name that already exists in the folder. Error surfaces; edit mode stays open; user can fix.
-- [ ] Press `Shift+F6` — same behavior as `F2`.
-- [ ] Press `F2` on the `..` parent entry. Nothing happens.
-- [ ] Toolbar "Rename" button triggers the same in-cell edit.
+- [x] Navigate to a test folder. Press `F2` on a file. The Name cell transitions to a TextBox; the **file stem** (not extension) is selected.
+- [x] Type a new stem; press `Enter`. The file is renamed. Focus returns to the row; the renamed item is the sole selection and remains the current item.
+- [x] Press `F2`, type a new name, press `Esc`. No rename. The original name is displayed.
+- [x] Press `F2`, click elsewhere (outside the editor). Rename commits. Focus leaves edit mode.
+- [x] Press `F2`, type a name containing `\`. No filesystem call occurs; the TextBox shows red / keeps edit mode.
+- [x] Press `F2`, type a name that already exists in the folder. Error surfaces; edit mode stays open; user can fix.
+- [x] Press `Shift+F6` — same behavior as `F2`.
+- [x] Press `F2` on the `..` parent entry. Nothing happens.
+- [x] Toolbar "Rename" button triggers the same in-cell edit.
 - [ ] Rename a file inside a folder whose path is 400 chars (long path). In-cell rename works; capability policy does not disable it.
 
 ### 8.5. No modal rename remains
@@ -525,22 +525,22 @@ Because automated UI testing is out of scope, every change here lands with a man
 
 ### 8.6. Inspector still renders correctly
 
-- [ ] Select a file; all inspector categories render. Category widths stretch to the inspector column width.
-- [ ] Resize the inspector; all expanders resize smoothly. No blank gaps, no clipping.
-- [ ] Select 0 files; the inspector empty state renders.
-- [ ] Select 2+ files; the inspector shows its multi-select state (currently: empty).
+- [x] Select a file; all inspector categories render. Category widths stretch to the inspector column width.
+- [x] Resize the inspector; all expanders resize smoothly. No blank gaps, no clipping.
+- [x] Select 0 files; the inspector empty state renders.
+- [x] Select 2+ files; the inspector shows its multi-select state (currently: empty).
 
 ### 8.7. Regression — existing keyboard flows
 
-- [ ] Every shortcut in `winui-file-manager-keyboard-shortcuts-spec.md` §17 still behaves as documented.
-- [ ] Pane switch (`Tab`), path box focus (`Ctrl+L`), copy/move/delete shortcuts still work.
+- [x] Every shortcut in `winui-file-manager-keyboard-shortcuts-spec.md` §17 still behaves as documented.
+- [x] Pane switch (`Tab`), path box focus (`Ctrl+L`), copy/move/delete shortcuts still work.
 
 ## 9. Acceptance
 
 This spec is complete when:
 
 - All items in §8 pass on a Windows 11 machine at 100% DPI and at 150% DPI.
-- `MainShellView.xaml.cs` no longer contains manual splitter `PointerPressed/Moved/Released` handlers; both splitters are `CommunityToolkit.WinUI.Controls.GridSplitter` instances (no hand-rolled fallback — see §3.3).
+- `MainShellView.xaml.cs` keeps `CommunityToolkit.WinUI.Controls.GridSplitter` as the sole resize surface. Splitter-adjacent pointer-start / pointer-end handlers are allowed only for the file-table width-freeze optimization documented in §3.3; they must not implement resize math.
 - `UpdateInspectorLayout` is no longer called per pointer move.
 - `FileInspectorViewModel.InspectorContentWidth` and `FileInspectorCategoryViewModel.ContentWidth` no longer exist.
 - `IDialogService.ShowRenameDialogAsync` no longer exists; `WinUiDialogService` does not instantiate a rename `ContentDialog`.
@@ -554,11 +554,11 @@ This spec is complete when:
 
 | Batch | Scope | Status | Handoff note |
 |---|---|---|---|
-| U-1 | 5-column shell layout + `PixelGridLengthConverter` + hand-rolled splitter handlers deleted | shipped on `master` (no progress note) | — |
+| U-1 | 5-column shell layout + `PixelGridLengthConverter` + `GridSplitter` ownership of resize behavior | shipped on `master` (no progress note) | — |
 | U-2 | Inspector `ContentWidth` / `InspectorContentWidth` cascade removed; `SizeChanged` feedback loop gone | shipped | [ui-layout-batch-2.md](progress/ui-layout-batch-2.md) |
 | U-3 | `AppSettings` persistence (pane widths, column layouts, sort, window placement); settings DTO made init-only | shipped | [ui-layout-batch-3.md](progress/ui-layout-batch-3.md) |
-| U-4 | In-cell rename on the Name column; `ShowRenameDialogAsync` removed; F2 + Shift+F6 wired | code shipped on `master`, §8.4 manual checks outstanding | [ui-layout-batch-4.md](progress/ui-layout-batch-4.md) |
-| U-5 | Status-bar XAML bindings cleanup per §4.3 (delete `UpdateStatusBar` / `OnPanePropertyChanged`; move composed strings to VM properties) | pending | `ui-layout-batch-5.md` (to write on completion) |
+| U-4 | In-cell rename on the Name column; `ShowRenameDialogAsync` removed; F2 + Shift+F6 wired | shipped; manual acceptance complete | [ui-layout-batch-4.md](progress/ui-layout-batch-4.md) |
+| U-5 | Status-bar XAML bindings cleanup per §4.3 (delete `UpdateStatusBar` / `OnPanePropertyChanged`; move composed strings to VM properties) | shipped | [ui-layout-batch-5.md](progress/ui-layout-batch-5.md) |
 
 ## 10. Non-goals
 

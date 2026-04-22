@@ -39,11 +39,10 @@ At-a-glance priority:
 
 | Priority | Batch | Spec | Blocking on |
 |---|---|---|---|
-| **Now** | U-4 wrap-up + U-5 status-bar cleanup | `SPEC_UI_LAYOUT_AND_RESIZING.md` §6, §8, §4.3 | manual acceptance on a workstation |
-| **Second** | R-1 … R-3 | `SPEC_RENAME_BUGS.md` | U-4 code already on `master` |
-| **Third** | M-1 … M-5 | `SPEC_NATIVE_MODERNIZATION.md` | none — absorbs B3/B9 and NuGet N-1/N-4 |
-| **Fourth** | P-1 … P-3 | `SPEC_PERF_LOW_HANGING_FRUIT.md` | none — pure micro-optimizations, each ≤ 50 LOC |
-| Then | K-1 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3 | U-4 closed (no code dependency, just sequencing) |
+| **Now** | R-1 … R-3 | `SPEC_RENAME_BUGS.md` | U-4 manual acceptance complete |
+| **Second** | M-1 … M-5 | `SPEC_NATIVE_MODERNIZATION.md` | none — absorbs B3/B9 and NuGet N-1/N-4 |
+| **Third** | P-1 … P-3 | `SPEC_PERF_LOW_HANGING_FRUIT.md` | none — pure micro-optimizations, each ≤ 50 LOC |
+| **Fourth** | K-1 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3 | none |
 | Then | K-2 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §4.1–§4.4 | K-1 landed |
 | Then | K-3 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §4.6 | K-1 landed (K-2 can interleave) |
 | Then | B-1 … B-5 | `SPEC_BUG_FIXES.md` | none — can interleave with K-* or L-* (B3 / B9 absorbed by M-2) |
@@ -51,17 +50,13 @@ At-a-glance priority:
 | Then | L-1 … L-5 | `SPEC_LONG_PATHS.md` | M-4 landed (adds `RegNotifyChangeKeyValue`) |
 | Ongoing | F-features | `SPEC_FEATURE_LOW_HANGING_FRUIT.md` | L-1 landed for any feature that touches path-gated surfaces |
 
-### 3.1. `SPEC_UI_LAYOUT_AND_RESIZING.md` — U-4 wrap-up + status-bar cleanup (**Now**)
+### 3.1. `SPEC_UI_LAYOUT_AND_RESIZING.md` — closed
 
-Code for U-4 shipped on `master` (commits `d3bc862`, `113827b`, `35e965f`); automated tests are green. What remains is the manual acceptance pass on a Windows 11 workstation at 100% + 150% DPI, plus a small follow-up polish batch.
+U-1 through U-5 are complete. Manual acceptance for U-1 / U-2 / U-3 / U-4 has been confirmed on a Windows 11 workstation at 100% + 150% DPI, and U-5's status-bar cleanup is already in the repo. The shipped implementation also documents a small post-U-1 drag-performance refinement: the splitters remain `CommunityToolkit.WinUI.Controls.GridSplitter` instances, while `MainShellView.xaml.cs` uses pointer-start / pointer-end hooks only to freeze and release both `FileTable` controls during drag. Those hooks do not implement resize math and are part of the accepted design.
 
-- **U-4 wrap-up.** Run §8.4 (in-cell rename, 9 checks), §8.5 (grep for deleted surfaces — already verified in the sandbox: zero hits), §8.6 (inspector still renders), §8.7 (regression over `winui-file-manager-keyboard-shortcuts-spec.md` §17). Back-fill the §8.1 smoothness and §8.2 minimum-width checks that were skipped in `ui-layout-batch-2.md`, and §8.3 restart persistence skipped in `ui-layout-batch-3.md` — they need a GUI environment. On full green, flip `ui-layout-batch-4.md` `Status:` from `in progress` to `complete` and tick the items there.
-- **U-5. Status-bar XAML bindings (spec §4.3).** Move the composed status-bar strings from `MainShellView.UpdateStatusBar` into computed read-only properties on `FilePaneViewModel` (`PaneLabel`, `ItemCountDisplay`, `SelectedDisplay`). Add `MainShellViewModel.ActivePaneLabel`. Rebind the status-bar `TextBlock`s via `x:Bind` one-way. Delete `UpdateStatusBar`, the initial call in the constructor, `OnPanePropertyChanged`, the two `PropertyChanged += OnPanePropertyChanged` subscriptions, and the `FormatByteSize` helper. Three small unit tests on the new VM properties. Expected diff: ~200 lines net (mostly movement).
-- **(Superseded) U-5 rename error flash.** The previously-planned red `VisualState` flash on the Name TextBox is absorbed by `SPEC_RENAME_BUGS.md` R-2's `InfoBar` banner. Not scheduled.
+Handoff notes: [ui-layout-batch-4.md](progress/ui-layout-batch-4.md), [ui-layout-batch-5.md](progress/ui-layout-batch-5.md).
 
-Handoff notes: `ui-layout-batch-4.md` (exists; flip status on completion), `ui-layout-batch-5.md` (new for the status-bar cleanup).
-
-### 3.2. `SPEC_RENAME_BUGS.md` — 3 batches (**Second**)
+### 3.2. `SPEC_RENAME_BUGS.md` — 3 batches (**Now**)
 
 The in-cell rename surface from U-4 has three observed defects. This spec fixes them and hardens the commit path against concurrent external writers. All three are code + tests; no manual-only work.
 
@@ -190,16 +185,15 @@ If `docs/progress/` is empty, look at §3 — the topmost entry is the active ba
 
 ### 5.1. Current resumption point
 
-The active batch is **U-4 (in-cell rename)** — see §3.1. Code is on `master`; what remains is the §8.4 manual verification pass, after which `ui-layout-batch-4.md` flips from `in progress` to `complete`. The chain after U-4 closes:
+The UI layout spec is closed — see §3.1. The next active work is **R-1** from `SPEC_RENAME_BUGS.md`, followed by the rest of the rename hardening chain:
 
-1. **U-5** status-bar XAML cleanup (§3.1) — same spec.
-2. **R-1 → R-2 → R-3** (`SPEC_RENAME_BUGS.md`, §3.2) — fix the three rename defects.
-3. **M-1 → M-2 → M-3 → M-4 → M-5** (`SPEC_NATIVE_MODERNIZATION.md`, §3.3) — handle-safety modernization.
-4. **P-1 → P-2 → P-3** (`SPEC_PERF_LOW_HANGING_FRUIT.md`, §3.4) — three micro-optimizations.
-5. **K-1** (`SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3, §3.5) — `ShortcutRegistry` migration.
-6. Then K-2, K-3, B-1…B-5, N-2, L-1…L-5, features.
+1. **R-1 → R-2 → R-3** (`SPEC_RENAME_BUGS.md`, §3.2) — fix the three rename defects.
+2. **M-1 → M-2 → M-3 → M-4 → M-5** (`SPEC_NATIVE_MODERNIZATION.md`, §3.3) — handle-safety modernization.
+3. **P-1 → P-2 → P-3** (`SPEC_PERF_LOW_HANGING_FRUIT.md`, §3.4) — three micro-optimizations.
+4. **K-1** (`SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3, §3.5) — `ShortcutRegistry` migration.
+5. Then K-2, K-3, B-1…B-5, N-2, L-1…L-5, features.
 
-A fresh agent should read the topmost in-progress handoff note (`ui-layout-batch-4.md` today) plus the section of this plan that names their current batch.
+A fresh agent should read the latest rename handoff note once R-1 lands; until then, start from this plan plus the closed UI-layout notes.
 
 ## 6. Red-flag signals — stop and ask
 

@@ -2,7 +2,7 @@
 
 Scope: three observed defects in the in-cell rename feature shipped in batch U-4 (`SPEC_UI_LAYOUT_AND_RESIZING.md` §6), plus the hardening needed so commits survive concurrent filesystem activity. The spec is prescriptive — properties, method signatures, and test scenarios are named exactly. Agents do not invent alternatives.
 
-Landing order: **right after U-4 manual acceptance is green**, before any keyboard-shortcut or native-modernization work.
+Landing order: **right after `SPEC_UI_LAYOUT_AND_RESIZING.md` closes**, before any keyboard-shortcut or native-modernization work.
 
 ## 1. Goals
 
@@ -225,7 +225,7 @@ Tests:
 
 ## 4. Out of scope for this spec
 
-- Red `VisualState` flash on the TextBox — covered by the optional U-5 batch in `SPEC_AGENT_BATCHING_PLAN.md`.
+- Red `VisualState` flash on the TextBox — previously discussed during UI-layout batching, but superseded by the `InfoBar` direction in this spec.
 - Toasts / notifications for successful renames. Silent success is the right UX.
 - Batch / multi-select rename. Non-goal per `SPEC_UI_LAYOUT_AND_RESIZING.md` §10.
 - General `FilePaneViewModel` concurrency audit. Only the rename path is hardened here.

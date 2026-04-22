@@ -172,6 +172,16 @@ public sealed partial class MainShellView : UserControl
                 e.Handled = true;
                 break;
 
+            case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
+            case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
+                if (ViewModel.ActivePane.CurrentItem is { IsParentEntry: false })
+                {
+                    ViewModel.RenameCommand.Execute(null);
+                    e.Handled = true;
+                }
+
+                break;
+
             // Ctrl+D — open favourites flyout (spec §5 and §12.14)
             case VirtualKey.D when ctrl:
                 FavouritesFlyout.ShowAt(FavouritesAppBarButton);

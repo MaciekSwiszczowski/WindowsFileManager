@@ -30,8 +30,9 @@
                     <KeyboardAccelerator Key="F6" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>
-            <AppBarButton Icon="Rename" Click="OnRenameClick" ToolTipService.ToolTip="Rename (Shift+F6)">
+            <AppBarButton Icon="Rename" Click="OnRenameClick" ToolTipService.ToolTip="Rename (F2, Shift+F6)">
                 <AppBarButton.KeyboardAccelerators>
+                    <KeyboardAccelerator Key="F2" />
                     <KeyboardAccelerator Key="F6" Modifiers="Shift" />
                 </AppBarButton.KeyboardAccelerators>
             </AppBarButton>

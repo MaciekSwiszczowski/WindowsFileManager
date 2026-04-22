@@ -7,6 +7,7 @@ using CommunityToolkit.Mvvm.Input;
 using DynamicData;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
@@ -25,6 +26,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan WatcherBufferWindow = TimeSpan.FromMilliseconds(100);
 
     private readonly OpenEntryCommandHandler _openEntryHandler;
+    private readonly RenameEntryCommandHandler _renameHandler;
     private readonly IFileSystemService _fileSystemService;
     private readonly IDirectoryChangeStream _directoryChangeStream;
     private readonly ISchedulerProvider _schedulers;
@@ -40,6 +42,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private CancellationTokenSource? _loadCancellation;
     private IDisposable? _directoryWatchSubscription;
     private NormalizedPath? _currentNormalizedPath;
+    private FileEntryViewModel? _activeEditingEntry;
 
     [ObservableProperty]
     public partial string CurrentPath { get; set; } = string.Empty;
@@ -81,6 +84,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public FilePaneViewModel(
         OpenEntryCommandHandler openEntryHandler,
+        RenameEntryCommandHandler renameHandler,
         IFileSystemService fileSystemService,
         IDirectoryChangeStream directoryChangeStream,
         ISchedulerProvider schedulers,
@@ -89,6 +93,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         ILogger<FilePaneViewModel> logger)
     {
         _openEntryHandler = openEntryHandler;
+        _renameHandler = renameHandler;
         _fileSystemService = fileSystemService;
         _directoryChangeStream = directoryChangeStream;
         _schedulers = schedulers;
@@ -116,6 +121,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public NormalizedPath? CurrentNormalizedPath => _currentNormalizedPath;
 
     public bool IsInteractive => !IsLoading;
+
+    public FileEntryViewModel? ActiveEditingEntry => _activeEditingEntry;
 
     public void SetSort(SortColumn column)
     {
@@ -393,8 +400,86 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (_activeEditingEntry is not null && !ReferenceEquals(_activeEditingEntry, current))
+        {
+            CancelRename(_activeEditingEntry);
+        }
+
+        ErrorMessage = null;
         current.EditBuffer = current.Name;
+        current.IsEditing = true;
+        _activeEditingEntry = current;
         RenameRequested?.Invoke(this, current);
+    }
+
+    public async Task<bool> CommitRenameAsync(
+        FileEntryViewModel entry,
+        string? candidateName,
+        CancellationToken ct)
+    {
+        if (!ReferenceEquals(_activeEditingEntry, entry) || !entry.IsEditing)
+        {
+            return false;
+        }
+
+        var newName = (candidateName ?? entry.EditBuffer).Trim();
+        entry.EditBuffer = candidateName ?? entry.EditBuffer;
+        ErrorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newName) || string.Equals(newName, entry.Name, StringComparison.Ordinal))
+        {
+            CancelRename(entry);
+            return true;
+        }
+
+        if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var summary = await _renameHandler.ExecuteAsync(entry.Model, newName, ct);
+            if (summary.FailedCount == 0 && summary.Status == OperationStatus.Succeeded)
+            {
+                entry.IsEditing = false;
+                entry.EditBuffer = string.Empty;
+                _activeEditingEntry = null;
+                return true;
+            }
+
+            _logger.LogDebug(
+                "Inline rename rejected for {Path}: {Message}",
+                entry.Model.FullPath.DisplayPath,
+                summary.Message
+                ?? summary.ItemResults.FirstOrDefault(static result => !result.Succeeded)?.Error?.Message
+                ?? "Rename failed.");
+            return false;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Rename failed");
+            return false;
+        }
+    }
+
+    public void CancelRename(FileEntryViewModel entry)
+    {
+        entry.IsEditing = false;
+        entry.EditBuffer = string.Empty;
+
+        if (ReferenceEquals(_activeEditingEntry, entry))
+        {
+            _activeEditingEntry = null;
+        }
+    }
+
+    partial void OnCurrentItemChanged(FileEntryViewModel? value)
+    {
+        if (_activeEditingEntry is not null && !ReferenceEquals(_activeEditingEntry, value))
+        {
+            CancelRename(_activeEditingEntry);
+        }
     }
 
     public void Dispose()
@@ -556,6 +641,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         var needsFullRescan = false;
         var perPath = new Dictionary<string, DirectoryChange>(StringComparer.OrdinalIgnoreCase);
         var removedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var renamedPaths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var change in changes)
         {
@@ -569,6 +655,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             {
                 removedPaths.Add(oldPath.DisplayPath);
                 perPath.Remove(oldPath.DisplayPath);
+                renamedPaths[oldPath.DisplayPath] = change.Path.DisplayPath;
             }
 
             if (change.Kind == DirectoryChangeKind.Deleted)
@@ -606,7 +693,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             }
         }
 
-        return new WatcherBatch(false, added, removedPaths);
+        return new WatcherBatch(false, added, removedPaths, renamedPaths);
     }
 
     // Runs on the UI thread. One SourceCache edit per batch → one bound
@@ -625,6 +712,15 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var currentItemPath = CurrentItem is { IsParentEntry: false } currentItem
+            ? currentItem.Model.FullPath.DisplayPath
+            : null;
+        var selectedPaths = _sortedItems
+            .Where(static item => item is { IsSelected: true, IsParentEntry: false })
+            .Select(static item => item.Model.FullPath.DisplayPath)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        FileEntryViewModel? replacementCurrentItem = null;
+
         _sourceCache.Edit(updater =>
         {
             if (batch.RemovedPaths.Count > 0)
@@ -637,6 +733,44 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 updater.AddOrUpdate(batch.AddedOrUpdated);
             }
         });
+
+        if (batch.RenamedPaths.Count > 0)
+        {
+            if (currentItemPath is not null
+                && batch.RenamedPaths.TryGetValue(currentItemPath, out var renamedCurrentItemPath))
+            {
+                currentItemPath = renamedCurrentItemPath;
+                selectedPaths.Add(renamedCurrentItemPath);
+                replacementCurrentItem = batch.AddedOrUpdated.FirstOrDefault(item =>
+                    string.Equals(item.Model.FullPath.DisplayPath, renamedCurrentItemPath, StringComparison.OrdinalIgnoreCase));
+            }
+
+            selectedPaths = selectedPaths
+                .Select(path => batch.RenamedPaths.TryGetValue(path, out var renamedPath) ? renamedPath : path)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+
+        foreach (var item in _sortedItems.Where(static item => !item.IsParentEntry))
+        {
+            item.IsSelected = selectedPaths.Contains(item.Model.FullPath.DisplayPath);
+        }
+
+        if (replacementCurrentItem is not null)
+        {
+            replacementCurrentItem.IsSelected = selectedPaths.Contains(replacementCurrentItem.Model.FullPath.DisplayPath);
+        }
+
+        if (replacementCurrentItem is not null)
+        {
+            CurrentItem = replacementCurrentItem;
+        }
+        else if (currentItemPath is not null)
+        {
+            CurrentItem = _sortedItems.FirstOrDefault(item =>
+                !item.IsParentEntry
+                && string.Equals(item.Model.FullPath.DisplayPath, currentItemPath, StringComparison.OrdinalIgnoreCase))
+                ?? CurrentItem;
+        }
 
         NotifySelectionChanged();
         OnPropertyChanged(nameof(ItemCount));
@@ -781,16 +915,18 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     private sealed class WatcherBatch
     {
-        public static readonly WatcherBatch FullRescan = new(true, [], []);
+        public static readonly WatcherBatch FullRescan = new(true, [], [], new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
 
         public WatcherBatch(
             bool needsFullRescan,
             IReadOnlyList<FileEntryViewModel> addedOrUpdated,
-            IReadOnlyCollection<string> removedPaths)
+            IReadOnlyCollection<string> removedPaths,
+            IReadOnlyDictionary<string, string> renamedPaths)
         {
             NeedsFullRescan = needsFullRescan;
             AddedOrUpdated = addedOrUpdated;
             RemovedPaths = removedPaths;
+            RenamedPaths = renamedPaths;
         }
 
         public bool NeedsFullRescan { get; }
@@ -798,5 +934,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         public IReadOnlyList<FileEntryViewModel> AddedOrUpdated { get; }
 
         public IReadOnlyCollection<string> RemovedPaths { get; }
+
+        public IReadOnlyDictionary<string, string> RenamedPaths { get; }
     }
 }

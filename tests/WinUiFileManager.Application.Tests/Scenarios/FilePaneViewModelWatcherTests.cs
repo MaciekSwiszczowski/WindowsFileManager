@@ -1,12 +1,14 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Reactive.Testing;
 using TUnit.Core;
+using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Tests.Fakes;
 using WinUiFileManager.Application.Tests.Fixtures;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
 using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Infrastructure.Execution;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
@@ -114,6 +116,57 @@ public sealed class FilePaneViewModelWatcherTests
     }
 
     [Test]
+    public async Task Test_Watcher_RenamedEvent_PreservesCurrentSelectionOnRenamedItem()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var oldFullPath = fixture.CreateFile("old.txt");
+        var newFullPath = Path.Combine(fixture.RootPath, "new.txt");
+        var (pane, scheduler, stream) = await CreateNavigatedPaneAsync(fixture);
+        var watchedPath = pane.CurrentNormalizedPath!.Value;
+        var oldEntry = pane.Items.Single(i => !i.IsParentEntry && i.Name == "old.txt");
+        pane.CurrentItem = oldEntry;
+        oldEntry.IsSelected = true;
+
+        new FileInfo(oldFullPath).MoveTo(newFullPath);
+        stream.Push(watchedPath, new DirectoryChange(
+            DirectoryChangeKind.Renamed,
+            NormalizedPath.FromUserInput(newFullPath),
+            NormalizedPath.FromUserInput(oldFullPath)));
+
+        scheduler.AdvanceBy(OneSecondTicks);
+
+        await Assert.That(pane.CurrentItem).IsNotNull();
+        await Assert.That(pane.CurrentItem!.Name).IsEqualTo("new.txt");
+        await Assert.That(pane.CurrentItem.IsSelected).IsTrue();
+        await Assert.That(pane.SelectedCount).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Test_Watcher_RenamedEvent_SelectsReplacementForCurrentItem()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var oldFullPath = fixture.CreateFile("old.txt");
+        var newFullPath = Path.Combine(fixture.RootPath, "new.txt");
+        var (pane, scheduler, stream) = await CreateNavigatedPaneAsync(fixture);
+        var watchedPath = pane.CurrentNormalizedPath!.Value;
+        var oldEntry = pane.Items.Single(i => !i.IsParentEntry && i.Name == "old.txt");
+        pane.CurrentItem = oldEntry;
+
+        new FileInfo(oldFullPath).MoveTo(newFullPath);
+        stream.Push(watchedPath, new DirectoryChange(
+            DirectoryChangeKind.Renamed,
+            NormalizedPath.FromUserInput(newFullPath),
+            NormalizedPath.FromUserInput(oldFullPath)));
+
+        scheduler.AdvanceBy(OneSecondTicks);
+
+        await Assert.That(pane.CurrentItem).IsNotNull();
+        await Assert.That(pane.CurrentItem!.Name).IsEqualTo("new.txt");
+        await Assert.That(pane.CurrentItem.IsSelected).IsTrue();
+        await Assert.That(pane.SelectedCount).IsEqualTo(1);
+    }
+
+    [Test]
     public async Task Test_Watcher_InvalidatedOnMissingFolder_FallsBackToExistingAncestor()
     {
         // Arrange
@@ -150,10 +203,14 @@ public sealed class FilePaneViewModelWatcherTests
         var openEntry = new OpenEntryCommandHandler(
             fsService, volumePolicy, new FakeShellService(),
             NullLogger<OpenEntryCommandHandler>.Instance);
+        var renameHandler = new RenameEntryCommandHandler(
+            new WindowsFileOperationService(new FileOperationInterop(), NullLogger<WindowsFileOperationService>.Instance),
+            NullLogger<RenameEntryCommandHandler>.Instance);
         var stream = new FakeDirectoryChangeStream();
 
         var pane = new FilePaneViewModel(
             openEntry,
+            renameHandler,
             fsService,
             stream,
             schedulerProvider,

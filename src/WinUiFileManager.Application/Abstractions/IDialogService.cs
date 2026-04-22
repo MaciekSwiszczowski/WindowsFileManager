@@ -19,8 +19,6 @@ public interface IDialogService
 
     Task<string?> ShowCreateFolderDialogAsync(CancellationToken ct);
 
-    Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct);
-
     Task<IOperationProgressDialog> ShowOperationProgressAsync(
         OperationType operationType,
         Action onCancel,

@@ -10,12 +10,10 @@ public sealed class FakeDialogService : IDialogService
 {
     public bool DeleteConfirmationResult { get; set; } = true;
     public string? CreateFolderResult { get; set; } = "NewFolder";
-    public string? RenameResult { get; set; } = "renamed.txt";
     public CollisionPolicy CollisionResult { get; set; } = CollisionPolicy.Overwrite;
 
     public int DeleteConfirmationCallCount { get; private set; }
     public int CreateFolderDialogCallCount { get; private set; }
-    public int RenameDialogCallCount { get; private set; }
     public int ShowOperationProgressCallCount { get; private set; }
     public int ShowOperationResultCallCount { get; private set; }
     public OperationSummary? LastOperationResult { get; private set; }
@@ -35,12 +33,6 @@ public sealed class FakeDialogService : IDialogService
     {
         CreateFolderDialogCallCount++;
         return Task.FromResult(CreateFolderResult);
-    }
-
-    public Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct)
-    {
-        RenameDialogCallCount++;
-        return Task.FromResult(RenameResult);
     }
 
     public Task<IOperationProgressDialog> ShowOperationProgressAsync(

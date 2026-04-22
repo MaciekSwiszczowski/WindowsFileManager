@@ -62,10 +62,10 @@ public sealed class ViewModelTestBuilder
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
         var leftPane = new FilePaneViewModel(
-            openEntry, fsService, changeStream, schedulers, volumePolicy, pathService,
+            openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
         var rightPane = new FilePaneViewModel(
-            openEntry, fsService, changeStream, schedulers, volumePolicy, pathService,
+            openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
             NullLogger<FilePaneViewModel>.Instance);
         var inspector = new FileInspectorViewModel(
             fileIdentityService,
@@ -79,6 +79,7 @@ public sealed class ViewModelTestBuilder
             moveHandler,
             deleteHandler,
             createFolderHandler,
+            renameHandler,
             copyFullPath,
             addFavourite,
             removeFavourite,

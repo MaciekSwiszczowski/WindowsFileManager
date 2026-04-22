@@ -68,36 +68,6 @@ public sealed class WinUiDialogService : IDialogService
         return name.Length > 0 ? name : null;
     }
 
-    public async Task<string?> ShowRenameDialogAsync(string currentName, CancellationToken ct)
-    {
-        if (XamlRoot is null)
-        {
-            return null;
-        }
-
-        var textBox = new TextBox { Text = currentName };
-        textBox.SelectAll();
-
-        var dialog = new ContentDialog
-        {
-            XamlRoot = XamlRoot,
-            Title = "Rename",
-            Content = textBox,
-            PrimaryButtonText = "Rename",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-
-        var result = await dialog.ShowAsync();
-        if (result != ContentDialogResult.Primary)
-        {
-            return null;
-        }
-
-        var name = textBox.Text.Trim();
-        return name.Length > 0 && name != currentName ? name : null;
-    }
-
     public Task<IOperationProgressDialog> ShowOperationProgressAsync(
         OperationType operationType,
         Action onCancel,

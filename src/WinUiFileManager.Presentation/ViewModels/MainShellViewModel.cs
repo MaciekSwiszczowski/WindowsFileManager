@@ -104,6 +104,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         MoveSelectionCommandHandler moveHandler,
         DeleteSelectionCommandHandler deleteHandler,
         CreateFolderCommandHandler createFolderHandler,
+        RenameEntryCommandHandler renameHandler,
         CopyFullPathCommandHandler copyFullPathHandler,
         AddFavouriteCommandHandler addFavouriteHandler,
         RemoveFavouriteCommandHandler removeFavouriteHandler,

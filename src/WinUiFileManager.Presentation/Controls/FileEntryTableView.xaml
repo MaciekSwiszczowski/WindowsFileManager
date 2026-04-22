@@ -30,10 +30,12 @@
         HeadersVisibility="Columns"
         AllowLiveShaping="False"
         UseSystemFocusVisuals="True"
+        BeginningEdit="FileTable_BeginningEdit"
         Sorting="FileTable_Sorting"
         SelectionChanged="FileTable_SelectionChanged"
         PreparingCellForEdit="FileTable_PreparingCellForEdit"
         CellEditEnding="FileTable_CellEditEnding"
+        CellEditEnded="FileTable_CellEditEnded"
         KeyDown="FileTable_KeyDown"
         GotFocus="FileTable_GotFocus">
         <tv:TableView.Resources>
@@ -77,7 +79,7 @@
                 <tv:TableViewTemplateColumn.EditingTemplate>
                     <DataTemplate>
                         <TextBox
-                            Text="{Binding EditBuffer, Mode=OneWay}"
+                            Text="{Binding EditBuffer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                             VerticalContentAlignment="Center"
                             IsSpellCheckEnabled="False" />
                     </DataTemplate>

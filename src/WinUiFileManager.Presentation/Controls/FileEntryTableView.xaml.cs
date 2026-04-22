@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
@@ -59,7 +60,13 @@ public sealed partial class FileEntryTableView : UserControl
             "BeginCellEditing",
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
 
+    private static readonly MethodInfo? EndCellEditingMethod =
+        typeof(TableViewColumn).GetMethod(
+            "EndCellEditing",
+            BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
+
     private bool _syncingSelection;
+    private bool _endingNameCellEdit;
     private FilePaneViewModel? _currentItemSyncHost;
 
     public FileEntryTableView()
@@ -221,10 +228,15 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         var current = host.CurrentItem;
-        if (current is not null && !Equals(FileTable.SelectedItem, current))
+        if (current is null)
         {
-            var idx = host.Items.IndexOf(current);
+            return;
+        }
 
+        var idx = host.Items.IndexOf(current);
+
+        if (!Equals(FileTable.SelectedItem, current))
+        {
             _syncingSelection = true;
             try
             {
@@ -238,18 +250,19 @@ public sealed partial class FileEntryTableView : UserControl
             {
                 _syncingSelection = false;
             }
-
-            if (idx >= 0)
-            {
-                SyncTableViewKeyboardAnchor(idx);
-            }
-
-            // Move the TableView's focused row (the one that shows the
-            // accent border) to match CurrentItem. Without this the frame
-            // lags behind after programmatic navigation, e.g. after going
-            // up one directory.
-            MoveFocusToCurrentItem();
         }
+
+        if (idx >= 0)
+        {
+            FileTable.CurrentCellSlot = new TableViewCellSlot(idx, FileTable.Columns.IndexOf(NameColumn));
+            SyncTableViewKeyboardAnchor(idx);
+        }
+
+        // Move the TableView's focused row (the one that shows the
+        // accent border) to match CurrentItem. Without this the frame
+        // lags behind after programmatic navigation, e.g. after going
+        // up one directory.
+        MoveFocusToCurrentItem();
     }
 
     private void SyncTableViewKeyboardAnchor(int rowIndex)
@@ -294,6 +307,21 @@ public sealed partial class FileEntryTableView : UserControl
                 FileTable.Focus(FocusState.Keyboard);
             }
         });
+    }
+
+    private void FileTable_BeginningEdit(object sender, TableViewBeginningEditEventArgs e)
+    {
+        if (!ReferenceEquals(e.Column, NameColumn))
+        {
+            e.Cancel = true;
+            return;
+        }
+
+        if (e.DataItem is not FileEntryViewModel entry
+            || !ReferenceEquals(GridViewModel.Host?.ActiveEditingEntry, entry))
+        {
+            e.Cancel = true;
+        }
     }
 
     private void FileTable_Sorting(object sender, TableViewSortingEventArgs e)
@@ -395,7 +423,13 @@ public sealed partial class FileEntryTableView : UserControl
 
     private void OnHostRenameRequested(object? sender, FileEntryViewModel entry)
     {
-        DispatcherQueue.TryEnqueue(() => BeginEditingNameCell(entry));
+        DispatcherQueue.TryEnqueue(() =>
+        {
+            if (!TryFocusNameEditor(entry))
+            {
+                BeginEditingNameCell(entry);
+            }
+        });
     }
 
     private void BeginEditingNameCell(FileEntryViewModel entry, int retries = 5)
@@ -448,28 +482,67 @@ public sealed partial class FileEntryTableView : UserControl
             return;
         }
 
-        if (FindDescendant<TextBox>(e.EditingElement) is TextBox nameEditor)
+        if (e.DataItem is FileEntryViewModel entry
+            && FindDescendant<TextBox>(e.EditingElement) is TextBox nameEditor)
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                nameEditor.Focus(FocusState.Programmatic);
-                nameEditor.SelectAll();
+                nameEditor.Focus(FocusState.Keyboard);
+                SelectNameStem(nameEditor, entry.Name);
             });
         }
     }
 
-    private void FileTable_CellEditEnding(object sender, TableViewCellEditEndingEventArgs e)
+    private async void FileTable_CellEditEnding(object sender, TableViewCellEditEndingEventArgs e)
     {
         if (!ReferenceEquals(e.Column, NameColumn))
         {
             return;
         }
 
-        if (e.EditAction == TableViewEditAction.Commit
-            && e.DataItem is FileEntryViewModel entry
-            && FindDescendant<TextBox>(e.EditingElement) is TextBox textBox)
+        if (e.DataItem is not FileEntryViewModel entry || GridViewModel.Host is not FilePaneViewModel host)
+        {
+            return;
+        }
+
+        if (_endingNameCellEdit)
+        {
+            return;
+        }
+
+        if (FindDescendant<TextBox>(e.EditingElement) is TextBox textBox)
         {
             entry.EditBuffer = textBox.Text;
+        }
+
+        if (e.EditAction == TableViewEditAction.Cancel)
+        {
+            host.CancelRename(entry);
+            return;
+        }
+
+        if (!entry.IsEditing)
+        {
+            return;
+        }
+
+        e.Cancel = true;
+
+        var commitSucceeded = await host.CommitRenameAsync(entry, entry.EditBuffer, CancellationToken.None);
+        if (commitSucceeded)
+        {
+            CompleteNameCellEdit(e.Cell, entry, TableViewEditAction.Commit, entry.Name);
+            return;
+        }
+
+        DispatcherQueue.TryEnqueue(() => RefocusNameEditor(e.Cell));
+    }
+
+    private void FileTable_CellEditEnded(object sender, TableViewCellEditEndedEventArgs e)
+    {
+        if (!ReferenceEquals(e.Column, NameColumn))
+        {
+            return;
         }
     }
     // PreviewKeyDown fires before the TableView's internal handling.
@@ -486,12 +559,26 @@ public sealed partial class FileEntryTableView : UserControl
             return;
         }
 
+        var ctrl = IsModifierDown(VirtualKey.Control);
+        var shift = IsModifierDown(VirtualKey.Shift);
+
+        if (host.ActiveEditingEntry is not null
+            && ((e.Key == VirtualKey.F2 && !ctrl && !shift)
+                || (e.Key == VirtualKey.F6 && shift && !ctrl)))
+        {
+            if (!TryFocusNameEditor(host.ActiveEditingEntry))
+            {
+                BeginEditingNameCell(host.ActiveEditingEntry);
+            }
+
+            e.Handled = true;
+            return;
+        }
+
         if (IsTextInputSource(e.OriginalSource as DependencyObject))
         {
             return;
         }
-
-        var ctrl = IsModifierDown(VirtualKey.Control);
 
         switch (e.Key)
         {
@@ -706,6 +793,33 @@ public sealed partial class FileEntryTableView : UserControl
         }
     }
 
+    private void CompleteNameCellEdit(
+        TableViewCell cell,
+        FileEntryViewModel entry,
+        TableViewEditAction editAction,
+        object uneditedValue)
+    {
+        if (EndCellEditingMethod is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _endingNameCellEdit = true;
+            EndCellEditingMethod.Invoke(NameColumn, [cell, entry, editAction, uneditedValue]);
+        }
+        catch
+        {
+            // If the package changes its edit completion hook, manual
+            // verification will catch the stuck edit session.
+        }
+        finally
+        {
+            _endingNameCellEdit = false;
+        }
+    }
+
     private static T? FindDescendant<T>(DependencyObject? source)
         where T : DependencyObject
     {
@@ -744,6 +858,73 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         return false;
+    }
+
+    private void RefocusNameEditor(TableViewCell cell)
+    {
+        if (FindDescendant<TextBox>(cell) is not TextBox nameEditor)
+        {
+            return;
+        }
+
+        nameEditor.Focus(FocusState.Keyboard);
+        nameEditor.Select(nameEditor.Text.Length, 0);
+    }
+
+    private bool TryFocusNameEditor(FileEntryViewModel entry)
+    {
+        var host = GridViewModel.Host;
+        if (host is null)
+        {
+            return false;
+        }
+
+        var rowIndex = host.Items.IndexOf(entry);
+        if (rowIndex < 0)
+        {
+            return false;
+        }
+
+        var slot = new TableViewCellSlot(rowIndex, FileTable.Columns.IndexOf(NameColumn));
+
+        _syncingSelection = true;
+        try
+        {
+            FileTable.SelectedItem = entry;
+            FileTable.CurrentCellSlot = slot;
+            FileTable.ScrollRowIntoView(rowIndex);
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        SyncTableViewKeyboardAnchor(rowIndex);
+
+        if (TryGetCellFromSlot(slot) is not TableViewCell cell
+            || FindDescendant<TextBox>(cell) is not TextBox nameEditor)
+        {
+            return false;
+        }
+
+        nameEditor.Focus(FocusState.Keyboard);
+        SelectNameStem(nameEditor, entry.Name);
+        return true;
+    }
+
+    private static void SelectNameStem(TextBox nameEditor, string name)
+    {
+        var extension = Path.GetExtension(name);
+        var stemLength = name.Length;
+
+        if (!string.IsNullOrEmpty(extension)
+            && !string.Equals(name, extension, StringComparison.OrdinalIgnoreCase)
+            && extension.Length < name.Length)
+        {
+            stemLength = name.Length - extension.Length;
+        }
+
+        nameEditor.Select(0, Math.Max(stemLength, 0));
     }
 
     private void MoveSelectionToBoundary(bool moveToLast)

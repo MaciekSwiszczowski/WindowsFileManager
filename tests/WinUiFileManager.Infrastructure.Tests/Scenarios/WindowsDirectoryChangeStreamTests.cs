@@ -18,7 +18,7 @@ public sealed class WindowsDirectoryChangeStreamTests
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
-        var sut = CreateStream();
+        using var sut = CreateStream();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         var ready = new TaskCompletionSource<DirectoryChange>();
 
@@ -40,7 +40,7 @@ public sealed class WindowsDirectoryChangeStreamTests
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
         var fullPath = fixture.CreateFile("to-delete.txt");
-        var sut = CreateStream();
+        using var sut = CreateStream();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         var ready = new TaskCompletionSource<DirectoryChange>();
 
@@ -63,7 +63,7 @@ public sealed class WindowsDirectoryChangeStreamTests
         using var fixture = new NtfsTempDirectoryFixture();
         var oldFullPath = fixture.CreateFile("old.txt");
         var newFullPath = Path.Combine(fixture.RootPath, "new.txt");
-        var sut = CreateStream();
+        using var sut = CreateStream();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         var ready = new TaskCompletionSource<DirectoryChange>();
 
@@ -88,7 +88,7 @@ public sealed class WindowsDirectoryChangeStreamTests
         using var fixture = new NtfsTempDirectoryFixture();
         var missingPath = NormalizedPath.FromUserInput(
             Path.Combine(fixture.RootPath, "does-not-exist"));
-        var sut = CreateStream();
+        using var sut = CreateStream();
         var ready = new TaskCompletionSource<DirectoryChange>();
 
         // Act
@@ -105,7 +105,7 @@ public sealed class WindowsDirectoryChangeStreamTests
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
-        var sut = CreateStream();
+        using var sut = CreateStream();
         var path = NormalizedPath.FromUserInput(fixture.RootPath);
         var count = 0;
         var ready = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

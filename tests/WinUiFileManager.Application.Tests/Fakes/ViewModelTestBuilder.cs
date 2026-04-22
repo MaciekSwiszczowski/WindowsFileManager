@@ -27,8 +27,10 @@ public sealed class ViewModelTestBuilder
 
         var fsService = new WindowsFileSystemService(
             pathService, NullLogger<WindowsFileSystemService>.Instance);
+#pragma warning disable IDISP001 // The test builder intentionally shares one stateless stream instance across both returned pane view-models.
         var changeStream = new WindowsDirectoryChangeStream(
             NullLogger<WindowsDirectoryChangeStream>.Instance);
+#pragma warning restore IDISP001
         var schedulers = SchedulerProviderOverride ?? new RxSchedulerProvider();
         var fileIdentityService = FileIdentityServiceOverride
             ?? new NtfsFileIdentityService(

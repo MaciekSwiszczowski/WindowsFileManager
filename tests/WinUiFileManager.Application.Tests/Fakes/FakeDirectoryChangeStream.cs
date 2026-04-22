@@ -14,9 +14,12 @@ namespace WinUiFileManager.Application.Tests.Fakes;
 public sealed class FakeDirectoryChangeStream : IDirectoryChangeStream
 {
     private readonly ConcurrentDictionary<string, Subject<DirectoryChange>> _subjects = new(StringComparer.OrdinalIgnoreCase);
+    private bool _disposed;
 
     public IObservable<DirectoryChange> Watch(NormalizedPath path)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         var subject = _subjects.GetOrAdd(
             path.DisplayPath,
             static _ => new Subject<DirectoryChange>());
@@ -39,4 +42,20 @@ public sealed class FakeDirectoryChangeStream : IDirectoryChangeStream
 
     public bool IsBeingWatched(NormalizedPath watchedPath) =>
         _subjects.ContainsKey(watchedPath.DisplayPath);
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        foreach (var subject in _subjects.Values)
+        {
+            subject.Dispose();
+        }
+
+        _subjects.Clear();
+    }
 }

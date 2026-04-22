@@ -13,12 +13,12 @@ using Windows.Storage.Streams;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Interop.Adapters;
+using WinUiFileManager.Interop.SafeHandles;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
 internal sealed class NtfsFileIdentityService : IFileIdentityService
 {
-    private static readonly IntPtr InvalidHandleValue = new(-1);
     private const int FindStreamInfoStandard = 0;
     private const uint GetFinalPathNameNormalized = 0;
     private const uint FileReadAttributesAccess = 0x80;
@@ -263,23 +263,18 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 WIN32_FIND_STREAM_DATA data;
                 fixed (char* pathPointer = path)
                 {
-                    var handle = (IntPtr)PInvoke.FindFirstStream(pathPointer, STREAM_INFO_LEVELS.FindStreamInfoStandard, &data, 0);
-                    if (handle == IntPtr.Zero || handle == InvalidHandleValue)
+                    using var handle = new SafeFindFilesHandle(
+                        (IntPtr)PInvoke.FindFirstStream(pathPointer, STREAM_INFO_LEVELS.FindStreamInfoStandard, &data, 0),
+                        ownsHandle: true);
+                    if (handle.IsInvalid)
                     {
                         return Task.FromResult(new FileStreamDiagnosticsDetails("0", streams));
                     }
 
-                    try
+                    AddStreamName(streams, data);
+                    while (PInvoke.FindNextStream(new HANDLE(handle.DangerousGetHandle()), &data))
                     {
                         AddStreamName(streams, data);
-                        while (PInvoke.FindNextStream(new HANDLE(handle), &data))
-                        {
-                            AddStreamName(streams, data);
-                        }
-                    }
-                    finally
-                    {
-                        _ = PInvoke.FindClose(new HANDLE(handle));
                     }
                 }
             }

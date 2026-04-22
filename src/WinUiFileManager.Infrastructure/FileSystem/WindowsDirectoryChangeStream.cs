@@ -19,6 +19,7 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 {
     private readonly ILogger<WindowsDirectoryChangeStream> _logger;
+    private bool _disposed;
 
     public WindowsDirectoryChangeStream(ILogger<WindowsDirectoryChangeStream> logger)
     {
@@ -27,12 +28,19 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
     public IObservable<DirectoryChange> Watch(NormalizedPath path)
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
         return Observable.Create<DirectoryChange>(observer =>
         {
             var subscription = new DirectoryWatcherSubscription(path.DisplayPath, _logger, observer);
             subscription.Start();
             return subscription;
         });
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
     }
 
     private sealed class DirectoryWatcherSubscription : IDisposable

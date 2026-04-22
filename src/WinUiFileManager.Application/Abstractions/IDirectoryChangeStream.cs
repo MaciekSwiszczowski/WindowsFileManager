@@ -9,7 +9,7 @@ namespace WinUiFileManager.Application.Abstractions;
 /// watcher. Emissions may arrive on a background thread; consumers are
 /// expected to buffer and marshal to the UI thread themselves.
 /// </summary>
-public interface IDirectoryChangeStream
+public interface IDirectoryChangeStream : IDisposable
 {
     IObservable<DirectoryChange> Watch(NormalizedPath path);
 }

@@ -1,9 +1,11 @@
-#pragma warning disable RS0030 // Legacy DllImport declarations stay quarantined here until the CsWin32 migration batch replaces them.
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
-using System.Text;
 using Microsoft.Win32.SafeHandles;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Storage.FileSystem;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Provider;
@@ -16,21 +18,30 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 
 internal sealed class NtfsFileIdentityService : IFileIdentityService
 {
+    private static readonly IntPtr InvalidHandleValue = new(-1);
     private const int FindStreamInfoStandard = 0;
     private const uint GetFinalPathNameNormalized = 0;
+    private const uint FileReadAttributesAccess = 0x80;
     private const System.IO.FileAttributes FileAttributePinned = (System.IO.FileAttributes)0x00080000;
     private const System.IO.FileAttributes FileAttributeUnpinned = (System.IO.FileAttributes)0x00100000;
     private const System.IO.FileAttributes FileAttributeRecallOnOpen = (System.IO.FileAttributes)0x00040000;
     private const System.IO.FileAttributes FileAttributeRecallOnDataAccess = (System.IO.FileAttributes)0x00400000;
+    private const uint PlaceholderStateNone = 0x00000000;
+    private const uint PlaceholderStateInSync = 0x00000008;
+    private const uint PlaceholderStatePartial = 0x00000010;
 
     internal static Func<IStorageItem?, CancellationToken, Task<(string SyncState, string TransferState, string CustomStatus)>> CloudPropertyValuesProvider { get; set; } =
         static (storageItem, _) => TryGetCloudPropertyValuesAsync(storageItem);
 
     private readonly IFileIdentityInterop _fileIdentityInterop;
+    private readonly ICloudFilesInterop _cloudFilesInterop;
 
-    public NtfsFileIdentityService(IFileIdentityInterop fileIdentityInterop)
+    public NtfsFileIdentityService(
+        IFileIdentityInterop fileIdentityInterop,
+        ICloudFilesInterop cloudFilesInterop)
     {
         _fileIdentityInterop = fileIdentityInterop;
+        _cloudFilesInterop = cloudFilesInterop;
     }
 
     public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
@@ -40,7 +51,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         try
         {
             using var handle = OpenMetadataHandle(path);
-            return Task.FromResult(GetFileIdFromHandle(handle.DangerousGetHandle()));
+            return Task.FromResult(GetFileIdFromHandle(handle));
         }
         catch
         {
@@ -55,17 +66,16 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         try
         {
             using var handle = OpenMetadataHandle(path);
-            var rawHandle = handle.DangerousGetHandle();
-            var fileId = GetFileIdFromHandle(rawHandle);
+            var fileId = GetFileIdFromHandle(handle);
 
-            var legacyInfo = TryGetLegacyFileInfo(rawHandle, out var legacyError);
+            var legacyInfo = TryGetLegacyFileInfo(handle, out var legacyError);
             if (!string.IsNullOrWhiteSpace(legacyError))
             {
                 _ = legacyError;
             }
 
             var volumeSerial = TryGetVolumeSerial(path);
-            var finalPath = TryGetFinalPath(rawHandle) ?? Path.GetFullPath(path);
+            var finalPath = TryGetFinalPath(handle) ?? Path.GetFullPath(path);
 
             return Task.FromResult(new FileIdentityDetails(
                 fileId,
@@ -99,22 +109,25 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         try
         {
             using var handle = OpenMetadataHandle(path);
-            var rawHandle = handle.DangerousGetHandle();
-            if (!GetFileBasicInfo(
-                    rawHandle,
-                    FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo,
-                    out var basicInfo,
-                    (uint)Marshal.SizeOf<FILE_BASIC_INFO>()))
+            unsafe
             {
-                throw new InvalidOperationException($"GetFileInformationByHandleEx failed: {Marshal.GetLastPInvokeError()}");
-            }
+                FILE_BASIC_INFO basicInfo;
+                if (!PInvoke.GetFileInformationByHandleEx(
+                        new HANDLE(handle.DangerousGetHandle()),
+                        FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo,
+                        &basicInfo,
+                        (uint)sizeof(FILE_BASIC_INFO)))
+                {
+                    throw new InvalidOperationException($"GetFileInformationByHandleEx failed: {Marshal.GetLastPInvokeError()}");
+                }
 
-            return Task.FromResult(new FileNtfsMetadataDetails(
-                (System.IO.FileAttributes)basicInfo.FileAttributes,
-                FromFileTimeUtc(basicInfo.CreationTime),
-                FromFileTimeUtc(basicInfo.LastAccessTime),
-                FromFileTimeUtc(basicInfo.LastWriteTime),
-                FromFileTimeUtc(basicInfo.ChangeTime)));
+                return Task.FromResult(new FileNtfsMetadataDetails(
+                    (System.IO.FileAttributes)basicInfo.FileAttributes,
+                    FromFileTimeUtc(basicInfo.CreationTime),
+                    FromFileTimeUtc(basicInfo.LastAccessTime),
+                    FromFileTimeUtc(basicInfo.LastWriteTime),
+                    FromFileTimeUtc(basicInfo.ChangeTime)));
+            }
         }
         catch (OperationCanceledException)
         {
@@ -165,7 +178,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             var (syncState, transferState, customStatus) = await CloudPropertyValuesProvider(storageItem, cancellationToken);
 
             using var handle = OpenMetadataHandle(path);
-            var placeholderState = TryGetPlaceholderState(handle.DangerousGetHandle(), attributes);
+            var placeholderState = TryGetPlaceholderState(handle, attributes);
             var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
             var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
             var syncRootId = syncRoot?.Id ?? string.Empty;
@@ -173,7 +186,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             var isCloudControlled =
                 !string.IsNullOrWhiteSpace(syncRootId)
                 || !string.IsNullOrWhiteSpace(provider)
-                || placeholderState != CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE;
+                || placeholderState != PlaceholderStateNone;
 
             return isCloudControlled
                 ? new FileCloudDiagnosticsDetails(
@@ -245,23 +258,30 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         try
         {
             var streams = new List<string>();
-            var handle = FindFirstStreamW(path, FindStreamInfoStandard, out var data, 0);
-            if (handle == IntPtr.Zero || handle == new IntPtr(-1))
+            unsafe
             {
-                return Task.FromResult(new FileStreamDiagnosticsDetails("0", streams));
-            }
-
-            try
-            {
-                AddStreamName(streams, data);
-                while (FindNextStreamW(handle, out data))
+                WIN32_FIND_STREAM_DATA data;
+                fixed (char* pathPointer = path)
                 {
-                    AddStreamName(streams, data);
+                    var handle = (IntPtr)PInvoke.FindFirstStream(pathPointer, STREAM_INFO_LEVELS.FindStreamInfoStandard, &data, 0);
+                    if (handle == IntPtr.Zero || handle == InvalidHandleValue)
+                    {
+                        return Task.FromResult(new FileStreamDiagnosticsDetails("0", streams));
+                    }
+
+                    try
+                    {
+                        AddStreamName(streams, data);
+                        while (PInvoke.FindNextStream(new HANDLE(handle), &data))
+                        {
+                            AddStreamName(streams, data);
+                        }
+                    }
+                    finally
+                    {
+                        _ = PInvoke.FindClose(new HANDLE(handle));
+                    }
                 }
-            }
-            finally
-            {
-                _ = FindClose(handle);
             }
 
             return Task.FromResult(new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams));
@@ -389,15 +409,17 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
     private static SafeFileHandle OpenMetadataHandle(string path)
     {
-        var flags = Directory.Exists(path) ? FILE_FLAG_BACKUP_SEMANTICS : 0u;
-        var handle = CreateFileW(
+        var flags = Directory.Exists(path)
+            ? FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS
+            : 0;
+        var handle = PInvoke.CreateFile(
             path,
-            FILE_READ_ATTRIBUTES,
-            FileShare.ReadWrite | FileShare.Delete,
-            IntPtr.Zero,
-            FileMode.Open,
+            FileReadAttributesAccess,
+            FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE | FILE_SHARE_MODE.FILE_SHARE_DELETE,
+            null,
+            FILE_CREATION_DISPOSITION.OPEN_EXISTING,
             flags,
-            IntPtr.Zero);
+            null);
 
         if (handle.IsInvalid)
         {
@@ -419,18 +441,22 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             DateTime.MinValue);
     }
 
-    private static CF_PLACEHOLDER_STATE TryGetPlaceholderState(IntPtr handle, System.IO.FileAttributes attributes)
+    private uint TryGetPlaceholderState(SafeFileHandle handle, System.IO.FileAttributes attributes)
     {
-        if (!GetFileAttributeTagInfo(
-                handle,
-                FILE_INFO_BY_HANDLE_CLASS.FileAttributeTagInfo,
-                out var tagInfo,
-                (uint)Marshal.SizeOf<FILE_ATTRIBUTE_TAG_INFO>()))
+        unsafe
         {
-            return CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE;
-        }
+            FILE_ATTRIBUTE_TAG_INFO tagInfo;
+            if (!PInvoke.GetFileInformationByHandleEx(
+                    new HANDLE(handle.DangerousGetHandle()),
+                    FILE_INFO_BY_HANDLE_CLASS.FileAttributeTagInfo,
+                    &tagInfo,
+                    (uint)sizeof(FILE_ATTRIBUTE_TAG_INFO)))
+            {
+                return PlaceholderStateNone;
+            }
 
-        return CfGetPlaceholderStateFromAttributeTag((uint)attributes, tagInfo.ReparseTag);
+            return _cloudFilesInterop.GetPlaceholderState((uint)attributes, tagInfo.ReparseTag);
+        }
     }
 
     private static async Task<StorageProviderSyncRootInfo?> TryGetSyncRootInfoAsync(string path)
@@ -558,7 +584,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
     private static string BuildCloudStatus(
         System.IO.FileAttributes attributes,
-        CF_PLACEHOLDER_STATE placeholderState,
+        uint placeholderState,
         string syncState,
         string transferState,
         string customStatus)
@@ -579,19 +605,19 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             (attributes & System.IO.FileAttributes.Offline) != 0
             || (attributes & FileAttributeRecallOnOpen) != 0
             || (attributes & FileAttributeRecallOnDataAccess) != 0
-            || placeholderState.HasFlag(CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_PARTIAL);
+            || (placeholderState & PlaceholderStatePartial) != 0;
 
         if (isDehydrated)
         {
             labels.Add("Dehydrated");
         }
-        else if (placeholderState != CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_NONE
+        else if (placeholderState != PlaceholderStateNone
                  || (attributes & System.IO.FileAttributes.ReparsePoint) != 0)
         {
             labels.Add("Hydrated");
         }
 
-        if (placeholderState.HasFlag(CF_PLACEHOLDER_STATE.CF_PLACEHOLDER_STATE_IN_SYNC)
+        if ((placeholderState & PlaceholderStateInSync) != 0
             || string.Equals(syncState, "Synced", StringComparison.OrdinalIgnoreCase))
         {
             labels.Add("Synced");
@@ -700,29 +726,35 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private static DateTime FromFileTimeUtc(long fileTime) =>
         fileTime <= 0 ? DateTime.MinValue : DateTime.FromFileTimeUtc(fileTime);
 
-    private static NtfsFileId GetFileIdFromHandle(IntPtr handle)
+    private static NtfsFileId GetFileIdFromHandle(SafeFileHandle handle)
     {
-        if (!GetFileIdInfo(
-                handle,
-                FILE_INFO_BY_HANDLE_CLASS.FileIdInfo,
-                out var fileIdInfo,
-                (uint)Marshal.SizeOf<FILE_ID_INFO>()))
+        unsafe
         {
-            return NtfsFileId.None;
-        }
+            FILE_ID_INFO fileIdInfo;
+            if (!PInvoke.GetFileInformationByHandleEx(
+                    new HANDLE(handle.DangerousGetHandle()),
+                    FILE_INFO_BY_HANDLE_CLASS.FileIdInfo,
+                    &fileIdInfo,
+                    (uint)sizeof(FILE_ID_INFO)))
+            {
+                return NtfsFileId.None;
+            }
 
-        return fileIdInfo.FileId.Identifier is { Length: 16 } identifier
-            ? new NtfsFileId(identifier)
-            : NtfsFileId.None;
+            var identifier = MemoryMarshal.CreateReadOnlySpan(
+                ref Unsafe.As<Windows.Win32.__byte_16, byte>(ref fileIdInfo.FileId.Identifier),
+                16);
+            var bytes = new byte[identifier.Length];
+            identifier.CopyTo(bytes);
+            return new NtfsFileId(bytes);
+        }
     }
 
     private static BY_HANDLE_FILE_INFORMATION? TryGetLegacyFileInfo(
-        IntPtr handle,
+        SafeFileHandle handle,
         out string? error)
     {
         error = null;
-        BY_HANDLE_FILE_INFORMATION info;
-        if (!GetFileInformationByHandle(handle, out info))
+        if (!PInvoke.GetFileInformationByHandle(handle, out var info))
         {
             error = Marshal.GetLastPInvokeError().ToString();
             return null;
@@ -739,34 +771,67 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             return null;
         }
 
-        if (!GetVolumeInformationW(root, null, 0, out var serial, out _, out _, null, 0))
+        unsafe
         {
-            return null;
-        }
+            uint serial = 0;
+            uint maximumComponentLength = 0;
+            fixed (char* rootPath = root)
+            {
+                if (!PInvoke.GetVolumeInformation(rootPath, null, 0, &serial, &maximumComponentLength, null, null, 0))
+                {
+                    return null;
+                }
+            }
 
-        return serial.ToString("X8");
+            return serial.ToString("X8");
+        }
     }
 
-    private static string? TryGetFinalPath(IntPtr handle)
+    private static unsafe string? TryGetFinalPath(SafeFileHandle handle)
     {
-        var buffer = new StringBuilder(1024);
-        var len = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Capacity, GetFinalPathNameNormalized);
-        return len == 0 ? null : buffer.ToString();
+        Span<char> buffer = stackalloc char[1024];
+        fixed (char* bufferPointer = buffer)
+        {
+            var len = PInvoke.GetFinalPathNameByHandle(new HANDLE(handle.DangerousGetHandle()), bufferPointer, (uint)buffer.Length, GetFinalPathNameNormalized);
+            if (len == 0)
+            {
+                return null;
+            }
+
+            var sliceLength = (int)Math.Min(len, (uint)buffer.Length);
+            return GetNullTerminatedString(buffer[..sliceLength]);
+        }
     }
 
     private static void AddStreamName(List<string> streams, WIN32_FIND_STREAM_DATA data)
     {
-        if (string.IsNullOrWhiteSpace(data.cStreamName))
+        var streamName = GetNullTerminatedString(data.cStreamName, 296);
+        if (string.IsNullOrWhiteSpace(streamName))
         {
             return;
         }
 
-        if (string.Equals(data.cStreamName, "::$DATA", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(streamName, "::$DATA", StringComparison.OrdinalIgnoreCase))
         {
             return;
         }
 
-        streams.Add($"{data.cStreamName.Trim()} ({data.StreamSize} bytes)");
+        streams.Add($"{streamName.Trim()} ({data.StreamSize} bytes)");
+    }
+
+    private static string GetNullTerminatedString(Windows.Win32.__char_296 buffer, int length)
+    {
+        var span = MemoryMarshal.CreateReadOnlySpan(
+            ref Unsafe.As<Windows.Win32.__char_296, char>(ref buffer),
+            length);
+        return GetNullTerminatedString(span);
+    }
+
+    private static string GetNullTerminatedString(ReadOnlySpan<char> buffer)
+    {
+        var terminatorIndex = buffer.IndexOf('\0');
+        var value = terminatorIndex >= 0 ? buffer[..terminatorIndex] : buffer;
+        return value.ToString();
     }
 
     private static string SafeIdentityToString(Func<IdentityReference?> factory)
@@ -836,158 +901,5 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         }
 
         return $"Success {success}, Failure {failure}";
-    }
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool GetFileInformationByHandle(
-        IntPtr hFile,
-        out BY_HANDLE_FILE_INFORMATION lpFileInformation);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern SafeFileHandle CreateFileW(
-        string lpFileName,
-        uint dwDesiredAccess,
-        FileShare dwShareMode,
-        IntPtr lpSecurityAttributes,
-        FileMode dwCreationDisposition,
-        uint dwFlagsAndAttributes,
-        IntPtr hTemplateFile);
-
-    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
-    private static extern bool GetFileBasicInfo(
-        IntPtr hFile,
-        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
-        out FILE_BASIC_INFO lpFileInformation,
-        uint dwBufferSize);
-
-    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
-    private static extern bool GetFileIdInfo(
-        IntPtr hFile,
-        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
-        out FILE_ID_INFO lpFileInformation,
-        uint dwBufferSize);
-
-    [DllImport("kernel32.dll", EntryPoint = "GetFileInformationByHandleEx", SetLastError = true)]
-    private static extern bool GetFileAttributeTagInfo(
-        IntPtr hFile,
-        FILE_INFO_BY_HANDLE_CLASS fileInformationClass,
-        out FILE_ATTRIBUTE_TAG_INFO lpFileInformation,
-        uint dwBufferSize);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern bool GetVolumeInformationW(
-        string lpRootPathName,
-        StringBuilder? lpVolumeNameBuffer,
-        int nVolumeNameSize,
-        out uint lpVolumeSerialNumber,
-        out uint lpMaximumComponentLength,
-        out uint lpFileSystemFlags,
-        StringBuilder? lpFileSystemNameBuffer,
-        int nFileSystemNameSize);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern uint GetFinalPathNameByHandleW(
-        IntPtr hFile,
-        StringBuilder lpszFilePath,
-        uint cchFilePath,
-        uint dwFlags);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern IntPtr FindFirstStreamW(
-        string lpFileName,
-        int InfoLevel,
-        out WIN32_FIND_STREAM_DATA lpFindStreamData,
-        int dwFlags);
-
-    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool FindNextStreamW(
-        IntPtr hFindStream,
-        out WIN32_FIND_STREAM_DATA lpFindStreamData);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool FindClose(IntPtr hFindFile);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct BY_HANDLE_FILE_INFORMATION
-    {
-        public uint dwFileAttributes;
-        public System.Runtime.InteropServices.ComTypes.FILETIME ftCreationTime;
-        public System.Runtime.InteropServices.ComTypes.FILETIME ftLastAccessTime;
-        public System.Runtime.InteropServices.ComTypes.FILETIME ftLastWriteTime;
-        public uint dwVolumeSerialNumber;
-        public uint nFileSizeHigh;
-        public uint nFileSizeLow;
-        public uint nNumberOfLinks;
-        public uint nFileIndexHigh;
-        public uint nFileIndexLow;
-    }
-
-    private enum FILE_INFO_BY_HANDLE_CLASS
-    {
-        FileBasicInfo = 0,
-        FileAttributeTagInfo = 9,
-        FileIdInfo = 18
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct FILE_BASIC_INFO
-    {
-        public long CreationTime;
-        public long LastAccessTime;
-        public long LastWriteTime;
-        public long ChangeTime;
-        public uint FileAttributes;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct FILE_ID_INFO
-    {
-        public ulong VolumeSerialNumber;
-        public FILE_ID_128 FileId;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct FILE_ID_128
-    {
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
-        public byte[] Identifier;
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct FILE_ATTRIBUTE_TAG_INFO
-    {
-        public uint FileAttributes;
-        public uint ReparseTag;
-    }
-
-    [Flags]
-    private enum CF_PLACEHOLDER_STATE : uint
-    {
-        CF_PLACEHOLDER_STATE_NONE = 0x00000000,
-        CF_PLACEHOLDER_STATE_PLACEHOLDER = 0x00000001,
-        CF_PLACEHOLDER_STATE_SYNC_ROOT = 0x00000002,
-        CF_PLACEHOLDER_STATE_ESSENTIAL_PROP_PRESENT = 0x00000004,
-        CF_PLACEHOLDER_STATE_IN_SYNC = 0x00000008,
-        CF_PLACEHOLDER_STATE_PARTIAL = 0x00000010,
-        CF_PLACEHOLDER_STATE_PARTIALLY_ON_DISK = 0x00000020
-    }
-
-    private const uint FILE_READ_ATTRIBUTES = 0x80;
-    private const uint FILE_FLAG_BACKUP_SEMANTICS = 0x02000000;
-
-    [DllImport("cldapi.dll", SetLastError = true)]
-    private static extern CF_PLACEHOLDER_STATE CfGetPlaceholderStateFromAttributeTag(
-        uint fileAttributes,
-        uint reparseTag);
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct WIN32_FIND_STREAM_DATA
-    {
-        public long StreamSize;
-
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 296)]
-        public string cStreamName;
     }
 }

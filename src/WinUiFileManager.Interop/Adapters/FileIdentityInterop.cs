@@ -1,8 +1,4 @@
-#pragma warning disable RS0030 // Legacy DllImport declarations stay quarantined here until the CsWin32 migration batch replaces them.
-using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
@@ -14,11 +10,16 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
 {
     private const int ErrorSuccess = 0;
     private const int ErrorMoreData = 234;
-    private const int CchRmSessionKey = 33;
-    private const int CchRmMaxAppName = 255;
-    private const int CchRmMaxSvcName = 63;
-    private const uint OfCapCanSwitchTo = 0x0001;
-    private const uint OfCapCanClose = 0x0002;
+    private readonly IRestartManagerInterop _restartManagerInterop;
+    private readonly IShellInterop _shellInterop;
+
+    public FileIdentityInterop(
+        IRestartManagerInterop restartManagerInterop,
+        IShellInterop shellInterop)
+    {
+        _restartManagerInterop = restartManagerInterop;
+        _shellInterop = shellInterop;
+    }
 
     public FileIdResult GetFileId(string path)
     {
@@ -55,16 +56,16 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
                 errors.Add(rmError);
             }
 
-            var usage = TryGetFileIsInUse(path, out var fileIsInUseAppName, out var canSwitchTo, out var canClose, out var usageError);
-            if (!string.IsNullOrWhiteSpace(fileIsInUseAppName))
+            var usageProbe = _shellInterop.TryGetFileIsInUse(path);
+            if (!string.IsNullOrWhiteSpace(usageProbe.AppName))
             {
-                lockBy.Add(fileIsInUseAppName);
+                lockBy.Add(usageProbe.AppName);
                 Deduplicate(lockBy);
             }
 
-            if (!string.IsNullOrWhiteSpace(usageError))
+            if (!string.IsNullOrWhiteSpace(usageProbe.ErrorMessage))
             {
-                errors.Add(usageError);
+                errors.Add(usageProbe.ErrorMessage);
             }
 
             return new FileLockDiagnosticsResult(
@@ -73,9 +74,9 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
                 lockBy: lockBy,
                 lockPids: lockPids,
                 lockServices: lockServices,
-                usage: usage,
-                canSwitchTo: canSwitchTo,
-                canClose: canClose,
+                usage: usageProbe.Usage,
+                canSwitchTo: usageProbe.CanSwitchTo,
+                canClose: usageProbe.CanClose,
                 errorMessage: errors.Count > 0 ? string.Join(" | ", errors) : null);
         }
         catch (Exception ex)
@@ -181,7 +182,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         return new FileIdResult(true, bytes, null);
     }
 
-    private static bool? TryGetRestartManagerLocks(
+    private bool? TryGetRestartManagerLocks(
         string path,
         List<string> lockBy,
         List<int> lockPids,
@@ -189,8 +190,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         out string? error)
     {
         error = null;
-        var sessionKey = new StringBuilder(CchRmSessionKey);
-        var startResult = RmStartSession(out var sessionHandle, 0, sessionKey);
+        var startResult = _restartManagerInterop.StartSession(out var sessionHandle);
         if (startResult != ErrorSuccess)
         {
             error = $"RmStartSession failed with error {startResult}";
@@ -200,14 +200,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         try
         {
             var resources = new[] { path };
-            var registerResult = RmRegisterResources(
-                sessionHandle,
-                (uint)resources.Length,
-                resources,
-                0,
-                null,
-                0,
-                null);
+            var registerResult = _restartManagerInterop.RegisterResources(sessionHandle, resources);
 
             if (registerResult != ErrorSuccess)
             {
@@ -219,7 +212,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
             uint processInfo = 0;
             uint rebootReasons;
 
-            var listResult = RmGetList(
+            var listResult = _restartManagerInterop.GetList(
                 sessionHandle,
                 out processInfoNeeded,
                 ref processInfo,
@@ -238,8 +231,8 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
             }
 
             processInfo = processInfoNeeded;
-            var processInfos = new RmProcessInfo[processInfoNeeded];
-            listResult = RmGetList(
+            var processInfos = new RestartManagerProcessInfo[processInfoNeeded];
+            listResult = _restartManagerInterop.GetList(
                 sessionHandle,
                 out processInfoNeeded,
                 ref processInfo,
@@ -256,14 +249,14 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
             {
                 var processInfoItem = processInfos[i];
                 var appName = string.IsNullOrWhiteSpace(processInfoItem.AppName)
-                    ? $"PID {processInfoItem.Process.ProcessId}"
+                    ? $"PID {processInfoItem.ProcessId}"
                     : processInfoItem.AppName.Trim();
 
                 lockBy.Add(appName);
 
-                if (processInfoItem.Process.ProcessId > 0)
+                if (processInfoItem.ProcessId > 0)
                 {
-                    lockPids.Add(processInfoItem.Process.ProcessId);
+                    lockPids.Add(processInfoItem.ProcessId);
                 }
 
                 if (!string.IsNullOrWhiteSpace(processInfoItem.ServiceShortName))
@@ -279,106 +272,8 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         }
         finally
         {
-            _ = RmEndSession(sessionHandle);
+            _ = _restartManagerInterop.EndSession(sessionHandle);
         }
-    }
-
-    private static string? TryGetFileIsInUse(
-        string path,
-        out string? appName,
-        out bool? canSwitchTo,
-        out bool? canClose,
-        out string? error)
-    {
-        return TryGetFileIsInUseCore(
-            path,
-            CreateFileIsInUse,
-            Marshal.FinalReleaseComObject,
-            static () => Thread.CurrentThread.GetApartmentState(),
-            out appName,
-            out canSwitchTo,
-            out canClose,
-            out error);
-    }
-
-    internal static string? TryGetFileIsInUseCore(
-        string path,
-        Func<string, (int HResult, IFileIsInUseNative? FileIsInUse)> fileIsInUseFactory,
-        Func<object, int> finalReleaseComObject,
-        Func<ApartmentState> apartmentStateProvider,
-        out string? appName,
-        out bool? canSwitchTo,
-        out bool? canClose,
-        out string? error)
-    {
-        appName = null;
-        canSwitchTo = null;
-        canClose = null;
-        error = null;
-
-        // Invariant: the shell IFileIsInUse activation must run on an STA-initialized thread.
-        Debug.Assert(
-            apartmentStateProvider() == ApartmentState.STA,
-            "TryGetFileIsInUse requires the shell COM call site to run on an STA-initialized thread.");
-
-        var (hr, fileIsInUse) = fileIsInUseFactory(path);
-
-        // For many items this interface is unavailable; treat that as best-effort no-data.
-        if (hr != ErrorSuccess || fileIsInUse is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            string? usageText = null;
-            var appNameHr = fileIsInUse.GetAppName(out var appNamePtr);
-            if (appNameHr == ErrorSuccess && appNamePtr != IntPtr.Zero)
-            {
-                appName = Marshal.PtrToStringUni(appNamePtr);
-                Marshal.FreeCoTaskMem(appNamePtr);
-            }
-
-            var usageHr = fileIsInUse.GetUsage(out var usage);
-            if (usageHr == ErrorSuccess)
-            {
-                usageText = usage switch
-                {
-                    FileUsageType.Playing => "Playing",
-                    FileUsageType.Editing => "Editing",
-                    FileUsageType.Generic => "Generic",
-                    _ => usage.ToString()
-                };
-            }
-
-            var capHr = fileIsInUse.GetCapabilities(out var capabilities);
-            if (capHr == ErrorSuccess)
-            {
-                canSwitchTo = (capabilities & OfCapCanSwitchTo) != 0;
-                canClose = (capabilities & OfCapCanClose) != 0;
-            }
-
-            return usageText;
-        }
-        catch (Exception ex)
-        {
-            error = ex.Message;
-            return null;
-        }
-        finally
-        {
-            if (fileIsInUse is not null)
-            {
-                _ = finalReleaseComObject(fileIsInUse);
-            }
-        }
-    }
-
-    private static (int HResult, IFileIsInUseNative? FileIsInUse) CreateFileIsInUse(string path)
-    {
-        var iid = typeof(IFileIsInUseNative).GUID;
-        var hr = SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out var fileIsInUse);
-        return (hr, fileIsInUse);
     }
 
     private static void Deduplicate<T>(List<T> source)
@@ -402,104 +297,5 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         {
             source.RemoveRange(index, source.Count - index);
         }
-    }
-
-    [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int RmStartSession(
-        out uint pSessionHandle,
-        int dwSessionFlags,
-        StringBuilder strSessionKey);
-
-    [DllImport("rstrtmgr.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-    private static extern int RmRegisterResources(
-        uint dwSessionHandle,
-        uint nFiles,
-        [In] string[]? rgsFileNames,
-        uint nApplications,
-        [In] RmUniqueProcess[]? rgApplications,
-        uint nServices,
-        [In] string[]? rgsServiceNames);
-
-    [DllImport("rstrtmgr.dll", SetLastError = true)]
-    private static extern int RmGetList(
-        uint dwSessionHandle,
-        out uint pnProcInfoNeeded,
-        ref uint pnProcInfo,
-        [In, Out] RmProcessInfo[]? rgAffectedApps,
-        out uint lpdwRebootReasons);
-
-    [DllImport("rstrtmgr.dll", SetLastError = true)]
-    private static extern int RmEndSession(uint dwSessionHandle);
-
-    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-    private static extern int SHCreateItemFromParsingName(
-        [MarshalAs(UnmanagedType.LPWStr)] string pszPath,
-        IntPtr pbc,
-        ref Guid riid,
-        [MarshalAs(UnmanagedType.Interface)] out IFileIsInUseNative? ppv);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct RmUniqueProcess
-    {
-        public int ProcessId;
-        public System.Runtime.InteropServices.ComTypes.FILETIME ProcessStartTime;
-    }
-
-    private enum RmAppType
-    {
-        Unknown = 0,
-        MainWindow = 1,
-        OtherWindow = 2,
-        Service = 3,
-        Explorer = 4,
-        Console = 5,
-        Critical = 1000
-    }
-
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct RmProcessInfo
-    {
-        public RmUniqueProcess Process;
-
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CchRmMaxAppName + 1)]
-        public string AppName;
-
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CchRmMaxSvcName + 1)]
-        public string ServiceShortName;
-
-        public RmAppType ApplicationType;
-        public uint AppStatus;
-        public uint TSSessionId;
-
-        [MarshalAs(UnmanagedType.Bool)]
-        public bool Restartable;
-    }
-
-    internal enum FileUsageType
-    {
-        Playing = 0,
-        Editing = 1,
-        Generic = 2
-    }
-
-    [ComImport]
-    [Guid("64a1cbf0-3a1a-4461-9158-376969693950")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    internal interface IFileIsInUseNative
-    {
-        [PreserveSig]
-        int GetAppName(out IntPtr appName);
-
-        [PreserveSig]
-        int GetUsage(out FileUsageType usage);
-
-        [PreserveSig]
-        int GetCapabilities(out uint capabilities);
-
-        [PreserveSig]
-        int GetSwitchToHWND(out IntPtr hwnd);
-
-        [PreserveSig]
-        int CloseFile();
     }
 }

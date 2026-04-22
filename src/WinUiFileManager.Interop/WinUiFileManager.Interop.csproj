@@ -9,10 +9,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <AdditionalFiles Include="NativeMethods.txt" />
-  </ItemGroup>
-
-  <ItemGroup>
     <AdditionalFiles Remove="$(MSBuildProjectDirectory)\..\..\BannedSymbols.txt" />
     <AdditionalFiles Include="BannedSymbols.Interop.txt" />
   </ItemGroup>

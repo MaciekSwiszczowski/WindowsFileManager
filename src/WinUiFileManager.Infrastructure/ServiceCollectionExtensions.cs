@@ -14,6 +14,9 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
+        services.AddSingleton<IShellInterop, ShellInterop>();
+        services.AddSingleton<IRestartManagerInterop, RestartManagerInterop>();
+        services.AddSingleton<ICloudFilesInterop, CloudFilesInterop>();
         services.AddSingleton<IVolumeInterop, VolumeInterop>();
         services.AddSingleton<IFileIdentityInterop, FileIdentityInterop>();
         services.AddSingleton<IFileOperationInterop, FileOperationInterop>();
@@ -31,7 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFavouritesRepository, JsonFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
 
-        services.AddSingleton<Application.Abstractions.ITimeProvider, SystemTimeProvider>();
+        services.AddSingleton<ITimeProvider, SystemTimeProvider>();
 
         return services;
     }

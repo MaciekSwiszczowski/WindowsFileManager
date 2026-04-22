@@ -455,7 +455,7 @@ public sealed class FileInspectorViewModelTests
 
     private sealed class CloudBatchCancellationIdentityService : IFileIdentityService
     {
-        private readonly NtfsFileIdentityService _service = new(new StubFileIdentityInterop());
+        private readonly NtfsFileIdentityService _service = new(new StubFileIdentityInterop(), new CloudFilesInterop());
 
         public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
         {

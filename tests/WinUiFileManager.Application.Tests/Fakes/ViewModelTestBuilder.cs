@@ -30,7 +30,10 @@ public sealed class ViewModelTestBuilder
         var changeStream = new WindowsDirectoryChangeStream(
             NullLogger<WindowsDirectoryChangeStream>.Instance);
         var schedulers = SchedulerProviderOverride ?? new RxSchedulerProvider();
-        var fileIdentityService = FileIdentityServiceOverride ?? new NtfsFileIdentityService(new FileIdentityInterop());
+        var fileIdentityService = FileIdentityServiceOverride
+            ?? new NtfsFileIdentityService(
+                new FileIdentityInterop(new RestartManagerInterop(), new ShellInterop()),
+                new CloudFilesInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
             NullLogger<WindowsFileOperationPlanner>.Instance);

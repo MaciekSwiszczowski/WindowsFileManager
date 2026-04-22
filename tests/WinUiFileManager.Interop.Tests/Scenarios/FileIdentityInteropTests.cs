@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Threading;
 using TUnit.Core;
 using WinUiFileManager.Interop.Adapters;
 using WinUiFileManager.Interop.Tests.Fixtures;
@@ -92,5 +94,68 @@ public sealed class FileIdentityInteropTests
         await Assert.That(result.LockBy).IsNotNull();
         await Assert.That(result.LockPids).IsNotNull();
         await Assert.That(result.LockServices).IsNotNull();
+    }
+
+    [Test]
+    public async Task Test_GetLockDiagnostics_FinalReleasesFileIsInUseObject()
+    {
+        var fakeFileIsInUse = new FakeFileIsInUseNative();
+        var releaseCount = 0;
+        var result = FileIdentityInterop.TryGetFileIsInUseCore(
+            "ignored.txt",
+            _ => (0, fakeFileIsInUse),
+            instance =>
+            {
+                if (ReferenceEquals(instance, fakeFileIsInUse))
+                {
+                    releaseCount++;
+                }
+
+                return 0;
+            },
+            static () => ApartmentState.STA,
+            out var appName,
+            out var canSwitchTo,
+            out var canClose,
+            out var error);
+
+        await Assert.That(result).IsEqualTo("Editing");
+        await Assert.That(appName).IsEqualTo("Codex Test App");
+        await Assert.That(canSwitchTo).IsFalse();
+        await Assert.That(canClose).IsFalse();
+        await Assert.That(error).IsNull();
+        await Assert.That(releaseCount).IsEqualTo(1);
+    }
+
+    private sealed class FakeFileIsInUseNative : FileIdentityInterop.IFileIsInUseNative
+    {
+        public int GetAppName(out IntPtr appName)
+        {
+            appName = Marshal.StringToCoTaskMemUni("Codex Test App");
+            return 0;
+        }
+
+        public int GetUsage(out FileIdentityInterop.FileUsageType usage)
+        {
+            usage = FileIdentityInterop.FileUsageType.Editing;
+            return 0;
+        }
+
+        public int GetCapabilities(out uint capabilities)
+        {
+            capabilities = 0;
+            return 0;
+        }
+
+        public int GetSwitchToHWND(out IntPtr hwnd)
+        {
+            hwnd = IntPtr.Zero;
+            return 0;
+        }
+
+        public int CloseFile()
+        {
+            return 0;
+        }
     }
 }

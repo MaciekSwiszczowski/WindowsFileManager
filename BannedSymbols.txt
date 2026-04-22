@@ -25,3 +25,6 @@ P:System.Threading.SynchronizationContext.Current;Inject DispatcherQueue or ISch
 M:System.GC.Collect;Remove. Measure with dotnet-counters instead.
 M:System.GC.Collect(System.Int32);Remove. Measure with dotnet-counters instead.
 M:System.GC.Collect(System.Int32,System.GCCollectionMode);Remove. Measure with dotnet-counters instead.
+
+# COM RCW teardown must release all outstanding references. See SPEC_NATIVE_MODERNIZATION.md §3.2.
+M:System.Runtime.InteropServices.Marshal.ReleaseComObject(System.Object);Use Marshal.FinalReleaseComObject to release all outstanding references; see SPEC_NATIVE_MODERNIZATION.md §3.2.

@@ -1,6 +1,8 @@
 #pragma warning disable RS0030 // Legacy DllImport declarations stay quarantined here until the CsWin32 migration batch replaces them.
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.FileSystem;
@@ -288,13 +290,38 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         out bool? canClose,
         out string? error)
     {
+        return TryGetFileIsInUseCore(
+            path,
+            CreateFileIsInUse,
+            Marshal.FinalReleaseComObject,
+            static () => Thread.CurrentThread.GetApartmentState(),
+            out appName,
+            out canSwitchTo,
+            out canClose,
+            out error);
+    }
+
+    internal static string? TryGetFileIsInUseCore(
+        string path,
+        Func<string, (int HResult, IFileIsInUseNative? FileIsInUse)> fileIsInUseFactory,
+        Func<object, int> finalReleaseComObject,
+        Func<ApartmentState> apartmentStateProvider,
+        out string? appName,
+        out bool? canSwitchTo,
+        out bool? canClose,
+        out string? error)
+    {
         appName = null;
         canSwitchTo = null;
         canClose = null;
         error = null;
 
-        var iid = typeof(IFileIsInUseNative).GUID;
-        var hr = SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out var fileIsInUse);
+        // Invariant: the shell IFileIsInUse activation must run on an STA-initialized thread.
+        Debug.Assert(
+            apartmentStateProvider() == ApartmentState.STA,
+            "TryGetFileIsInUse requires the shell COM call site to run on an STA-initialized thread.");
+
+        var (hr, fileIsInUse) = fileIsInUseFactory(path);
 
         // For many items this interface is unavailable; treat that as best-effort no-data.
         if (hr != ErrorSuccess || fileIsInUse is null)
@@ -342,9 +369,16 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         {
             if (fileIsInUse is not null)
             {
-                _ = Marshal.ReleaseComObject(fileIsInUse);
+                _ = finalReleaseComObject(fileIsInUse);
             }
         }
+    }
+
+    private static (int HResult, IFileIsInUseNative? FileIsInUse) CreateFileIsInUse(string path)
+    {
+        var iid = typeof(IFileIsInUseNative).GUID;
+        var hr = SHCreateItemFromParsingName(path, IntPtr.Zero, ref iid, out var fileIsInUse);
+        return (hr, fileIsInUse);
     }
 
     private static void Deduplicate<T>(List<T> source)
@@ -441,7 +475,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
         public bool Restartable;
     }
 
-    private enum FileUsageType
+    internal enum FileUsageType
     {
         Playing = 0,
         Editing = 1,
@@ -451,7 +485,7 @@ internal sealed class FileIdentityInterop : IFileIdentityInterop
     [ComImport]
     [Guid("64a1cbf0-3a1a-4461-9158-376969693950")]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    private interface IFileIsInUseNative
+    internal interface IFileIsInUseNative
     {
         [PreserveSig]
         int GetAppName(out IntPtr appName);

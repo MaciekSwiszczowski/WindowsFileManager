@@ -3,8 +3,12 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.UI.Xaml;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Tests.Fakes;
+using WinUiFileManager.Application.Tests.Fixtures;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Infrastructure.FileSystem;
+using WinUiFileManager.Interop.Adapters;
+using WinUiFileManager.Interop.Types;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
@@ -144,6 +148,59 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(GetVisibleFields(
             sut,
             sut.Categories.Single(static category => category.Name == "Locks")).Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task Test_LoadDeferredBatchesAsync_PropagatesCancellationFromNtfsCloudBatch()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        var filePath = fixture.CreateFile("cloud.txt", 128);
+        var selection = FileInspectorSelection.FromSelection(
+            [CreateEntry("cloud.txt", filePath, ItemKind.File, 128)],
+            isPaneLoading: false,
+            refreshVersion: 0);
+        var cloudBatchEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var originalCloudPropertyValuesProvider = NtfsFileIdentityService.CloudPropertyValuesProvider;
+        using var sut = CreateSubject(new CloudBatchCancellationIdentityService());
+        using var cancellationSource = new CancellationTokenSource();
+        await using var enumerator = sut.LoadDeferredBatchesAsync(
+            selection,
+            cancellationSource.Token).GetAsyncEnumerator();
+
+        try
+        {
+            NtfsFileIdentityService.CloudPropertyValuesProvider = async (_, cancellationToken) =>
+            {
+                cloudBatchEntered.TrySetResult();
+                await Task.Delay(Timeout.Infinite, cancellationToken);
+                return (string.Empty, string.Empty, string.Empty);
+            };
+
+            for (var i = 0; i < 6; i++)
+            {
+                await Assert.That(await enumerator.MoveNextAsync()).IsTrue();
+            }
+
+            var finalBatchTask = enumerator.MoveNextAsync().AsTask();
+            await cloudBatchEntered.Task;
+            await cancellationSource.CancelAsync();
+
+            var canceled = false;
+            try
+            {
+                await finalBatchTask;
+            }
+            catch (OperationCanceledException)
+            {
+                canceled = true;
+            }
+
+            await Assert.That(canceled).IsTrue();
+        }
+        finally
+        {
+            NtfsFileIdentityService.CloudPropertyValuesProvider = originalCloudPropertyValuesProvider;
+        }
     }
 
     [Test]
@@ -393,6 +450,116 @@ public sealed class FileInspectorViewModelTests
                 usage: null,
                 canSwitchTo: null,
                 canClose: null));
+        }
+    }
+
+    private sealed class CloudBatchCancellationIdentityService : IFileIdentityService
+    {
+        private readonly NtfsFileIdentityService _service = new(new StubFileIdentityInterop());
+
+        public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new NtfsFileId([0x01, 0x02, 0x03]));
+        }
+
+        public Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileIdentityDetails(
+                new NtfsFileId([0x01, 0x02, 0x03]),
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                Path.GetFullPath(path)));
+        }
+
+        public Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileNtfsMetadataDetails(
+                FileAttributes.Archive,
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                DateTime.UtcNow,
+                DateTime.UtcNow));
+        }
+
+        public Task<bool> SetNtfsAttributeFlagAsync(string path, FileAttributes flag, bool enabled, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(true);
+        }
+
+        public Task<FileCloudDiagnosticsDetails> GetCloudDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return _service.GetCloudDiagnosticsAsync(path, cancellationToken);
+        }
+
+        public Task<FileLinkDiagnosticsDetails> GetLinkDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileLinkDiagnosticsDetails(string.Empty, string.Empty, string.Empty, string.Empty, string.Empty));
+        }
+
+        public Task<FileStreamDiagnosticsDetails> GetStreamDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileStreamDiagnosticsDetails("0", []));
+        }
+
+        public Task<FileSecurityDiagnosticsDetails> GetSecurityDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileSecurityDiagnosticsDetails(string.Empty, string.Empty, string.Empty, string.Empty, null, null));
+        }
+
+        public Task<FileThumbnailDiagnosticsDetails> GetThumbnailDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileThumbnailDiagnosticsDetails(null, string.Empty));
+        }
+
+        public Task<FileLockDiagnostics> GetLockDiagnosticsAsync(string path, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new FileLockDiagnostics(
+                inUse: false,
+                lockBy: [],
+                lockPids: [],
+                lockServices: [],
+                usage: null,
+                canSwitchTo: null,
+                canClose: null));
+        }
+    }
+
+    private sealed class StubFileIdentityInterop : IFileIdentityInterop
+    {
+        public FileIdResult GetFileId(string path)
+        {
+            return new FileIdResult(true, [0x01, 0x02, 0x03], null);
+        }
+
+        public FileLockDiagnosticsResult GetLockDiagnostics(string path)
+        {
+            return new FileLockDiagnosticsResult(true, false, [], [], [], null, null, null, null);
+        }
+
+        public FileIdentityDetailsResult GetIdentityDetails(string path)
+        {
+            return new FileIdentityDetailsResult(true, [0x01, 0x02, 0x03], null, null, null, path, null);
+        }
+
+        public FileLinkDiagnosticsResult GetLinkDiagnostics(string path)
+        {
+            return new FileLinkDiagnosticsResult(true, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, null);
+        }
+
+        public FileStreamDiagnosticsResult GetStreamDiagnostics(string path)
+        {
+            return new FileStreamDiagnosticsResult(true, 0, [], null);
+        }
+
+        public FileSecurityDiagnosticsResult GetSecurityDiagnostics(string path)
+        {
+            return new FileSecurityDiagnosticsResult(true, string.Empty, string.Empty, string.Empty, string.Empty, null, null, null);
+        }
+
+        public FileThumbnailDiagnosticsResult GetThumbnailDiagnostics(string path)
+        {
+            return new FileThumbnailDiagnosticsResult(true, null, string.Empty, null);
         }
     }
 }

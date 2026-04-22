@@ -23,6 +23,9 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private const System.IO.FileAttributes FileAttributeRecallOnOpen = (System.IO.FileAttributes)0x00040000;
     private const System.IO.FileAttributes FileAttributeRecallOnDataAccess = (System.IO.FileAttributes)0x00400000;
 
+    internal static Func<IStorageItem?, CancellationToken, Task<(string SyncState, string TransferState, string CustomStatus)>> CloudPropertyValuesProvider { get; set; } =
+        static (storageItem, _) => TryGetCloudPropertyValuesAsync(storageItem);
+
     private readonly IFileIdentityInterop _fileIdentityInterop;
 
     public NtfsFileIdentityService(IFileIdentityInterop fileIdentityInterop)
@@ -73,6 +76,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 legacyInfo is null ? string.Empty : legacyInfo.Value.nNumberOfLinks.ToString(),
                 finalPath));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult(new FileIdentityDetails(
@@ -109,7 +116,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 FromFileTimeUtc(basicInfo.LastWriteTime),
                 FromFileTimeUtc(basicInfo.ChangeTime)));
         }
-        catch
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
         {
             var fallback = GetFallbackNtfsMetadata(path);
             return Task.FromResult(fallback);
@@ -151,7 +162,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             var storageItem = await TryGetStorageItemAsync(path);
             var provider = TryGetProviderDisplayName(storageItem);
             var available = await TryGetAvailabilityAsync(storageItem, cancellationToken);
-            var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem);
+            var (syncState, transferState, customStatus) = await CloudPropertyValuesProvider(storageItem, cancellationToken);
 
             using var handle = OpenMetadataHandle(path);
             var placeholderState = TryGetPlaceholderState(handle.DangerousGetHandle(), attributes);
@@ -177,7 +188,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                     customStatus)
                 : FileCloudDiagnosticsDetails.None;
         }
-        catch
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
         {
             return FileCloudDiagnosticsDetails.None;
         }
@@ -207,6 +222,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 reparseTag,
                 string.Empty,
                 string.Empty));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -247,6 +266,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
             return Task.FromResult(new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams));
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception)
         {
             return Task.FromResult(new FileStreamDiagnosticsDetails("0", []));
@@ -284,6 +307,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 saclSummary,
                 security.AreAccessRulesProtected ? false : true,
                 security.AreAccessRulesProtected));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {
@@ -327,6 +354,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             }
 
             return new FileThumbnailDiagnosticsDetails(thumbnailBytes, progId);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch (Exception)
         {

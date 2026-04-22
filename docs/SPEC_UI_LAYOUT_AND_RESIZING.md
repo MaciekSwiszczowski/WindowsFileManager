@@ -17,7 +17,7 @@ The review has shown that automatic end-to-end UI testing is out of scope; every
 
 ## 2. Root causes of current slowness
 
-The review identified these contributors in `MainShellView.xaml(.cs)` and `FileInspectorView.xaml(.cs)`. Every one must be addressed.
+The review identified these contributors in `MainShellView.xaml(.cs)` and `FileInspectorView.xaml(.cs)`. Each subsection below names a root cause **and** the prescribed fix, with a pointer at the §3 / §4 / §5 section that carries the full prescription and its current shipping status. An implementing agent does not have to choose an approach — every fix is named.
 
 ### 2.1. Double layout pass per pointer move
 
@@ -30,15 +30,19 @@ UpdateInspectorLayout();                                          // sets GridLe
 
 `OnViewModelPropertyChanged` (line 187) then fires on `InspectorWidth` and queues **another** `UpdateInspectorLayout()` through `DispatcherQueue.TryEnqueue(...)`. Every pointer move triggers two grid re-measures.
 
+**Fix (see §3.3, §4.2, §4.3; shipped in U-1 / U-2).** Delete the hand-rolled pointer handler and the `UpdateInspectorLayout` invocation from the move path. `InspectorColumn.Width` is bound one-way from `MainShellViewModel.InspectorWidth` through `PixelGridLengthConverter` (see §4.2); the `CommunityToolkit.WinUI.Controls.GridSplitter` from §3.3 drives width changes directly against the column. `OnViewModelPropertyChanged` reacts only to `ActivePane` / `IsInspectorVisible`, never `InspectorWidth` (see §4.3). Net result: one layout pass per width change, no code-behind in the move path.
+
 ### 2.2. Inspector cascades `ContentWidth` to every category
 
 `FileInspectorViewModel.UpdateInspectorContentWidth(double)` (line 227) loops every `Categories` and pushes `ContentWidth` on each. The inspector XAML binds `<Expander Width="{Binding ContentWidth}" …>` on every category. With 8 categories this is 8 property-changed events, 8 Expander re-measures, and the inner `ItemsRepeater` re-measures its children.
 
-Root fix: remove the explicit width push. Let Expanders stretch via `HorizontalAlignment="Stretch"` and let the outer Grid size them. The inspector ScrollViewer already has `HorizontalScrollBarVisibility="Disabled"`, so stretching is unambiguous.
+**Fix (see §4.1; shipped in U-2).** Delete `FileInspectorViewModel.InspectorContentWidth` and `UpdateInspectorContentWidth(double)`; delete `FileInspectorCategoryViewModel.ContentWidth`; drop the `<Grid Width="{Binding InspectorContentWidth}" …>` wrapper and the per-Expander `Width="{Binding ContentWidth}"` binding. Let each `Expander` stretch via `HorizontalAlignment="Stretch"` + `HorizontalContentAlignment="Stretch"` under the inspector `ScrollViewer` (which already has `HorizontalScrollBarVisibility="Disabled"`, so the stretch width is unambiguous).
 
 ### 2.3. `SizeChanged` feedback loop on the inspector
 
 `FileInspectorView.OnViewSizeChanged` → `UpdateInspectorContentWidth(...)` → Category `ContentWidth` change → per-category layout change → potentially re-fires `SizeChanged` on the scroll container. Even if no re-fire, this cascade runs on every pointer move.
+
+**Fix (see §4.1; shipped in U-2).** Remove the `SizeChanged` subscription in `FileInspectorView.xaml.cs` along with `OnViewSizeChanged` and the `GetInspectorContentWidth()` helper. The cascade was load-bearing for nothing — the ScrollViewer/Grid/ItemsRepeater tree stretches naturally once §2.2's fix lands.
 
 ### 2.4. Pane widths are both `*`
 
@@ -54,13 +58,29 @@ Current column definitions:
 
 When the Inspector column shrinks, both `*` columns (left and right panes) grow proportionally, forcing **both** panes to re-layout every pointer move. Each pane hosts a `WinUI.TableView` with 100 000 rows potentially; even with virtualization, the column-width recomputation and header re-layout are measurable.
 
+**Fix (see §3.1; shipped in U-1).** Replace the 5-column layout with pixel widths on the side columns and a single `*` column in the middle:
+
+```xml
+<ColumnDefinition x:Name="LeftPaneColumn"    Width="{Binding LeftPaneWidth,   Converter={StaticResource PixelGridLengthConverter}}" MinWidth="320" />
+<ColumnDefinition x:Name="LeftRightSplitter" Width="6" />
+<ColumnDefinition x:Name="RightPaneColumn"   Width="*"                                                                              MinWidth="320" />
+<ColumnDefinition x:Name="InspectorSplitter" Width="6" />
+<ColumnDefinition x:Name="InspectorColumn"   Width="{Binding InspectorWidth,  Converter={StaticResource PixelGridLengthConverter}}" MinWidth="260" />
+```
+
+`LeftPaneColumn` and `InspectorColumn` are pixel widths bound one-way through `PixelGridLengthConverter` from VM properties. `RightPaneColumn` is the sole `*` — it absorbs every window-resize and splitter-drag delta, so only **one** pane (the right one) needs a layout pass per move instead of both.
+
 ### 2.5. `UpdateStatusBar` runs on each size cascade
 
 `MainShellView.OnViewModelPropertyChanged` (line 191) unconditionally queues `UpdateStatusBar` on every VM property change, including `InspectorWidth`. The status bar rebuilds format strings during drag. Minor, but it runs ~120 times/second at 120Hz.
 
+**Fix (see §4.3; shipped in U-1).** Narrow `OnViewModelPropertyChanged` to an explicit `switch` that handles only `ActivePane` (→ `UpdateStatusBar` + `UpdateActivePaneBorders`) and `IsInspectorVisible` (→ `UpdateInspectorLayout`). `InspectorWidth` is no longer observed in code-behind — the XAML column binding in §2.4's fix handles it. Status-bar rebuilds are decoupled from drag.
+
 ### 2.6. Pointer move is not frame-synchronized
 
 `PointerMoved` fires at mouse/touch sample rate (often 125–500 Hz). Each sample triggers a layout pass. A 60 Hz display only benefits from ~60 layouts/sec; the rest are wasted work that still occupies the UI thread.
+
+**Fix (see §3.3; shipped in U-1 + polish in commit `35e965f`).** Use `CommunityToolkit.WinUI.Controls.GridSplitter` with `ResizeBehavior="PreviousAndNext"`, `ResizeDirection="Columns"`, and `DragIncrement="8"` / `KeyboardIncrement="8"`. The control handles pointer-capture, cursor state, and accessibility. `DragIncrement` quantizes width updates to 8 px steps so sub-frame pointer samples coalesce before the column is re-written. The hand-rolled `Border` + `PointerPressed/Moved/Released` handlers in `MainShellView.xaml.cs` are deleted and **never reintroduced** — see §3.3's "Do not implement a hand-rolled splitter" guidance.
 
 ## 3. Target layout model
 
@@ -105,40 +125,32 @@ If the SDK in use doesn't expose a native min-size API, enforce in `SizeChanged`
 
 ### 3.3. Splitter widget
 
-Use **`CommunityToolkit.WinUI.Controls.Sizer`** (new NuGet; see `SPEC_NUGET_MODERNIZATION.md` §3). Reasons:
+Use **`CommunityToolkit.WinUI.Controls.GridSplitter`** from the `CommunityToolkit.WinUI.Controls.Sizers` NuGet (see `SPEC_NUGET_MODERNIZATION.md` §3). Reasons:
 
 - Built for exactly this scenario — a resize thumb between grid columns.
-- Two-phase resize: a "ghost" preview during drag, commit on release — no continuous layout churn during drag.
 - Handles pointer-capture, cursor, and accessibility announcements for free.
-- Supports `Orientation="Vertical"` for column-splitter use (confusingly named; "Vertical" means a vertical line between horizontal neighbors).
+- `ResizeBehavior="PreviousAndNext"` / `ResizeDirection="Columns"` gives the desired "adjust the two neighboring columns" semantics without code-behind.
+- `DragIncrement` and `KeyboardIncrement` expose the resize step for both mouse and keyboard-driven resizing.
 
-Replace the hand-rolled `Border` + `PointerPressed/Moved/Released` handlers. The hand-rolled code in `MainShellView.xaml.cs:297-353` is deleted.
+The `Sizers` package also exports a `Sizer` control. Either works; the implementation uses `GridSplitter` because its `ResizeBehavior` enum matches the 5-column shell layout cleanly (left and right neighbors share the delta). Both controls share the same package reference, so spec 2's N-2b batch (`CommunityToolkit.WinUI.Controls.Sizers`) satisfies this section regardless of which control is picked.
 
-Wire-up:
+Replace the hand-rolled `Border` + `PointerPressed/Moved/Released` handlers. The hand-rolled splitter code in `MainShellView.xaml.cs` is deleted.
+
+Wire-up (as shipped):
 
 ```xml
-<controls:Sizer
+<toolkit:GridSplitter
     Grid.Column="1"
-    Orientation="Vertical"
-    Width="6"
-    HorizontalAlignment="Stretch"
-    ManipulationMode="TranslateX"
-    ChangeEvent="OnLeftRightSplitterChange" />
+    Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
+    DragIncrement="8"
+    KeyboardIncrement="8"
+    ResizeBehavior="PreviousAndNext"
+    ResizeDirection="Columns" />
 ```
 
-The Sizer emits a `ChangeEvent(double horizontalChange)` on commit. The handler updates `LeftPaneColumn.Width` and persists after debounce (see §5).
+The column widths are bound via `PixelGridLengthConverter` on `LeftPaneColumn` and `InspectorColumn`; `GridSplitter` updates those columns in place during drag. Persistence is debounced via the window's close handler (see §5) — there is no per-drag write.
 
-If `CommunityToolkit.WinUI.Controls.Sizer` is not acceptable or unavailable in the target SDK, fall back to a hand-rolled splitter that follows §3.4 — but the default must be the Toolkit control.
-
-### 3.4. Hand-rolled splitter (fallback only)
-
-If the Sizer can't be used, the fallback splitter must:
-
-1. Capture the pointer on `PointerPressed`; release on `PointerReleased` and `PointerCaptureLost`.
-2. Throttle `PointerMoved` updates to one per display frame using a `DispatcherQueueTimer` with `IsRepeating = true, Interval = TimeSpan.FromMilliseconds(16)`, or by flipping a `_pendingDelta` variable consumed from `CompositionTarget.Rendering`.
-3. Apply the delta directly to `LeftPaneColumn.Width` (or `InspectorColumn.Width`) — no VM round-trip during drag.
-4. Commit to the VM only on `PointerReleased`, then persist (§5).
-5. Never set `IsChecked`, `Visibility`, or any other unrelated property in the move path.
+**Do not implement a hand-rolled splitter.** If `GridSplitter` appears to misbehave (e.g., keeps the CPU busy, drops events, or does not emit a drag-commit event), **stop and raise the issue** in the batch's handoff note under "Surprises" per `SPEC_AGENT_BATCHING_PLAN.md` §6. A hand-rolled `PointerPressed/Moved/Released` splitter is explicitly out of scope — past attempts at one are the root cause of every §2 slowness item. If the Toolkit control is genuinely unworkable, the human owner will pick a replacement (likely `Microsoft.UI.Xaml.Controls.GridSplitter` or a different package), not the agent.
 
 ## 4. Per-move fixes
 
@@ -165,7 +177,7 @@ The inspector's natural layout (ScrollViewer → Grid → ItemsRepeater of Expan
 
 ### 4.2. Remove the inline `UpdateInspectorLayout` call
 
-After the Sizer lands (or the fallback with frame throttling), the pointer-moved handler no longer exists. Keep `UpdateInspectorLayout` only as the VM-driven reaction to `IsInspectorVisible` changes. Specifically:
+With `GridSplitter` driving resizes (§3.3), the pointer-moved handler no longer exists. Keep `UpdateInspectorLayout` only as the VM-driven reaction to `IsInspectorVisible` changes. Specifically:
 
 - `OnViewModelPropertyChanged` reacts to `IsInspectorVisible` only (not `InspectorWidth`).
 - `InspectorWidth` is applied by binding `InspectorColumn.Width` directly through a `GridLengthConverter` (one-way, VM → column). No code-behind.
@@ -182,31 +194,33 @@ Binding:
 
 Add a `PixelGridLengthConverter` (tiny utility class) in `WinUiFileManager.Presentation/Converters/`. `GridUnitType.Pixel`.
 
-### 4.3. Status bar does not update during drag
+### 4.3. Status bar: delete `UpdateStatusBar` and move to XAML bindings
 
-`OnViewModelPropertyChanged` in `MainShellView.xaml.cs:187` currently re-enters `UpdateStatusBar` for every property change. Narrow it:
+There is no drag-time status-bar update to fix. The status bar fires on `ActivePane` change (and on any active-pane `PropertyChanged` — `ItemCount`, `SelectedCount`, `CurrentPath`, `IncrementalSearchText`), not on splitter drag. `InspectorWidth` is already not observed by `OnViewModelPropertyChanged`. The real cleanup here is to **remove the status-bar code-behind entirely** and bind it from XAML.
 
-```csharp
-private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-{
-    DispatcherQueue.TryEnqueue(() =>
-    {
-        switch (e.PropertyName)
-        {
-            case nameof(MainShellViewModel.ActivePane):
-                UpdateStatusBar();
-                UpdateActivePaneBorders();
-                break;
-            case nameof(MainShellViewModel.IsInspectorVisible):
-                UpdateInspectorLayout();
-                break;
-            // InspectorWidth is handled by XAML binding; no code-behind.
-        }
-    });
-}
-```
+**Fix.**
 
-Status bar itself is already addressed in `SPEC_BUG_FIXES.md` P1.5/B3 — keep coordination with that work.
+1. Move the composed strings from `MainShellView.UpdateStatusBar` into computed read-only properties on `FilePaneViewModel`:
+   - `PaneLabel` — `"Left"` or `"Right"` from `PaneId`.
+   - `ItemCountDisplay` — `"<N> items"`, with `" | Search: <x>"` appended when `IncrementalSearchText` is non-empty.
+   - `SelectedDisplay` — `"<N> selected"`, with `" (<formatted bytes>)"` appended when `SelectedCount > 0` and total size > 0.
+   Use `[NotifyPropertyChangedFor]` on the triggering `[ObservableProperty]` fields so `PropertyChanged` on these display strings fires only when the inputs change.
+2. Add `MainShellViewModel.ActivePaneLabel` returning `"<ActivePane.PaneLabel> active"` (or keep the concatenation in XAML with `StringFormat`).
+3. Rewrite the status-bar row in `MainShellView.xaml` to bind each `TextBlock` directly:
+   ```xml
+   <TextBlock x:Name="ActivePaneText"  Text="{x:Bind ViewModel.ActivePaneLabel,            Mode=OneWay}" />
+   <TextBlock x:Name="PathText"        Text="{x:Bind ViewModel.ActivePane.CurrentPath,     Mode=OneWay}" />
+   <TextBlock x:Name="ItemCountText"   Text="{x:Bind ViewModel.ActivePane.ItemCountDisplay,Mode=OneWay}" />
+   <TextBlock x:Name="SelectedText"    Text="{x:Bind ViewModel.ActivePane.SelectedDisplay, Mode=OneWay}" />
+   ```
+4. Delete, from `MainShellView.xaml.cs`:
+   - `UpdateStatusBar()` and the initial call in the constructor.
+   - `OnPanePropertyChanged(object?, PropertyChangedEventArgs)` and the two `PropertyChanged += OnPanePropertyChanged` subscriptions on `LeftPane` / `RightPane`.
+   - The `case nameof(MainShellViewModel.ActivePane): UpdateStatusBar();` line — `UpdateActivePaneBorders` stays (it's visual, not data).
+   - `FormatByteSize(long)` — moves into the VM alongside `SelectedDisplay`.
+5. Net effect: zero code-behind subscriptions for the status bar. The status text reacts through the standard XAML binding path only. No more possibility of a stray `UpdateStatusBar` invocation firing from an unrelated property change.
+
+Tests: the three new VM properties each get one unit test per case (empty, single-item, multi-select with size, with / without incremental search). No view-layer tests.
 
 ### 4.4. Pane-width change does not trigger list reflow
 
@@ -237,13 +251,15 @@ New domain types (each in its own file per `CODING_STYLE.md`):
 - `SortState` — `(SortColumn Column, bool Ascending)`.
 - `WindowPlacement` — `(int X, int Y, int Width, int Height, bool IsMaximized)`.
 
-Persistence flow:
+Persistence flow — **on app exit only**, for simplicity:
 
-- **During drag:** splitter commits to VM on `PointerReleased`. Column resize commits when the user releases the column header handle (TableView fires a column-resize-ended event; if not, bind to the column's `SizeChanged` with a 250 ms debounce).
-- **On window move/resize:** debounce 250 ms via an Rx `Throttle` in `MainShellWindow.xaml.cs`; the VM stores last observed placement in memory.
-- **On app exit:** `MainShellWindow.OnAppWindowClosing` calls `PersistStateAsync`. `PersistPaneStateCommandHandler` writes the whole `AppSettings` atomically (JSON repo already handles this).
+- **During the session:** the VM holds current widths, column layouts, sort, and window placement in memory. `LeftPaneWidth` / `InspectorWidth` update as the user drags `GridSplitter` (bound two-way through `PixelGridLengthConverter`); `PaneColumnLayout`, `SortState`, and `MainWindowPlacement` are captured once, on exit.
+- **On app exit:** `MainShellWindow.OnAppWindowClosing`:
+  1. Calls `ShellView.CapturePaneColumnLayouts()` to read each `TableView`'s current column `ActualWidth`s into the pane VMs.
+  2. Snapshots `AppWindow.Position` / `AppWindow.Size` and the maximized flag into `_viewModel.MainWindowPlacement`.
+  3. Awaits `PersistStateAsync()`, which builds a `PersistPaneStateRequest` from the VM state and hands it to `PersistPaneStateCommandHandler`. The JSON repo writes the whole `AppSettings` atomically.
 
-**No eager persistence during drag.** Every drag is O(1) in persisted-state writes: one commit per drag.
+No debounce, no `Throttle`, no per-drag writes, no `SizeChanged` subscribers on columns, no window-move observers. One write per session. If the app crashes before exit, the session's resize / sort / move is lost — accepted tradeoff for simplicity.
 
 Restoration flow on `MainShellViewModel.InitializeAsync`:
 
@@ -284,67 +300,105 @@ public partial string EditBuffer { get; set; } = string.Empty;
 
 ### 6.3. Cell template
 
-The Name column in `FileEntryTableView.xaml` becomes a `TableViewTemplateColumn`:
+The Name column in `FileEntryTableView.xaml` is a `TableViewTemplateColumn` with both a read-only `CellTemplate` and an `EditingTemplate`. The control itself toggles between the two when a cell enters / leaves edit mode, so no `IsEditing`-driven `Visibility` converter is needed.
 
 ```xml
-<tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name"
-                            MinWidth="100" Width="{x:Bind ...}">
+<tv:TableViewTemplateColumn
+    x:Name="NameColumn"
+    Header="Name"
+    SortMemberPath="Name"
+    MinWidth="100"
+    Width="320"
+    IsReadOnly="False"
+    CanSort="True">
     <tv:TableViewTemplateColumn.CellTemplate>
-        <DataTemplate x:DataType="vm:FileEntryViewModel">
-            <Grid>
-                <TextBlock Text="{x:Bind Name}"
-                           Style="{StaticResource EllipsisTextCellStyle}"
-                           Visibility="{x:Bind IsEditing,
-                                               Mode=OneWay,
-                                               Converter={StaticResource InverseBoolToVisibility}}" />
-                <TextBox x:Name="NameEditor"
-                         Text="{x:Bind EditBuffer, Mode=TwoWay,
-                                        UpdateSourceTrigger=PropertyChanged}"
-                         Visibility="{x:Bind IsEditing,
-                                             Mode=OneWay,
-                                             Converter={StaticResource BoolToVisibility}}"
-                         KeyDown="OnNameEditorKeyDown"
-                         LostFocus="OnNameEditorLostFocus" />
-            </Grid>
+        <DataTemplate>
+            <TextBlock Text="{Binding Name}"
+                       Style="{StaticResource EllipsisTextCellStyle}" />
         </DataTemplate>
     </tv:TableViewTemplateColumn.CellTemplate>
+    <tv:TableViewTemplateColumn.EditingTemplate>
+        <DataTemplate>
+            <TextBox Text="{Binding EditBuffer, Mode=TwoWay,
+                                                 UpdateSourceTrigger=PropertyChanged}"
+                     VerticalContentAlignment="Center"
+                     IsSpellCheckEnabled="False" />
+        </DataTemplate>
+    </tv:TableViewTemplateColumn.EditingTemplate>
 </tv:TableViewTemplateColumn>
 ```
 
-Two converters (add to `Converters/`): `BoolToVisibility` and `InverseBoolToVisibility`.
+The TableView events `BeginningEdit` / `PreparingCellForEdit` / `CellEditEnding` / `CellEditEnded` replace the hand-rolled `KeyDown` / `LostFocus` handlers. `BoolToVisibility` / `InverseBoolToVisibility` converters are *not* required and must not be added — the `EditingTemplate` swap is the supported pattern.
 
 ### 6.4. Enter / exit edit mode
 
-New methods on `FilePaneViewModel`:
+`FilePaneViewModel` exposes the following surface:
 
 ```csharp
+// Private sentinel so the view can ignore edit events for rows the VM did not choose.
+private FileEntryViewModel? _activeEditingEntry;
+public FileEntryViewModel? ActiveEditingEntry => _activeEditingEntry;
+
+// Raised when BeginRenameCurrent promotes an entry to editing. The view subscribes
+// and starts the cell editor; the VM never calls into the view directly.
+public event EventHandler<FileEntryViewModel>? RenameRequested;
+
 public void BeginRenameCurrent()
 {
+    if (IsLoading) return;
     var current = CurrentItem;
-    if (current is null || current.IsParentEntry || IsLoading) return;
-    // exactly one item may be editing at a time
-    foreach (var item in _sortedItems) { item.IsEditing = false; }
+    if (current is null || current.IsParentEntry) return;
+
+    if (_activeEditingEntry is not null && !ReferenceEquals(_activeEditingEntry, current))
+        CancelRename(_activeEditingEntry);
+
+    ErrorMessage = null;
     current.EditBuffer = current.Name;
     current.IsEditing = true;
+    _activeEditingEntry = current;
+    RenameRequested?.Invoke(this, current);
 }
 
-public async Task CommitRenameAsync(FileEntryViewModel entry, CancellationToken ct)
+public async Task<bool> CommitRenameAsync(
+    FileEntryViewModel entry,
+    string? candidateName,
+    CancellationToken ct)
 {
-    if (!entry.IsEditing) return;
-    var newName = entry.EditBuffer.Trim();
-    var oldName = entry.Name;
-    entry.IsEditing = false;
-    if (string.IsNullOrWhiteSpace(newName) || newName == oldName) return;
+    if (!ReferenceEquals(_activeEditingEntry, entry) || !entry.IsEditing)
+        return false;
+
+    var newName = (candidateName ?? entry.EditBuffer).Trim();
+    entry.EditBuffer = candidateName ?? entry.EditBuffer;
+    ErrorMessage = null;
+
+    if (string.IsNullOrWhiteSpace(newName) || string.Equals(newName, entry.Name, StringComparison.Ordinal))
+    {
+        CancelRename(entry);
+        return true;
+    }
+
+    if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+        return false; // keep edit mode open; caller re-focuses the editor
+
     try
     {
         var summary = await _renameHandler.ExecuteAsync(entry.Model, newName, ct);
-        // on success, the watcher will emit a Rename event; the SourceCache
-        // replaces the entry by its UniqueKey. Log-level feedback only.
+        if (summary.FailedCount == 0 && summary.Status == OperationStatus.Succeeded)
+        {
+            entry.IsEditing = false;
+            entry.EditBuffer = string.Empty;
+            _activeEditingEntry = null;
+            return true;
+        }
+
+        _logger.LogDebug("Inline rename rejected for {Path}: {Message}",
+            entry.Model.FullPath.DisplayPath, summary.Message ?? "Rename failed.");
+        return false; // keep edit mode open; caller re-focuses the editor
     }
     catch (Exception ex)
     {
         _logger.LogError(ex, "Rename failed");
-        ErrorMessage = ex.Message;
+        return false;
     }
 }
 
@@ -352,69 +406,67 @@ public void CancelRename(FileEntryViewModel entry)
 {
     entry.IsEditing = false;
     entry.EditBuffer = string.Empty;
+    if (ReferenceEquals(_activeEditingEntry, entry)) _activeEditingEntry = null;
+}
+
+// Moving the selection off the editing row cancels the rename cleanly.
+partial void OnCurrentItemChanged(FileEntryViewModel? value)
+{
+    if (_activeEditingEntry is not null && !ReferenceEquals(_activeEditingEntry, value))
+        CancelRename(_activeEditingEntry);
 }
 ```
 
-Note: `RenameHandler` stays command-layer but no longer depends on a dialog. Its signature is already `ExecuteAsync(FileSystemEntryModel model, string newName, CancellationToken ct)`. `MainShellViewModel.RenameAsync` becomes a thin call to `ActivePane.BeginRenameCurrent()`.
+Notes:
 
-### 6.5. Keyboard bindings in the cell
+- `CommitRenameAsync` takes a `candidateName` because `CellEditEnding` fires before the `TwoWay` binding has flushed the TextBox text into `EditBuffer`; the caller passes the `TextBox.Text` directly.
+- The `bool` return lets the cell handler decide whether to cancel the TableView's own commit (returning `false` keeps edit mode open on invalid name / collision / handler failure).
+- `RenameHandler.ExecuteAsync(FileSystemEntryModel, string, CancellationToken)` is unchanged. `MainShellViewModel.RenameAsync` is a thin call to `ActivePane.BeginRenameCurrent()`.
 
-`FileEntryTableView.xaml.cs` handlers:
+### 6.5. Edit lifecycle in the cell
+
+`FileEntryTableView.xaml.cs` wires the TableView's edit lifecycle instead of raw TextBox events:
+
+- `FileTable_BeginningEdit` — cancels the edit unless `e.Column == NameColumn` **and** `e.DataItem == host.ActiveEditingEntry`. This prevents accidental enter-edit from double-click on other columns.
+- `FileTable_PreparingCellForEdit` — finds the descendant `TextBox`, dispatches `Focus(FocusState.Keyboard)` + `SelectNameStem(editor, entry.Name)` on the next tick (so the template has instantiated).
+- `FileTable_CellEditEnding` — pushes the TextBox text into `entry.EditBuffer`; on `TableViewEditAction.Cancel` calls `host.CancelRename(entry)`; otherwise sets `e.Cancel = true` (suppress the control's own commit) and awaits `host.CommitRenameAsync(entry, entry.EditBuffer, CancellationToken.None)`. When the VM returns `false` (collision / invalid name), the editor is re-focused on the next dispatcher tick via `RefocusNameEditor(e.Cell)`.
+- `FileTable_CellEditEnded` — currently a no-op seam kept for future instrumentation.
+- `OnHostRenameRequested(_, entry)` — subscribed to `FilePaneViewModel.RenameRequested`; selects the row, sets `FileTable.CurrentCellSlot` to the Name column, scrolls it into view, and calls the TableView's internal `BeginCellEditing` / `EndCellEditing` via reflection (`BeginCellEditingMethod`, `EndCellEditingMethod` — load-bearing until `WinUI.TableView` ships public equivalents).
+- `OnPreviewKeyDown` — when a row is already editing and the user presses `F2` or `Shift+F6` again, re-focus the existing editor instead of toggling edit off.
+
+`MainShellView.xaml.cs` is the shell-level entry point for both keys:
 
 ```csharp
-private async void OnNameEditorKeyDown(object sender, KeyRoutedEventArgs e)
-{
-    if (sender is not TextBox tb || tb.DataContext is not FileEntryViewModel entry)
-        return;
-    switch (e.Key)
+case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
+case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
+    if (ViewModel.ActivePane.CurrentItem is { IsParentEntry: false })
     {
-        case VirtualKey.Enter:
-            e.Handled = true;
-            var host = GridViewModel.Host;
-            if (host is not null)
-                await host.CommitRenameAsync(entry, CancellationToken.None);
-            FileTable.Focus(FocusState.Keyboard);
-            break;
-        case VirtualKey.Escape:
-            e.Handled = true;
-            GridViewModel.Host?.CancelRename(entry);
-            FileTable.Focus(FocusState.Keyboard);
-            break;
+        ViewModel.RenameCommand.Execute(null);
+        e.Handled = true;
     }
-}
-
-private async void OnNameEditorLostFocus(object sender, RoutedEventArgs e)
-{
-    if (sender is not TextBox tb || tb.DataContext is not FileEntryViewModel entry)
-        return;
-    var host = GridViewModel.Host;
-    if (host is not null && entry.IsEditing)
-    {
-        await host.CommitRenameAsync(entry, CancellationToken.None);
-    }
-}
+    break;
 ```
 
-In `OnPreviewKeyDown`, add `F2` → `host.BeginRenameCurrent(); e.Handled = true;`. Leave existing `Shift+F6` path working (either keep the path via `MainShellViewModel.RenameCommand` which now calls `BeginRenameCurrent`, or route both keys to the same handler).
+The `!inTextInputContext` gate prevents the keys from triggering while the path box, search box, or any other text surface has focus.
 
 ### 6.6. Focus and selection
 
-When `IsEditing` flips true:
+When `RenameRequested` fires:
 
-1. The Name column's `TextBox` becomes visible.
-2. After one dispatcher tick (so the template has instantiated), focus the `TextBox` with `FocusState.Keyboard`.
-3. Select the file **stem** (not the extension) — the common rename case edits the stem. Compute stem length from `Path.GetExtension(Name)`.
-4. If the user clicks elsewhere (LostFocus), commit.
-
-Implementation: subscribe to `FileEntryViewModel.IsEditing` change via a small attached behavior or a `FrameworkElement.Loaded` handler on the TextBox that calls `Focus` and `Select(0, stemLength)` once per transition.
+1. The view selects the row, sets `CurrentCellSlot` to the Name column, scrolls into view, and dispatches `BeginCellEditingMethod`.
+2. `PreparingCellForEdit` runs on the next dispatcher tick, focuses the `TextBox` with `FocusState.Keyboard`, and selects the file **stem** (`Name.Length - Path.GetExtension(Name).Length`). If the stem length is `0` (dotfiles) the whole name is selected.
+3. Clicking elsewhere triggers `CellEditEnding` with `TableViewEditAction.Commit`; the handler commits via the VM.
+4. Pressing Escape triggers `CellEditEnding` with `TableViewEditAction.Cancel`; the handler routes to `CancelRename`.
 
 ### 6.7. Validation
 
-- Empty/whitespace → treat as cancel (no filesystem call).
-- Unchanged → treat as cancel.
-- Invalid characters (`\ / : * ? " < > |`) → show the entry's `ErrorMessage` on the pane and **keep edit mode open** so the user can fix; flash the TextBox red via `VisualState`.
-- Collision (destination exists) → same — let the rename handler return failure and surface the message without closing edit mode.
-- Successful rename: watcher emits `Renamed`; the pane's `SourceCache` replaces by `UniqueKey`. Focus returns to the row for the new entry.
+- **Empty / whitespace** → the VM treats as cancel (no filesystem call) and returns `true` so the UI closes edit mode cleanly.
+- **Unchanged** → same as empty: treated as cancel.
+- **Invalid characters** (`Path.GetInvalidFileNameChars()`) → the VM returns `false` without invoking the handler; the cell handler cancels the TableView commit and re-focuses the editor. The v1 shipped surface keeps edit mode open as the only feedback.
+- **Collision** (destination exists) → the handler returns a non-`Succeeded` summary; the VM returns `false`; same edit-stays-open behavior.
+- **Successful rename** → the watcher emits `Renamed`; the pane's `SourceCache` replaces by `UniqueKey`. Focus returns to the row for the new entry.
+
+> **Amended by `SPEC_RENAME_BUGS.md` R-2.** The silent "edit stays open" behavior proved too subtle in practice. The rename-bug spec adds a dismissible `InfoBar` surfaced through `FilePaneViewModel.RenameError` that reports the cause (collision / invalid chars / source gone / access denied / path too long). The editor stays open with `EditBuffer` intact; the banner can be dismissed with the `X` or via `Escape` focused on the banner. A red `VisualState` flash on the TextBox was considered and rejected in favor of the banner.
 
 ### 6.8. Watcher interaction
 
@@ -488,13 +540,25 @@ Because automated UI testing is out of scope, every change here lands with a man
 This spec is complete when:
 
 - All items in §8 pass on a Windows 11 machine at 100% DPI and at 150% DPI.
-- `MainShellView.xaml.cs` no longer contains manual splitter `PointerPressed/Moved/Released` handlers (both are delegated to the Sizer or to the fallback with frame throttling).
+- `MainShellView.xaml.cs` no longer contains manual splitter `PointerPressed/Moved/Released` handlers; both splitters are `CommunityToolkit.WinUI.Controls.GridSplitter` instances (no hand-rolled fallback — see §3.3).
 - `UpdateInspectorLayout` is no longer called per pointer move.
 - `FileInspectorViewModel.InspectorContentWidth` and `FileInspectorCategoryViewModel.ContentWidth` no longer exist.
 - `IDialogService.ShowRenameDialogAsync` no longer exists; `WinUiDialogService` does not instantiate a rename `ContentDialog`.
+- `Converters/` does **not** contain `BoolToVisibility` / `InverseBoolToVisibility` — the `TableViewTemplateColumn` `EditingTemplate` swap replaces them.
+- `FilePaneViewModel` exposes `BeginRenameCurrent` / `CommitRenameAsync(entry, candidateName, ct)` (returns `bool`) / `CancelRename`, an `ActiveEditingEntry` observer, and a `RenameRequested` event. `OnCurrentItemChanged` cancels any in-flight rename when selection moves.
 - `AppSettings` persists left-pane width, inspector width, per-pane column layout, per-pane sort, and main-window placement.
 - First-launch (no settings file) uses the defaults in §3.1 and §5.
 - Feature spec F11 is marked delivered.
+
+### 9.1. Shipped status
+
+| Batch | Scope | Status | Handoff note |
+|---|---|---|---|
+| U-1 | 5-column shell layout + `PixelGridLengthConverter` + hand-rolled splitter handlers deleted | shipped on `master` (no progress note) | — |
+| U-2 | Inspector `ContentWidth` / `InspectorContentWidth` cascade removed; `SizeChanged` feedback loop gone | shipped | [ui-layout-batch-2.md](progress/ui-layout-batch-2.md) |
+| U-3 | `AppSettings` persistence (pane widths, column layouts, sort, window placement); settings DTO made init-only | shipped | [ui-layout-batch-3.md](progress/ui-layout-batch-3.md) |
+| U-4 | In-cell rename on the Name column; `ShowRenameDialogAsync` removed; F2 + Shift+F6 wired | code shipped on `master`, §8.4 manual checks outstanding | [ui-layout-batch-4.md](progress/ui-layout-batch-4.md) |
+| U-5 | Status-bar XAML bindings cleanup per §4.3 (delete `UpdateStatusBar` / `OnPanePropertyChanged`; move composed strings to VM properties) | pending | `ui-layout-batch-5.md` (to write on completion) |
 
 ## 10. Non-goals
 

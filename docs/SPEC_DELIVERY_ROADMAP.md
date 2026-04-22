@@ -6,16 +6,16 @@ Companion document: `SPEC_AGENT_BATCHING_PLAN.md` describes how to slice each sp
 
 ## Order
 
-| # | Spec | Why here |
-|---|---|---|
-| 1 | `SPEC_TOOLING_AND_ANALYZERS.md` | Adds Meziantou, VS Threading, Roslynator, IDisposableAnalyzers, AsyncFixer, BannedApiAnalyzers, `.editorconfig`, `WarningsAsErrors`. Every later spec produces code that benefits from the static-analysis guardrails. `BannedSymbols.txt` also encodes several bug-fix rules — catching regressions for free. |
-| 2 | `SPEC_NUGET_MODERNIZATION.md` §2b (Sizer only) | Pull just the `CommunityToolkit.WinUI.Controls.Sizer` package reference forward because the next spec depends on it. Rest of the NuGet spec is deferred to slot 6. |
-| 3 | `SPEC_UI_LAYOUT_AND_RESIZING.md` | Splitter performance, panel/inspector resizing with min widths, persistence of widths + column layout + sort + window placement, in-cell rename replacing the modal dialog. UI-visible work the human owner verifies by hand — land this early so subsequent specs don't re-touch the shell. |
-| 4 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` | Introduces the central `ShortcutRegistry` and adds the 7 missing shortcuts (F2 rename, Shift+F6 corrected, Alt+Up, Alt+Left, Alt+Right, Alt+Enter, Shift+Delete). Depends on the in-cell rename surface from spec 3 (F2 / Shift+F6) and on the banned-API list from spec 1 for the `SynchronizationContext.Current` ban. Concurrent with spec 3 if desired. |
-| 5 | `SPEC_BUG_FIXES.md` | Bug tickets B1–B14. Most of them become trivial once the analyzers from spec 1 are in place (the analyzers already flag the same patterns). Item B2 (ShellExecute `\\?\` path) is subsumed by spec 7 below; all others ship here. |
-| 6 | `SPEC_NUGET_MODERNIZATION.md` (everything except §2b, already landed) | CsWin32 expansion, Serilog, `CommunityToolkit.HighPerformance`, CopyFile2 upgrade, thumbnail-byte pooling, DynamicData audit. Can be interleaved with spec 7 since they touch different files. |
-| 7 | `SPEC_LONG_PATHS.md` | Path-capability model, service guards, UI disable with tooltips, long-paths toolbar toggle button. Depends on CsWin32 expansion from spec 6 (`RegNotifyChangeKeyValue` additions). Subsumes bug B2. |
-| 8 | `SPEC_FEATURE_LOW_HANGING_FRUIT.md` | Feature work starts only after the infrastructure above is in place. Deliver feature-by-feature per the feature spec's own sprint plan; treat D1 (Favourites popup) as deferred. |
+| # | Spec | Status | Why here |
+|---|---|---|---|
+| 1 | `SPEC_TOOLING_AND_ANALYZERS.md` | **shipped** | Adds Meziantou, VS Threading, Roslynator, IDisposableAnalyzers, AsyncFixer, BannedApiAnalyzers, `.editorconfig`, `WarningsAsErrors`. Every later spec produces code that benefits from the static-analysis guardrails. `BannedSymbols.txt` also encodes several bug-fix rules — catching regressions for free. |
+| 2 | `SPEC_NUGET_MODERNIZATION.md` §2b (Sizers only) | **shipped** | Pull just the `CommunityToolkit.WinUI.Controls.Sizers` package reference forward because the next spec depends on it. Rest of the NuGet spec is deferred to slot 6. (Package exports both `Sizer` and `GridSplitter`; spec 3 uses `GridSplitter`.) |
+| 3 | `SPEC_UI_LAYOUT_AND_RESIZING.md` | **U-1…U-3 shipped; U-4 in progress** | Splitter performance, panel/inspector resizing with min widths, persistence of widths + column layout + sort + window placement, in-cell rename replacing the modal dialog. UI-visible work the human owner verifies by hand — land this early so subsequent specs don't re-touch the shell. |
+| 4 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` | pending (starts when U-4 closes) | Introduces the central `ShortcutRegistry` and adds the 7 missing shortcuts (F2 rename, Shift+F6 corrected, Alt+Up, Alt+Left, Alt+Right, Alt+Enter, Shift+Delete). Depends on the in-cell rename surface from spec 3 (F2 / Shift+F6) and on the banned-API list from spec 1 for the `SynchronizationContext.Current` ban. Concurrent with spec 3 if desired. F2 / Shift+F6 wiring is already in place from U-4. |
+| 5 | `SPEC_BUG_FIXES.md` | pending | Bug tickets B1–B14. Most of them become trivial once the analyzers from spec 1 are in place (the analyzers already flag the same patterns). Item B2 (ShellExecute `\\?\` path) is subsumed by spec 7 below; all others ship here. |
+| 6 | `SPEC_NUGET_MODERNIZATION.md` (everything except §2b, already landed) | pending | CsWin32 expansion, Serilog, `CommunityToolkit.HighPerformance`, CopyFile2 upgrade, thumbnail-byte pooling, DynamicData audit. Can be interleaved with spec 7 since they touch different files. |
+| 7 | `SPEC_LONG_PATHS.md` | pending | Path-capability model, service guards, UI disable with tooltips, long-paths toolbar toggle button. Depends on CsWin32 expansion from spec 6 (`RegNotifyChangeKeyValue` additions). Subsumes bug B2. |
+| 8 | `SPEC_FEATURE_LOW_HANGING_FRUIT.md` | pending (F11 already delivered by spec 3) | Feature work starts only after the infrastructure above is in place. Deliver feature-by-feature per the feature spec's own sprint plan; treat D1 (Favourites popup) as deferred. |
 
 ## Gating rules
 

@@ -31,73 +31,115 @@ These apply to every spec. Agents must obey them unless explicitly overridden by
 7. **Ban incomplete implementations.** No `TODO: wire the banned-API list later`. Either finish or descope the batch; never both half-done.
 8. **Every batch ends on a green CI.** No "will fix in next batch" exceptions.
 
-## 3. Per-spec batch plans
+## 3. Remaining batch plan
 
-Each entry gives a batch count, the cut points, and the handoff-note filename for each. Filenames follow `docs/progress/<spec-id>-batch-<n>.md`.
+Only forward-looking work is listed below. Shipped batches (all of `SPEC_TOOLING_AND_ANALYZERS.md`, N-2b, U-1, U-2, U-3) have been pruned; `docs/progress/` and `git log` are the authoritative record of what's done.
 
-### 3.1. `SPEC_TOOLING_AND_ANALYZERS.md` — 3 batches
+At-a-glance priority:
 
-- **T-1.** Add analyzer packages + `Directory.Build.props` wiring + `.editorconfig`. No `BannedSymbols.txt` yet. Fix existing `WarningsAsErrors`-level violations (a handful of `CA2007` / `VSTHRD100` hits). Expected diff: ~250 lines.
-- **T-2.** `BannedSymbols.txt` with the full list from the spec. File-scoped `#pragma warning disable RS0030` on the legitimate exception sites (`FileOperationInterop` for `File.Copy`, CsWin32-driven `DllImport`, and `RxSchedulerProvider` for the one allowed `SynchronizationContext.Current` capture). Expected diff: ~150 lines, mostly suppression pragmas.
-- **T-3.** `InternalsVisibleTo` + visibility narrowing pass. `LoggerMessage`-generated loggers for the hottest 3 log callsites (`FilePaneViewModel`, `WindowsFileSystemService`, `WindowsFileOperationService`). DI validation (`ValidateOnBuild`). Expected diff: ~300 lines.
+| Priority | Batch | Spec | Blocking on |
+|---|---|---|---|
+| **Now** | U-4 wrap-up + U-5 status-bar cleanup | `SPEC_UI_LAYOUT_AND_RESIZING.md` §6, §8, §4.3 | manual acceptance on a workstation |
+| **Second** | R-1 … R-3 | `SPEC_RENAME_BUGS.md` | U-4 code already on `master` |
+| **Third** | M-1 … M-5 | `SPEC_NATIVE_MODERNIZATION.md` | none — absorbs B3/B9 and NuGet N-1/N-4 |
+| **Fourth** | P-1 … P-3 | `SPEC_PERF_LOW_HANGING_FRUIT.md` | none — pure micro-optimizations, each ≤ 50 LOC |
+| Then | K-1 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3 | U-4 closed (no code dependency, just sequencing) |
+| Then | K-2 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §4.1–§4.4 | K-1 landed |
+| Then | K-3 | `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §4.6 | K-1 landed (K-2 can interleave) |
+| Then | B-1 … B-5 | `SPEC_BUG_FIXES.md` | none — can interleave with K-* or L-* (B3 / B9 absorbed by M-2) |
+| Then | N-2 (Serilog) / N-3 (deferred) | `SPEC_NUGET_MODERNIZATION.md` (remainder) | M-4 absorbed §1 (was N-1); M-5 absorbed §2 (was N-4) |
+| Then | L-1 … L-5 | `SPEC_LONG_PATHS.md` | M-4 landed (adds `RegNotifyChangeKeyValue`) |
+| Ongoing | F-features | `SPEC_FEATURE_LOW_HANGING_FRUIT.md` | L-1 landed for any feature that touches path-gated surfaces |
 
-Handoff notes: `tooling-batch-1.md`, `tooling-batch-2.md`, `tooling-batch-3.md`.
+### 3.1. `SPEC_UI_LAYOUT_AND_RESIZING.md` — U-4 wrap-up + status-bar cleanup (**Now**)
 
-### 3.2. `SPEC_NUGET_MODERNIZATION.md` §2b — 1 batch
+Code for U-4 shipped on `master` (commits `d3bc862`, `113827b`, `35e965f`); automated tests are green. What remains is the manual acceptance pass on a Windows 11 workstation at 100% + 150% DPI, plus a small follow-up polish batch.
 
-- **N-2b.** Add `CommunityToolkit.WinUI.Controls.Sizer` to `Directory.Packages.props` and `WinUiFileManager.Presentation.csproj`. No consumers yet — that's spec 3's job. Verify `dotnet build` still succeeds. Expected diff: ~15 lines.
+- **U-4 wrap-up.** Run §8.4 (in-cell rename, 9 checks), §8.5 (grep for deleted surfaces — already verified in the sandbox: zero hits), §8.6 (inspector still renders), §8.7 (regression over `winui-file-manager-keyboard-shortcuts-spec.md` §17). Back-fill the §8.1 smoothness and §8.2 minimum-width checks that were skipped in `ui-layout-batch-2.md`, and §8.3 restart persistence skipped in `ui-layout-batch-3.md` — they need a GUI environment. On full green, flip `ui-layout-batch-4.md` `Status:` from `in progress` to `complete` and tick the items there.
+- **U-5. Status-bar XAML bindings (spec §4.3).** Move the composed status-bar strings from `MainShellView.UpdateStatusBar` into computed read-only properties on `FilePaneViewModel` (`PaneLabel`, `ItemCountDisplay`, `SelectedDisplay`). Add `MainShellViewModel.ActivePaneLabel`. Rebind the status-bar `TextBlock`s via `x:Bind` one-way. Delete `UpdateStatusBar`, the initial call in the constructor, `OnPanePropertyChanged`, the two `PropertyChanged += OnPanePropertyChanged` subscriptions, and the `FormatByteSize` helper. Three small unit tests on the new VM properties. Expected diff: ~200 lines net (mostly movement).
+- **(Superseded) U-5 rename error flash.** The previously-planned red `VisualState` flash on the Name TextBox is absorbed by `SPEC_RENAME_BUGS.md` R-2's `InfoBar` banner. Not scheduled.
 
-### 3.3. `SPEC_UI_LAYOUT_AND_RESIZING.md` — 4 batches
+Handoff notes: `ui-layout-batch-4.md` (exists; flip status on completion), `ui-layout-batch-5.md` (new for the status-bar cleanup).
 
-- **U-1. Layout skeleton.** Replace the `MainShellView.xaml` column set with the 5-column plan from §3.1 (Left=pixel, Sizer, Right=*, Sizer, Inspector=pixel). Bind `LeftPaneColumn.Width` and `InspectorColumn.Width` to VM properties via a new `PixelGridLengthConverter`. Delete the hand-rolled splitter handlers. Do not touch persistence yet.
-- **U-2. Inspector cascade cleanup.** Remove `InspectorContentWidth` and per-category `ContentWidth`. Update XAML to stretch naturally. Run manual splitter smoothness check §8.1; record result in the handoff.
-- **U-3. Persistence rollout.** Extend `AppSettings` with the new fields, update `PersistPaneStateCommandHandler`, wire load/save through `MainShellViewModel.InitializeAsync` and `PersistStateAsync`. Include main-window placement. Run manual persistence check §8.3.
-- **U-4. In-cell rename.** Delete `IDialogService.ShowRenameDialogAsync`; add `IsEditing` / `EditBuffer` on `FileEntryViewModel`; swap the Name column to `TableViewTemplateColumn`; add editor key handlers; wire F2. Run manual rename checklist §8.4.
+### 3.2. `SPEC_RENAME_BUGS.md` — 3 batches (**Second**)
 
-Handoff notes: `ui-layout-batch-1.md` through `ui-layout-batch-4.md`.
+The in-cell rename surface from U-4 has three observed defects. This spec fixes them and hardens the commit path against concurrent external writers. All three are code + tests; no manual-only work.
 
-### 3.4. `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` — 3 batches
+- **R-1. Selection & focus restoration.** Capture the expected destination `NormalizedPath` before awaiting the handler; after success, proactively rewrite the `SourceCache` (remove old + add new) and set `CurrentItem` / `SelectedItem` to the new entry. `ApplyWatcherBatch` consults `_expectedRenameTarget` to suppress the self-rename echo. Two new tests in `ViewModelRenameCommandTests.cs`. Expected diff: ≤ 250 lines.
+- **R-2. Collision UX (InfoBar).** Add `FilePaneViewModel.RenameError` (`RenameErrorInfo` record) and `ClearRenameError()`. Map `FileOperationErrorCode` → user-facing messages. Bind an `InfoBar` inside `FilePaneView.xaml` (dismissible, `IsClosable="True"`). Keep editor open with `EditBuffer` intact. Three new tests. Expected diff: ~300 lines.
+- **R-3. Race hardening.** Pre-commit `_sourceCache.Lookup` re-check; add `FileOperationErrorCode.SourceGone`; tighten `FileOperationInterop` catches (`FileNotFoundException` / `DirectoryNotFoundException` → `SourceGone`); watcher-suppression so an external delete / rename of `_activeEditingEntry` surfaces as banner rather than silent editor cancellation. Three new tests. Expected diff: ~300 lines.
 
-- **K-1. ShortcutRegistry + existing shortcuts migrated.** Create the registry and migrate every currently-working shortcut into it. Zero behavior change. Extensive before/after verification against the existing keyboard spec §17 table.
-- **K-2. New shortcuts: F2, Shift+F6 (routed to in-cell), Alt+Up, Alt+Enter, Shift+Delete.** Depends on UI spec batch U-4.
-- **K-3. Navigation history + Alt+Left / Alt+Right.** Adds `PaneNavigationHistory`, the commands on `FilePaneViewModel`, and the shell-level key routing. Tests cover the history stack mechanics (not UI).
+Handoff notes: `rename-batch-1.md` through `rename-batch-3.md`.
+
+### 3.3. `SPEC_NATIVE_MODERNIZATION.md` — 5 batches (**Third**)
+
+Handle-safety first modernization of the native / interop surface. Absorbs `SPEC_NUGET_MODERNIZATION.md` §1 (was N-1) + §2 (was N-4) and `SPEC_BUG_FIXES.md` B3 + B9. Explicitly defers the HighPerformance / thumbnail work (§3.5 below).
+
+- **M-1. Analyzer enforcement + audit pass.** Add `IDISP001;IDISP003;IDISP004;IDISP007` to `<WarningsAsErrors>`; fix any violations that surface. Author the six-item PR audit checklist in the spec. Expected diff: ≤ 200 lines.
+- **M-2. COM RCW + cancellation correctness (absorbs B3, B9).** `Marshal.FinalReleaseComObject` in `FileIdentityInterop.cs`; `Marshal.ReleaseComObject` added to `BannedSymbols.txt`. Explicit `catch (OperationCanceledException) { throw; }` in the seven `NtfsFileIdentityService.*Async` methods. Debug-only STA-thread assertion on shell COM call sites. Expected diff: ~150 lines.
+- **M-3. SafeHandle adoption.** Wrap `FindFirstStreamW`'s `IntPtr` in `SafeFindFilesHandle` (prefer CsWin32-generated). Make `IDirectoryChangeStream` `IDisposable` / `IAsyncDisposable`; wire every caller. Expected diff: ~300 lines.
+- **M-4. CsWin32 expansion (absorbs NuGet §1 / N-1).** Migrate 15+ hand-rolled `[DllImport]`s in `WindowsShellService.cs`, `NtfsFileIdentityService.cs`, `FileIdentityInterop.cs` into `NativeMethods.txt`. Add `IFileIsInUse`, `RmStartSession/Register/Get/End`, `SHObjectProperties`, `ShellExecuteExW`, `CoInitializeEx`/`CoUninitialize`, `CfGetPlaceholderStateFromAttributeTag`, `RegNotifyChangeKeyValue`. Introduce `ShellInterop`, `RestartManagerInterop`, `CloudFilesInterop` adapter pairs. Split into M-4a (shell/OLE) + M-4b (Restart Manager + Cloud Files + registry) if the diff exceeds 400 lines. Expected total diff: ~600 lines.
+- **M-5. CopyFile2 upgrade (absorbs NuGet §2 / N-4).** Route the copy path through `PInvoke.CopyFile2` with `COPYFILE2_CALLBACK_PROGRESS`. Manual check: cancel a 10 GB copy; aborts within 500 ms. Expected diff: ~250 lines.
+
+Handoff notes: `native-batch-1.md` through `native-batch-5.md` (M-4 may span `native-batch-4a.md` + `native-batch-4b.md`).
+
+### 3.4. `SPEC_PERF_LOW_HANGING_FRUIT.md` — 3 batches (**Fourth**)
+
+Small, targeted micro-optimizations in hot paths that came up during the review. Each batch is ≤ 50 LOC net, no new dependencies, invisible to users except via allocation / CPU profiles.
+
+- **P-1. Memoize `NormalizedPath.DisplayPath`.** Compute the display-form string at struct construction and store it in an init-only `DisplayPath` property. Eliminates per-access substring allocation from `UniqueKey`, inspector loaders, and log formatting. ~15 LOC + 4 unit tests.
+- **P-2. Collapse double `ToHashSet()` in `FilePaneViewModel.ApplyWatcherBatch`.** Build the selected-paths hash set once and mutate in place for rename reconciliation instead of rebuilding via `.Select(…).ToHashSet()`. ~20 LOC + 1 regression test. May be combined with P-1 in a single batch if the net diff stays under 50 LOC.
+- **P-3. Cache `FileEntryViewModel.LastWriteTime` / `CreationTime`.** Compute the formatted strings once in the constructor; switch the format to `CultureInfo.InvariantCulture` to avoid locale-dependent year rendering. Saves allocations on every row realization / inspector read. ~30 LOC + 4 unit tests.
+
+Handoff notes: `perf-batch-1.md` through `perf-batch-3.md`.
+
+### 3.5. `SPEC_KEYBOARD_SHORTCUTS_GAPS.md` — 3 batches
+
+- **K-1. `ShortcutRegistry` + existing shortcuts migrated.** Create `src/WinUiFileManager.Presentation/Input/ShortcutRegistry.cs` per the spec §3, populate with every currently-working shortcut, and refactor `MainShellView.OnPreviewKeyDown` + command-bar tooltips to read from the registry. Zero behavior change. Verify the before/after table in keyboard-spec §17 matches exactly. Expected diff: ~400 lines (mostly a `Default` static populated from existing bindings + one reader site per accelerator).
+- **K-2. Missing global shortcuts + keyboard-spec doc edits.** In this order:
+  1. Migrate the already-wired `F2` + `Shift+F6` (shipped in U-4) into the registry's `InlineRename` context so they route through the same surface as the others.
+  2. Add `Alt+Up` (§4.4), `Alt+Enter` (§4.3), `Shift+Delete` (§4.2) plus the `Ctrl+Home`/`Ctrl+End` correction (§4.5).
+  3. Update `winui-file-manager-keyboard-shortcuts-spec.md`: §12.9 heading → "Rename in place (`F2`, `Shift+F6`)" (drop "dialog input" wording); §17 table Rename row → `F2, Shift+F6`; §17 Parent directory row → `Backspace, Ctrl+PageUp, Alt+Up`.
+- **K-3. Navigation history + `Alt+Left` / `Alt+Right`.** Add `PaneNavigationHistory` per spec §4.6, expose `GoBackCommand` / `GoForwardCommand` on `FilePaneViewModel`, and add the shell-level key routing. Tests cover the 50-entry cap, forward-stack clearing on non-history navigation, and the inert back/forward at stack boundaries. History is in-memory only — explicit non-goal per the spec.
 
 Handoff notes: `keyboard-batch-1.md` through `keyboard-batch-3.md`.
 
-### 3.5. `SPEC_BUG_FIXES.md` — 5 batches (by severity clusters)
+### 3.6. `SPEC_BUG_FIXES.md` — 5 batches (by severity cluster)
 
-- **B-1. Idle CPU + ShellExecute + cancellation.** B1, B3. B2 is deferred to spec 7 (long paths); do not fix here.
+- **B-1. Idle CPU + ShellExecute + cancellation.** B1 only. B2 is subsumed by `SPEC_LONG_PATHS.md` and must not be fixed here. B3 (swallowed `OperationCanceledException`) is absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2 — if B-1 lands before M-2, skip B3.
 - **B-2. Watcher stability.** B4 backoff + B5 sync-over-async removal + B8 async-void setter.
 - **B-3. Volume probing.** B6 (volume cache) + B12 (DirectoryExists off UI thread).
-- **B-4. Repository and close flow.** B8 JSON per-item failure, B9 ReleaseComObject, B13 double-close race.
+- **B-4. Repository and close flow.** B8 JSON per-item failure, B13 double-close race. B9 (`Marshal.ReleaseComObject`) is absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2 — if B-4 lands before M-2, skip B9.
 - **B-5. Cleanup.** B10 NavigateUp edge case, B11 clipboard off UI thread, B14 inspector LINQ.
 
 Every batch writes regression tests where the spec calls for them.
 
 Handoff notes: `bugs-batch-1.md` through `bugs-batch-5.md`.
 
-### 3.6. `SPEC_NUGET_MODERNIZATION.md` (remainder) — 4 batches
+### 3.7. `SPEC_NUGET_MODERNIZATION.md` (remainder) — 2 batches
 
-- **N-1. CsWin32 expansion (§1).** Move every `[DllImport]` from `NtfsFileIdentityService`, `WindowsShellService`, `FileIdentityInterop` into `NativeMethods.txt`. Split into two sub-batches if diff exceeds 400 lines: shell/OLE APIs first, then Restart Manager + Cloud Files. The spec lists the exact additions.
-- **N-2. Serilog (§5).** Wire the logger in `ServiceConfiguration`; sinks + rolling + async.
-- **N-3. HighPerformance + thumbnail pooling (§3, §4/§7).** `StringPool` for extensions; `ArrayPool<byte>.Shared` for thumbnail copy.
-- **N-4. CopyFile2 upgrade (§2).** Progress callback wiring. Manual check: cancel a 10 GB copy; aborts within 500 ms.
+§1 (CsWin32 expansion, was N-1) and §2 (CopyFile2 upgrade, was N-4) were absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-4 / M-5. Only the following remain:
 
-Handoff notes: `nuget-batch-1.md` through `nuget-batch-4.md`.
+- **N-2. Serilog (§5).** Wire the logger in `ServiceConfiguration`; file + async + rolling sinks.
+- **N-3. HighPerformance + thumbnail pooling (§3, §4/§7).** `StringPool` for extensions; `ArrayPool<byte>.Shared` for thumbnail copy. Deferred per user direction — schedule only after features spec Sprint A or on explicit request.
 
-### 3.7. `SPEC_LONG_PATHS.md` — 5 batches
+Handoff notes: `nuget-batch-2.md`, `nuget-batch-3.md`.
+
+### 3.8. `SPEC_LONG_PATHS.md` — 5 batches
 
 - **L-1. Domain + capability policy.** Add `PathLength`, `PathCapability`, `IPathCapabilityPolicy`, `DefaultPathCapabilityPolicy`. No consumers yet.
-- **L-2. Service guards.** Wire `WindowsShellService`, `NtfsFileIdentityService` (Thumbnail / Cloud / Locks), add the `Unsupported` sentinels. Subsumes bug B2 here: `OpenWithDefaultAppAsync` uses `DisplayPath` and is gated.
-- **L-3. UI disable + tooltips + LONG chip.** CanExecute plumbing on all affected `[RelayCommand]`s; per-pane LONG chip; tooltip switching.
-- **L-4. Inspector batch gating.** Per-batch `RequiredCapability`; Inspector orchestrator emits `Unsupported`; `"Unavailable (extended-length path)"` rendering.
-- **L-5. Long-paths toolbar toggle + RegNotify.** `ILongPathsEnvironment` with `Changed` event via `RegNotifyChangeKeyValue`; the toolbar `AppBarToggleButton`; `SetEnabledAsync` via elevated `reg.exe`. Requires the CsWin32 additions from N-1 (`RegNotifyChangeKeyValue`).
+- **L-2. Service guards.** Wire `WindowsShellService`, `NtfsFileIdentityService` (Thumbnail / Cloud / Locks); add the `Unsupported` sentinels. Subsumes bug B2: `OpenWithDefaultAppAsync` uses `DisplayPath` and is gated.
+- **L-3. UI disable + tooltips + LONG chip.** `CanExecute` plumbing on every affected `[RelayCommand]`; per-pane LONG chip; tooltip switching.
+- **L-4. Inspector batch gating.** Per-batch `RequiredCapability`; the Inspector orchestrator emits `Unsupported`; `"Unavailable (extended-length path)"` rendering.
+- **L-5. Long-paths toolbar toggle + `RegNotify`.** `ILongPathsEnvironment` with a `Changed` event via `RegNotifyChangeKeyValue`; the toolbar `AppBarToggleButton`; `SetEnabledAsync` via elevated `reg.exe`. Requires M-4's `RegNotifyChangeKeyValue` import.
 
 Handoff notes: `long-paths-batch-1.md` through `long-paths-batch-5.md`.
 
-### 3.8. `SPEC_FEATURE_LOW_HANGING_FRUIT.md` — one batch per feature
+### 3.9. `SPEC_FEATURE_LOW_HANGING_FRUIT.md` — one batch per feature
 
-Each feature `F1..F15` (minus `F11` which is subsumed and `F4` external-editor which is deferred) is its own batch. The feature spec already defines the scope per feature; agents do not further split unless a feature exceeds the §2 limits.
+Each feature `F1..F15` (minus `F11`, which is already delivered by spec 3; and `D1` favourites-popup polish, which is deferred per the roadmap) is its own batch. The feature spec already defines scope per feature; agents do not further split unless a feature exceeds the §2 limits. Start with Sprint A (F1 quick filter, F4 reveal-in-Explorer / terminal-here, F15 hidden toggle) per the feature spec's sprint plan.
+
+Note: the `F4` key *binding* to an external editor (`SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §5.3) is deferred and is a distinct item from the `F4` *feature* in this spec — the feature ships; the key binding does not.
 
 ## 4. Handoff-note format
 
@@ -144,7 +186,20 @@ When a new agent begins mid-roadmap, it reads, in order:
 
 The agent **does not re-read** prior handoff notes for the same spec unless the current note's "Surprises" section points to them. This keeps context bounded.
 
-If `docs/progress/` is empty, the agent starts at batch #1 of spec #1 (tooling).
+If `docs/progress/` is empty, look at §3 — the topmost entry is the active batch.
+
+### 5.1. Current resumption point
+
+The active batch is **U-4 (in-cell rename)** — see §3.1. Code is on `master`; what remains is the §8.4 manual verification pass, after which `ui-layout-batch-4.md` flips from `in progress` to `complete`. The chain after U-4 closes:
+
+1. **U-5** status-bar XAML cleanup (§3.1) — same spec.
+2. **R-1 → R-2 → R-3** (`SPEC_RENAME_BUGS.md`, §3.2) — fix the three rename defects.
+3. **M-1 → M-2 → M-3 → M-4 → M-5** (`SPEC_NATIVE_MODERNIZATION.md`, §3.3) — handle-safety modernization.
+4. **P-1 → P-2 → P-3** (`SPEC_PERF_LOW_HANGING_FRUIT.md`, §3.4) — three micro-optimizations.
+5. **K-1** (`SPEC_KEYBOARD_SHORTCUTS_GAPS.md` §3, §3.5) — `ShortcutRegistry` migration.
+6. Then K-2, K-3, B-1…B-5, N-2, L-1…L-5, features.
+
+A fresh agent should read the topmost in-progress handoff note (`ui-layout-batch-4.md` today) plus the section of this plan that names their current batch.
 
 ## 6. Red-flag signals — stop and ask
 
@@ -153,7 +208,7 @@ An agent should stop and ask a human if any of the following happen mid-batch:
 - The acceptance checklist for the current batch references a file or type that does not exist in the repo. Likely cause: an earlier batch left off half-done.
 - A banned-API violation cannot be cleanly routed through the approved service layer. Likely cause: the capability matrix needs extension.
 - More than one batch's worth of refactoring is needed to land the current batch without breaking the build. Likely cause: the spec's cut points were wrong and need a re-plan.
-- Manual verification steps produce a different result than the spec predicts (e.g., splitter still slow after U-1 and U-2). Likely cause: the root-cause analysis in the spec was incomplete.
+- Manual verification steps produce a different result than the spec predicts (e.g., a bug-fix batch's acceptance test still reproduces the bug). Likely cause: the root-cause analysis in the spec was incomplete.
 
 Ask by writing the question into the handoff note under "Surprises" and stopping the batch at its last green commit. Do not proceed.
 
@@ -167,7 +222,7 @@ Ask by writing the question into the handoff note under "Surprises" and stopping
 
 This plan is followed correctly when:
 
-- Every spec in `SPEC_DELIVERY_ROADMAP.md` has at least one corresponding handoff note per batch in `docs/progress/`.
+- Every batch listed in §3 produces a corresponding handoff note in `docs/progress/` when it lands. (Historical batches that shipped before this plan became strict are recorded in `git log`; new batches always write notes.)
 - No batch has more than ~400 net diff lines (excluding generated files) without a cited justification in its note.
 - `main` is green on every checkpoint commit.
-- A fresh agent can continue the roadmap given only the roadmap, this plan, the latest handoff note, and the repo. No human Q&A required.
+- A fresh agent can continue the roadmap given only `SPEC_DELIVERY_ROADMAP.md`, this plan, the latest handoff note, and the repo. No human Q&A required.

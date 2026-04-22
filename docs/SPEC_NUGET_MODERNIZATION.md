@@ -11,6 +11,8 @@ Ordering is chronological: do the top of the list first, it unblocks later items
 
 ## 1. Expand CsWin32 to replace hand-rolled `DllImport`s
 
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-4.** The native-modernization spec is the authoritative source for the CsWin32 expansion; it also introduces the `ShellInterop` / `RestartManagerInterop` / `CloudFilesInterop` adapters and adds `RegNotifyChangeKeyValue` (for L-5). Content in this section is kept for reference.
+
 CsWin32 is already referenced in `WinUiFileManager.Interop` but is under-used: `NtfsFileIdentityService` and `WindowsShellService` still contain manual `[DllImport]` blocks.
 
 ### 1.1. Add the missing Win32 APIs to `NativeMethods.txt`
@@ -70,6 +72,8 @@ Replace raw `IntPtr` file handles with the generated safe wrappers. `NtfsFileIde
 - Existing tests continue to pass without modification (interfaces unchanged from the caller's perspective).
 
 ## 2. Upgrade CopyFile path to `CopyFile2` with a progress callback
+
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-5.** The native-modernization spec is the authoritative source for the `CopyFile2` upgrade. Content here is kept for reference.
 
 Currently `FileOperationInterop.CopyFile` delegates to `File.Copy`. For 100K-file copies that's fine; for a single 10 GB file the user cannot cancel mid-copy.
 

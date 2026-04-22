@@ -46,6 +46,8 @@ _directoryWatchSubscription = _directoryChangeStream
 
 ## B3. Swallowed `OperationCanceledException` in `NtfsFileIdentityService`
 
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2.** Do not fix this ticket in a B-* batch — fix lands with the native-modernization cancellation-contract pass. If `SPEC_BUG_FIXES.md` B-1 lands before M-2, it skips B3; B-1 keeps only its B1 scope.
+
 **Severity:** High. Inspector paints stale data for cancelled requests; violates the cancellation contract.
 
 **File:** `src/WinUiFileManager.Infrastructure/FileSystem/NtfsFileIdentityService.cs`
@@ -250,6 +252,8 @@ Apply the same pattern to `JsonSettingsRepository` (a bad persisted path on any 
 **Verify.** Hand-edit `%LocalAppData%\WinUiFileManager\favourites.json` to add a favourite with `"path": ""`; restart; other favourites still load; warning in the log.
 
 ## B9. `ReleaseComObject` is not sufficient for RCW with multiple refs
+
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2.** Do not fix this ticket in a B-* batch — `Marshal.ReleaseComObject` will also be added to `BannedSymbols.txt` there. If `SPEC_BUG_FIXES.md` B-4 lands before M-2, it skips B9.
 
 **Severity:** Low. Minor native-memory leak in `TryGetFileIsInUse`.
 

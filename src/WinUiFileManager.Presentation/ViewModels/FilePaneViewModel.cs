@@ -60,6 +60,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public partial FileEntryViewModel? CurrentItem { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ItemCountDisplay))]
     public partial string? IncrementalSearchText { get; private set; }
 
     [ObservableProperty]
@@ -123,6 +124,34 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public bool IsInteractive => !IsLoading;
 
     public FileEntryViewModel? ActiveEditingEntry => _activeEditingEntry;
+
+    public string PaneLabel => PaneId == PaneId.Left ? "Left" : "Right";
+
+    public string ItemCountDisplay => string.IsNullOrEmpty(IncrementalSearchText)
+        ? $"{ItemCount} items"
+        : $"{ItemCount} items | Search: {IncrementalSearchText}";
+
+    public string SelectedDisplay
+    {
+        get
+        {
+            var selectedLine = $"{SelectedCount} selected";
+            if (SelectedCount == 0)
+            {
+                return selectedLine;
+            }
+
+            var bytes = _sortedItems
+                .Where(static item => item is { IsSelected: true, IsParentEntry: false } && item.SizeBytes >= 0)
+                .Sum(static item => item.SizeBytes);
+            if (bytes > 0)
+            {
+                selectedLine += $" ({FormatByteSize(bytes)})";
+            }
+
+            return selectedLine;
+        }
+    }
 
     public void SetSort(SortColumn column)
     {
@@ -385,6 +414,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public void NotifySelectionChanged()
     {
         OnPropertyChanged(nameof(SelectedCount));
+        OnPropertyChanged(nameof(SelectedDisplay));
     }
 
     public void BeginRenameCurrent()
@@ -566,7 +596,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             CurrentItem ??= _sortedItems.FirstOrDefault(static i => !i.IsParentEntry) ?? _sortedItems.FirstOrDefault();
 
             NotifySelectionChanged();
-            OnPropertyChanged(nameof(ItemCount));
+            NotifyItemCountChanged();
             StartWatchingDirectory(path);
         }
         catch (OperationCanceledException)
@@ -773,7 +803,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         NotifySelectionChanged();
-        OnPropertyChanged(nameof(ItemCount));
+        NotifyItemCountChanged();
     }
 
     private FileEntryViewModel? ResolveEntryViewModel(NormalizedPath path)
@@ -899,7 +929,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         });
 
         NotifySelectionChanged();
-        OnPropertyChanged(nameof(ItemCount));
+        NotifyItemCountChanged();
     }
 
     private bool IsAtDriveRoot()
@@ -911,6 +941,28 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
         var display = _currentNormalizedPath.Value.DisplayPath;
         return display.Length <= 3 && display.EndsWith(@":\", StringComparison.Ordinal);
+    }
+
+    private void NotifyItemCountChanged()
+    {
+        OnPropertyChanged(nameof(ItemCount));
+        OnPropertyChanged(nameof(ItemCountDisplay));
+    }
+
+    private static string FormatByteSize(long bytes)
+    {
+        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
+        var suffixIndex = 0;
+        var size = (double)bytes;
+        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
+        {
+            size /= 1024;
+            suffixIndex++;
+        }
+
+        return suffixIndex == 0
+            ? $"{size:F0} {suffixes[suffixIndex]}"
+            : $"{size:F2} {suffixes[suffixIndex]}";
     }
 
     private sealed class WatcherBatch

@@ -51,10 +51,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public partial FilePaneViewModel RightPane { get; set; }
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ActivePaneLabel))]
     public partial FilePaneViewModel ActivePane { get; set; }
-
-    [ObservableProperty]
-    public partial string StatusText { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial FileInspectorViewModel Inspector { get; set; }
@@ -138,11 +136,10 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
         LeftPane = leftPane;
         RightPane = rightPane;
+        leftPane.PaneId = PaneId.Left;
+        rightPane.PaneId = PaneId.Right;
         ActivePane = leftPane;
         leftPane.IsActive = true;
-
-        leftPane.PropertyChanged += OnPanePropertyChanged;
-        rightPane.PropertyChanged += OnPanePropertyChanged;
 
         var inspectorSelections = CreateInspectorSelectionSignalObservable()
             .Select(forceRefresh => CreateCurrentInspectorSelection(forceRefresh))
@@ -198,12 +195,13 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public FilePaneViewModel InactivePane => ActivePane == LeftPane ? RightPane : LeftPane;
 
+    public string ActivePaneLabel => $"{ActivePane.PaneLabel} active";
+
     partial void OnActivePaneChanged(FilePaneViewModel value)
     {
         LeftPane.IsActive = value == LeftPane;
         RightPane.IsActive = value == RightPane;
         OnPropertyChanged(nameof(InactivePane));
-        UpdateStatusText();
     }
 
     [RelayCommand]
@@ -251,7 +249,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Copy operation failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -294,7 +291,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Move operation failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -333,7 +329,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Delete operation failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -367,7 +362,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Create folder operation failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -400,7 +394,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Copy full path failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -434,7 +427,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Add favourite failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -449,7 +441,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Remove favourite failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -467,7 +458,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Open favourite failed");
-            StatusText = $"Error: {ex.Message}";
         }
     }
 
@@ -507,7 +497,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 NavigateWithFallbackAsync(RightPane, rightPath, defaultPath));
 
             ActivePane = _currentSettings.LastActivePane == PaneId.Right ? RightPane : LeftPane;
-            UpdateStatusText();
         }
         catch (Exception ex)
         {
@@ -556,12 +545,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public event EventHandler? FocusActivePaneRequested;
 
-    public void UpdateStatusText()
-    {
-        var paneName = ActivePane.PaneId == PaneId.Left ? "Left" : "Right";
-        StatusText = $"{paneName} | {ActivePane.ItemCount} items | {ActivePane.SelectedCount} selected | {ActivePane.CurrentPath}";
-    }
-
     private async Task LoadFavouritesAsync()
     {
         var items = await _favouritesRepository.GetAllAsync(CancellationToken.None);
@@ -576,26 +559,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private void ToggleInspector()
     {
         IsInspectorVisible = !IsInspectorVisible;
-    }
-
-    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (sender is not FilePaneViewModel pane)
-        {
-            return;
-        }
-
-        if (pane != ActivePane)
-        {
-            return;
-        }
-
-        if (e.PropertyName is nameof(FilePaneViewModel.CurrentItem)
-            or nameof(FilePaneViewModel.SelectedCount)
-            or nameof(FilePaneViewModel.IsLoading))
-        {
-            UpdateStatusText();
-        }
     }
 
     private IObservable<bool> CreateInspectorSelectionSignalObservable()
@@ -679,8 +642,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        LeftPane.PropertyChanged -= OnPanePropertyChanged;
-        RightPane.PropertyChanged -= OnPanePropertyChanged;
         _inspectorImmediateSubscription.Dispose();
         _inspectorDeferredSubscription.Dispose();
         Inspector.Dispose();

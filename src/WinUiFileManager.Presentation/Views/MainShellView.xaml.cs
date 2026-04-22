@@ -1,5 +1,4 @@
 using System.ComponentModel;
-using System.Linq;
 using Microsoft.UI.Input;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -39,19 +38,12 @@ public sealed partial class MainShellView : UserControl
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.FocusActivePaneRequested += OnFocusActivePaneRequested;
 
-        viewModel.LeftPane.PropertyChanged += OnPanePropertyChanged;
-        viewModel.RightPane.PropertyChanged += OnPanePropertyChanged;
-
         LeftPaneView.PaneActivationRequested += () => ActivatePane(PaneId.Left);
         RightPaneView.PaneActivationRequested += () => ActivatePane(PaneId.Right);
 
-        UpdateStatusBar();
         UpdateActivePaneBorders();
         UpdateInspectorLayout();
     }
-
-    private void OnPanePropertyChanged(object? sender, PropertyChangedEventArgs e) =>
-        DispatcherQueue.TryEnqueue(UpdateStatusBar);
 
     private void ActivatePane(PaneId paneId)
     {
@@ -202,7 +194,6 @@ public sealed partial class MainShellView : UserControl
             switch (e.PropertyName)
             {
                 case nameof(MainShellViewModel.ActivePane):
-                    UpdateStatusBar();
                     UpdateActivePaneBorders();
                     break;
                 case nameof(MainShellViewModel.IsInspectorVisible):
@@ -210,56 +201,6 @@ public sealed partial class MainShellView : UserControl
                     break;
             }
         });
-    }
-
-    private void UpdateStatusBar()
-    {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
-        var active = ViewModel.ActivePane;
-        var paneName = active.PaneId == PaneId.Left ? "Left" : "Right";
-        ActivePaneText.Text = $"{paneName} active";
-        PathText.Text = active.CurrentPath;
-
-        var itemsLine = $"{active.ItemCount} items";
-        if (!string.IsNullOrEmpty(active.IncrementalSearchText))
-        {
-            itemsLine += $" | Search: {active.IncrementalSearchText}";
-        }
-        ItemCountText.Text = itemsLine;
-
-        var selectedLine = $"{active.SelectedCount} selected";
-        if (active.SelectedCount > 0)
-        {
-            var bytes = active.Items
-                .Where(static i => i.IsSelected && !i.IsParentEntry && i.SizeBytes >= 0)
-                .Sum(static i => i.SizeBytes);
-            if (bytes > 0)
-            {
-                selectedLine += $" ({FormatByteSize(bytes)})";
-            }
-        }
-
-        SelectedText.Text = selectedLine;
-    }
-
-    private static string FormatByteSize(long bytes)
-    {
-        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
-        var suffixIndex = 0;
-        var size = (double)bytes;
-        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
-        {
-            size /= 1024;
-            suffixIndex++;
-        }
-
-        return suffixIndex == 0
-            ? $"{size:F0} {suffixes[suffixIndex]}"
-            : $"{size:F2} {suffixes[suffixIndex]}";
     }
 
     private void UpdateActivePaneBorders()

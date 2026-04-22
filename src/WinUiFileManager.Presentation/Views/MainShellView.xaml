@@ -133,10 +133,27 @@
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="ActivePaneText" Grid.Column="0" Text="Left" VerticalAlignment="Center" FontWeight="SemiBold" />
-            <TextBlock x:Name="PathText" Grid.Column="1" Margin="16,0,0,0" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-            <TextBlock x:Name="ItemCountText" Grid.Column="2" Margin="16,0,0,0" VerticalAlignment="Center" />
-            <TextBlock x:Name="SelectedText" Grid.Column="3" Margin="16,0,0,0" VerticalAlignment="Center" />
+            <TextBlock x:Name="ActivePaneText"
+                       Grid.Column="0"
+                       VerticalAlignment="Center"
+                       FontWeight="SemiBold"
+                       Text="{x:Bind ViewModel.ActivePaneLabel, Mode=OneWay}" />
+            <TextBlock x:Name="PathText"
+                       Grid.Column="1"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="{x:Bind ViewModel.ActivePane.CurrentPath, Mode=OneWay}"
+                       TextTrimming="CharacterEllipsis" />
+            <TextBlock x:Name="ItemCountText"
+                       Grid.Column="2"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="{x:Bind ViewModel.ActivePane.ItemCountDisplay, Mode=OneWay}" />
+            <TextBlock x:Name="SelectedText"
+                       Grid.Column="3"
+                       Margin="16,0,0,0"
+                       VerticalAlignment="Center"
+                       Text="{x:Bind ViewModel.ActivePane.SelectedDisplay, Mode=OneWay}" />
         </Grid>
     </Grid>
 </UserControl>

@@ -75,6 +75,16 @@ public sealed partial class FilePaneView
         EntryTable.CaptureColumnLayoutIntoHost();
     }
 
+    public void FreezeFileTableWidth()
+    {
+        EntryTable.FreezeCurrentWidth();
+    }
+
+    public void ReleaseFileTableWidth()
+    {
+        EntryTable.ReleaseFrozenWidth();
+    }
+
     public void SetActive(bool isActive)
     {
         PaneBorder.BorderThickness = isActive ? new Thickness(2) : new Thickness(1);

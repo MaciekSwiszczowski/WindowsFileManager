@@ -109,7 +109,8 @@
             </Grid.ColumnDefinitions>
 
             <panels:FilePaneView x:Name="LeftPaneView" Grid.Column="0" />
-            <toolkit:GridSplitter Grid.Column="1"
+            <toolkit:GridSplitter x:Name="PaneGridSplitter"
+                                  Grid.Column="1"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
                                   DragIncrement="8"
                                   KeyboardIncrement="8"

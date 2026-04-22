@@ -67,6 +67,8 @@ public sealed partial class FileEntryTableView : UserControl
 
     private bool _syncingSelection;
     private bool _endingNameCellEdit;
+    private bool _isWidthFrozen;
+    private HorizontalAlignment _widthFreezeRestoreAlignment = HorizontalAlignment.Stretch;
     private FilePaneViewModel? _currentItemSyncHost;
 
     public FileEntryTableView()
@@ -179,6 +181,41 @@ public sealed partial class FileEntryTableView : UserControl
     public void ApplyColumnResizeFromOptions()
     {
         FileTable.CanResizeColumns = FilePaneDisplayOptions.EnableColumnResize;
+    }
+
+    public void FreezeCurrentWidth()
+    {
+        if (_isWidthFrozen)
+        {
+            return;
+        }
+
+        var currentWidth = FileTable.ActualWidth;
+        if (currentWidth <= 0d)
+        {
+            return;
+        }
+
+        // Freezing the TableView width during splitter drags prevents the
+        // control from re-measuring its realized rows on every intermediate
+        // pane-width change. The splitter still resizes the surrounding shell;
+        // the table rejoins normal stretch layout once the drag ends.
+        _widthFreezeRestoreAlignment = FileTable.HorizontalAlignment;
+        FileTable.Width = currentWidth;
+        FileTable.HorizontalAlignment = HorizontalAlignment.Left;
+        _isWidthFrozen = true;
+    }
+
+    public void ReleaseFrozenWidth()
+    {
+        if (!_isWidthFrozen && double.IsNaN(FileTable.Width))
+        {
+            return;
+        }
+
+        FileTable.Width = double.NaN;
+        FileTable.HorizontalAlignment = _widthFreezeRestoreAlignment;
+        _isWidthFrozen = false;
     }
 
     private void FileEntryTableView_Loaded(object sender, RoutedEventArgs e)

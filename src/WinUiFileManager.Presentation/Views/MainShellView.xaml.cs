@@ -13,10 +13,16 @@ namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView : UserControl
 {
+    private bool _fileTablesFrozenForSplitterDrag;
+
     public MainShellView()
     {
         InitializeComponent();
         PreviewKeyDown += OnPreviewKeyDown;
+
+        RegisterSplitterHandlers(PaneGridSplitter);
+        RegisterSplitterHandlers(InspectorGridSplitter);
+        RegisterGlobalPointerReleaseHandlers();
     }
 
     public Action? ToggleThemeAction { get; set; }
@@ -124,6 +130,64 @@ public sealed partial class MainShellView : UserControl
 
     private void OnCopyPathClick(object sender, RoutedEventArgs e) =>
         ViewModel?.CopyFullPathCommand.Execute(null);
+
+    private void RegisterSplitterHandlers(UIElement splitter)
+    {
+        splitter.AddHandler(
+            UIElement.PointerPressedEvent,
+            new PointerEventHandler(OnSplitterPointerPressed),
+            handledEventsToo: true);
+    }
+
+    private void RegisterGlobalPointerReleaseHandlers()
+    {
+        AddHandler(
+            UIElement.PointerReleasedEvent,
+            new PointerEventHandler(OnGlobalPointerReleased),
+            handledEventsToo: true);
+        AddHandler(
+            UIElement.PointerCanceledEvent,
+            new PointerEventHandler(OnGlobalPointerReleased),
+            handledEventsToo: true);
+        AddHandler(
+            UIElement.PointerCaptureLostEvent,
+            new PointerEventHandler(OnGlobalPointerReleased),
+            handledEventsToo: true);
+    }
+
+    private void OnSplitterPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        FreezeFileTablesForSplitterDrag();
+    }
+
+    private void OnGlobalPointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        ReleaseFileTablesAfterSplitterDrag();
+    }
+
+    private void FreezeFileTablesForSplitterDrag()
+    {
+        if (_fileTablesFrozenForSplitterDrag)
+        {
+            return;
+        }
+
+        LeftPaneView.FreezeFileTableWidth();
+        RightPaneView.FreezeFileTableWidth();
+        _fileTablesFrozenForSplitterDrag = true;
+    }
+
+    private void ReleaseFileTablesAfterSplitterDrag()
+    {
+        if (!_fileTablesFrozenForSplitterDrag)
+        {
+            return;
+        }
+
+        LeftPaneView.ReleaseFileTableWidth();
+        RightPaneView.ReleaseFileTableWidth();
+        _fileTablesFrozenForSplitterDrag = false;
+    }
 
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {

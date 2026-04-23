@@ -3,6 +3,7 @@ namespace WinUiFileManager.App.Composition;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
@@ -18,6 +19,8 @@ public static class ServiceConfiguration
         var services = new ServiceCollection();
 
         services.AddLogging();
+        services.AddSingleton(new FileInspectorInteropOptions(
+            FileInspectorInteropCategories.All));
 
         services.AddInfrastructureServices();
 

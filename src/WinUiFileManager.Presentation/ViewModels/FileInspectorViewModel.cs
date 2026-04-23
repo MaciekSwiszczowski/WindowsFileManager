@@ -10,6 +10,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using Windows.Storage.Streams;

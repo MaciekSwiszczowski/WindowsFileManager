@@ -11,6 +11,7 @@ using Windows.Storage.FileProperties;
 using Windows.Storage.Provider;
 using Windows.Storage.Streams;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Interop.Adapters;
 using WinUiFileManager.Interop.SafeHandles;
@@ -33,20 +34,31 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     internal static Func<IStorageItem?, CancellationToken, Task<(string SyncState, string TransferState, string CustomStatus)>> CloudPropertyValuesProvider { get; set; } =
         static (storageItem, _) => TryGetCloudPropertyValuesAsync(storageItem);
 
+    private static readonly FileNtfsMetadataDetails EmptyNtfsMetadataDetails =
+        new(0, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue);
+
     private readonly IFileIdentityInterop _fileIdentityInterop;
     private readonly ICloudFilesInterop _cloudFilesInterop;
+    private readonly FileInspectorInteropOptions _interopOptions;
 
     public NtfsFileIdentityService(
         IFileIdentityInterop fileIdentityInterop,
-        ICloudFilesInterop cloudFilesInterop)
+        ICloudFilesInterop cloudFilesInterop,
+        FileInspectorInteropOptions? interopOptions = null)
     {
         _fileIdentityInterop = fileIdentityInterop;
         _cloudFilesInterop = cloudFilesInterop;
+        _interopOptions = interopOptions ?? FileInspectorInteropOptions.AllEnabled;
     }
 
     public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Identity))
+        {
+            return Task.FromResult(NtfsFileId.None);
+        }
 
         try
         {
@@ -62,6 +74,16 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     public Task<FileIdentityDetails> GetIdentityDetailsAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Identity))
+        {
+            return Task.FromResult(new FileIdentityDetails(
+                NtfsFileId.None,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                path));
+        }
 
         try
         {
@@ -105,6 +127,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     public Task<FileNtfsMetadataDetails> GetNtfsMetadataDetailsAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Identity))
+        {
+            return Task.FromResult(EmptyNtfsMetadataDetails);
+        }
 
         try
         {
@@ -168,6 +195,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Cloud))
+        {
+            return FileCloudDiagnosticsDetails.None;
+        }
+
         try
         {
             var attributes = File.GetAttributes(path);
@@ -215,6 +247,16 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Links))
+        {
+            return Task.FromResult(new FileLinkDiagnosticsDetails(
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty));
+        }
+
         try
         {
             FileSystemInfo fsi = File.Exists(path) ? new FileInfo(path) : new DirectoryInfo(path);
@@ -255,6 +297,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Streams))
+        {
+            return Task.FromResult(new FileStreamDiagnosticsDetails("0", []));
+        }
+
         try
         {
             var streams = new List<string>();
@@ -294,6 +341,17 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     public Task<FileSecurityDiagnosticsDetails> GetSecurityDiagnosticsAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Security))
+        {
+            return Task.FromResult(new FileSecurityDiagnosticsDetails(
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                string.Empty,
+                null,
+                null));
+        }
 
         try
         {
@@ -336,6 +394,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     public async Task<FileThumbnailDiagnosticsDetails> GetThumbnailDiagnosticsAsync(string path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Thumbnails))
+        {
+            return new FileThumbnailDiagnosticsDetails(null, string.Empty);
+        }
 
         try
         {
@@ -384,6 +447,11 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (!IsInteropEnabled(FileInspectorInteropCategories.Locks))
+        {
+            return Task.FromResult(FileLockDiagnostics.None);
+        }
+
         var result = _fileIdentityInterop.GetLockDiagnostics(path);
         if (!result.Success)
         {
@@ -401,6 +469,9 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
         return Task.FromResult(diagnostics);
     }
+
+    private bool IsInteropEnabled(FileInspectorInteropCategories category) =>
+        _interopOptions.IsEnabled(category);
 
     private static SafeFileHandle OpenMetadataHandle(string path)
     {

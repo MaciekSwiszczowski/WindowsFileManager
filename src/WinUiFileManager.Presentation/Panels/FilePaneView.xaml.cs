@@ -152,6 +152,7 @@ public sealed partial class FilePaneView
         UpdateOverlay();
         UpdatePaneStatus();
         UpdatePaneInteractivity();
+        EntryTable.SyncSelectionFromHost();
     }
 
     private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -182,6 +183,7 @@ public sealed partial class FilePaneView
 
                 case nameof(FilePaneViewModel.SelectedCount):
                     UpdatePaneStatus();
+                    EntryTable.SyncSelectionFromHost();
                     break;
             }
         });

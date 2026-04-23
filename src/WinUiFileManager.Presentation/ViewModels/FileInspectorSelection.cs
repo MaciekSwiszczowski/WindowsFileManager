@@ -38,7 +38,7 @@ public sealed record FileInspectorSelection(
         }
 
         var entry = selectedEntries[0];
-        if (entry.IsParentEntry)
+        if (entry.EntryKind == FileEntryKind.Parent || entry.Model is not { } model)
         {
             return Empty(string.Empty, refreshVersion);
         }
@@ -48,15 +48,15 @@ public sealed record FileInspectorSelection(
             StatusMessage: string.Empty,
             CanLoadDeferred: true,
             RefreshVersion: refreshVersion,
-            FullPath: entry.Model.FullPath.DisplayPath,
+            FullPath: model.FullPath.DisplayPath,
             Name: entry.Name,
             Extension: entry.Extension,
-            Kind: entry.Kind,
-            SizeBytes: entry.SizeBytes,
-            CreationTimeUtc: entry.CreationTimeUtc,
-            LastWriteTimeUtc: entry.LastWriteTimeUtc,
+            Kind: model.Kind,
+            SizeBytes: model.Size,
+            CreationTimeUtc: model.CreationTimeUtc,
+            LastWriteTimeUtc: model.LastWriteTimeUtc,
             Attributes: entry.Attributes,
-            AttributesFlags: entry.Model.Attributes);
+            AttributesFlags: model.Attributes);
     }
 
     private static FileInspectorSelection Empty(string statusMessage, long refreshVersion)

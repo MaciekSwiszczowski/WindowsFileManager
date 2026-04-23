@@ -88,7 +88,7 @@ public sealed class FilePaneViewModelWatcherTests
         scheduler.AdvanceBy(OneSecondTicks);
 
         // Assert
-        await Assert.That(pane.Items.Any(i => !i.IsParentEntry && i.Name == "alpha.txt")).IsFalse();
+        await Assert.That(pane.Items.Any(i => i.EntryKind != FileEntryKind.Parent && i.Name == "alpha.txt")).IsFalse();
     }
 
     [Test]
@@ -111,8 +111,8 @@ public sealed class FilePaneViewModelWatcherTests
         scheduler.AdvanceBy(OneSecondTicks);
 
         // Assert
-        await Assert.That(pane.Items.Any(i => !i.IsParentEntry && i.Name == "old.txt")).IsFalse();
-        await Assert.That(pane.Items.Any(i => !i.IsParentEntry && i.Name == "new.txt")).IsTrue();
+        await Assert.That(pane.Items.Any(i => i.EntryKind != FileEntryKind.Parent && i.Name == "old.txt")).IsFalse();
+        await Assert.That(pane.Items.Any(i => i.EntryKind != FileEntryKind.Parent && i.Name == "new.txt")).IsTrue();
     }
 
     [Test]
@@ -123,9 +123,9 @@ public sealed class FilePaneViewModelWatcherTests
         var newFullPath = Path.Combine(fixture.RootPath, "new.txt");
         var (pane, scheduler, stream) = await CreateNavigatedPaneAsync(fixture);
         var watchedPath = pane.CurrentNormalizedPath!.Value;
-        var oldEntry = pane.Items.Single(i => !i.IsParentEntry && i.Name == "old.txt");
+        var oldEntry = pane.Items.Single(i => i.EntryKind != FileEntryKind.Parent && i.Name == "old.txt");
         pane.CurrentItem = oldEntry;
-        oldEntry.IsSelected = true;
+        pane.UpdateSelectionFromControl([oldEntry]);
 
         new FileInfo(oldFullPath).MoveTo(newFullPath);
         stream.Push(watchedPath, new DirectoryChange(
@@ -137,7 +137,7 @@ public sealed class FilePaneViewModelWatcherTests
 
         await Assert.That(pane.CurrentItem).IsNotNull();
         await Assert.That(pane.CurrentItem!.Name).IsEqualTo("new.txt");
-        await Assert.That(pane.CurrentItem.IsSelected).IsTrue();
+        await Assert.That(pane.GetExplicitSelectedEntries().Single().Name).IsEqualTo("new.txt");
         await Assert.That(pane.SelectedCount).IsEqualTo(1);
     }
 
@@ -149,7 +149,7 @@ public sealed class FilePaneViewModelWatcherTests
         var newFullPath = Path.Combine(fixture.RootPath, "new.txt");
         var (pane, scheduler, stream) = await CreateNavigatedPaneAsync(fixture);
         var watchedPath = pane.CurrentNormalizedPath!.Value;
-        var oldEntry = pane.Items.Single(i => !i.IsParentEntry && i.Name == "old.txt");
+        var oldEntry = pane.Items.Single(i => i.EntryKind != FileEntryKind.Parent && i.Name == "old.txt");
         pane.CurrentItem = oldEntry;
 
         new FileInfo(oldFullPath).MoveTo(newFullPath);
@@ -162,7 +162,7 @@ public sealed class FilePaneViewModelWatcherTests
 
         await Assert.That(pane.CurrentItem).IsNotNull();
         await Assert.That(pane.CurrentItem!.Name).IsEqualTo("new.txt");
-        await Assert.That(pane.CurrentItem.IsSelected).IsTrue();
+        await Assert.That(pane.GetExplicitSelectedEntries().Single().Name).IsEqualTo("new.txt");
         await Assert.That(pane.SelectedCount).IsEqualTo(1);
     }
 

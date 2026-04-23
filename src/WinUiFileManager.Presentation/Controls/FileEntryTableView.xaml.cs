@@ -149,6 +149,7 @@ public sealed partial class FileEntryTableView : UserControl
             }
 
             SyncTableViewKeyboardAnchor(0);
+            GridViewModel.Host?.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
         }
     }
 
@@ -161,11 +162,13 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         FileTable.SelectAll();
-        var parentEntry = host.Items.FirstOrDefault(static item => item.IsParentEntry);
+        var parentEntry = host.Items.FirstOrDefault(static item => item.EntryKind == FileEntryKind.Parent);
         if (parentEntry is not null && FileTable.SelectedItems.Contains(parentEntry))
         {
             FileTable.SelectedItems.Remove(parentEntry);
         }
+
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
     }
 
     public void ClearRowSelection()
@@ -295,6 +298,8 @@ public sealed partial class FileEntryTableView : UserControl
             SyncTableViewKeyboardAnchor(idx);
         }
 
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
+
         // Move the TableView's focused row (the one that shows the
         // accent border) to match CurrentItem. Without this the frame
         // lags behind after programmatic navigation, e.g. after going
@@ -389,26 +394,25 @@ public sealed partial class FileEntryTableView : UserControl
         _syncingSelection = true;
         try
         {
-            foreach (var added in e.AddedItems.OfType<FileEntryViewModel>())
-            {
-                added.IsSelected = true;
-            }
-            foreach (var removed in e.RemovedItems.OfType<FileEntryViewModel>())
-            {
-                removed.IsSelected = false;
-            }
-
             if (FileTable.SelectedItem is FileEntryViewModel entry)
             {
                 host.CurrentItem = entry;
-            }
 
-            host.NotifySelectionChanged();
+                var rowIndex = host.Items.IndexOf(entry);
+                if (rowIndex >= 0)
+                {
+                    FileTable.CurrentCellSlot = new TableViewCellSlot(rowIndex, FileTable.Columns.IndexOf(NameColumn));
+                    SyncTableViewKeyboardAnchor(rowIndex);
+                }
+            }
         }
         finally
         {
             _syncingSelection = false;
         }
+
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
+        MoveFocusToCurrentItem();
     }
 
     private void OnFileTableDoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -498,6 +502,7 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         SyncTableViewKeyboardAnchor(rowIndex);
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
 
         if (TryGetCellFromSlot(slot) is not TableViewCell cell)
         {
@@ -549,7 +554,7 @@ public sealed partial class FileEntryTableView : UserControl
 
         if (FindDescendant<TextBox>(e.EditingElement) is TextBox textBox)
         {
-            entry.EditBuffer = textBox.Text;
+            host.EditBuffer = textBox.Text;
         }
 
         if (e.EditAction == TableViewEditAction.Cancel)
@@ -558,14 +563,14 @@ public sealed partial class FileEntryTableView : UserControl
             return;
         }
 
-        if (!entry.IsEditing)
+        if (!host.IsEditing)
         {
             return;
         }
 
         e.Cancel = true;
 
-        var commitSucceeded = await host.CommitRenameAsync(entry, entry.EditBuffer, CancellationToken.None);
+        var commitSucceeded = await host.CommitRenameAsync(entry, host.EditBuffer, CancellationToken.None);
         if (commitSucceeded)
         {
             CompleteNameCellEdit(e.Cell, entry, TableViewEditAction.Commit, entry.Name);
@@ -702,8 +707,7 @@ public sealed partial class FileEntryTableView : UserControl
             case VirtualKey.Space when !ctrl:
                 if (FileTable.SelectedItem is FileEntryViewModel spaceSelected)
                 {
-                    host.ToggleSelection(spaceSelected);
-                    SyncSelectionFromHost();
+                    ToggleSelection(spaceSelected);
                     e.Handled = true;
                 }
                 break;
@@ -712,8 +716,7 @@ public sealed partial class FileEntryTableView : UserControl
             case VirtualKey.Space when ctrl:
                 if (FileTable.SelectedItem is FileEntryViewModel ctrlSpaceSelected)
                 {
-                    host.ToggleSelection(ctrlSpaceSelected);
-                    SyncSelectionFromHost();
+                    ToggleSelection(ctrlSpaceSelected);
                     e.Handled = true;
                 }
                 break;
@@ -723,8 +726,7 @@ public sealed partial class FileEntryTableView : UserControl
                 if (FileTable.SelectedItem is FileEntryViewModel insertSelected)
                 {
                     var insertIdx = host.Items.IndexOf(insertSelected);
-                    host.ToggleSelection(insertSelected);
-                    SyncSelectionFromHost();
+                    ToggleSelection(insertSelected);
                     var nextIdx = Math.Min(insertIdx + 1, host.Items.Count - 1);
                     if (nextIdx >= 0)
                     {
@@ -748,7 +750,7 @@ public sealed partial class FileEntryTableView : UserControl
             case VirtualKey.Escape:
                 if (host.SelectedCount > 0)
                 {
-                    host.ClearSelectionCommand.Execute(null);
+                    ClearRowSelection();
                 }
                 else
                     host.ClearIncrementalSearch();
@@ -769,7 +771,7 @@ public sealed partial class FileEntryTableView : UserControl
         }
     }
 
-    private void SyncSelectionFromHost()
+    public void SyncSelectionFromHost()
     {
         var host = GridViewModel.Host;
         if (host is null)
@@ -781,7 +783,45 @@ public sealed partial class FileEntryTableView : UserControl
         try
         {
             FileTable.SelectedItems.Clear();
-            foreach (var item in host.Items.Where(static i => i.IsSelected))
+            foreach (var item in host.GetExplicitSelectedEntries())
+            {
+                FileTable.SelectedItems.Add(item);
+            }
+
+            FileTable.SelectedItem = host.CurrentItem;
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        if (host.CurrentItem is { } currentItem)
+        {
+            var rowIndex = host.Items.IndexOf(currentItem);
+            if (rowIndex >= 0)
+            {
+                FileTable.CurrentCellSlot = new TableViewCellSlot(rowIndex, FileTable.Columns.IndexOf(NameColumn));
+                SyncTableViewKeyboardAnchor(rowIndex);
+                MoveFocusToCurrentItem();
+            }
+        }
+    }
+
+    private void ToggleSelection(FileEntryViewModel item)
+    {
+        if (item.EntryKind == FileEntryKind.Parent)
+        {
+            return;
+        }
+
+        _syncingSelection = true;
+        try
+        {
+            if (FileTable.SelectedItems.Contains(item))
+            {
+                FileTable.SelectedItems.Remove(item);
+            }
+            else
             {
                 FileTable.SelectedItems.Add(item);
             }
@@ -790,6 +830,8 @@ public sealed partial class FileEntryTableView : UserControl
         {
             _syncingSelection = false;
         }
+
+        GridViewModel.Host?.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
     }
 
     private static bool IsTypingChar(VirtualKey key) =>
@@ -937,6 +979,7 @@ public sealed partial class FileEntryTableView : UserControl
         }
 
         SyncTableViewKeyboardAnchor(rowIndex);
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
 
         if (TryGetCellFromSlot(slot) is not TableViewCell cell
             || FindDescendant<TextBox>(cell) is not TextBox nameEditor)
@@ -1020,9 +1063,9 @@ public sealed partial class FileEntryTableView : UserControl
             _syncingSelection = false;
         }
 
+        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
         FileTable.ScrollRowIntoView(index);
         SyncTableViewKeyboardAnchor(index);
-        host.NotifySelectionChanged();
     }
 
     private static char VirtualKeyToChar(VirtualKey key) => key switch

@@ -253,27 +253,27 @@ internal sealed class WindowsFileOperationService : IFileOperationService
         var interopResult = type switch
         {
             OperationType.Copy when item.Kind == ItemKind.Directory =>
-                _fileOperationInterop.CreateDirectory(item.DestinationPath!.Value.DisplayPath),
+                _fileOperationInterop.CreateDirectory(RequireDestinationPath(item)),
             OperationType.Copy =>
                 _fileOperationInterop.CopyFile(
                     item.SourcePath.DisplayPath,
-                    item.DestinationPath!.Value.DisplayPath,
+                    RequireDestinationPath(item),
                     overwrite: false),
             OperationType.Move when item.Kind == ItemKind.Directory =>
-                _fileOperationInterop.CreateDirectory(item.DestinationPath!.Value.DisplayPath),
+                _fileOperationInterop.CreateDirectory(RequireDestinationPath(item)),
             OperationType.Rename when item.Kind == ItemKind.Directory =>
                 _fileOperationInterop.MoveDirectory(
                     item.SourcePath.DisplayPath,
-                    item.DestinationPath!.Value.DisplayPath),
+                    RequireDestinationPath(item)),
             OperationType.Rename =>
                 _fileOperationInterop.MoveFile(
                     item.SourcePath.DisplayPath,
-                    item.DestinationPath!.Value.DisplayPath,
+                    RequireDestinationPath(item),
                     overwrite: false),
             OperationType.Move =>
                 _fileOperationInterop.MoveFile(
                     item.SourcePath.DisplayPath,
-                    item.DestinationPath!.Value.DisplayPath,
+                    RequireDestinationPath(item),
                     overwrite: false),
             OperationType.Delete when item.Kind == ItemKind.Directory =>
                 _fileOperationInterop.RemoveDirectory(item.SourcePath.DisplayPath),
@@ -314,6 +314,10 @@ internal sealed class WindowsFileOperationService : IFileOperationService
             error,
             null);
     }
+
+    private static string RequireDestinationPath(OperationItemPlan item) =>
+        item.DestinationPath?.DisplayPath
+        ?? throw new InvalidOperationException("Operation item is missing a destination path.");
 
     private void CleanupMoveSourceDirectories(
         OperationPlan plan,

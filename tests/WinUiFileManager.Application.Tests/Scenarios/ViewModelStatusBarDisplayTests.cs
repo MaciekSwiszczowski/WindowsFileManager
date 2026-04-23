@@ -35,9 +35,10 @@ public sealed class ViewModelStatusBarDisplayTests
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
 
-        vm.LeftPane.Items.Single(item => item.Name == "alpha.txt").IsSelected = true;
-        vm.LeftPane.Items.Single(item => item.Name == "beta.txt").IsSelected = true;
-        vm.LeftPane.NotifySelectionChanged();
+        vm.LeftPane.UpdateSelectionFromControl([
+            vm.LeftPane.Items.Single(item => item.Name == "alpha.txt"),
+            vm.LeftPane.Items.Single(item => item.Name == "beta.txt")
+        ]);
 
         await Assert.That(vm.LeftPane.SelectedDisplay).IsEqualTo("2 selected (30 B)");
     }

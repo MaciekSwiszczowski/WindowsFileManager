@@ -1,6 +1,5 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -36,7 +35,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly IDialogService _dialogService;
     private readonly IFavouritesRepository _favouritesRepository;
-    private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<MainShellViewModel> _logger;
     private readonly IDisposable _inspectorImmediateSubscription;
     private readonly IDisposable _inspectorDeferredSubscription;
@@ -134,7 +132,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         _persistPaneStateHandler = persistPaneStateHandler;
         _dialogService = dialogService;
         _favouritesRepository = favouritesRepository;
-        _schedulers = schedulers;
         _logger = logger;
         Inspector = inspector;
 
@@ -151,14 +148,14 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             .RefCount();
 
         _inspectorImmediateSubscription = inspectorSelections
-            .ObserveOn(_schedulers.MainThread)
+            .ObserveOn(schedulers.MainThread)
             .Subscribe(
                 Inspector.ApplySelection,
                 ex => _logger.LogError(ex, "Inspector immediate update failed"));
 
         _inspectorDeferredSubscription = inspectorSelections
-            .ObserveOn(_schedulers.Background)
-            .Throttle(InspectorDeferredLoadThrottle, _schedulers.Background)
+            .ObserveOn(schedulers.Background)
+            .Throttle(InspectorDeferredLoadThrottle, schedulers.Background)
             .Select(selection => selection.CanLoadDeferred
                 ? Observable.Create<FileInspectorDeferredBatchResult>(observer =>
                 {
@@ -189,7 +186,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 })
                 : Observable.Empty<FileInspectorDeferredBatchResult>())
             .Switch()
-            .ObserveOn(_schedulers.MainThread)
+            .ObserveOn(schedulers.MainThread)
             .Subscribe(
                 Inspector.ApplyDeferredBatch,
                 ex => _logger.LogError(ex, "Inspector deferred update failed"));
@@ -342,7 +339,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
         try
         {
-            var hasDirectories = items.Any(i => i.Kind == ItemKind.Directory);
+            var hasDirectories = items.Any(static i => i.Kind == ItemKind.Directory);
             var confirmed = await _dialogService.ShowDeleteConfirmationAsync(
                 items.Count, hasDirectories, CancellationToken.None);
 
@@ -401,7 +398,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private Task RenameAsync()
     {
         var currentItem = ActivePane.CurrentItem;
-        if (currentItem is null || currentItem.IsParentEntry)
+        if (currentItem is null || currentItem.EntryKind == FileEntryKind.Parent)
         {
             return Task.CompletedTask;
         }
@@ -482,7 +479,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             var result = await _openFavouriteHandler.ExecuteAsync(id, CancellationToken.None);
-            if (result.Success && result.Path is not null)
+            if (result is { Success: true, Path: not null })
             {
                 await ActivePane.NavigateToCommand.ExecuteAsync(result.Path.Value.DisplayPath);
             }
@@ -608,9 +605,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 handler => Inspector.RefreshRequested -= handler)
             .Select(static _ => true);
 
-        var paneSelectionChanges = Observable.Merge(
-                CreatePaneSelectionObservable(LeftPane),
-                CreatePaneSelectionObservable(RightPane))
+        var paneSelectionChanges = CreatePaneSelectionObservable(LeftPane)
+            .Merge(CreatePaneSelectionObservable(RightPane))
             .Select(static _ => false);
 
         return Observable.Merge(
@@ -637,11 +633,10 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 handler => pane.PropertyChanged -= handler)
             .Where(static args =>
                 args.EventArgs.PropertyName == nameof(FilePaneViewModel.IsLoading)
-                && args.Sender is FilePaneViewModel paneViewModel
-                && !paneViewModel.IsLoading)
+                && args.Sender is FilePaneViewModel { IsLoading: false })
             .Select(static _ => Unit.Default);
 
-        return Observable.Merge(selectionChanges, loadCompletionChanges);
+        return selectionChanges.Merge(loadCompletionChanges);
     }
 
     private FileInspectorSelection CreateCurrentInspectorSelection(bool forceRefresh)
@@ -669,7 +664,12 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
         return string.Join(
             '\u001f',
-            selectedEntries.Select(static entry => entry.IsParentEntry ? ".." : entry.Model.FullPath.DisplayPath));
+            selectedEntries.Select(static entry =>
+                entry.EntryKind == FileEntryKind.Parent
+                    ? ".."
+                    : entry.Model is { } model
+                        ? model.FullPath.DisplayPath
+                        : entry.Name));
     }
 
     public void Dispose()

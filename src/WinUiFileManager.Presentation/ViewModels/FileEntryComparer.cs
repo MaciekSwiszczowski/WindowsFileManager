@@ -19,12 +19,13 @@ public sealed class FileEntryComparer : IComparer<FileEntryViewModel>
         if (x is null) return 1;
         if (y is null) return -1;
 
-        if (x.IsParentEntry && !y.IsParentEntry) return -1;
-        if (!x.IsParentEntry && y.IsParentEntry) return 1;
-        if (x.IsParentEntry && y.IsParentEntry) return 0;
+        if (x.EntryKind == FileEntryKind.Parent) return -1;
+        if (y.EntryKind == FileEntryKind.Parent) return 1;
 
-        if (x.IsDirectory && !y.IsDirectory) return -1;
-        if (!x.IsDirectory && y.IsDirectory) return 1;
+        var xIsDirectory = x.EntryKind == FileEntryKind.Folder;
+        var yIsDirectory = y.EntryKind == FileEntryKind.Folder;
+        if (xIsDirectory && !yIsDirectory) return -1;
+        if (!xIsDirectory && yIsDirectory) return 1;
 
         var result = CompareByColumn(x, y);
         return _ascending ? result : -result;
@@ -34,9 +35,15 @@ public sealed class FileEntryComparer : IComparer<FileEntryViewModel>
     {
         SortColumn.Name => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase),
         SortColumn.Extension => string.Compare(x.Extension, y.Extension, StringComparison.OrdinalIgnoreCase),
-        SortColumn.Size => x.SizeBytes.CompareTo(y.SizeBytes),
-        SortColumn.Modified => x.LastWriteTimeUtc.CompareTo(y.LastWriteTimeUtc),
+        SortColumn.Size => GetSizeForSort(x).CompareTo(GetSizeForSort(y)),
+        SortColumn.Modified => GetLastWriteTimeForSort(x).CompareTo(GetLastWriteTimeForSort(y)),
         SortColumn.Attributes => string.Compare(x.Attributes, y.Attributes, StringComparison.Ordinal),
         _ => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase),
     };
+
+    private static long GetSizeForSort(FileEntryViewModel entry) =>
+        entry.Model?.Size ?? -1;
+
+    private static DateTime GetLastWriteTimeForSort(FileEntryViewModel entry) =>
+        entry.Model?.LastWriteTimeUtc ?? DateTime.MinValue;
 }

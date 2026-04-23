@@ -26,7 +26,7 @@ public sealed class ViewModelNavigationTests
 
         // Assert
         await Assert.That(pane.CurrentPath).IsEqualTo(subFolder);
-        await Assert.That(pane.Items.Any(i => i.IsParentEntry)).IsTrue();
+        await Assert.That(pane.Items.Any(i => i.EntryKind == FileEntryKind.Parent)).IsTrue();
     }
 
     [Test]
@@ -40,7 +40,7 @@ public sealed class ViewModelNavigationTests
         var pane = shell.LeftPane;
 
         await pane.NavigateToCommand.ExecuteAsync(subFolder);
-        var parentEntry = pane.Items.First(i => i.IsParentEntry);
+        var parentEntry = pane.Items.First(i => i.EntryKind == FileEntryKind.Parent);
         pane.CurrentItem = parentEntry;
 
         // Act
@@ -65,10 +65,10 @@ public sealed class ViewModelNavigationTests
 
         await pane.NavigateToCommand.ExecuteAsync(fixture.RootPath);
 
-        pane.SelectAllCommand.Execute(null);
+        pane.UpdateSelectionFromControl(pane.Items.Where(static item => item.EntryKind != FileEntryKind.Parent));
         var firstSelectionCount = pane.SelectedCount;
 
-        pane.SelectAllCommand.Execute(null);
+        pane.UpdateSelectionFromControl(pane.Items.Where(static item => item.EntryKind != FileEntryKind.Parent));
 
         await Assert.That(firstSelectionCount).IsEqualTo(2);
         await Assert.That(pane.SelectedCount).IsEqualTo(2);

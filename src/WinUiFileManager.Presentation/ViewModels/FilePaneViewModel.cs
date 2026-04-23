@@ -34,7 +34,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private readonly IPathNormalizationService _pathNormalizationService;
     private readonly ILogger<FilePaneViewModel> _logger;
 
-    private readonly SourceCache<FileEntryViewModel, string> _sourceCache = new(static x => x.UniqueKey);
+    private readonly SourceCache<FileEntryViewModel, string> _sourceCache = new(GetEntryKey);
     private readonly BehaviorSubject<IComparer<FileEntryViewModel>> _sortComparer;
     private readonly ReadOnlyObservableCollection<FileEntryViewModel> _sortedItems;
     private readonly IDisposable _subscription;
@@ -43,6 +43,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     private IDisposable? _directoryWatchSubscription;
     private NormalizedPath? _currentNormalizedPath;
     private FileEntryViewModel? _activeEditingEntry;
+    private readonly HashSet<string> _selectedEntryKeys = new(StringComparer.OrdinalIgnoreCase);
 
     [ObservableProperty]
     public partial string CurrentPath { get; set; } = string.Empty;
@@ -58,6 +59,12 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     public partial FileEntryViewModel? CurrentItem { get; set; }
+
+    [ObservableProperty]
+    public partial bool IsEditing { get; set; }
+
+    [ObservableProperty]
+    public partial string EditBuffer { get; set; } = string.Empty;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ItemCountDisplay))]
@@ -117,7 +124,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public int ItemCount => _sortedItems.Count;
 
-    public int SelectedCount => _sortedItems.Count(static i => i.IsSelected);
+    public int SelectedCount => _selectedEntryKeys.Count;
 
     public NormalizedPath? CurrentNormalizedPath => _currentNormalizedPath;
 
@@ -142,8 +149,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             }
 
             var bytes = _sortedItems
-                .Where(static item => item is { IsSelected: true, IsParentEntry: false } && item.SizeBytes >= 0)
-                .Sum(static item => item.SizeBytes);
+                .Where(static item => item.Model is { Size: >= 0 })
+                .Where(item => _selectedEntryKeys.Contains(GetEntryKey(item)))
+                .Sum(static item => item.Model?.Size ?? 0);
             if (bytes > 0)
             {
                 selectedLine += $" ({FormatByteSize(bytes)})";
@@ -195,15 +203,20 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (CurrentItem.IsParentEntry)
+        if (CurrentItem.EntryKind == FileEntryKind.Parent)
         {
             await NavigateUpAsync();
             return;
         }
 
-        var targetPath = CurrentItem.Model.FullPath;
+        if (CurrentItem.Model is not { } model)
+        {
+            return;
+        }
 
-        if (!CurrentItem.IsDirectory)
+        var targetPath = model.FullPath;
+
+        if (CurrentItem.EntryKind == FileEntryKind.File)
         {
             try
             {
@@ -252,50 +265,6 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         await RefreshCurrentDirectoryAsync(CancellationToken.None);
     }
 
-    [RelayCommand]
-    private void SelectAll()
-    {
-        if (IsLoading)
-        {
-            return;
-        }
-
-        foreach (var item in _sortedItems.Where(static i => !i.IsParentEntry))
-        {
-            item.IsSelected = true;
-        }
-
-        NotifySelectionChanged();
-    }
-
-    [RelayCommand]
-    private void ClearSelection()
-    {
-        if (IsLoading)
-        {
-            return;
-        }
-
-        foreach (var item in _sortedItems)
-        {
-            item.IsSelected = false;
-        }
-
-        CurrentItem = null;
-        NotifySelectionChanged();
-    }
-
-    public void ToggleSelection(FileEntryViewModel item)
-    {
-        if (IsLoading || item.IsParentEntry)
-        {
-            return;
-        }
-
-        item.IsSelected = !item.IsSelected;
-        NotifySelectionChanged();
-    }
-
     public void HandleIncrementalSearch(char c)
     {
         if (IsLoading)
@@ -306,7 +275,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         IncrementalSearchText = (IncrementalSearchText ?? string.Empty) + c;
 
         var match = _sortedItems.FirstOrDefault(i =>
-            !i.IsParentEntry
+            i.EntryKind != FileEntryKind.Parent
             && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
@@ -335,7 +304,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var match = _sortedItems.FirstOrDefault(i =>
-            !i.IsParentEntry
+            i.EntryKind != FileEntryKind.Parent
             && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
@@ -369,9 +338,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return [];
         }
 
-        var selected = _sortedItems
-            .Where(static i => i is { IsSelected: true, IsParentEntry: false })
-            .Select(static i => i.Model)
+        var selected = GetSelectedEntries()
+            .Select(static item => item.Model)
+            .OfType<FileSystemEntryModel>()
             .ToList();
 
         if (selected.Count > 0)
@@ -379,9 +348,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return selected;
         }
 
-        if (CurrentItem is { IsParentEntry: false })
+        if (CurrentItem is { EntryKind: not FileEntryKind.Parent })
         {
-            return [CurrentItem.Model];
+            return CurrentItem.Model is { } model ? [model] : [];
         }
 
         return [];
@@ -395,7 +364,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var selected = _sortedItems
-            .Where(static i => i is { IsSelected: true, IsParentEntry: false })
+            .Where(static i => i.EntryKind != FileEntryKind.Parent)
+            .Where(item => _selectedEntryKeys.Contains(GetEntryKey(item)))
             .ToList();
 
         if (selected.Count > 0)
@@ -411,10 +381,49 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         return [];
     }
 
+    public IReadOnlyList<FileEntryViewModel> GetExplicitSelectedEntries()
+    {
+        if (IsLoading)
+        {
+            return [];
+        }
+
+        return _sortedItems
+            .Where(static i => i.EntryKind != FileEntryKind.Parent)
+            .Where(item => _selectedEntryKeys.Contains(GetEntryKey(item)))
+            .ToList();
+    }
+
     public void NotifySelectionChanged()
     {
         OnPropertyChanged(nameof(SelectedCount));
         OnPropertyChanged(nameof(SelectedDisplay));
+    }
+
+    public void UpdateSelectionFromControl(IEnumerable<FileEntryViewModel> selectedEntries)
+    {
+        if (IsLoading)
+        {
+            return;
+        }
+
+        var nextSelection = selectedEntries
+            .Where(static item => item.EntryKind != FileEntryKind.Parent)
+            .Select(GetEntryKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        if (_selectedEntryKeys.SetEquals(nextSelection))
+        {
+            return;
+        }
+
+        _selectedEntryKeys.Clear();
+        foreach (var key in nextSelection)
+        {
+            _selectedEntryKeys.Add(key);
+        }
+
+        NotifySelectionChanged();
     }
 
     public void BeginRenameCurrent()
@@ -425,20 +434,20 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var current = CurrentItem;
-        if (current is null || current.IsParentEntry)
+        if (current is null || current.EntryKind == FileEntryKind.Parent)
         {
             return;
         }
 
         if (_activeEditingEntry is not null && !ReferenceEquals(_activeEditingEntry, current))
         {
-            CancelRename(_activeEditingEntry);
+            CancelRename();
         }
 
         ErrorMessage = null;
-        current.EditBuffer = current.Name;
-        current.IsEditing = true;
         _activeEditingEntry = current;
+        EditBuffer = current.Name;
+        IsEditing = true;
         RenameRequested?.Invoke(this, current);
     }
 
@@ -447,18 +456,19 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         string? candidateName,
         CancellationToken ct)
     {
-        if (!ReferenceEquals(_activeEditingEntry, entry) || !entry.IsEditing)
+        if (!ReferenceEquals(_activeEditingEntry, entry) || !IsEditing)
         {
             return false;
         }
 
-        var newName = (candidateName ?? entry.EditBuffer).Trim();
-        entry.EditBuffer = candidateName ?? entry.EditBuffer;
+        var buffer = candidateName ?? EditBuffer;
+        EditBuffer = buffer;
+        var newName = buffer.Trim();
         ErrorMessage = null;
 
         if (string.IsNullOrWhiteSpace(newName) || string.Equals(newName, entry.Name, StringComparison.Ordinal))
         {
-            CancelRename(entry);
+            CancelRename();
             return true;
         }
 
@@ -469,18 +479,21 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
         try
         {
-            var summary = await _renameHandler.ExecuteAsync(entry.Model, newName, ct);
+            if (entry.Model is not { } model)
+            {
+                return false;
+            }
+
+            var summary = await _renameHandler.ExecuteAsync(model, newName, ct);
             if (summary.FailedCount == 0 && summary.Status == OperationStatus.Succeeded)
             {
-                entry.IsEditing = false;
-                entry.EditBuffer = string.Empty;
-                _activeEditingEntry = null;
+                CancelRename();
                 return true;
             }
 
             _logger.LogDebug(
                 "Inline rename rejected for {Path}: {Message}",
-                entry.Model.FullPath.DisplayPath,
+                model.FullPath.DisplayPath,
                 summary.Message
                 ?? summary.ItemResults.FirstOrDefault(static result => !result.Succeeded)?.Error?.Message
                 ?? "Rename failed.");
@@ -495,13 +508,17 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
 
     public void CancelRename(FileEntryViewModel entry)
     {
-        entry.IsEditing = false;
-        entry.EditBuffer = string.Empty;
-
         if (ReferenceEquals(_activeEditingEntry, entry))
         {
-            _activeEditingEntry = null;
+            CancelRename();
         }
+    }
+
+    public void CancelRename()
+    {
+        _activeEditingEntry = null;
+        IsEditing = false;
+        EditBuffer = string.Empty;
     }
 
     partial void OnCurrentItemChanged(FileEntryViewModel? value)
@@ -585,7 +602,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(restoreSelectionName))
             {
                 var match = _sortedItems.FirstOrDefault(i =>
-                    !i.IsParentEntry
+                    i.EntryKind != FileEntryKind.Parent
                     && i.Name.Equals(restoreSelectionName, StringComparison.OrdinalIgnoreCase));
                 if (match is not null)
                 {
@@ -593,7 +610,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 }
             }
 
-            CurrentItem ??= _sortedItems.FirstOrDefault(static i => !i.IsParentEntry) ?? _sortedItems.FirstOrDefault();
+            CurrentItem ??= _sortedItems.FirstOrDefault(static i => i.EntryKind != FileEntryKind.Parent) ?? _sortedItems.FirstOrDefault();
 
             NotifySelectionChanged();
             NotifyItemCountChanged();
@@ -742,13 +759,10 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var currentItemPath = CurrentItem is { IsParentEntry: false } currentItem
-            ? currentItem.Model.FullPath.DisplayPath
+        var currentItemPath = CurrentItem is { EntryKind: not FileEntryKind.Parent } currentItem
+            ? GetEntryKey(currentItem)
             : null;
-        var selectedPaths = _sortedItems
-            .Where(static item => item is { IsSelected: true, IsParentEntry: false })
-            .Select(static item => item.Model.FullPath.DisplayPath)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var selectedPaths = new HashSet<string>(_selectedEntryKeys, StringComparer.OrdinalIgnoreCase);
         FileEntryViewModel? replacementCurrentItem = null;
 
         _sourceCache.Edit(updater =>
@@ -764,6 +778,11 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             }
         });
 
+        foreach (var removedPath in batch.RemovedPaths)
+        {
+            selectedPaths.Remove(removedPath);
+        }
+
         if (batch.RenamedPaths.Count > 0)
         {
             if (currentItemPath is not null
@@ -772,7 +791,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 currentItemPath = renamedCurrentItemPath;
                 selectedPaths.Add(renamedCurrentItemPath);
                 replacementCurrentItem = batch.AddedOrUpdated.FirstOrDefault(item =>
-                    string.Equals(item.Model.FullPath.DisplayPath, renamedCurrentItemPath, StringComparison.OrdinalIgnoreCase));
+                    string.Equals(GetEntryKey(item), renamedCurrentItemPath, StringComparison.OrdinalIgnoreCase));
             }
 
             selectedPaths = selectedPaths
@@ -780,14 +799,10 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
         }
 
-        foreach (var item in _sortedItems.Where(static item => !item.IsParentEntry))
+        _selectedEntryKeys.Clear();
+        foreach (var path in selectedPaths)
         {
-            item.IsSelected = selectedPaths.Contains(item.Model.FullPath.DisplayPath);
-        }
-
-        if (replacementCurrentItem is not null)
-        {
-            replacementCurrentItem.IsSelected = selectedPaths.Contains(replacementCurrentItem.Model.FullPath.DisplayPath);
+            _selectedEntryKeys.Add(path);
         }
 
         if (replacementCurrentItem is not null)
@@ -797,8 +812,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         else if (currentItemPath is not null)
         {
             CurrentItem = _sortedItems.FirstOrDefault(item =>
-                !item.IsParentEntry
-                && string.Equals(item.Model.FullPath.DisplayPath, currentItemPath, StringComparison.OrdinalIgnoreCase))
+                item.EntryKind != FileEntryKind.Parent
+                && string.Equals(GetEntryKey(item), currentItemPath, StringComparison.OrdinalIgnoreCase))
                 ?? CurrentItem;
         }
 
@@ -836,6 +851,12 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         return string.Equals(parentDisplay, normalizedChildDir, StringComparison.OrdinalIgnoreCase);
     }
 
+    private static string GetEntryKey(FileEntryViewModel entry) =>
+        entry.EntryKind == FileEntryKind.Parent
+            ? ".."
+            : entry.Model?.FullPath.DisplayPath
+                ?? throw new InvalidOperationException("Non-parent entries must expose a model.");
+
     private async Task RefreshCurrentDirectoryAsync(CancellationToken cancellationToken)
     {
         if (_currentNormalizedPath is null)
@@ -851,7 +872,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var restoreSelectionName = CurrentItem is { IsParentEntry: false } item
+        var restoreSelectionName = CurrentItem is { EntryKind: not FileEntryKind.Parent } item
             ? item.Name
             : null;
 
@@ -928,6 +949,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             }
         });
 
+        _selectedEntryKeys.Clear();
         NotifySelectionChanged();
         NotifyItemCountChanged();
     }

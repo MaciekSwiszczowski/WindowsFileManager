@@ -236,7 +236,7 @@ public sealed partial class MainShellView : UserControl
 
             case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
             case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
-                if (ViewModel.ActivePane.CurrentItem is { IsParentEntry: false })
+        if (ViewModel.ActivePane.CurrentItem is { EntryKind: not FileEntryKind.Parent })
                 {
                     ViewModel.RenameCommand.Execute(null);
                     e.Handled = true;

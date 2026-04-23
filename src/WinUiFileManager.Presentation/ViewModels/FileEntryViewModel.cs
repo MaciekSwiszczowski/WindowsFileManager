@@ -1,64 +1,51 @@
-using CommunityToolkit.Mvvm.ComponentModel;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
-public sealed partial class FileEntryViewModel : ObservableObject
+public sealed class FileEntryViewModel
 {
     private static readonly string[] SizeSuffixes = ["B", "KB", "MB", "GB", "TB"];
 
-    [ObservableProperty]
-    public partial bool IsSelected { get; set; }
-
-    [ObservableProperty]
-    public partial bool IsEditing { get; set; }
-
-    [ObservableProperty]
-    public partial string EditBuffer { get; set; } = string.Empty;
-
     public FileEntryViewModel(FileSystemEntryModel model)
     {
+        ArgumentNullException.ThrowIfNull(model);
+
         Model = model;
+        EntryKind = model.Kind == ItemKind.Directory ? FileEntryKind.Folder : FileEntryKind.File;
+        Name = model.Name;
+        Extension = model.Extension;
+        Size = model.Kind == ItemKind.Directory ? string.Empty : FormatSize(model.Size);
+        LastWriteTime = model.LastWriteTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+        Attributes = model.Attributes.ToString();
     }
 
     private FileEntryViewModel()
     {
-        Model = null!;
-        IsParentEntry = true;
+        Model = null;
+        EntryKind = FileEntryKind.Parent;
+        Name = "..";
+        Extension = string.Empty;
+        Size = string.Empty;
+        LastWriteTime = string.Empty;
+        Attributes = string.Empty;
     }
 
     public static FileEntryViewModel CreateParentEntry() => new();
 
-    public FileSystemEntryModel Model { get; }
+    public FileSystemEntryModel? Model { get; }
 
-    public bool IsParentEntry { get; }
+    public FileEntryKind EntryKind { get; }
 
-    public string Name => IsParentEntry ? ".." : Model.Name;
+    public string Name { get; }
 
-    public string Extension => IsParentEntry ? string.Empty : Model.Extension;
+    public string Extension { get; }
 
-    public string Size => IsParentEntry ? string.Empty : (Model.Kind == ItemKind.Directory ? string.Empty : FormatSize(Model.Size));
+    public string Size { get; }
 
-    public string LastWriteTime => IsParentEntry ? string.Empty : Model.LastWriteTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+    public string LastWriteTime { get; }
 
-    public string CreationTime => IsParentEntry ? string.Empty : Model.CreationTimeUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
-
-    public string Attributes => IsParentEntry ? string.Empty : Model.Attributes.ToString();
-
-    public ItemKind Kind => IsParentEntry ? ItemKind.Directory : Model.Kind;
-
-    public string FullPath => IsParentEntry ? string.Empty : Model.FullPath.DisplayPath;
-
-    public bool IsDirectory => IsParentEntry || Model.Kind == ItemKind.Directory;
-
-    public long SizeBytes => IsParentEntry ? -1 : Model.Size;
-
-    public DateTime LastWriteTimeUtc => IsParentEntry ? DateTime.MinValue : Model.LastWriteTimeUtc;
-
-    public DateTime CreationTimeUtc => IsParentEntry ? DateTime.MinValue : Model.CreationTimeUtc;
-
-    public string UniqueKey => IsParentEntry ? ".." : Model.FullPath.DisplayPath;
+    public string Attributes { get; }
 
     private static string FormatSize(long bytes)
     {

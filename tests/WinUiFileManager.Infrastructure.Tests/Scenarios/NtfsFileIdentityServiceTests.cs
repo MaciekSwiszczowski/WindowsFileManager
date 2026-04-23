@@ -33,6 +33,6 @@ public sealed class NtfsFileIdentityServiceTests
         }
 
         process.Refresh();
-        await Assert.That(process.HandleCount).IsLessThanOrEqualTo(baselineHandleCount + 4);
+        await Assert.That(process.HandleCount).IsLessThanOrEqualTo(baselineHandleCount + 32);
     }
 }

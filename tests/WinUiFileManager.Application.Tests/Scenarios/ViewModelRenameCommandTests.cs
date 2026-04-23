@@ -20,8 +20,8 @@ public sealed class ViewModelRenameCommandTests
 
         await vm.RenameCommand.ExecuteAsync(null);
 
-        await Assert.That(targetEntry.EditBuffer).IsEqualTo("old.txt");
-        await Assert.That(targetEntry.IsEditing).IsTrue();
+        await Assert.That(vm.LeftPane.EditBuffer).IsEqualTo("old.txt");
+        await Assert.That(vm.LeftPane.IsEditing).IsTrue();
         await Assert.That(vm.LeftPane.ActiveEditingEntry).IsSameReferenceAs(targetEntry);
     }
 
@@ -45,7 +45,7 @@ public sealed class ViewModelRenameCommandTests
         var committed = await vm.LeftPane.CommitRenameAsync(targetEntry, "new.txt", CancellationToken.None);
 
         await Assert.That(committed).IsTrue();
-        await Assert.That(targetEntry.IsEditing).IsFalse();
+        await Assert.That(vm.LeftPane.IsEditing).IsFalse();
         await Assert.That(File.Exists(Path.Combine(sourceDir, "new.txt"))).IsTrue();
         await Assert.That(File.Exists(originalPath)).IsFalse();
     }
@@ -71,7 +71,7 @@ public sealed class ViewModelRenameCommandTests
         var committed = await vm.LeftPane.CommitRenameAsync(targetEntry, "existing.txt", CancellationToken.None);
 
         await Assert.That(committed).IsFalse();
-        await Assert.That(targetEntry.IsEditing).IsTrue();
+        await Assert.That(vm.LeftPane.IsEditing).IsTrue();
         await Assert.That(vm.LeftPane.ActiveEditingEntry).IsSameReferenceAs(targetEntry);
         await Assert.That(vm.LeftPane.ErrorMessage).IsNull();
         await Assert.That(File.Exists(Path.Combine(sourceDir, "old.txt"))).IsTrue();
@@ -98,8 +98,8 @@ public sealed class ViewModelRenameCommandTests
 
         vm.LeftPane.CurrentItem = otherEntry;
 
-        await Assert.That(targetEntry.IsEditing).IsFalse();
-        await Assert.That(targetEntry.EditBuffer).IsEmpty();
+        await Assert.That(vm.LeftPane.IsEditing).IsFalse();
+        await Assert.That(vm.LeftPane.EditBuffer).IsEmpty();
         await Assert.That(vm.LeftPane.ActiveEditingEntry).IsNull();
     }
 }

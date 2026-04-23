@@ -60,9 +60,9 @@ public sealed class FileInspectorViewModelTests
 
         await Assert.That(batches.Count).IsEqualTo(7);
         await Assert.That(identityService.FileIdRequests.Count).IsEqualTo(1);
-        await Assert.That(identityService.FileIdRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
+        await Assert.That(identityService.FileIdRequests[0]).IsEqualTo(entry.Model?.FullPath.DisplayPath);
         await Assert.That(identityService.LockRequests.Count).IsEqualTo(1);
-        await Assert.That(identityService.LockRequests[0]).IsEqualTo(entry.Model.FullPath.DisplayPath);
+        await Assert.That(identityService.LockRequests[0]).IsEqualTo(entry.Model?.FullPath.DisplayPath);
         await Assert.That(GetFieldValue(sut, "NTFS", "Read Only")).IsEqualTo("No");
         await Assert.That(GetFieldValue(sut, "NTFS", "Accessed")).IsNotEqualTo(string.Empty);
         await Assert.That(GetFieldValue(sut, "NTFS", "MFT Changed")).IsNotEqualTo(string.Empty);

@@ -176,6 +176,10 @@ The file list must support:
 - large directory handling
 - asynchronous refresh
 - virtualization or efficient incremental rendering
+- immediate folder navigation on `Enter` and double-click
+- a pane-local loading progress bar that stays visible until the directory scan ends
+- selecting the synthetic `..` row first when entering a non-root directory
+- falling back to the nearest existing ancestor if the target directory disappears during load
 
 ### Columns
 v1 file list columns should include:

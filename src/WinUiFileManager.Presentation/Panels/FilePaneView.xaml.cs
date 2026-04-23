@@ -179,14 +179,32 @@ public sealed partial class FilePaneView
                 case nameof(FilePaneViewModel.ErrorMessage):
                     UpdateOverlay();
                     UpdatePaneInteractivity();
+                    UpdatePaneStatus();
+                    if (_viewModel is { IsLoading: false })
+                    {
+                        RestoreSelectionAndFocusAfterLoad();
+                    }
                     break;
 
                 case nameof(FilePaneViewModel.SelectedCount):
                     UpdatePaneStatus();
-                    EntryTable.SyncSelectionFromHost();
                     break;
             }
         });
+    }
+
+    private void RestoreSelectionAndFocusAfterLoad()
+    {
+        if (_viewModel?.CurrentItem is null)
+        {
+            return;
+        }
+
+        EntryTable.SyncSelectionFromHost();
+        if (_viewModel.IsActive)
+        {
+            FocusFileList();
+        }
     }
 
     private void PathBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -276,30 +294,31 @@ public sealed partial class FilePaneView
 
         if (_viewModel.IsLoading)
         {
-            OverlayPanel.Visibility = Visibility.Visible;
-            LoadingRing.IsActive = true;
-            OverlayText.Text = "Loading folder...";
+            LoadingOverlay.Visibility = Visibility.Visible;
+            MessageOverlay.Visibility = Visibility.Collapsed;
+            LoadingProgressBar.IsIndeterminate = true;
+            LoadingText.Text = "Loading folder...";
             return;
         }
 
+        LoadingOverlay.Visibility = Visibility.Collapsed;
+        LoadingProgressBar.IsIndeterminate = false;
+
         if (_viewModel.ErrorMessage is { Length: > 0 } error)
         {
-            OverlayPanel.Visibility = Visibility.Visible;
-            LoadingRing.IsActive = false;
+            MessageOverlay.Visibility = Visibility.Visible;
             OverlayText.Text = error;
             return;
         }
 
         if (_viewModel.Items.Count == 0)
         {
-            OverlayPanel.Visibility = Visibility.Visible;
-            LoadingRing.IsActive = false;
+            MessageOverlay.Visibility = Visibility.Visible;
             OverlayText.Text = "Empty folder";
             return;
         }
 
-        OverlayPanel.Visibility = Visibility.Collapsed;
-        LoadingRing.IsActive = false;
+        MessageOverlay.Visibility = Visibility.Collapsed;
     }
 
     private void UpdatePaneInteractivity()
@@ -307,7 +326,7 @@ public sealed partial class FilePaneView
         var isInteractive = _viewModel?.IsInteractive == true;
         DriveComboBox.IsEnabled = isInteractive;
         PathBox.IsEnabled = isInteractive;
-        EntryTable.IsEnabled = isInteractive;
+        EntryTable.IsEnabled = true;
     }
 
     private void UpdatePaneStatus()

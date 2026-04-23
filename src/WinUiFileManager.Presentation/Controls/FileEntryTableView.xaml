@@ -18,7 +18,7 @@
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
     </UserControl.Resources>
-    <tv:TableView
+    <tv:TableView       
         x:Name="FileTable"
         ItemsSource="{x:Bind GridViewModel.Items, Mode=OneWay}"
         AutoGenerateColumns="False"
@@ -31,7 +31,7 @@
         CornerButtonMode="None"
         HeadersVisibility="Columns"
         AllowLiveShaping="False"
-        UseSystemFocusVisuals="True"
+        UseSystemFocusVisuals="False"
         BeginningEdit="FileTable_BeginningEdit"
         Sorting="FileTable_Sorting"
         SelectionChanged="FileTable_SelectionChanged"

@@ -1,7 +1,5 @@
-namespace WinUiFileManager.App.Composition;
-
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Favourites;
@@ -11,6 +9,8 @@ using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
+
+namespace WinUiFileManager.App.Composition;
 
 public static class ServiceConfiguration
 {
@@ -44,7 +44,7 @@ public static class ServiceConfiguration
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
         services.AddSingleton<WinUiDialogService>();
-        services.AddSingleton<IDialogService>(sp => sp.GetRequiredService<WinUiDialogService>());
+        services.AddSingleton<IDialogService>(static sp => sp.GetRequiredService<WinUiDialogService>());
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
 
         services.AddTransient<FilePaneViewModel>();
@@ -52,7 +52,7 @@ public static class ServiceConfiguration
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
 
-        services.AddTransient<WinUiFileManager.App.Windows.MainShellWindow>();
+        services.AddTransient<MainShellWindow>();
 
 #if DEBUG
         return services.BuildServiceProvider(new ServiceProviderOptions

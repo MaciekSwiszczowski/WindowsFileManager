@@ -15,17 +15,38 @@ public sealed class FileEntryComparer : IComparer<FileEntryViewModel>
 
     public int Compare(FileEntryViewModel? x, FileEntryViewModel? y)
     {
-        if (ReferenceEquals(x, y)) return 0;
-        if (x is null) return 1;
-        if (y is null) return -1;
+        if (ReferenceEquals(x, y))
+        {
+            return 0;
+        }
+        if (x is null)
+        {
+            return 1;
+        }
+        if (y is null)
+        {
+            return -1;
+        }
 
-        if (x.EntryKind == FileEntryKind.Parent) return -1;
-        if (y.EntryKind == FileEntryKind.Parent) return 1;
+        if (x.EntryKind == FileEntryKind.Parent)
+        {
+            return -1;
+        }
+        if (y.EntryKind == FileEntryKind.Parent)
+        {
+            return 1;
+        }
 
         var xIsDirectory = x.EntryKind == FileEntryKind.Folder;
         var yIsDirectory = y.EntryKind == FileEntryKind.Folder;
-        if (xIsDirectory && !yIsDirectory) return -1;
-        if (!xIsDirectory && yIsDirectory) return 1;
+        if (xIsDirectory && !yIsDirectory)
+        {
+            return -1;
+        }
+        if (!xIsDirectory && yIsDirectory)
+        {
+            return 1;
+        }
 
         var result = CompareByColumn(x, y);
         return _ascending ? result : -result;

@@ -11,7 +11,6 @@
     Loaded="FilePaneView_Loaded">
 
 
-
     <Border x:Name="PaneBorder" BorderThickness="1"
 
             BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
@@ -35,8 +34,8 @@
             </Grid.RowDefinitions>
 
 
-
-            <Grid Grid.Row="0" Padding="4" ColumnSpacing="4" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
+            <Grid Grid.Row="0" Padding="4" ColumnSpacing="4"
+                  Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
 
                 <Grid.ColumnDefinitions>
 
@@ -63,12 +62,48 @@
             </Grid>
 
 
-
             <Grid Grid.Row="1">
 
                 <controls:FileEntryTableView x:Name="EntryTable" />
 
-                <Grid x:Name="OverlayPanel"
+                <Grid x:Name="LoadingOverlay"
+
+                      VerticalAlignment="Top"
+
+                      IsHitTestVisible="True"
+
+                      Visibility="Collapsed">
+
+                    <Border Margin="8"
+
+                            Padding="8"
+
+                            CornerRadius="6"
+
+                            Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
+
+                        <StackPanel>
+
+                            <TextBlock x:Name="LoadingText"
+
+                                       Text="Loading folder..."
+
+                                       Margin="0,0,0,6"
+
+                                       Foreground="{ThemeResource SystemControlForegroundBaseHighBrush}" />
+
+                            <ProgressBar x:Name="LoadingProgressBar"
+
+                                         IsIndeterminate="True" />
+
+                        </StackPanel>
+
+                    </Border>
+
+                </Grid>
+
+
+                <Grid x:Name="MessageOverlay"
 
                       Background="#66000000"
 
@@ -86,19 +121,7 @@
 
                         <StackPanel>
 
-                            <ProgressRing x:Name="LoadingRing"
-
-                                          Width="28"
-
-                                          Height="28"
-
-                                          HorizontalAlignment="Center"
-
-                                          IsActive="False" />
-
                             <TextBlock x:Name="OverlayText"
-
-                                       Margin="0,8,0,0"
 
                                        TextAlignment="Center"
 
@@ -111,7 +134,6 @@
                 </Grid>
 
             </Grid>
-
 
 
             <Grid Grid.Row="2" Padding="8,2" Background="{ThemeResource SystemControlBackgroundChromeMediumLowBrush}">
@@ -127,4 +149,3 @@
     </Border>
 
 </UserControl>
-

@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Linq;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Domain.Enums;
@@ -32,30 +31,35 @@ internal sealed class WindowsFileOperationService : IFileOperationService
         IProgress<OperationProgressEvent>? progress,
         CancellationToken cancellationToken)
     {
-        if (plan.Type is OperationType.Copy or OperationType.Move
-            && plan.DestinationDirectory is NormalizedPath requiredDestinationRoot)
+        if (plan.Type is not (OperationType.Copy or OperationType.Move)
+            || plan.DestinationDirectory is not { } requiredDestinationRoot)
         {
-            if (!Directory.Exists(requiredDestinationRoot.DisplayPath))
-            {
-                WindowsFileOperationServiceLog.DestinationDirectoryMissing(_logger, requiredDestinationRoot.DisplayPath);
-                return new OperationSummary(
-                    plan.Type,
-                    OperationStatus.Failed,
-                    plan.Items.Count,
-                    0,
-                    plan.Items.Count,
-                    0,
-                    0,
-                    false,
-                    TimeSpan.Zero,
-                    [],
-                    $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
-            }
+            return await Task.Run(
+                () => ExecuteCoreAsync(plan, progress, cancellationToken),
+                CancellationToken.None);
         }
 
-        return await Task.Run(
-            () => ExecuteCoreAsync(plan, progress, cancellationToken),
-            CancellationToken.None);
+        if (Directory.Exists(requiredDestinationRoot.DisplayPath))
+        {
+            return await Task.Run(
+                () => ExecuteCoreAsync(plan, progress, cancellationToken),
+                CancellationToken.None);
+        }
+        WindowsFileOperationServiceLog.DestinationDirectoryMissing(_logger, requiredDestinationRoot.DisplayPath);
+
+        return new OperationSummary(
+            plan.Type,
+            OperationStatus.Failed,
+            plan.Items.Count,
+            0,
+            plan.Items.Count,
+            0,
+            0,
+            false,
+            TimeSpan.Zero,
+            [],
+            $"Destination folder not found: {requiredDestinationRoot.DisplayPath}");
+
     }
 
     private async Task<OperationSummary> ExecuteCoreAsync(
@@ -374,11 +378,16 @@ internal sealed class WindowsFileOperationService : IFileOperationService
     private static OperationStatus DetermineStatus(
         int succeeded, int failed, int warnings, bool cancelled)
     {
-        if (cancelled) return OperationStatus.Cancelled;
-        if (failed > 0 && succeeded == 0) return OperationStatus.Failed;
-        if (failed > 0) return OperationStatus.CompletedWithErrors;
-        if (warnings > 0) return OperationStatus.CompletedWithWarnings;
-        return OperationStatus.Succeeded;
+        if (cancelled)
+        {
+            return OperationStatus.Cancelled;
+        }
+        return failed switch
+        {
+            > 0 when succeeded == 0 => OperationStatus.Failed,
+            > 0 => OperationStatus.CompletedWithErrors,
+            _ => warnings > 0 ? OperationStatus.CompletedWithWarnings : OperationStatus.Succeeded,
+        };
     }
 
     private static FileOperationErrorCode MapErrorCode(int nativeErrorCode) =>

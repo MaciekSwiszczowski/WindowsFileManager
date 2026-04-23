@@ -549,7 +549,10 @@ Prefer clarity over novelty.
 - The shell window renders immediately with empty panes showing a loading overlay.
 - `OnShellViewLoaded` calls `Task.Yield()` before `InitializeAsync()` to let the UI paint first.
 - Drive loading and directory enumeration happen asynchronously after the UI is visible.
-- Each pane shows a `ProgressRing` and "Loading..." overlay while data loads.
+- Each pane shows a top-aligned indeterminate `ProgressBar` overlay while a directory scan is in flight.
+- On folder activation (`Enter` or double-click), the pane updates `CurrentPath` immediately, inserts the synthetic `..` row first, and makes that row the current item before enumeration finishes.
+- The pane keeps the progress bar visible until the full directory scan completes.
+- If the requested directory disappears during the load, the pane falls back to the nearest existing ancestor instead of staying stranded on a dead path.
 
 ### Large Directory Performance (DynamicData)
 
@@ -637,9 +640,10 @@ Prefer clarity over novelty.
 
 ### Selection Model
 
-- `ListView.SelectionMode="Extended"` enables native single-click, Ctrl+click, and Shift+click multi-selection.
-- `FileListView_SelectionChanged` syncs `ListView.SelectedItems` → `FileEntryViewModel.IsSelected`, so `GetSelectedEntryModels()` correctly returns all selected items.
-- Space/Insert toggle `IsSelected` on the ViewModel and then sync back to `ListView.SelectedItems` to keep visual state consistent.
+- `TableView.SelectionMode="Extended"` enables native single-click, Ctrl+click, and Shift+click multi-selection.
+- Selection state is owned by the control. Do not duplicate it with per-row `IsSelected` flags on `FileEntryViewModel`.
+- Space/Insert toggle selection through `TableView.SelectedItems`, and command targeting is derived from the pane's current control selection.
+- On folder activation (`Enter` or double-click), the pane navigates immediately and the synthetic `..` row becomes the current item for non-root directories while the new folder is still loading.
 - `PageUp`, `PageDown`, `Home`, and `End` must work in the pane grid even if the third-party table control does not implement them correctly. Handle them explicitly in preview key routing so paging/navigation does not depend on undocumented control behavior.
 - The inspector refresh signal must include pane-load completion (`IsLoading` transitioning to `false`). Otherwise the inspector can get stuck after a pane clears itself during loading and never repopulates when loading finishes.
 - After file operations (copy, move, delete, rename, create folder), `FocusActivePaneRequested` re-focuses the active pane's file list.

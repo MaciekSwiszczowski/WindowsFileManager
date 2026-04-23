@@ -585,9 +585,15 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         _currentNormalizedPath = path;
         CurrentPath = path.DisplayPath;
         ResetItems();
+        CurrentItem = GetDefaultCurrentItem();
 
         try
         {
+            if (!await _fileSystemService.DirectoryExistsAsync(path, loadToken))
+            {
+                throw new DirectoryNotFoundException($"Directory not found: {path.DisplayPath}");
+            }
+
             await _fileSystemService
                 .ObserveDirectoryEntries(path, _schedulers.Background, loadToken)
                 .Select(static model => new FileEntryViewModel(model))
@@ -610,7 +616,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
                 }
             }
 
-            CurrentItem ??= _sortedItems.FirstOrDefault(static i => i.EntryKind != FileEntryKind.Parent) ?? _sortedItems.FirstOrDefault();
+            CurrentItem ??= GetDefaultCurrentItem();
 
             NotifySelectionChanged();
             NotifyItemCountChanged();
@@ -622,9 +628,23 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
         catch (Exception ex)
         {
+            var fallbackPath = await ResolveExistingDirectoryOrAncestorAsync(path, cancellationToken);
+            if (fallbackPath is { } existingPath
+                && !string.Equals(existingPath.DisplayPath, path.DisplayPath, StringComparison.OrdinalIgnoreCase))
+            {
+                FilePaneViewModelLog.DirectoryFallbackToExistingAncestor(
+                    _logger,
+                    path.DisplayPath,
+                    existingPath.DisplayPath);
+
+                var fallbackSelectionName = GetFallbackSelectionName(path, existingPath);
+                await LoadDirectoryAsync(existingPath, fallbackSelectionName, cancellationToken);
+                return;
+            }
+
             FilePaneViewModelLog.DirectoryLoadFailed(_logger, ex, path.DisplayPath);
             ErrorMessage = ex.Message;
-            CurrentItem = null;
+            CurrentItem = GetDefaultCurrentItem();
             NotifySelectionChanged();
         }
         finally
@@ -638,6 +658,11 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             IsLoading = false;
         }
     }
+
+    private FileEntryViewModel? GetDefaultCurrentItem() =>
+        _sortedItems.FirstOrDefault(static item => item.EntryKind == FileEntryKind.Parent)
+        ?? _sortedItems.FirstOrDefault(static item => item.EntryKind != FileEntryKind.Parent)
+        ?? _sortedItems.FirstOrDefault();
 
     private void CancelLoading()
     {

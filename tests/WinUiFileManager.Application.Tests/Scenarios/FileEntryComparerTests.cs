@@ -65,8 +65,7 @@ public sealed class FileEntryComparerTests
             100,
             DateTime.UtcNow,
             DateTime.UtcNow,
-            System.IO.FileAttributes.Normal,
-            new NtfsFileId(new byte[] { 1 }));
+            System.IO.FileAttributes.Normal);
         return new FileEntryViewModel(model);
     }
 
@@ -80,8 +79,7 @@ public sealed class FileEntryComparerTests
             0,
             DateTime.UtcNow,
             DateTime.UtcNow,
-            System.IO.FileAttributes.Directory,
-            new NtfsFileId(new byte[] { 2 }));
+            System.IO.FileAttributes.Directory);
         return new FileEntryViewModel(model);
     }
 }

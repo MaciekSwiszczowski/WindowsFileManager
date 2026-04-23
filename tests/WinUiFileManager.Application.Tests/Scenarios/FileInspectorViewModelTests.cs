@@ -245,8 +245,7 @@ public sealed class FileInspectorViewModelTests
             size,
             DateTime.UtcNow,
             DateTime.UtcNow,
-            FileAttributes.Archive,
-            NtfsFileId.None);
+            FileAttributes.Archive);
 
         return new FileEntryViewModel(model);
     }

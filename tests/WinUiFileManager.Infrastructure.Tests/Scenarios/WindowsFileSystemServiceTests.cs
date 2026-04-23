@@ -57,6 +57,23 @@ public sealed class WindowsFileSystemServiceTests
     }
 
     [Test]
+    public async Task Test_EnumerateDirectory_InternsRepeatedExtensions()
+    {
+        using var fixture = new NtfsTempDirectoryFixture();
+        fixture.CreateFile("alpha.txt");
+        fixture.CreateFile("beta.txt");
+        var sut = CreateService();
+        var path = NormalizedPath.FromUserInput(fixture.RootPath);
+
+        var entries = await sut.EnumerateDirectoryAsync(path, CancellationToken.None);
+
+        var alpha = entries.Single(entry => entry.Name == "alpha.txt");
+        var beta = entries.Single(entry => entry.Name == "beta.txt");
+
+        await Assert.That(ReferenceEquals(alpha.Extension, beta.Extension)).IsTrue();
+    }
+
+    [Test]
     public async Task Test_EnumerateDirectory_EmptyDirectory()
     {
         // Arrange

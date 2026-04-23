@@ -38,6 +38,15 @@ public readonly record struct NormalizedPath
         return new NormalizedPath(trimmed);
     }
 
+    public static NormalizedPath FromFullyQualifiedPath(string path)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return path.StartsWith(ExtendedPathPrefix, StringComparison.Ordinal)
+            ? new NormalizedPath(path)
+            : new NormalizedPath(ExtendedPathPrefix + path);
+    }
+
     public static implicit operator NormalizedPath(string path) => FromUserInput(path);
 
     public override string ToString() => Value;

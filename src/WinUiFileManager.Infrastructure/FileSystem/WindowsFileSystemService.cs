@@ -1,4 +1,5 @@
 using System.IO.Enumeration;
+using System.Collections.Concurrent;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -16,6 +17,9 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 /// </summary>
 internal sealed class WindowsFileSystemService : IFileSystemService
 {
+    private static readonly ConcurrentDictionary<string, string> ExtensionPool =
+        new(StringComparer.OrdinalIgnoreCase);
+
     private static readonly EnumerationOptions EnumerationOptions = new()
     {
         AttributesToSkip = 0,
@@ -146,15 +150,14 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         var extension = isDirectory ? string.Empty : fsi.Extension;
 
         return new FileSystemEntryModel(
-            NormalizedPath.FromUserInput(fsi.FullName),
+            NormalizedPath.FromFullyQualifiedPath(fsi.FullName),
             fsi.Name,
-            extension,
+            InternExtension(extension),
             kind,
             size,
             fsi.LastWriteTimeUtc,
             fsi.CreationTimeUtc,
-            fsi.Attributes,
-            NtfsFileId.None);
+            fsi.Attributes);
     }
 
     private static FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
@@ -166,15 +169,14 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         var extension = isDirectory ? string.Empty : Path.GetExtension(name);
 
         return new FileSystemEntryModel(
-            NormalizedPath.FromUserInput(fullPath),
+            NormalizedPath.FromFullyQualifiedPath(fullPath),
             name,
-            extension,
+            InternExtension(extension),
             kind,
             isDirectory ? 0L : entry.Length,
             entry.LastWriteTimeUtc.UtcDateTime,
             entry.CreationTimeUtc.UtcDateTime,
-            entry.Attributes,
-            NtfsFileId.None);
+            entry.Attributes);
     }
 
     private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)
@@ -184,4 +186,9 @@ internal sealed class WindowsFileSystemService : IFileSystemService
             static (ref entry) => BuildEntryModel(ref entry),
             EnumerationOptions);
     }
+
+    private static string InternExtension(string extension) =>
+        string.IsNullOrEmpty(extension)
+            ? string.Empty
+            : ExtensionPool.GetOrAdd(extension, static value => value);
 }

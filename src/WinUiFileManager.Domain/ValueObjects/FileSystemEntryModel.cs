@@ -12,8 +12,7 @@ public sealed record FileSystemEntryModel
         long size,
         DateTime lastWriteTimeUtc,
         DateTime creationTimeUtc,
-        FileAttributes attributes,
-        NtfsFileId fileId)
+        FileAttributes attributes)
     {
         FullPath = fullPath;
         Name = name;
@@ -23,7 +22,6 @@ public sealed record FileSystemEntryModel
         LastWriteTimeUtc = lastWriteTimeUtc;
         CreationTimeUtc = creationTimeUtc;
         Attributes = attributes;
-        FileId = fileId;
     }
 
     public NormalizedPath FullPath { get; init; }
@@ -41,6 +39,4 @@ public sealed record FileSystemEntryModel
     public DateTime CreationTimeUtc { get; init; }
 
     public FileAttributes Attributes { get; init; }
-
-    public NtfsFileId FileId { get; init; }
 }

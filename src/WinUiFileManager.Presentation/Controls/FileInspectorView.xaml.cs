@@ -19,10 +19,7 @@ public sealed partial class FileInspectorView : UserControl
         {
             _viewModel = value;
             DataContext = value;
-            if (value is not null)
-            {
-                SearchBox.Text = value.SearchText;
-            }
+            Bindings.Update();
         }
     }
 

@@ -1,7 +1,8 @@
 <UserControl
     x:Class="WinUiFileManager.Presentation.Controls.FileInspectorView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:WinUiFileManager.Presentation.ViewModels">
 
     <UserControl.Resources>
         <Style x:Key="InspectorCellStyle" TargetType="TextBlock">
@@ -41,45 +42,46 @@
                 <Button Grid.Column="1"
                         Content="Refresh"
                         Click="OnRefreshClick"
-                        IsEnabled="{Binding HasItem}" />
+                        IsEnabled="{x:Bind ViewModel.HasItem, Mode=OneWay}" />
 
                 <Button Grid.Column="2"
                         Content="Properties"
                         Click="OnPropertiesClick"
-                        IsEnabled="{Binding HasItem}" />
+                        IsEnabled="{x:Bind ViewModel.HasItem, Mode=OneWay}" />
 
                 <Button Grid.Column="3"
                         Content="Copy All"
                         Click="OnCopyAllClick"
-                        IsEnabled="{Binding HasItem}" />
+                        IsEnabled="{x:Bind ViewModel.HasItem, Mode=OneWay}" />
             </Grid>
 
             <StackPanel Grid.Row="1" Spacing="4">
-                <TextBlock Text="{Binding StatusMessage}"
-                           Visibility="{Binding StatusMessageVisibility}"
+                <TextBlock Text="{x:Bind ViewModel.StatusMessage, Mode=OneWay}"
+                           Visibility="{x:Bind ViewModel.StatusMessageVisibility, Mode=OneWay}"
                            Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}" />
             </StackPanel>
 
             <TextBox Grid.Row="2"
                      x:Name="SearchBox"
                      PlaceholderText="Search property or value"
-                     Visibility="{Binding SearchVisibility}"
+                     Visibility="{x:Bind ViewModel.SearchVisibility, Mode=OneWay}"
+                     Text="{x:Bind ViewModel.SearchText, Mode=OneWay}"
                      TextChanged="OnSearchTextChanged" />
 
             <ScrollViewer Grid.Row="3"
-                          Visibility="{Binding DetailsVisibility}"
+                          Visibility="{x:Bind ViewModel.DetailsVisibility, Mode=OneWay}"
                           HorizontalScrollBarVisibility="Disabled"
                           VerticalScrollBarVisibility="Auto"
                           HorizontalAlignment="Stretch">
-                <ItemsRepeater ItemsSource="{Binding Categories}">
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}">
                     <ItemsRepeater.Layout>
                         <StackLayout Spacing="8" />
                     </ItemsRepeater.Layout>
                     <ItemsRepeater.ItemTemplate>
-                        <DataTemplate>
-                            <Expander Header="{Binding Name}"
-                                      Visibility="{Binding Visibility}"
-                                      IsExpanded="{Binding IsExpanded, Mode=TwoWay}"
+                        <DataTemplate x:DataType="viewModels:FileInspectorCategoryViewModel">
+                            <Expander Header="{x:Bind Name, Mode=OneWay}"
+                                      Visibility="{x:Bind Visibility, Mode=OneWay}"
+                                      IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch">
                                 <Border BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
@@ -117,13 +119,13 @@
                                         </Grid>
 
                                         <ItemsRepeater Grid.Row="1"
-                                                       ItemsSource="{Binding Fields}">
+                                                       ItemsSource="{x:Bind Fields, Mode=OneWay}">
                                             <ItemsRepeater.Layout>
                                                 <StackLayout />
                                             </ItemsRepeater.Layout>
                                             <ItemsRepeater.ItemTemplate>
-                                                <DataTemplate>
-                                                    <Grid Visibility="{Binding RowVisibility}">
+                                                <DataTemplate x:DataType="viewModels:FileInspectorFieldViewModel">
+                                                    <Grid Visibility="{x:Bind RowVisibility, Mode=OneWay}">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="180" />
                                                             <ColumnDefinition Width="*" />
@@ -134,8 +136,8 @@
                                                                 BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
                                                                 BorderThickness="0,0,1,1"
                                                                 Background="Transparent"
-                                                                ToolTipService.ToolTip="{Binding Tooltip}">
-                                                            <TextBlock Text="{Binding Key}"
+                                                                ToolTipService.ToolTip="{x:Bind Tooltip, Mode=OneWay}">
+                                                            <TextBlock Text="{x:Bind Key, Mode=OneWay}"
                                                                        Style="{StaticResource InspectorCellStyle}" />
                                                         </Border>
 
@@ -156,18 +158,18 @@
                                                                                   IsActive="True"
                                                                                   HorizontalAlignment="Left"
                                                                                   VerticalAlignment="Center"
-                                                                                  Visibility="{Binding LoadingVisibility}" />
-                                                                    <TextBlock Text="{Binding DisplayValue}"
+                                                                                  Visibility="{x:Bind LoadingVisibility, Mode=OneWay}" />
+                                                                    <TextBlock Text="{x:Bind DisplayValue, Mode=OneWay}"
                                                                                Style="{StaticResource InspectorCellStyle}"
-                                                                               Visibility="{Binding ValueVisibility}" />
+                                                                               Visibility="{x:Bind ValueVisibility, Mode=OneWay}" />
                                                                     <Border Width="30"
                                                                             Height="30"
                                                                             Padding="0"
                                                                             Margin="0"
                                                                             HorizontalAlignment="Left"
                                                                             VerticalAlignment="Center"
-                                                                            Visibility="{Binding ThumbnailVisibility}">
-                                                                        <Image Source="{Binding ThumbnailSource}"
+                                                                            Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}">
+                                                                        <Image Source="{x:Bind ThumbnailSource, Mode=OneWay}"
                                                                                Width="30"
                                                                                Height="30"
                                                                                HorizontalAlignment="Stretch"
@@ -178,9 +180,9 @@
 
                                                                 <CheckBox Grid.Column="1"
                                                                           VerticalAlignment="Center"
-                                                                          IsChecked="{Binding IsToggleOn, Mode=OneWay}"
-                                                                          Command="{Binding ToggleCommand}"
-                                                                          Visibility="{Binding ToggleVisibility}" />
+                                                                          IsChecked="{x:Bind IsToggleOn, Mode=OneWay}"
+                                                                          Command="{x:Bind ToggleCommand, Mode=OneWay}"
+                                                                          Visibility="{x:Bind ToggleVisibility, Mode=OneWay}" />
                                                             </Grid>
                                                         </Border>
                                                     </Grid>

@@ -24,12 +24,12 @@ Legend: **OK** = implemented and correct · **WRONG** = implemented but behaves 
 | Shortcut | Expected action | Status | Notes |
 |---|---|---|---|
 | `Tab` / `Shift+Tab` | Switch active pane | OK | `MainShellView.OnPreviewKeyDown` |
-| `Backspace` | Navigate to parent | OK | `FileEntryTableView.FileTable_KeyDown` |
+| `Backspace` | Navigate to parent | OK | `FileEntryTableView.BodyTable_KeyDown` plus the header-table handoff in `SPEC_FILE_ENTRY_TABLE_VIEW.md` |
 | `Ctrl+PageUp` | Navigate to parent | OK | Same handler |
 | `Alt+Up` | Navigate to parent | **MISS** | Windows Explorer convention. Add — see §4.4. |
 | `Alt+Left` | Back in navigation history | **MISS** | Per-pane back/forward stack. Add — see §4.6. |
 | `Alt+Right` | Forward in navigation history | **MISS** | Same stack; forward half. Add — see §4.6. |
-| `Enter` | Open / navigate-into current item | OK | `PreviewKeyDown` in the list |
+| `Enter` | Open / navigate-into current item | OK | `BodyTable_PreviewKeyDown` / `HeaderTable_PreviewKeyDown` in `FileEntryTableView` |
 | `Ctrl+L` | Focus path box | OK | `MainShellView.OnPreviewKeyDown` |
 | `F2` | Rename in-place | **MISS** | Delivered by `SPEC_UI_LAYOUT_AND_RESIZING.md` §6. Add `F2` alongside `Shift+F6`. |
 | `Shift+F6` | Rename in-place | WRONG | Currently opens a modal dialog. Delivered by `SPEC_UI_LAYOUT_AND_RESIZING.md` §6. |
@@ -109,7 +109,7 @@ All shortcuts listed in §2 with status `OK` or marked "Add" in §4 are migrated
 
 ### 4.1. `F2` for rename (fix F2 = MISS)
 
-Delivered by `SPEC_UI_LAYOUT_AND_RESIZING.md` §6.1. Add `F2` to `FileEntryTableView.OnPreviewKeyDown`, alongside `Shift+F6`, both routing to `FilePaneViewModel.BeginRenameCurrent()`.
+Delivered by `SPEC_UI_LAYOUT_AND_RESIZING.md` §6.1. Add `F2` to `FileEntryTableView.BodyTable_PreviewKeyDown`, alongside `Shift+F6`, both routing to `FilePaneViewModel.BeginRenameCurrent()`.
 
 Also update `winui-file-manager-keyboard-shortcuts-spec.md` §12.9 and §17:
 
@@ -145,7 +145,7 @@ Subject to long-path capability gating per `SPEC_LONG_PATHS.md` §6.1 — when t
 
 ### 4.4. `Alt+Up` for parent directory (Alt+Up = MISS)
 
-Add to `FileEntryTableView.FileTable_KeyDown` alongside the existing `Backspace` / `Ctrl+PageUp`:
+Add to `FileEntryTableView.BodyTable_KeyDown` alongside the existing `Backspace` / `Ctrl+PageUp`:
 
 ```csharp
 case VirtualKey.Up when IsModifierDown(VirtualKey.Menu):

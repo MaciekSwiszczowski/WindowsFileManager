@@ -79,9 +79,6 @@ public sealed partial class FileEntryTableView
         InitializeComponent();
         DataContext = GridViewModel;
         GridViewModel.SortStateChanged += OnSortStateChanged;
-        // PreviewKeyDown fires before the TableView's internal key handling,
-        // ensuring Enter on folders and '..' is not consumed by the control first.
-        PreviewKeyDown += OnPreviewKeyDown;
 
         // WinUI.TableView's TableViewCell marks DoubleTapped as Handled when
         // IsReadOnly=True (see TableViewCell.OnDoubleTapped). That prevents the
@@ -117,217 +114,41 @@ public sealed partial class FileEntryTableView
 
         DispatcherQueue.TryEnqueue(() =>
         {
-            if (GridViewModel.Host is not null)
-            {
-                FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
-                FilePaneTableSortSync.SyncColumnWidths(FileTable, GridViewModel.Host.ColumnLayout);
-            }
+            SyncHeaderSortDirectionsCore();
+            SyncHeaderAndBodyColumnWidthsCore();
+            SyncSelectionFromHostCore();
         });
     }
 
     public void CaptureColumnLayoutIntoHost()
-    {
-        if (GridViewModel.Host is null)
-        {
-            return;
-        }
-
-        GridViewModel.Host.ColumnLayout =
-            FilePaneTableSortSync.CaptureColumnWidths(FileTable, GridViewModel.Host.ColumnLayout);
-    }
+        => CaptureColumnLayoutIntoHostCore();
 
     public void FocusGrid()
-    {
-        FileTable.Focus(FocusState.Keyboard);
-        var host = GridViewModel.Host;
-        if (host?.Items.Count > 0 && FileTable.SelectedItem is null)
-        {
-            _syncingSelection = true;
-            try
-            {
-                FileTable.SelectedItem = host.CurrentItem ?? host.Items[0];
-            }
-            finally
-            {
-                _syncingSelection = false;
-            }
-
-            var rowIndex = host.CurrentItem is { } currentItem
-                ? host.Items.IndexOf(currentItem)
-                : 0;
-            if (rowIndex >= 0)
-            {
-                SyncTableViewKeyboardAnchor(rowIndex);
-                ClearCurrentCellSlot();
-            }
-
-            host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
-        }
-
-        if (host?.CurrentItem is { } selectedItem)
-        {
-            var rowIndex = host.Items.IndexOf(selectedItem);
-            if (rowIndex >= 0)
-            {
-                SyncTableViewKeyboardAnchor(rowIndex);
-                MoveFocusToCurrentItem();
-            }
-        }
-    }
+        => FocusGridCore();
 
     public void SelectAllRows()
-    {
-        var host = GridViewModel.Host;
-        if (host is null || !host.IsInteractive)
-        {
-            return;
-        }
-
-        FileTable.SelectAll();
-        var parentEntry = host.Items.FirstOrDefault(static item => item.EntryKind == FileEntryKind.Parent);
-        if (parentEntry is not null && FileTable.SelectedItems.Contains(parentEntry))
-        {
-            FileTable.SelectedItems.Remove(parentEntry);
-        }
-
-        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
-    }
+        => SelectAllRowsCore();
 
     public void ClearRowSelection()
-    {
-        if (GridViewModel.Host is null)
-        {
-            return;
-        }
-
-        FileTable.SelectedItems.Clear();
-    }
+        => ClearRowSelectionCore();
 
     public void ApplyColumnResizeFromOptions()
-    {
-        FileTable.CanResizeColumns = FilePaneDisplayOptions.EnableColumnResize;
-    }
+        => ApplyColumnResizeFromOptionsCore();
 
     public void FreezeCurrentWidth()
-    {
-        if (_isWidthFrozen)
-        {
-            return;
-        }
-
-        var currentWidth = FileTable.ActualWidth;
-        if (currentWidth <= 0d)
-        {
-            return;
-        }
-
-        // Freezing the TableView width during splitter drags prevents the
-        // control from re-measuring its realized rows on every intermediate
-        // pane-width change. The splitter still resizes the surrounding shell;
-        // the table rejoins normal stretch layout once the drag ends.
-        _widthFreezeRestoreAlignment = FileTable.HorizontalAlignment;
-        FileTable.Width = currentWidth;
-        FileTable.HorizontalAlignment = HorizontalAlignment.Left;
-        _isWidthFrozen = true;
-    }
+        => FreezeCurrentWidthCore();
 
     public void ReleaseFrozenWidth()
-    {
-        if (!_isWidthFrozen && double.IsNaN(FileTable.Width))
-        {
-            return;
-        }
-
-        FileTable.Width = double.NaN;
-        FileTable.HorizontalAlignment = _widthFreezeRestoreAlignment;
-        _isWidthFrozen = false;
-    }
+        => ReleaseFrozenWidthCore();
 
     private void FileEntryTableView_Loaded(object sender, RoutedEventArgs e)
-    {
-        FileTable.RowHeight = 32;
-        ApplyColumnResizeFromOptions();
-        if (GridViewModel.Host is not null)
-        {
-            FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
-        }
-    }
+        => FileEntryTableViewLoadedCore();
 
     private void OnSortStateChanged(object? sender, EventArgs e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            if (GridViewModel.Host is not null)
-            {
-                FilePaneTableSortSync.SyncColumnSortDirections(FileTable, GridViewModel.Host);
-            }
-        });
-    }
+        => OnSortStateChangedCore();
 
     private void OnHostPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(FilePaneViewModel.ColumnLayout))
-        {
-            var layoutHost = GridViewModel.Host;
-            if (layoutHost is not null)
-            {
-                DispatcherQueue.TryEnqueue(() =>
-                    FilePaneTableSortSync.SyncColumnWidths(FileTable, layoutHost.ColumnLayout));
-            }
-
-            return;
-        }
-
-        if (e.PropertyName != nameof(FilePaneViewModel.CurrentItem))
-        {
-            return;
-        }
-
-        var host = GridViewModel.Host;
-        if (host is null || _syncingSelection)
-        {
-            return;
-        }
-
-        var current = host.CurrentItem;
-        if (current is null)
-        {
-            return;
-        }
-
-        var idx = host.Items.IndexOf(current);
-
-        if (!Equals(FileTable.SelectedItem, current))
-        {
-            _syncingSelection = true;
-            try
-            {
-                FileTable.SelectedItem = current;
-                if (idx >= 0)
-                {
-                    FileTable.ScrollRowIntoView(idx);
-                }
-            }
-            finally
-            {
-                _syncingSelection = false;
-            }
-        }
-
-        if (idx >= 0)
-        {
-            SyncTableViewKeyboardAnchor(idx);
-            ClearCurrentCellSlot();
-        }
-
-        host.UpdateSelectionFromControl(FileTable.SelectedItems.OfType<FileEntryViewModel>());
-
-        // Move the TableView's focused row (the one that shows the
-        // accent border) to match CurrentItem. Without this the frame
-        // lags behind after programmatic navigation, e.g. after going
-        // up one directory.
-        MoveFocusToCurrentItem();
-    }
+        => OnHostPropertyChangedCore(e);
 
     private void SyncTableViewKeyboardAnchor(int rowIndex)
     {
@@ -795,40 +616,7 @@ public sealed partial class FileEntryTableView
     }
 
     public void SyncSelectionFromHost()
-    {
-        var host = GridViewModel.Host;
-        if (host is null)
-        {
-            return;
-        }
-
-        _syncingSelection = true;
-        try
-        {
-            FileTable.SelectedItems.Clear();
-            foreach (var item in host.GetExplicitSelectedEntries())
-            {
-                FileTable.SelectedItems.Add(item);
-            }
-
-            FileTable.SelectedItem = host.CurrentItem;
-        }
-        finally
-        {
-            _syncingSelection = false;
-        }
-
-        if (host.CurrentItem is { } currentItem)
-        {
-            var rowIndex = host.Items.IndexOf(currentItem);
-            if (rowIndex >= 0)
-            {
-                SyncTableViewKeyboardAnchor(rowIndex);
-                ClearCurrentCellSlot();
-                MoveFocusToCurrentItem();
-            }
-        }
-    }
+        => SyncSelectionFromHostCore();
 
     private void ToggleSelection(FileEntryViewModel item)
     {

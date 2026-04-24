@@ -419,7 +419,8 @@ These are the default rules for this application.
 - launching pane remains active
 - focus returns to launching pane list
 - current item becomes:
-  - first item in the new directory, if any
+  - the synthetic parent row `..` for non-root directories
+  - otherwise the first child item, if any
   - otherwise no current item
 - selected-items set in the launching pane is cleared
 - inactive pane unchanged, including its selection

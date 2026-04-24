@@ -2,6 +2,8 @@
 
 Scope: the main-shell layout, splitter behavior, in-place rename editing, and persistence of all resizable dimensions (pane widths, inspector width, per-pane column widths, sort, main-window placement). Landing order: **right after the analyzer spec**, before any other spec that changes the UI.
 
+Detailed `FileEntryTableView` behavior now lives in `SPEC_FILE_ENTRY_TABLE_VIEW.md`. This spec keeps only the shell/layout/rename policy that is specific to the UI-layout batch.
+
 The review has shown that automatic end-to-end UI testing is out of scope; every change to this area is manually verified by the human owner. Consequently this spec is *prescriptive*: behaviors, widths, keyboard bindings, and persistence keys are specified exactly so the agent doesn't invent variants.
 
 ## 1. Goals
@@ -300,7 +302,7 @@ public partial string EditBuffer { get; set; } = string.Empty;
 
 ### 6.3. Cell template
 
-The Name column in `FileEntryTableView.xaml` is a `TableViewTemplateColumn` with both a read-only `CellTemplate` and an `EditingTemplate`. The control itself toggles between the two when a cell enters / leaves edit mode, so no `IsEditing`-driven `Visibility` converter is needed.
+In the shipped composite control, rename editing applies to the **body table's** Name column only (`BodyNameColumn`). The detailed header/body split is specified in `SPEC_FILE_ENTRY_TABLE_VIEW.md`; the key point for this spec is that the editable Name column remains a `TableViewTemplateColumn` with both a read-only `CellTemplate` and an `EditingTemplate`, so no `IsEditing`-driven `Visibility` converter is needed.
 
 ```xml
 <tv:TableViewTemplateColumn

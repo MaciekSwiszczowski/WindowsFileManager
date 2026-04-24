@@ -17,143 +17,265 @@
         <Style x:Key="RightAlignEllipsisCellStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisTextCellStyle}">
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
+        <SolidColorBrush x:Key="TransparentTableFocusBrush" Color="Transparent" />
     </UserControl.Resources>
-    <tv:TableView       
-        x:Name="FileTable"
-        ItemsSource="{x:Bind GridViewModel.Items, Mode=OneWay}"
-        AutoGenerateColumns="False"
-        IsReadOnly="False"
-        SelectionMode="Extended"
-        SelectionUnit="Row"
-        CanReorderColumns="False"
-        CanFilterColumns="False"
-        ShowExportOptions="False"
-        CornerButtonMode="None"
-        HeadersVisibility="Columns"
-        AllowLiveShaping="False"
-        UseSystemFocusVisuals="False"
-        BeginningEdit="FileTable_BeginningEdit"
-        Sorting="FileTable_Sorting"
-        SelectionChanged="FileTable_SelectionChanged"
-        PreparingCellForEdit="FileTable_PreparingCellForEdit"
-        CellEditEnding="FileTable_CellEditEnding"
-        CellEditEnded="FileTable_CellEditEnded"
-        KeyDown="FileTable_KeyDown"
-        GotFocus="FileTable_GotFocus"
-        ScrollViewer.HorizontalScrollMode="Disabled"
-        ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-        <tv:TableView.ItemsPanel>
-            <ItemsPanelTemplate>
-                <ItemsStackPanel CacheLength="1.0" />
-            </ItemsPanelTemplate>
-        </tv:TableView.ItemsPanel>
-        <tv:TableView.Resources>
-            <!-- Accent-tinted background for selected rows so multi-selection
-                 is clearly visible. These are the TableView-specific theme
-                 keys defined by WinUI.TableView (see Themes/Resources.xaml).
-                 We bind Color (not a brush) to avoid StaticResource lookups
-                 that may not resolve against the control's theme dictionary. -->
-            <SolidColorBrush x:Key="TableViewRowBackgroundSelected"
-                             Color="{ThemeResource SystemAccentColor}"
-                             Opacity="0.35" />
-            <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPointerOver"
-                             Color="{ThemeResource SystemAccentColor}"
-                             Opacity="0.5" />
-            <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPressed"
-                             Color="{ThemeResource SystemAccentColor}"
-                             Opacity="0.6" />
 
-            <!-- Accent-colored focus border around the focused/clicked row. -->
-            <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush"
-                             Color="{ThemeResource SystemAccentColor}" />
-            <SolidColorBrush x:Key="TableViewRowFocusBorderBrush"
-                             Color="{ThemeResource SystemAccentColor}" />
-        </tv:TableView.Resources>
-        <tv:TableView.Columns>
-            <tv:TableViewTemplateColumn
-                x:Name="NameColumn"
-                Header="Name"
-                SortMemberPath="Name"
-                MinWidth="100"
-                Width="320"
-                IsReadOnly="False"
-                CanSort="True">
-                <tv:TableViewTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBlock
-                            Text="{x:Bind Name, Mode=OneWay}"
-                            Style="{StaticResource EllipsisTextCellStyle}" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.CellTemplate>
-                <tv:TableViewTemplateColumn.EditingTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBox
-                            Text="{Binding ElementName=Root, Path=GridViewModel.Host.EditBuffer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                            VerticalContentAlignment="Center"
-                            IsSpellCheckEnabled="False" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.EditingTemplate>
-            </tv:TableViewTemplateColumn>
-            <tv:TableViewTemplateColumn
-                Header="Ext"
-                SortMemberPath="Extension"
-                Width="40"
-                MinWidth="32"
-                IsReadOnly="True"
-                CanSort="True">
-                <tv:TableViewTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBlock
-                            Text="{x:Bind Extension, Mode=OneWay}"
-                            Style="{StaticResource MutedEllipsisCellStyle}" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.CellTemplate>
-            </tv:TableViewTemplateColumn>
-            <tv:TableViewTemplateColumn
-                Header="Size"
-                SortMemberPath="Size"
-                Width="70"
-                MinWidth="56"
-                IsReadOnly="True"
-                CanSort="True">
-                <tv:TableViewTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBlock
-                            Text="{x:Bind Size, Mode=OneWay}"
-                            Style="{StaticResource RightAlignEllipsisCellStyle}" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.CellTemplate>
-            </tv:TableViewTemplateColumn>
-            <tv:TableViewTemplateColumn
-                Header="Modified"
-                SortMemberPath="LastWriteTime"
-                Width="120"
-                MinWidth="100"
-                IsReadOnly="True"
-                CanSort="True">
-                <tv:TableViewTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBlock
-                            Text="{x:Bind LastWriteTime, Mode=OneWay}"
-                            Style="{StaticResource EllipsisTextCellStyle}" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.CellTemplate>
-            </tv:TableViewTemplateColumn>
-            <tv:TableViewTemplateColumn
-                Header="Attr"
-                SortMemberPath="Attributes"
-                Width="50"
-                MinWidth="40"
-                IsReadOnly="True"
-                CanSort="True">
-                <tv:TableViewTemplateColumn.CellTemplate>
-                    <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                        <TextBlock
-                            Text="{x:Bind Attributes, Mode=OneWay}"
-                            Style="{StaticResource MutedEllipsisCellStyle}" />
-                    </DataTemplate>
-                </tv:TableViewTemplateColumn.CellTemplate>
-            </tv:TableViewTemplateColumn>
-        </tv:TableView.Columns>
-    </tv:TableView>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <tv:TableView
+            x:Name="HeaderTable"
+            Grid.Row="0"
+            ItemsSource="{x:Bind GridViewModel.ParentItems, Mode=OneWay}"
+            AutoGenerateColumns="False"
+            IsReadOnly="True"
+            SelectionMode="Single"
+            SelectionUnit="Row"
+            FocusVisualPrimaryThickness="0"
+            FocusVisualSecondaryThickness="0"
+            CanReorderColumns="False"
+            CanFilterColumns="False"
+            ShowExportOptions="False"
+            CornerButtonMode="None"
+            HeadersVisibility="Columns"
+            AllowLiveShaping="False"
+            UseSystemFocusVisuals="False"
+            Sorting="HeaderTable_Sorting"
+            SelectionChanged="HeaderTable_SelectionChanged"
+            PreviewKeyDown="HeaderTable_PreviewKeyDown"
+            GotFocus="HeaderTable_GotFocus"
+            LayoutUpdated="HeaderTable_LayoutUpdated"
+            ScrollViewer.HorizontalScrollMode="Disabled"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollMode="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Hidden">
+            <tv:TableView.Resources>
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelected"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.35" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPointerOver"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.5" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPressed"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.6" />
+                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
+                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
+            </tv:TableView.Resources>
+            <tv:TableView.Columns>
+                <tv:TableViewTemplateColumn
+                    x:Name="HeaderNameColumn"
+                    Header="Name"
+                    SortMemberPath="Name"
+                    MinWidth="100"
+                    Width="320"
+                    IsReadOnly="True"
+                    CanSort="True">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Name, Mode=OneWay}"
+                                Style="{StaticResource EllipsisTextCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Ext"
+                    SortMemberPath="Extension"
+                    Width="40"
+                    MinWidth="32"
+                    IsReadOnly="True"
+                    CanSort="True">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Extension, Mode=OneWay}"
+                                Style="{StaticResource MutedEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Size"
+                    SortMemberPath="Size"
+                    Width="70"
+                    MinWidth="56"
+                    IsReadOnly="True"
+                    CanSort="True">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Size, Mode=OneWay}"
+                                Style="{StaticResource RightAlignEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Modified"
+                    SortMemberPath="LastWriteTime"
+                    Width="120"
+                    MinWidth="100"
+                    IsReadOnly="True"
+                    CanSort="True">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind LastWriteTime, Mode=OneWay}"
+                                Style="{StaticResource EllipsisTextCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Attr"
+                    SortMemberPath="Attributes"
+                    Width="50"
+                    MinWidth="40"
+                    IsReadOnly="True"
+                    CanSort="True">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Attributes, Mode=OneWay}"
+                                Style="{StaticResource MutedEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+            </tv:TableView.Columns>
+        </tv:TableView>
+
+        <tv:TableView
+            x:Name="BodyTable"
+            Grid.Row="1"
+            ItemsSource="{x:Bind GridViewModel.Items, Mode=OneWay}"
+            AutoGenerateColumns="False"
+            IsReadOnly="False"
+            SelectionMode="Extended"
+            SelectionUnit="Row"
+            FocusVisualPrimaryThickness="0"
+            FocusVisualSecondaryThickness="0"
+            CanReorderColumns="False"
+            CanFilterColumns="False"
+            ShowExportOptions="False"
+            CornerButtonMode="None"
+            HeadersVisibility="None"
+            AllowLiveShaping="False"
+            UseSystemFocusVisuals="False"
+            BeginningEdit="BodyTable_BeginningEdit"
+            SelectionChanged="BodyTable_SelectionChanged"
+            PreparingCellForEdit="BodyTable_PreparingCellForEdit"
+            CellEditEnding="BodyTable_CellEditEnding"
+            CellEditEnded="BodyTable_CellEditEnded"
+            PreviewKeyDown="BodyTable_PreviewKeyDown"
+            KeyDown="BodyTable_KeyDown"
+            GotFocus="BodyTable_GotFocus"
+            ScrollViewer.HorizontalScrollMode="Disabled"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <tv:TableView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <ItemsStackPanel CacheLength="1.0" />
+                </ItemsPanelTemplate>
+            </tv:TableView.ItemsPanel>
+            <tv:TableView.Resources>
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelected"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.35" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPointerOver"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.5" />
+                <SolidColorBrush x:Key="TableViewRowBackgroundSelectedPressed"
+                                 Color="{ThemeResource SystemAccentColor}"
+                                 Opacity="0.6" />
+                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
+                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
+            </tv:TableView.Resources>
+            <tv:TableView.Columns>
+                <tv:TableViewTemplateColumn
+                    x:Name="BodyNameColumn"
+                    Header="Name"
+                    SortMemberPath="Name"
+                    MinWidth="100"
+                    Width="320"
+                    IsReadOnly="False"
+                    CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Name, Mode=OneWay}"
+                                Style="{StaticResource EllipsisTextCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                    <tv:TableViewTemplateColumn.EditingTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBox
+                                Text="{Binding ElementName=Root, Path=GridViewModel.Host.EditBuffer, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                VerticalContentAlignment="Center"
+                                IsSpellCheckEnabled="False" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.EditingTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Ext"
+                    SortMemberPath="Extension"
+                    Width="40"
+                    MinWidth="32"
+                    IsReadOnly="True"
+                    CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Extension, Mode=OneWay}"
+                                Style="{StaticResource MutedEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Size"
+                    SortMemberPath="Size"
+                    Width="70"
+                    MinWidth="56"
+                    IsReadOnly="True"
+                    CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Size, Mode=OneWay}"
+                                Style="{StaticResource RightAlignEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Modified"
+                    SortMemberPath="LastWriteTime"
+                    Width="120"
+                    MinWidth="100"
+                    IsReadOnly="True"
+                    CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind LastWriteTime, Mode=OneWay}"
+                                Style="{StaticResource EllipsisTextCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+                <tv:TableViewTemplateColumn
+                    Header="Attr"
+                    SortMemberPath="Attributes"
+                    Width="50"
+                    MinWidth="40"
+                    IsReadOnly="True"
+                    CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                            <TextBlock
+                                Text="{x:Bind Attributes, Mode=OneWay}"
+                                Style="{StaticResource MutedEllipsisCellStyle}" />
+                        </DataTemplate>
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
+            </tv:TableView.Columns>
+        </tv:TableView>
+    </Grid>
 </UserControl>

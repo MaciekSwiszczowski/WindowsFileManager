@@ -61,6 +61,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     public partial FileEntryViewModel? CurrentItem { get; set; }
 
     [ObservableProperty]
+    public partial FileEntryViewModel? ParentEntry { get; private set; }
+
+    [ObservableProperty]
     public partial bool IsEditing { get; set; }
 
     [ObservableProperty]
@@ -660,8 +663,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     }
 
     private FileEntryViewModel? GetDefaultCurrentItem() =>
-        _sortedItems.FirstOrDefault(static item => item.EntryKind == FileEntryKind.Parent)
-        ?? _sortedItems.FirstOrDefault(static item => item.EntryKind != FileEntryKind.Parent)
+        ParentEntry
         ?? _sortedItems.FirstOrDefault();
 
     private void CancelLoading()
@@ -967,13 +969,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         _sourceCache.Edit(updater =>
         {
             updater.Clear();
-
-            if (!IsAtDriveRoot())
-            {
-                updater.AddOrUpdate(FileEntryViewModel.CreateParentEntry());
-            }
         });
 
+        ParentEntry = IsAtDriveRoot() ? null : FileEntryViewModel.CreateParentEntry();
         _selectedEntryKeys.Clear();
         NotifySelectionChanged();
         NotifyItemCountChanged();

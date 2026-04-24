@@ -15,11 +15,11 @@ public sealed class ViewModelStatusBarDisplayTests
 
         await vm.LeftPane.NavigateToCommand.ExecuteAsync(sourceDir);
 
-        await Assert.That(vm.LeftPane.ItemCountDisplay).IsEqualTo("3 items");
+        await Assert.That(vm.LeftPane.ItemCountDisplay).IsEqualTo("2 items");
 
         vm.LeftPane.HandleIncrementalSearch('a');
 
-        await Assert.That(vm.LeftPane.ItemCountDisplay).IsEqualTo("3 items | Search: a");
+        await Assert.That(vm.LeftPane.ItemCountDisplay).IsEqualTo("2 items | Search: a");
     }
 
     [Test]

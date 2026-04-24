@@ -12,6 +12,9 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
 
     public object? Items => _host?.Items;
 
+    public IReadOnlyList<FileEntryViewModel> ParentItems =>
+        _host?.ParentEntry is { } parentEntry ? [parentEntry] : [];
+
     public event EventHandler? SortStateChanged;
 
     public void Attach(FilePaneViewModel? host)
@@ -34,11 +37,17 @@ public sealed partial class FileEntryTableViewModel : ObservableObject
         }
 
         OnPropertyChanged(nameof(Items));
+        OnPropertyChanged(nameof(ParentItems));
         RaiseSortStateChanged();
     }
 
     private void OnHostPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(FilePaneViewModel.ParentEntry))
+        {
+            OnPropertyChanged(nameof(ParentItems));
+        }
+
         if (e.PropertyName is nameof(FilePaneViewModel.SortBy)
             or nameof(FilePaneViewModel.SortAscending))
         {

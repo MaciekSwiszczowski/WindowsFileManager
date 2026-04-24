@@ -1,6 +1,6 @@
 # Spec: Rename Bug Fixes
 
-Scope: three observed defects in the in-cell rename feature shipped in batch U-4 (`SPEC_UI_LAYOUT_AND_RESIZING.md` §6), plus the hardening needed so commits survive concurrent filesystem activity. The spec is prescriptive — properties, method signatures, and test scenarios are named exactly. Agents do not invent alternatives.
+Scope: three observed defects in the in-cell rename feature shipped in batch U-4 (`SPEC_UI_LAYOUT_AND_RESIZING.md` §6), plus the hardening needed so commits survive concurrent filesystem activity. The detailed `FileEntryTableView` contract now lives in `SPEC_FILE_ENTRY_TABLE_VIEW.md`; this spec only defines the rename-hardening work layered on top of that control contract. The spec is prescriptive — properties, method signatures, and test scenarios are named exactly. Agents do not invent alternatives.
 
 Landing order: **right after `SPEC_UI_LAYOUT_AND_RESIZING.md` closes**, before any keyboard-shortcut or native-modernization work.
 
@@ -216,7 +216,7 @@ Tests:
 
 `FileEntryTableView.xaml.cs` (`src/WinUiFileManager.Presentation/Controls/FileEntryTableView.xaml.cs`):
 
-- Subscribe to `FilePaneViewModel.RenameCommitted` (new event from §3.1); handler re-selects the new row and scrolls into view using the existing `BeginEditingNameCell` path (minus the edit). This closes the keyboard-anchor gap described in R1.
+- Subscribe to `FilePaneViewModel.RenameCommitted` (new event from §3.1); the handler re-selects the renamed **body-table** row and scrolls it into view using the existing rename-focus path (minus the edit). This closes the keyboard-anchor gap described in R1.
 - On `RenameError` transitioning to non-null, keep focus on the editor's `TextBox` (do not re-focus the TableView row).
 
 `FilePaneView.xaml.cs`:

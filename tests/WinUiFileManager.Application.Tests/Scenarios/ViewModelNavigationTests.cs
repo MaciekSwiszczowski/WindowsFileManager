@@ -46,14 +46,14 @@ public sealed class ViewModelNavigationTests
 
         await Assert.That(pane.CurrentPath).IsEqualTo(subFolder);
         await Assert.That(pane.IsLoading).IsTrue();
-        await Assert.That(pane.CurrentItem?.EntryKind).IsEqualTo(FileEntryKind.Parent);
+        await Assert.That(pane.CurrentItem?.Model).IsNull();
         await Assert.That(pane.CurrentItem?.Name).IsEqualTo("..");
 
         scheduler.AdvanceBy(OneSecondTicks);
         await navigateTask;
 
         await Assert.That(pane.IsLoading).IsFalse();
-        await Assert.That(pane.CurrentItem?.EntryKind).IsEqualTo(FileEntryKind.Parent);
+        await Assert.That(pane.CurrentItem?.Model).IsNull();
         await Assert.That(pane.CurrentItem?.Name).IsEqualTo("..");
     }
 
@@ -96,7 +96,7 @@ public sealed class ViewModelNavigationTests
         await pane.NavigateIntoCommand.ExecuteAsync(null);
 
         await Assert.That(pane.CurrentPath).IsEqualTo(fixture.RootPath);
-        await Assert.That(pane.CurrentItem?.EntryKind).IsEqualTo(FileEntryKind.Parent);
+        await Assert.That(pane.CurrentItem?.Model).IsNull();
         await Assert.That(pane.CurrentItem?.Name).IsEqualTo("..");
     }
 

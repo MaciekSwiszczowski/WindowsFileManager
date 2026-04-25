@@ -206,7 +206,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        if (CurrentItem.EntryKind == FileEntryKind.Parent)
+        if (CurrentItem.Model is null)
         {
             await NavigateUpAsync();
             return;
@@ -278,8 +278,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         IncrementalSearchText = (IncrementalSearchText ?? string.Empty) + c;
 
         var match = _sortedItems.FirstOrDefault(i =>
-            i.EntryKind != FileEntryKind.Parent
-            && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
+            i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
         {
@@ -307,8 +306,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var match = _sortedItems.FirstOrDefault(i =>
-            i.EntryKind != FileEntryKind.Parent
-            && i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
+            i.Name.StartsWith(IncrementalSearchText, StringComparison.OrdinalIgnoreCase));
 
         if (match is not null)
         {
@@ -351,9 +349,9 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return selected;
         }
 
-        if (CurrentItem is { EntryKind: not FileEntryKind.Parent })
+        if (CurrentItem?.Model is { } model)
         {
-            return CurrentItem.Model is { } model ? [model] : [];
+            return [model];
         }
 
         return [];
@@ -367,7 +365,6 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var selected = _sortedItems
-            .Where(static i => i.EntryKind != FileEntryKind.Parent)
             .Where(item => _selectedEntryKeys.Contains(GetEntryKey(item)))
             .ToList();
 
@@ -392,7 +389,6 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         return _sortedItems
-            .Where(static i => i.EntryKind != FileEntryKind.Parent)
             .Where(item => _selectedEntryKeys.Contains(GetEntryKey(item)))
             .ToList();
     }
@@ -411,7 +407,6 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var nextSelection = selectedEntries
-            .Where(static item => item.EntryKind != FileEntryKind.Parent)
             .Select(GetEntryKey)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -437,7 +432,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         }
 
         var current = CurrentItem;
-        if (current is null || current.EntryKind == FileEntryKind.Parent)
+        if (current?.Model is null)
         {
             return;
         }
@@ -611,8 +606,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             if (!string.IsNullOrEmpty(restoreSelectionName))
             {
                 var match = _sortedItems.FirstOrDefault(i =>
-                    i.EntryKind != FileEntryKind.Parent
-                    && i.Name.Equals(restoreSelectionName, StringComparison.OrdinalIgnoreCase));
+                    i.Name.Equals(restoreSelectionName, StringComparison.OrdinalIgnoreCase));
                 if (match is not null)
                 {
                     CurrentItem = match;
@@ -786,7 +780,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var currentItemPath = CurrentItem is { EntryKind: not FileEntryKind.Parent } currentItem
+        var currentItemPath = CurrentItem is { Model: not null } currentItem
             ? GetEntryKey(currentItem)
             : null;
         var selectedPaths = new HashSet<string>(_selectedEntryKeys, StringComparer.OrdinalIgnoreCase);
@@ -839,8 +833,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
         else if (currentItemPath is not null)
         {
             CurrentItem = _sortedItems.FirstOrDefault(item =>
-                item.EntryKind != FileEntryKind.Parent
-                && string.Equals(GetEntryKey(item), currentItemPath, StringComparison.OrdinalIgnoreCase))
+                string.Equals(GetEntryKey(item), currentItemPath, StringComparison.OrdinalIgnoreCase))
                 ?? CurrentItem;
         }
 
@@ -879,10 +872,8 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
     }
 
     private static string GetEntryKey(FileEntryViewModel entry) =>
-        entry.EntryKind == FileEntryKind.Parent
-            ? ".."
-            : entry.Model?.FullPath.DisplayPath
-                ?? throw new InvalidOperationException("Non-parent entries must expose a model.");
+        entry.Model?.FullPath.DisplayPath
+            ?? "..";
 
     private async Task RefreshCurrentDirectoryAsync(CancellationToken cancellationToken)
     {
@@ -899,9 +890,7 @@ public sealed partial class FilePaneViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var restoreSelectionName = CurrentItem is { EntryKind: not FileEntryKind.Parent } item
-            ? item.Name
-            : null;
+        var restoreSelectionName = CurrentItem is { Model: not null } currentItem ? currentItem.Name : null;
 
         if (!string.Equals(existingPath.Value.DisplayPath, currentPath.DisplayPath, StringComparison.OrdinalIgnoreCase))
         {

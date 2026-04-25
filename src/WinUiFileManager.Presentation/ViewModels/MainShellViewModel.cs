@@ -398,7 +398,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private Task RenameAsync()
     {
         var currentItem = ActivePane.CurrentItem;
-        if (currentItem is null || currentItem.EntryKind == FileEntryKind.Parent)
+        if (currentItem?.Model is null)
         {
             return Task.CompletedTask;
         }
@@ -665,11 +665,9 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         return string.Join(
             '\u001f',
             selectedEntries.Select(static entry =>
-                entry.EntryKind == FileEntryKind.Parent
-                    ? ".."
-                    : entry.Model is { } model
-                        ? model.FullPath.DisplayPath
-                        : entry.Name));
+                entry.Model is { } model
+                    ? model.FullPath.DisplayPath
+                    : ".."));
     }
 
     public void Dispose()

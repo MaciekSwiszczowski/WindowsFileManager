@@ -77,7 +77,7 @@ public sealed partial class FileEntryTableView
             BodyTable.SelectedItems.Clear();
             BodyTable.SelectedItem = null;
             HeaderTable.SelectedItem =
-                GridViewModel.Host.CurrentItem?.EntryKind == FileEntryKind.Parent
+                GridViewModel.Host.CurrentItem?.Model is null
                     ? GridViewModel.Host.ParentEntry
                     : null;
         }
@@ -181,7 +181,7 @@ public sealed partial class FileEntryTableView
         try
         {
             HeaderTable.SelectedItem =
-                host.CurrentItem?.EntryKind == FileEntryKind.Parent ? host.ParentEntry : null;
+                host.CurrentItem?.Model is null ? host.ParentEntry : null;
 
             BodyTable.SelectedItems.Clear();
             foreach (var item in host.GetExplicitSelectedEntries())
@@ -189,7 +189,7 @@ public sealed partial class FileEntryTableView
                 BodyTable.SelectedItems.Add(item);
             }
 
-            if (host.CurrentItem is { EntryKind: not FileEntryKind.Parent } currentItem)
+            if (host.CurrentItem is { Model: not null } currentItem)
             {
                 if (!BodyTable.SelectedItems.Contains(currentItem))
                 {
@@ -253,13 +253,13 @@ public sealed partial class FileEntryTableView
             return;
         }
 
-        if (host.CurrentItem?.EntryKind == FileEntryKind.Parent && host.ParentEntry is not null)
+        if (host.CurrentItem?.Model is null && host.ParentEntry is not null)
         {
             HeaderTable.Focus(FocusState.Programmatic);
             return;
         }
 
-        if (host.CurrentItem is { EntryKind: not FileEntryKind.Parent } currentItem)
+        if (host.CurrentItem is { Model: not null } currentItem)
         {
             var rowIndex = host.Items.IndexOf(currentItem);
             if (rowIndex >= 0)
@@ -428,7 +428,7 @@ public sealed partial class FileEntryTableView
     private void HeaderTable_GotFocus(object sender, RoutedEventArgs e)
     {
         ActivationRequested?.Invoke();
-        if (GridViewModel.Host?.CurrentItem?.EntryKind == FileEntryKind.Parent)
+        if (GridViewModel.Host?.CurrentItem?.Model is null)
         {
             SyncSelectionFromHostCore();
         }
@@ -686,7 +686,7 @@ public sealed partial class FileEntryTableView
         }
 
         var visibleCount = GetVisibleBodyRowCount();
-        if (host.CurrentItem?.EntryKind == FileEntryKind.Parent)
+        if (host.CurrentItem?.Model is null)
         {
             if (direction > 0)
             {
@@ -696,7 +696,7 @@ public sealed partial class FileEntryTableView
             return;
         }
 
-        var currentIndex = host.CurrentItem is { EntryKind: not FileEntryKind.Parent } currentItem
+        var currentIndex = host.CurrentItem is { Model: not null } currentItem
             ? host.Items.IndexOf(currentItem)
             : 0;
         if (currentIndex < 0)

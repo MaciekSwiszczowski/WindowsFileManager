@@ -620,7 +620,7 @@ public sealed partial class FileEntryTableView
 
     private void ToggleSelection(FileEntryViewModel item)
     {
-        if (item.EntryKind == FileEntryKind.Parent)
+        if (item.Model is null)
         {
             return;
         }

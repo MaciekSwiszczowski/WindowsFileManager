@@ -77,71 +77,47 @@
                     <tv:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="viewModels:FileEntryViewModel">
                             <TextBlock
-                                Text="{x:Bind Name, Mode=OneWay}"
+                                Text="{x:Bind Name, Mode=OneTime}"
                                 Style="{StaticResource EllipsisTextCellStyle}" />
                         </DataTemplate>
                     </tv:TableViewTemplateColumn.CellTemplate>
                 </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                <tv:TableViewTextColumn
                     Header="Ext"
                     SortMemberPath="Extension"
+                    Binding="{Binding Extension}"
                     Width="40"
                     MinWidth="32"
                     IsReadOnly="True"
-                    CanSort="True">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Extension, Mode=OneWay}"
-                                Style="{StaticResource MutedEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource MutedEllipsisCellStyle}"
+                    CanSort="True" />
+                <tv:TableViewTextColumn
                     Header="Size"
                     SortMemberPath="Size"
+                    Binding="{Binding Size}"
                     Width="70"
                     MinWidth="56"
                     IsReadOnly="True"
-                    CanSort="True">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Size, Mode=OneWay}"
-                                Style="{StaticResource RightAlignEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource RightAlignEllipsisCellStyle}"
+                    CanSort="True" />
+                <tv:TableViewTextColumn
                     Header="Modified"
                     SortMemberPath="LastWriteTime"
+                    Binding="{Binding LastWriteTime}"
                     Width="120"
                     MinWidth="100"
                     IsReadOnly="True"
-                    CanSort="True">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind LastWriteTime, Mode=OneWay}"
-                                Style="{StaticResource EllipsisTextCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource EllipsisTextCellStyle}"
+                    CanSort="True" />
+                <tv:TableViewTextColumn
                     Header="Attr"
                     SortMemberPath="Attributes"
+                    Binding="{Binding Attributes}"
                     Width="50"
                     MinWidth="40"
                     IsReadOnly="True"
-                    CanSort="True">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Attributes, Mode=OneWay}"
-                                Style="{StaticResource MutedEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
+                    ElementStyle="{StaticResource MutedEllipsisCellStyle}"
+                    CanSort="True" />
             </tv:TableView.Columns>
         </tv:TableView>
 
@@ -202,7 +178,7 @@
                     <tv:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="viewModels:FileEntryViewModel">
                             <TextBlock
-                                Text="{x:Bind Name, Mode=OneWay}"
+                                Text="{x:Bind Name, Mode=OneTime}"
                                 Style="{StaticResource EllipsisTextCellStyle}" />
                         </DataTemplate>
                     </tv:TableViewTemplateColumn.CellTemplate>
@@ -215,66 +191,42 @@
                         </DataTemplate>
                     </tv:TableViewTemplateColumn.EditingTemplate>
                 </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                <tv:TableViewTextColumn
                     Header="Ext"
                     SortMemberPath="Extension"
+                    Binding="{Binding Extension}"
                     Width="40"
                     MinWidth="32"
                     IsReadOnly="True"
-                    CanSort="False">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Extension, Mode=OneWay}"
-                                Style="{StaticResource MutedEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource MutedEllipsisCellStyle}"
+                    CanSort="False" />
+                <tv:TableViewTextColumn
                     Header="Size"
                     SortMemberPath="Size"
+                    Binding="{Binding Size}"
                     Width="70"
                     MinWidth="56"
                     IsReadOnly="True"
-                    CanSort="False">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Size, Mode=OneWay}"
-                                Style="{StaticResource RightAlignEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource RightAlignEllipsisCellStyle}"
+                    CanSort="False" />
+                <tv:TableViewTextColumn
                     Header="Modified"
                     SortMemberPath="LastWriteTime"
+                    Binding="{Binding LastWriteTime}"
                     Width="120"
                     MinWidth="100"
                     IsReadOnly="True"
-                    CanSort="False">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind LastWriteTime, Mode=OneWay}"
-                                Style="{StaticResource EllipsisTextCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
-                <tv:TableViewTemplateColumn
+                    ElementStyle="{StaticResource EllipsisTextCellStyle}"
+                    CanSort="False" />
+                <tv:TableViewTextColumn
                     Header="Attr"
                     SortMemberPath="Attributes"
+                    Binding="{Binding Attributes}"
                     Width="50"
                     MinWidth="40"
                     IsReadOnly="True"
-                    CanSort="False">
-                    <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
-                            <TextBlock
-                                Text="{x:Bind Attributes, Mode=OneWay}"
-                                Style="{StaticResource MutedEllipsisCellStyle}" />
-                        </DataTemplate>
-                    </tv:TableViewTemplateColumn.CellTemplate>
-                </tv:TableViewTemplateColumn>
+                    ElementStyle="{StaticResource MutedEllipsisCellStyle}"
+                    CanSort="False" />
             </tv:TableView.Columns>
         </tv:TableView>
     </Grid>

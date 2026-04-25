@@ -23,7 +23,7 @@ public sealed class FileEntryViewModel
     private FileEntryViewModel()
     {
         Model = null;
-        EntryKind = FileEntryKind.Parent;
+        EntryKind = FileEntryKind.Folder;
         Name = "..";
         Extension = string.Empty;
         Size = string.Empty;

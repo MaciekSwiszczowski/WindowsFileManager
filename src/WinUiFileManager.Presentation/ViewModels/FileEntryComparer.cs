@@ -28,15 +28,6 @@ public sealed class FileEntryComparer : IComparer<FileEntryViewModel>
             return -1;
         }
 
-        if (x.EntryKind == FileEntryKind.Parent)
-        {
-            return -1;
-        }
-        if (y.EntryKind == FileEntryKind.Parent)
-        {
-            return 1;
-        }
-
         var xIsDirectory = x.EntryKind == FileEntryKind.Folder;
         var yIsDirectory = y.EntryKind == FileEntryKind.Folder;
         if (xIsDirectory && !yIsDirectory)

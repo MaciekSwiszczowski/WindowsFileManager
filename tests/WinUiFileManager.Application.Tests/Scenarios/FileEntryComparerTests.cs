@@ -8,37 +8,27 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 public sealed class FileEntryComparerTests
 {
     [Test]
-    public async Task Test_ParentEntry_AlwaysAtTop_Ascending()
+    public async Task Test_NameSort_Ascending_IgnoresCase()
     {
-        // Arrange
-        var parent = FileEntryViewModel.CreateParentEntry();
         var file1 = CreateFileEntry("a.txt");
-        var file2 = CreateFileEntry("b.txt");
-        var dir1 = CreateDirEntry("subdir");
+        var file2 = CreateFileEntry("B.txt");
 
         var sut = new FileEntryComparer(SortColumn.Name, true);
 
-        // Act & Assert
-        await Assert.That(sut.Compare(parent, file1)).IsLessThan(0);
-        await Assert.That(sut.Compare(parent, file2)).IsLessThan(0);
-        await Assert.That(sut.Compare(parent, dir1)).IsLessThan(0);
-        await Assert.That(sut.Compare(file1, parent)).IsGreaterThan(0);
+        await Assert.That(sut.Compare(file1, file2)).IsLessThan(0);
+        await Assert.That(sut.Compare(file2, file1)).IsGreaterThan(0);
     }
 
     [Test]
-    public async Task Test_ParentEntry_AlwaysAtTop_Descending()
+    public async Task Test_NameSort_Descending_ReversesOrder()
     {
-        // Arrange
-        var parent = FileEntryViewModel.CreateParentEntry();
         var file1 = CreateFileEntry("a.txt");
         var file2 = CreateFileEntry("b.txt");
 
         var sut = new FileEntryComparer(SortColumn.Name, false);
 
-        // Act & Assert
-        await Assert.That(sut.Compare(parent, file1)).IsLessThan(0);
-        await Assert.That(sut.Compare(parent, file2)).IsLessThan(0);
-        await Assert.That(sut.Compare(file1, parent)).IsGreaterThan(0);
+        await Assert.That(sut.Compare(file1, file2)).IsGreaterThan(0);
+        await Assert.That(sut.Compare(file2, file1)).IsLessThan(0);
     }
 
     [Test]

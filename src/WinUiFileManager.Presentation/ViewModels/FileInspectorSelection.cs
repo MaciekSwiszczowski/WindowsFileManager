@@ -38,7 +38,7 @@ public sealed record FileInspectorSelection(
         }
 
         var entry = selectedEntries[0];
-        if (entry.EntryKind == FileEntryKind.Parent || entry.Model is not { } model)
+        if (entry.Model is not { } model)
         {
             return Empty(string.Empty, refreshVersion);
         }

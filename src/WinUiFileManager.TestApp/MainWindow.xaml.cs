@@ -1,41 +1,24 @@
 using System.Collections.ObjectModel;
-using Microsoft.UI;
-using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Media;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Keyboard;
-using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.TestApp;
 
-public sealed class MainWindow : Window
+public sealed partial class MainWindow : Window
 {
-    private readonly Grid _layoutRoot = new();
-    private readonly SpecFileEntryTableView _leftTable;
-    private readonly SpecFileEntryTableView _rightTable;
-    private readonly KeyboardManager _keyboardManager;
+    public KeyboardManager KeyboardManager { get; } = new();
 
     public MainWindow()
     {
-        Title = "FileEntry Table TestApp";
-        AppWindow.Resize(new global::Windows.Graphics.SizeInt32(1360, 720));
-        ApplyTitleBarTheme();
-        _leftTable = new SpecFileEntryTableView { Identity = "Left" };
-        _rightTable = new SpecFileEntryTableView { Identity = "Right" };
-        BuildLayout();
+        InitializeComponent();
 
-        _leftTable.ItemsSource = LeftEntries;
-        _rightTable.ItemsSource = RightEntries;
-        _leftTable.CurrentItem = LeftEntries.Count > 0 ? LeftEntries[0] : null;
-        _rightTable.CurrentItem = RightEntries.Count > 0 ? RightEntries[0] : null;
-        Content = _layoutRoot;
-        _keyboardManager = new KeyboardManager();
-        KeyboardInputBehavior.SetCommand(_layoutRoot, _keyboardManager.KeyPressedCommand);
+        LeftTable.ItemsSource = LeftEntries;
+        RightTable.ItemsSource = RightEntries;
+        LeftTable.CurrentItem = LeftEntries.Count > 0 ? LeftEntries[0] : null;
+        RightTable.CurrentItem = RightEntries.Count > 0 ? RightEntries[0] : null;
     }
 
     public ObservableCollection<FileEntryViewModel> LeftEntries { get; } =
@@ -57,66 +40,6 @@ public sealed class MainWindow : Window
         CreateFile("notes", string.Empty, "Right", 914, DateTime.UtcNow.AddHours(-12), FileAttributes.Archive),
         CreateFile("system-file", "dat", "Right", 32_768, DateTime.UtcNow.AddYears(-1), FileAttributes.Hidden | FileAttributes.System),
     ];
-
-    private void BuildLayout()
-    {
-        _layoutRoot.Padding = new Thickness(12);
-        _layoutRoot.ColumnSpacing = 12;
-        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(420) });
-        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(420) });
-        _layoutRoot.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(480) });
-
-        var leftPanel = CreatePanel("Left panel", @"C:\FileEntryTableTest\Left", _leftTable);
-        var rightPanel = CreatePanel("Right panel", @"C:\FileEntryTableTest\Right", _rightTable);
-        var logger = new MessageLogView();
-
-        Grid.SetColumn(rightPanel, 1);
-        Grid.SetColumn(logger, 2);
-
-        _layoutRoot.Children.Add(leftPanel);
-        _layoutRoot.Children.Add(rightPanel);
-        _layoutRoot.Children.Add(logger);
-    }
-
-    private static Grid CreatePanel(string title, string path, SpecFileEntryTableView table)
-    {
-        var panel = new Grid { RowSpacing = 6 };
-        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        panel.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        panel.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-        var titleBlock = new TextBlock
-        {
-            Text = title,
-            FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
-        };
-
-        var pathBlock = new TextBlock
-        {
-            Text = path,
-            Foreground = ResolveBrush("SystemControlForegroundBaseMediumBrush"),
-        };
-
-        Grid.SetRow(pathBlock, 1);
-        Grid.SetRow(table, 2);
-
-        panel.Children.Add(titleBlock);
-        panel.Children.Add(pathBlock);
-        panel.Children.Add(table);
-
-        return panel;
-    }
-
-    private static Brush? ResolveBrush(string resourceKey)
-    {
-        if (Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(resourceKey, out var resource)
-            && resource is Brush brush)
-        {
-            return brush;
-        }
-
-        return null;
-    }
 
     private static FileEntryViewModel CreateFolder(
         string name,
@@ -161,27 +84,5 @@ public sealed class MainWindow : Window
             attributes);
 
         return new FileEntryViewModel(model);
-    }
-
-    private void ApplyTitleBarTheme()
-    {
-        var titleBar = AppWindow.TitleBar;
-        var bg = global::Windows.UI.Color.FromArgb(255, 32, 32, 32);
-        var hoverBg = global::Windows.UI.Color.FromArgb(255, 51, 51, 51);
-        var pressedBg = global::Windows.UI.Color.FromArgb(255, 70, 70, 70);
-        var inactiveFg = global::Windows.UI.Color.FromArgb(255, 153, 153, 153);
-
-        titleBar.BackgroundColor = bg;
-        titleBar.ForegroundColor = Colors.White;
-        titleBar.InactiveBackgroundColor = bg;
-        titleBar.InactiveForegroundColor = inactiveFg;
-        titleBar.ButtonBackgroundColor = bg;
-        titleBar.ButtonForegroundColor = Colors.White;
-        titleBar.ButtonHoverBackgroundColor = hoverBg;
-        titleBar.ButtonHoverForegroundColor = Colors.White;
-        titleBar.ButtonPressedBackgroundColor = pressedBg;
-        titleBar.ButtonPressedForegroundColor = Colors.White;
-        titleBar.ButtonInactiveBackgroundColor = bg;
-        titleBar.ButtonInactiveForegroundColor = inactiveFg;
     }
 }

@@ -1,19 +1,9 @@
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.Results;
-using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 

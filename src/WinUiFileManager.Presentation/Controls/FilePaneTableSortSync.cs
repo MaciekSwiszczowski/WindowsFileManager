@@ -1,8 +1,3 @@
-using Microsoft.UI.Xaml;
-using WinUI.TableView;
-using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Presentation.ViewModels;
-
 namespace WinUiFileManager.Presentation.Controls;
 
 internal static class FilePaneTableSortSync

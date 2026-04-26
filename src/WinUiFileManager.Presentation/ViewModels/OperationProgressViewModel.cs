@@ -1,9 +1,3 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Xaml;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class OperationProgressViewModel : ObservableObject

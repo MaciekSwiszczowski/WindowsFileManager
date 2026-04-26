@@ -1,5 +1,4 @@
 using Windows.ApplicationModel.DataTransfer;
-using WinUiFileManager.Application.Abstractions;
 
 namespace WinUiFileManager.Presentation.Services;
 

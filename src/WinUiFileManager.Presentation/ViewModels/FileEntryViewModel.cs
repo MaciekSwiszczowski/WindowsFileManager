@@ -1,6 +1,3 @@
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed class FileEntryViewModel

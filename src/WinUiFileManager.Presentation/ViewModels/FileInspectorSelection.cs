@@ -1,5 +1,3 @@
-using WinUiFileManager.Domain.Enums;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed record FileInspectorSelection(

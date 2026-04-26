@@ -1,7 +1,3 @@
-using System.ComponentModel;
-using CommunityToolkit.Mvvm.ComponentModel;
-using WinUiFileManager.Domain.Enums;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileEntryTableViewModel : ObservableObject

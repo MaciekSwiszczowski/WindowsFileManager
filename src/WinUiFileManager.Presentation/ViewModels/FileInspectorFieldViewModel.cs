@@ -1,8 +1,3 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileInspectorFieldViewModel : ObservableObject

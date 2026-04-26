@@ -1,12 +1,3 @@
-using System.Text;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.Results;
-using WinUiFileManager.Domain.ValueObjects;
-
 namespace WinUiFileManager.Presentation.Services;
 
 public sealed class WinUiDialogService : IDialogService

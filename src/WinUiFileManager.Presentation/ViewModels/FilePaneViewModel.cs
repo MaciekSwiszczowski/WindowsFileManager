@@ -1,17 +1,9 @@
-using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Reactive.Threading.Tasks;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using DynamicData;
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 

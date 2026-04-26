@@ -1,5 +1,3 @@
-using CommunityToolkit.Mvvm.ComponentModel;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class StatusBarViewModel : ObservableObject

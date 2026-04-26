@@ -1,18 +1,8 @@
-using System.Collections.ObjectModel;
 using System.Collections.Frozen;
-using System.Text;
 using System.Linq;
 using System.Runtime.CompilerServices;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using Microsoft.Extensions.Logging;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
 using Windows.Storage.Streams;
 
 namespace WinUiFileManager.Presentation.ViewModels;

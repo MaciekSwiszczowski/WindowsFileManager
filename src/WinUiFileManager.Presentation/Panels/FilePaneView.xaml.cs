@@ -1,13 +1,3 @@
-using System.Collections.Specialized;
-using System.ComponentModel;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
-using Windows.System;
-using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Presentation.ViewModels;
-
 namespace WinUiFileManager.Presentation.Panels;
 
 public sealed partial class FilePaneView

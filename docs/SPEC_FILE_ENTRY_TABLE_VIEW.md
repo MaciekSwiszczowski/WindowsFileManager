@@ -78,7 +78,9 @@ A string that hides real rows whose `Name` does not contain it (ordinal case-ins
 
 ### 2.6 Focused-for-keyboard
 
-A flag identifying which `SpecFileEntryTableView` instance currently owns WinUI keyboard focus. Exposed as the `IsFocused` dependency property. Set internally by the control on focus transitions. The keyboard manager broadcasts; only the focused instance acts.
+The `SpecFileEntryTableView` instance that most recently gained WinUI keyboard focus owns file-table keyboard input. Focus ownership is observable through `FileTableFocusedMessage`, not through a public dependency property.
+
+When a table gains focus, it publishes `FileTableFocusedMessage(Identity)` and starts observing keyboard-manager messages. Every table also observes `FileTableFocusedMessage`; when a table receives the message with a foreign `Identity`, it stops observing keyboard-manager messages.
 
 ---
 
@@ -94,7 +96,6 @@ A flag identifying which `SpecFileEntryTableView` instance currently owns WinUI 
 | `SelectedItems` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Explicit-selection set. Never contains `..`. |
 | `FilterText` | `string` | OneWay | `""` | Substring filter. |
 | `ColumnLayout` | `ColumnLayout` record | TwoWay | defaults per §4.1 | Column widths; updated on user drag. |
-| `IsFocused` | `bool` | OneWay (out) | `false` | True while the control or any descendant has WinUI keyboard focus. |
 
 ### 3.2 Supporting types
 
@@ -129,7 +130,7 @@ Trigger conditions are specified in §13.
 
 ### 3.4 Incoming messages (messenger → control)
 
-The control subscribes to the primitive input messages emitted by the keyboard manager (§12). Each handler short-circuits on `IsFocused == false`.
+The focused control subscribes to the primitive input messages emitted by the keyboard manager (§12). Non-focused controls do not observe those messages.
 
 The control does not expose any custom CLR events.
 
@@ -257,7 +258,7 @@ Range extension uses the cursor as anchor; programmatic cursor moves keep the an
 | Double-click on a real row | The two clicks fire as singles first, leaving `SelectedItems = [clickedRow]`. The double-click gesture then publishes `ActivateInvokedMessage`; the coordinator resolves it via the selection (§14). |
 | Double-click on `..` | The two clicks fire as singles first, leaving `SelectedItems` empty and `..` visually selected. The double-click gesture then publishes `FileTableNavigateUpRequestedMessage`. |
 
-Any pointer interaction brings WinUI keyboard focus to the control, which reflects into `IsFocused = true`.
+Any pointer interaction brings WinUI keyboard focus to the control. The focus transition publishes `FileTableFocusedMessage` and activates that table's keyboard-message subscriptions.
 
 ---
 
@@ -275,17 +276,22 @@ Sort and column widths are preserved across filter changes.
 
 ---
 
-## 9. Focus and `IsFocused`
+## 9. Focus
 
-The control sets `IsFocused = true` when any descendant gains WinUI keyboard focus, `false` when focus leaves. Hosts bind to this for active-pane chrome.
+The control does not expose focus state. Focus is represented by message subscriptions:
 
-Every keyboard-manager input message handler short-circuits on `IsFocused == false`, so exactly one table responds to any given keystroke in a multi-table host.
+- On `GotFocus`, the table publishes `FileTableFocusedMessage(Identity)` and starts observing keyboard-manager messages.
+- Every table remains subscribed to `FileTableFocusedMessage`.
+- When a table receives `FileTableFocusedMessage` with a foreign `Identity`, it stops observing keyboard-manager messages.
+- On `LostFocus`, the table stops observing keyboard-manager messages. This covers focus moving to non-table controls such as logger, path box, buttons, or dialogs.
+
+Keyboard-message handlers do not need their own focus guards because inactive tables are not subscribed to those messages.
 
 The control does not disable itself for any reason. Hosts that block interaction during loads use a hit-testable overlay rather than disabling the control.
 
 No system focus rectangle is drawn on rows or cells.
 
-When `IsFocused` transitions from `false` to `true`, the control publishes `FileTableFocusedMessage(Identity)`. (Loss of focus is implicit — the next gain identifies the new owner.)
+Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity)`. Loss of focus is implicit for the host; the next gain identifies the new owner.
 
 ---
 
@@ -319,15 +325,17 @@ Out of scope:
 
 ---
 
-## 12. Keyboard manager
+## 12. Keyboard input
 
-A single shell-level service. Subscribes to `PreviewKeyDown` at the window root. Looks up the pressed key (with modifiers and text-input awareness) in a shortcut registry. On match, marks the event handled and publishes one **primitive intent message** through the messenger.
+The shell attaches `KeyboardInputBehavior.Command` to the element that should own file-manager keyboard routing. The behavior listens to that element's `PreviewKeyDown`, converts the key and modifier state into `KeyboardInput`, invokes the bound command, and applies `KeyboardInput.Handled` back to the event.
+
+`KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized keystrokes to one **primitive intent message** through the messenger and marks the input handled. Unrecognized keys are ignored.
 
 The keyboard manager is dumb on purpose: it does not know which table is focused, what is selected, or what commands mean. It just translates keystrokes to messages.
 
 ### 12.1 Primitive intent messages
 
-State-mutation messages (consumed by `SpecFileEntryTableView`, gated by `IsFocused`):
+State-mutation messages (consumed only by the `SpecFileEntryTableView` currently observing keyboard-manager messages):
 
 | Message | Default shortcut | Behavior in the focused table |
 |---|---|---|
@@ -376,7 +384,7 @@ The control publishes exactly three message types.
 
 ### 13.1 `FileTableFocusedMessage(Identity)`
 
-Fires when `IsFocused` transitions from `false` to `true`. Loss is implicit.
+Fires when the table gains WinUI keyboard focus. Loss is implicit.
 
 ### 13.2 `FileTableSelectionChangedMessage(Identity, SelectedItems)`
 
@@ -394,7 +402,7 @@ Trigger sources:
 Fires when:
 - `SelectedItems` is empty, **and**
 - One of:
-  - The user pressed `Enter` (delivered as `ActivateInvokedMessage` while `IsFocused == true`) with the cursor on `..`.
+  - The user pressed `Enter` (delivered as `ActivateInvokedMessage` while the table is observing keyboard-manager messages) with the cursor on `..`.
   - The user double-clicked the `..` row.
 
 Does not fire when `SelectedItems` is non-empty. Does not fire when the cursor is on a real row (real-row activation flows through `ActivateInvokedMessage`, resolved by the coordinator).
@@ -608,13 +616,14 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Adding to host's `SelectedItems` highlights rows.
 - [ ] Setting `ColumnLayout`, `FilterText`, and `Identity` propagates as expected.
 
-### 17.3 `IsFocused`
+### 17.3 Focus
 
-- [ ] Clicking any row or tabbing in sets `IsFocused = true` and publishes `FileTableFocusedMessage`.
-- [ ] Focus to another control sets `IsFocused = false`; no message published on loss.
-- [ ] Focus on a descendant (header) keeps `IsFocused = true`.
-- [ ] In a multi-table host, no two tables report `IsFocused = true` simultaneously.
-- [ ] Every `IsFocused = false` instance ignores every keyboard-manager input message.
+- [ ] Clicking any row or tabbing in publishes `FileTableFocusedMessage`.
+- [ ] Clicking any row or tabbing in starts keyboard-manager message observation for that table.
+- [ ] A foreign `FileTableFocusedMessage` stops keyboard-manager message observation.
+- [ ] Focus to a non-table control stops keyboard-manager message observation; no message is published on loss.
+- [ ] In a multi-table host, only the focused table reacts to keyboard-manager input messages.
+- [ ] Non-focused instances are not subscribed to keyboard-manager input messages.
 
 ### 17.4 Parent row
 
@@ -665,7 +674,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `ActivateInvokedMessage` while focused, `SelectedItems` empty, cursor on real row → no `FileTableNavigateUpRequestedMessage` (the file table is silent); coordinator's resolution rule sees an empty selection and emits no domain message.
 - [ ] `ActivateInvokedMessage` while focused, `SelectedItems` has exactly one item → coordinator publishes `DefaultActionRequestedMessage` with that item; the file table publishes nothing extra.
 - [ ] `ActivateInvokedMessage` while focused, `SelectedItems` has multiple items → no domain message published.
-- [ ] `ActivateInvokedMessage` while `IsFocused = false` → ignored entirely.
+- [ ] `ActivateInvokedMessage` while the table is not observing keyboard-manager messages → ignored entirely.
 - [ ] Mouse double-click reproduces all of the above conditions because the click-portion has updated `SelectedItems` first.
 
 ### 17.9 Filter

@@ -47,24 +47,18 @@ public sealed partial class SpecFileEntryTableView
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(ColumnLayout.Default, OnColumnLayoutChanged));
 
-    public static readonly DependencyProperty IsFocusedProperty =
-        DependencyProperty.Register(
-            nameof(IsFocused),
-            typeof(bool),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(false));
-
     private readonly SpecFileEntryViewModel _parentRow = SpecFileEntryViewModel.CreateParentEntry();
     private ObservableCollection<SpecFileEntryViewModel>? _attachedItemsSource;
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;
+    private bool _isObservingKeyboardMessages;
     private bool _syncingSelection;
 
     public SpecFileEntryTableView()
     {
         InitializeComponent();
         SelectedItems = [];
-        RegisterKeyboardMessages();
+        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
     public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
@@ -101,12 +95,6 @@ public sealed partial class SpecFileEntryTableView
     {
         get => (ColumnLayout)GetValue(ColumnLayoutProperty);
         set => SetValue(ColumnLayoutProperty, value);
-    }
-
-    public bool IsFocused
-    {
-        get => (bool)GetValue(IsFocusedProperty);
-        private set => SetValue(IsFocusedProperty, value);
     }
 
     public ObservableCollection<SpecFileEntryViewModel> ParentRows { get; } = [];
@@ -282,26 +270,29 @@ public sealed partial class SpecFileEntryTableView
 
     private void FileEntryTableView_GotFocus(object sender, RoutedEventArgs e)
     {
-        if (IsFocused)
+        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity));
+        StartObservingKeyboardMessages();
+    }
+
+    private void FileEntryTableView_LostFocus(object sender, RoutedEventArgs e) =>
+        StopObservingKeyboardMessages();
+
+    private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
+    {
+        if (!StringComparer.Ordinal.Equals(message.Identity, Identity))
+        {
+            StopObservingKeyboardMessages();
+        }
+    }
+
+    private void StartObservingKeyboardMessages()
+    {
+        if (_isObservingKeyboardMessages)
         {
             return;
         }
 
-        IsFocused = true;
-        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity));
-    }
-
-    private void FileEntryTableView_LostFocus(object sender, RoutedEventArgs e)
-    {
-        DispatcherQueue.TryEnqueue(() =>
-        {
-            var focused = FocusManager.GetFocusedElement(XamlRoot) as DependencyObject;
-            IsFocused = focused is not null && IsAncestorOf(focused);
-        });
-    }
-
-    private void RegisterKeyboardMessages()
-    {
+        _isObservingKeyboardMessages = true;
         WeakReferenceMessenger.Default.Register<MoveCursorUpMessage>(this, (_, _) => MoveCursor(-1));
         WeakReferenceMessenger.Default.Register<MoveCursorDownMessage>(this, (_, _) => MoveCursor(1));
         WeakReferenceMessenger.Default.Register<MoveCursorHomeMessage>(this, (_, _) => MoveToBoundary(moveToEnd: false));
@@ -311,13 +302,25 @@ public sealed partial class SpecFileEntryTableView
         WeakReferenceMessenger.Default.Register<ActivateInvokedMessage>(this, (_, _) => ActivateCurrentParentRow());
     }
 
-    private void MoveCursor(int delta)
+    private void StopObservingKeyboardMessages()
     {
-        if (!IsFocused)
+        if (!_isObservingKeyboardMessages)
         {
             return;
         }
 
+        _isObservingKeyboardMessages = false;
+        WeakReferenceMessenger.Default.Unregister<MoveCursorUpMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<MoveCursorDownMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<MoveCursorHomeMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<MoveCursorEndMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<SelectAllMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ClearSelectionMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ActivateInvokedMessage>(this);
+    }
+
+    private void MoveCursor(int delta)
+    {
         if (ParentTable.SelectedItem is not null)
         {
             if (delta > 0 && VisibleItems.Count > 0)
@@ -347,11 +350,6 @@ public sealed partial class SpecFileEntryTableView
 
     private void MoveToBoundary(bool moveToEnd)
     {
-        if (!IsFocused)
-        {
-            return;
-        }
-
         if (moveToEnd)
         {
             if (VisibleItems.Count > 0)
@@ -430,11 +428,6 @@ public sealed partial class SpecFileEntryTableView
 
     private void SelectAllVisibleRows()
     {
-        if (!IsFocused)
-        {
-            return;
-        }
-
         _syncingSelection = true;
         try
         {
@@ -457,11 +450,6 @@ public sealed partial class SpecFileEntryTableView
 
     private void ClearSelection()
     {
-        if (!IsFocused)
-        {
-            return;
-        }
-
         _syncingSelection = true;
         try
         {
@@ -480,7 +468,7 @@ public sealed partial class SpecFileEntryTableView
 
     private void ActivateCurrentParentRow()
     {
-        if (!IsFocused || ParentTable.SelectedItem is null || SelectedItems.Count > 0)
+        if (ParentTable.SelectedItem is null || SelectedItems.Count > 0)
         {
             return;
         }
@@ -536,20 +524,4 @@ public sealed partial class SpecFileEntryTableView
             nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
             _ => FileEntryColumn.Name,
         };
-
-    private bool IsAncestorOf(DependencyObject descendant)
-    {
-        var current = descendant;
-        while (current is not null)
-        {
-            if (ReferenceEquals(current, this))
-            {
-                return true;
-            }
-
-            current = VisualTreeHelper.GetParent(current);
-        }
-
-        return false;
-    }
 }

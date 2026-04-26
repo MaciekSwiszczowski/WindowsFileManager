@@ -1,13 +1,13 @@
-# Spec: FileEntryTableView
+# Spec: SpecFileEntryTableView
 
-`FileEntryTableView` is a self-contained grid control that renders a single directory's contents in a Total Commander-style list: five fixed columns (Name, Ext, Size, Modified, Attributes), a synthetic `..` parent row pinned above the list, and a keyboard-first interaction model.
+`SpecFileEntryTableView` is a self-contained grid control that renders a single directory's contents in a Total Commander-style list: five fixed columns (Name, Ext, Size, Modified, Attributes), a synthetic `..` parent row pinned above the list, and a keyboard-first interaction model.
 
 This document also specifies the messaging architecture the control participates in: the **keyboard manager**, the **file command coordinator**, and the **file operation dialog service**. Together these form a one-way data flow:
 
 ```
 KeyboardManager ──primitive intents──▶ Coordinator ──resolved domain msgs──▶ Action services
                                           ▲
-FileEntryTableView ──state messages──────┘
+SpecFileEntryTableView ──state messages──────┘
 ```
 
 External concerns not covered here: filesystem access, navigation history, persistence, the file operation service that performs rename / copy / move / delete, path normalization, clipboard adapters.
@@ -24,9 +24,9 @@ The target use case is a Windows Explorer replacement that behaves like Total Co
 enum FileEntryKind { File, Folder }
 ```
 
-There is no `Parent` value. The `..` row is synthetic and rendered by the control itself (§2.3); it is never represented by a `FileEntryViewModel` instance.
+There is no `Parent` value. The `..` row is synthetic and rendered by the control itself (§2.3); it is never represented by a `SpecFileEntryViewModel` instance.
 
-### 1.2 `FileEntryViewModel`
+### 1.2 `SpecFileEntryViewModel`
 
 A row's view-model. The control reads these properties; it does not mutate instances.
 
@@ -35,11 +35,11 @@ A row's view-model. The control reads these properties; it does not mutate insta
 | `Name` | `string` | File or folder name. Displayed in the Name column. |
 | `Extension` | `string` | File extension without leading dot, or empty string for extension-less items and folders. |
 | `Size` | `string` | Formatted size (e.g. `"4.21 MB"`, `"512 B"`). Empty for folders. |
-| `Modified` | `string` | Formatted last-write time. |
+| `Modified` | `DateTime` | Last-write time in local time. Display formatting is owned by the Modified column. |
 | `Attributes` | `string` | Formatted attribute flags. Empty if none. |
 | `Kind` | `FileEntryKind` | Governs row styling and activation semantics. |
 
-The control does not interpret `Size`, `Modified`, or `Attributes` as sortable values — sorting is the host's responsibility (§5).
+The control stores `Modified` as a `DateTime`; `Size` and `Attributes` remain display values.
 
 ---
 
@@ -47,15 +47,15 @@ The control does not interpret `Size`, `Modified`, or `Attributes` as sortable v
 
 ### 2.1 Cursor
 
-The row the keyboard is "on". Exactly one cursor exists at any time. It may point to any real item or to the `..` row. Cursor is internal to the control; consumers that want to observe it bind to the `CurrentItem` dependency property (§3).
+The row the keyboard is "on". Exactly one cursor exists at any time. It may point to any real item or to the `..` row. Cursor is internal to the control.
 
 ### 2.2 Explicit selection
 
-The set of real items the user has explicitly marked. Exposed as the `SelectedItems` dependency property. `..` is never present in `SelectedItems` (the property is typed `ObservableCollection<FileEntryViewModel>` and `..` is not a `FileEntryViewModel`). However, `..` can be **visually** selected through user gestures — that highlight state is internal and not exposed externally.
+The set of real items the user has explicitly marked. Exposed as the `SelectedItems` dependency property. `..` is never present in `SelectedItems` (the property is typed `ObservableCollection<SpecFileEntryViewModel>` and `..` is not a `SpecFileEntryViewModel`). However, `..` can be **visually** selected through user gestures — that highlight state is internal and not exposed externally.
 
 ### 2.3 Parent row (`..`)
 
-A synthetic row the control renders at the top of the list when `IsRootContent == false`. Not a `FileEntryViewModel`; not present in `ItemsSource`.
+A synthetic row the control renders at the top of the list when `IsRootContent == false`. Not a `SpecFileEntryViewModel`; not present in `ItemsSource`.
 
 Rendering: Name shows `..`; Ext / Size / Modified / Attributes are blank; styled like a folder row.
 
@@ -78,7 +78,7 @@ A string that hides real rows whose `Name` does not contain it (ordinal case-ins
 
 ### 2.6 Focused-for-keyboard
 
-A flag identifying which `FileEntryTableView` instance currently owns WinUI keyboard focus. Exposed as the `IsFocused` dependency property. Set internally by the control on focus transitions. The keyboard manager broadcasts; only the focused instance acts.
+A flag identifying which `SpecFileEntryTableView` instance currently owns WinUI keyboard focus. Exposed as the `IsFocused` dependency property. Set internally by the control on focus transitions. The keyboard manager broadcasts; only the focused instance acts.
 
 ---
 
@@ -88,13 +88,10 @@ A flag identifying which `FileEntryTableView` instance currently owns WinUI keyb
 
 | Property | Type | Mode | Default | Description |
 |---|---|---|---|---|
-| `ItemsSource` | `ObservableCollection<FileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
+| `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
 | `IsRootContent` | `bool` | OneWay | `false` | When `true`, the `..` row is not rendered. |
 | `Identity` | `string` | OneWay | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). |
-| `SortColumn` | `FileEntryColumn` enum | TwoWay | `Name` | Updated on header click; host re-sorts `ItemsSource`. |
-| `SortAscending` | `bool` | TwoWay | `true` | Sort direction. |
-| `CurrentItem` | `FileEntryViewModel?` | TwoWay | `null` | The cursor. `null` when on `..` or when no rows. |
-| `SelectedItems` | `ObservableCollection<FileEntryViewModel>` | OneWay | empty | Explicit-selection set. Never contains `..`. |
+| `SelectedItems` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Explicit-selection set. Never contains `..`. |
 | `FilterText` | `string` | OneWay | `""` | Substring filter. |
 | `ColumnLayout` | `ColumnLayout` record | TwoWay | defaults per §4.1 | Column widths; updated on user drag. |
 | `IsFocused` | `bool` | OneWay (out) | `false` | True while the control or any descendant has WinUI keyboard focus. |
@@ -121,7 +118,7 @@ record FileTableFocusedMessage(string Identity);
 
 record FileTableSelectionChangedMessage(
     string Identity,
-    IReadOnlyList<FileEntryViewModel> SelectedItems);
+    IReadOnlyList<SpecFileEntryViewModel> SelectedItems);
 
 record FileTableNavigateUpRequestedMessage(string Identity);
 ```
@@ -147,7 +144,7 @@ The control does not expose any custom CLR events.
 | 1 | Name | `Name` | 320 | 100 | Left, character ellipsis |
 | 2 | Ext | `Extension` | 40 | 32 | Left, character ellipsis, muted |
 | 3 | Size | `Size` | 70 | 56 | Right, character ellipsis |
-| 4 | Modified | `Modified` | 120 | 100 | Left, character ellipsis |
+| 4 | Modified | `Modified` | 120 | 100 | Left, `TableViewDateColumn` formatting |
 | 5 | Attr | `Attributes` | 50 | 40 | Left, character ellipsis, muted |
 
 Reordering, per-column filtering, and show/hide are not supported.
@@ -172,13 +169,13 @@ Folder rows have an empty Size cell. The `..` row has empty Ext / Size / Modifie
 
 ## 5. Sorting
 
-Exactly one column header shows the sort indicator (`SortColumn`); arrow direction reflects `SortAscending`.
+Exactly one column header shows the sort indicator. Sort state is internal to the control.
 
 Clicking a header:
-- Already the sort column → toggle `SortAscending`.
-- Otherwise → set `SortColumn` to clicked column, `SortAscending = true`.
+- Already the sort column → toggle the internal sort direction.
+- Otherwise → set the internal sort column to the clicked column and use ascending direction.
 
-Both updates flow back to the host via two-way binding. The control does **not** re-order `ItemsSource` itself.
+The control does **not** expose sort state as dependency properties. Persisted UI state is limited to `ColumnLayout`.
 
 `..` is always pinned visually first regardless of sort state. Directory-before-file ordering is a host-side decision.
 
@@ -330,7 +327,7 @@ The keyboard manager is dumb on purpose: it does not know which table is focused
 
 ### 12.1 Primitive intent messages
 
-State-mutation messages (consumed by `FileEntryTableView`, gated by `IsFocused`):
+State-mutation messages (consumed by `SpecFileEntryTableView`, gated by `IsFocused`):
 
 | Message | Default shortcut | Behavior in the focused table |
 |---|---|---|
@@ -420,7 +417,7 @@ A single application-scoped service that holds two pieces of cross-cutting state
 class FileCommandCoordinator
 {
     string? _activeIdentity;
-    Dictionary<string, IReadOnlyList<FileEntryViewModel>> _selectionByIdentity;
+    Dictionary<string, IReadOnlyList<SpecFileEntryViewModel>> _selectionByIdentity;
 }
 ```
 
@@ -450,33 +447,33 @@ record NavigateUpRequestedMessage(string SourceIdentity);
 
 record DefaultActionRequestedMessage(
     string SourceIdentity,
-    FileEntryViewModel Item);
+    SpecFileEntryViewModel Item);
 
 record RenameRequestedMessage(
     string SourceIdentity,
-    FileEntryViewModel Item);
+    SpecFileEntryViewModel Item);
 
 record DeleteRequestedMessage(
     string SourceIdentity,
-    IReadOnlyList<FileEntryViewModel> Items);
+    IReadOnlyList<SpecFileEntryViewModel> Items);
 
 record CopyRequestedMessage(
     string SourceIdentity,
-    IReadOnlyList<FileEntryViewModel> Items);
+    IReadOnlyList<SpecFileEntryViewModel> Items);
 
 record MoveRequestedMessage(
     string SourceIdentity,
-    IReadOnlyList<FileEntryViewModel> Items);
+    IReadOnlyList<SpecFileEntryViewModel> Items);
 
 record CreateFolderRequestedMessage(string SourceIdentity);
 
 record CopyPathRequestedMessage(
     string SourceIdentity,
-    IReadOnlyList<FileEntryViewModel> Items);
+    IReadOnlyList<SpecFileEntryViewModel> Items);
 
 record PropertiesRequestedMessage(
     string SourceIdentity,
-    FileEntryViewModel Item);
+    SpecFileEntryViewModel Item);
 ```
 
 ### 14.5 Resolution rules
@@ -608,9 +605,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 - [ ] `ItemsSource` add / remove / re-order propagates to visible rows.
 - [ ] `IsRootContent` toggle shows / hides `..`.
-- [ ] `CurrentItem` set scrolls into view and marks the cursor.
 - [ ] Adding to host's `SelectedItems` highlights rows.
-- [ ] Setting `ColumnLayout`, `SortColumn`, `SortAscending`, `FilterText`, `Identity` propagates as expected.
+- [ ] Setting `ColumnLayout`, `FilterText`, and `Identity` propagates as expected.
 
 ### 17.3 `IsFocused`
 
@@ -675,7 +671,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 ### 17.9 Filter
 
 - [ ] `FilterText = "abc"` hides non-matching real rows; `..` still visible.
-- [ ] Cursor on hidden row moves to first visible real row; `CurrentItem` updates.
+- [ ] Cursor on hidden row moves to first visible real row.
 - [ ] Hidden rows pruned from `SelectedItems`; publishes a `FileTableSelectionChangedMessage`.
 - [ ] `SelectedItems ⊆ visible real rows` invariant holds at all times.
 - [ ] Clearing filter does not restore previously-pruned rows.
@@ -683,7 +679,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.10 Sort and columns
 
-- [ ] Header click sets / toggles indicator; `SortColumn` / `SortAscending` round-trip.
+- [ ] Header click sets / toggles the internal sort indicator.
 - [ ] The control does not re-order `ItemsSource`.
 - [ ] Column drag updates `ColumnLayout`; clamps at minimum.
 - [ ] Setting `ColumnLayout` programmatically applies to all five columns.

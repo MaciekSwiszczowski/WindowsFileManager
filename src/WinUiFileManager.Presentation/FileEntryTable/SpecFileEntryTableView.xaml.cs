@@ -3,12 +3,12 @@ using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
-public sealed partial class SpecFileEntryTableView : UserControl
+public sealed partial class SpecFileEntryTableView
 {
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(
             nameof(ItemsSource),
-            typeof(ObservableCollection<FileEntryViewModel>),
+            typeof(ObservableCollection<SpecFileEntryViewModel>),
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(null, OnItemsSourceChanged));
 
@@ -26,31 +26,10 @@ public sealed partial class SpecFileEntryTableView : UserControl
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(string.Empty));
 
-    public static readonly DependencyProperty SortColumnProperty =
-        DependencyProperty.Register(
-            nameof(SortColumn),
-            typeof(FileEntryColumn),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(FileEntryColumn.Name, OnSortStateChanged));
-
-    public static readonly DependencyProperty SortAscendingProperty =
-        DependencyProperty.Register(
-            nameof(SortAscending),
-            typeof(bool),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(true, OnSortStateChanged));
-
-    public static readonly DependencyProperty CurrentItemProperty =
-        DependencyProperty.Register(
-            nameof(CurrentItem),
-            typeof(FileEntryViewModel),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(null));
-
     public static readonly DependencyProperty SelectedItemsProperty =
         DependencyProperty.Register(
             nameof(SelectedItems),
-            typeof(ObservableCollection<FileEntryViewModel>),
+            typeof(ObservableCollection<SpecFileEntryViewModel>),
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(null));
 
@@ -75,8 +54,10 @@ public sealed partial class SpecFileEntryTableView : UserControl
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(false));
 
-    private readonly FileEntryViewModel _parentRow = FileEntryViewModel.CreateParentEntry();
-    private ObservableCollection<FileEntryViewModel>? _attachedItemsSource;
+    private readonly SpecFileEntryViewModel _parentRow = SpecFileEntryViewModel.CreateParentEntry();
+    private ObservableCollection<SpecFileEntryViewModel>? _attachedItemsSource;
+    private FileEntryColumn _sortColumn = FileEntryColumn.Name;
+    private bool _sortAscending = true;
     private bool _syncingSelection;
 
     public SpecFileEntryTableView()
@@ -86,9 +67,9 @@ public sealed partial class SpecFileEntryTableView : UserControl
         RegisterKeyboardMessages();
     }
 
-    public ObservableCollection<FileEntryViewModel>? ItemsSource
+    public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
     {
-        get => (ObservableCollection<FileEntryViewModel>?)GetValue(ItemsSourceProperty);
+        get => (ObservableCollection<SpecFileEntryViewModel>?)GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
     }
 
@@ -104,27 +85,9 @@ public sealed partial class SpecFileEntryTableView : UserControl
         set => SetValue(IdentityProperty, value);
     }
 
-    public FileEntryColumn SortColumn
+    public ObservableCollection<SpecFileEntryViewModel> SelectedItems
     {
-        get => (FileEntryColumn)GetValue(SortColumnProperty);
-        set => SetValue(SortColumnProperty, value);
-    }
-
-    public bool SortAscending
-    {
-        get => (bool)GetValue(SortAscendingProperty);
-        set => SetValue(SortAscendingProperty, value);
-    }
-
-    public FileEntryViewModel? CurrentItem
-    {
-        get => (FileEntryViewModel?)GetValue(CurrentItemProperty);
-        set => SetValue(CurrentItemProperty, value);
-    }
-
-    public ObservableCollection<FileEntryViewModel> SelectedItems
-    {
-        get => (ObservableCollection<FileEntryViewModel>)GetValue(SelectedItemsProperty);
+        get => (ObservableCollection<SpecFileEntryViewModel>)GetValue(SelectedItemsProperty);
         set => SetValue(SelectedItemsProperty, value);
     }
 
@@ -146,15 +109,15 @@ public sealed partial class SpecFileEntryTableView : UserControl
         private set => SetValue(IsFocusedProperty, value);
     }
 
-    public ObservableCollection<FileEntryViewModel> ParentRows { get; } = [];
+    public ObservableCollection<SpecFileEntryViewModel> ParentRows { get; } = [];
 
-    public ObservableCollection<FileEntryViewModel> VisibleItems { get; } = [];
+    public ObservableCollection<SpecFileEntryViewModel> VisibleItems { get; } = [];
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is SpecFileEntryTableView view)
         {
-            view.AttachItemsSource(e.NewValue as ObservableCollection<FileEntryViewModel>);
+            view.AttachItemsSource(e.NewValue as ObservableCollection<SpecFileEntryViewModel>);
         }
     }
 
@@ -163,14 +126,6 @@ public sealed partial class SpecFileEntryTableView : UserControl
         if (d is SpecFileEntryTableView view)
         {
             view.RefreshParentRow();
-        }
-    }
-
-    private static void OnSortStateChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is SpecFileEntryTableView view)
-        {
-            view.SyncSortIndicators();
         }
     }
 
@@ -190,7 +145,7 @@ public sealed partial class SpecFileEntryTableView : UserControl
         }
     }
 
-    private void AttachItemsSource(ObservableCollection<FileEntryViewModel>? itemsSource)
+    private void AttachItemsSource(ObservableCollection<SpecFileEntryViewModel>? itemsSource)
     {
         if (_attachedItemsSource is not null)
         {
@@ -264,7 +219,6 @@ public sealed partial class SpecFileEntryTableView : UserControl
         {
             EntryTable.SelectedItems.Clear();
             EntryTable.SelectedItem = null;
-            CurrentItem = null;
             SelectedItems.Clear();
         }
         finally
@@ -287,10 +241,8 @@ public sealed partial class SpecFileEntryTableView : UserControl
         try
         {
             ParentTable.SelectedItem = null;
-            CurrentItem = EntryTable.SelectedItem as FileEntryViewModel
-                ?? e.AddedItems.OfType<FileEntryViewModel>().LastOrDefault();
             SelectedItems.Clear();
-            foreach (var item in EntryTable.SelectedItems.OfType<FileEntryViewModel>())
+            foreach (var item in EntryTable.SelectedItems.OfType<SpecFileEntryViewModel>())
             {
                 SelectedItems.Add(item);
             }
@@ -305,7 +257,7 @@ public sealed partial class SpecFileEntryTableView : UserControl
 
     private void EntryTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (EntryTable.SelectedItem is FileEntryViewModel)
+        if (EntryTable.SelectedItem is SpecFileEntryViewModel)
         {
             WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
         }
@@ -315,14 +267,14 @@ public sealed partial class SpecFileEntryTableView : UserControl
     {
         e.Handled = true;
         var column = MapColumn(e.Column.SortMemberPath);
-        if (SortColumn == column)
+        if (_sortColumn == column)
         {
-            SortAscending = !SortAscending;
+            _sortAscending = !_sortAscending;
         }
         else
         {
-            SortColumn = column;
-            SortAscending = true;
+            _sortColumn = column;
+            _sortAscending = true;
         }
 
         SyncSortIndicators();
@@ -376,7 +328,7 @@ public sealed partial class SpecFileEntryTableView : UserControl
             return;
         }
 
-        var currentIndex = EntryTable.SelectedItem is FileEntryViewModel current
+        var currentIndex = EntryTable.SelectedItem is SpecFileEntryViewModel current
             ? VisibleItems.IndexOf(current)
             : -1;
         var nextIndex = currentIndex + delta;
@@ -437,7 +389,6 @@ public sealed partial class SpecFileEntryTableView : UserControl
             EntryTable.SelectedItems.Clear();
             EntryTable.SelectedItem = null;
             ParentTable.SelectedItem = ParentRows[0];
-            CurrentItem = null;
             SelectedItems.Clear();
         }
         finally
@@ -464,7 +415,6 @@ public sealed partial class SpecFileEntryTableView : UserControl
             EntryTable.SelectedItems.Clear();
             EntryTable.SelectedItems.Add(item);
             EntryTable.SelectedItem = item;
-            CurrentItem = item;
             SelectedItems.Clear();
             SelectedItems.Add(item);
         }
@@ -569,21 +519,21 @@ public sealed partial class SpecFileEntryTableView : UserControl
 
     private void SyncSortIndicators()
     {
-        var direction = SortAscending ? SortDirection.Ascending : SortDirection.Descending;
+        var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
         foreach (var column in ParentTable.Columns)
         {
-            column.SortDirection = MapColumn(column.SortMemberPath) == SortColumn ? direction : null;
+            column.SortDirection = MapColumn(column.SortMemberPath) == _sortColumn ? direction : null;
         }
     }
 
     private static FileEntryColumn MapColumn(string? sortMemberPath) =>
         sortMemberPath switch
         {
-            nameof(FileEntryViewModel.Name) => FileEntryColumn.Name,
-            nameof(FileEntryViewModel.Extension) => FileEntryColumn.Extension,
-            nameof(FileEntryViewModel.Size) => FileEntryColumn.Size,
-            nameof(FileEntryViewModel.LastWriteTime) => FileEntryColumn.Modified,
-            nameof(FileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
+            nameof(SpecFileEntryViewModel.Name) => FileEntryColumn.Name,
+            nameof(SpecFileEntryViewModel.Extension) => FileEntryColumn.Extension,
+            nameof(SpecFileEntryViewModel.Size) => FileEntryColumn.Size,
+            nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
+            nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
             _ => FileEntryColumn.Name,
         };
 

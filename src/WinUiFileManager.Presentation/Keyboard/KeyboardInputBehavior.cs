@@ -55,13 +55,11 @@ public static class KeyboardInputBehavior
             IsKeyDown(VirtualKey.Shift),
             IsKeyDown(VirtualKey.Menu));
 
-        if (!command.CanExecute(input))
+        if (command.CanExecute(input))
         {
-            return;
+            command.Execute(input);
+            e.Handled = input.Handled;
         }
-
-        command.Execute(input);
-        e.Handled = true;
     }
 
     private static bool IsKeyDown(VirtualKey key) =>

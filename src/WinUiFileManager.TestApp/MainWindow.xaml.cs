@@ -2,12 +2,12 @@ using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Keyboard;
-using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.TestApp;
 
-public sealed partial class MainWindow : Window
+public sealed partial class MainWindow
 {
     public KeyboardManager KeyboardManager { get; } = new();
 
@@ -17,11 +17,9 @@ public sealed partial class MainWindow : Window
 
         LeftTable.ItemsSource = LeftEntries;
         RightTable.ItemsSource = RightEntries;
-        LeftTable.CurrentItem = LeftEntries.Count > 0 ? LeftEntries[0] : null;
-        RightTable.CurrentItem = RightEntries.Count > 0 ? RightEntries[0] : null;
     }
 
-    public ObservableCollection<FileEntryViewModel> LeftEntries { get; } =
+    public ObservableCollection<SpecFileEntryViewModel> LeftEntries { get; } =
     [
         CreateFolder("Documents", "Left", DateTime.UtcNow.AddDays(-2), FileAttributes.Directory),
         CreateFolder("Downloads", "Left", DateTime.UtcNow.AddHours(-6), FileAttributes.Directory),
@@ -31,7 +29,7 @@ public sealed partial class MainWindow : Window
         CreateFile("large-backup", "zip", "Left", 612_004_221, DateTime.UtcNow.AddMonths(-1), FileAttributes.Archive),
     ];
 
-    public ObservableCollection<FileEntryViewModel> RightEntries { get; } =
+    public ObservableCollection<SpecFileEntryViewModel> RightEntries { get; } =
     [
         CreateFolder("Desktop", "Right", DateTime.UtcNow.AddDays(-3), FileAttributes.Directory),
         CreateFolder("Pictures", "Right", DateTime.UtcNow.AddHours(-8), FileAttributes.Directory),
@@ -41,14 +39,14 @@ public sealed partial class MainWindow : Window
         CreateFile("system-file", "dat", "Right", 32_768, DateTime.UtcNow.AddYears(-1), FileAttributes.Hidden | FileAttributes.System),
     ];
 
-    private static FileEntryViewModel CreateFolder(
+    private static SpecFileEntryViewModel CreateFolder(
         string name,
         string panel,
         DateTime modifiedUtc,
         FileAttributes attributes) =>
         CreateEntry(name, string.Empty, panel, ItemKind.Directory, 0, modifiedUtc, attributes);
 
-    private static FileEntryViewModel CreateFile(
+    private static SpecFileEntryViewModel CreateFile(
         string name,
         string extension,
         string panel,
@@ -64,7 +62,7 @@ public sealed partial class MainWindow : Window
             modifiedUtc,
             attributes);
 
-    private static FileEntryViewModel CreateEntry(
+    private static SpecFileEntryViewModel CreateEntry(
         string name,
         string extension,
         string panel,
@@ -83,6 +81,6 @@ public sealed partial class MainWindow : Window
             modifiedUtc.AddDays(-14),
             attributes);
 
-        return new FileEntryViewModel(model);
+        return new SpecFileEntryViewModel(model);
     }
 }

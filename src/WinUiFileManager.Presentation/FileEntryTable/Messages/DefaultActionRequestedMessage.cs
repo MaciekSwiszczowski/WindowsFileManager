@@ -1,7 +1,8 @@
-using WinUiFileManager.Presentation.ViewModels;
+using WinUiFileManager.Presentation.FileEntryTable;
+
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 public sealed record DefaultActionRequestedMessage(
     string SourceIdentity,
-    FileEntryViewModel Item);
+    SpecFileEntryViewModel Item);

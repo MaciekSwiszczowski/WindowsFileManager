@@ -2,8 +2,8 @@
     x:Class="WinUiFileManager.Presentation.FileEntryTable.SpecFileEntryTableView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
     xmlns:tv="using:WinUI.TableView"
-    xmlns:viewModels="using:WinUiFileManager.Presentation.ViewModels"
     Loaded="FileEntryTableView_Loaded"
     GotFocus="FileEntryTableView_GotFocus"
     LostFocus="FileEntryTableView_LostFocus">
@@ -50,14 +50,14 @@
             <tv:TableView.Columns>
                 <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True">
                     <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                        <DataTemplate x:DataType="fileEntryTable:SpecFileEntryViewModel">
                             <TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource EllipsisTextCellStyle}" />
                         </DataTemplate>
                     </tv:TableViewTemplateColumn.CellTemplate>
                 </tv:TableViewTemplateColumn>
                 <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
                 <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" CanSort="True" />
-                <tv:TableViewTextColumn Header="Modified" SortMemberPath="LastWriteTime" Binding="{Binding LastWriteTime}" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" CanSort="True" />
+                <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" CanSort="True" />
                 <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
             </tv:TableView.Columns>
         </tv:TableView>
@@ -90,14 +90,14 @@
             <tv:TableView.Columns>
                 <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100">
                     <tv:TableViewTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="viewModels:FileEntryViewModel">
+                        <DataTemplate x:DataType="fileEntryTable:SpecFileEntryViewModel">
                             <TextBlock Text="{x:Bind Name, Mode=OneTime}" Style="{StaticResource EllipsisTextCellStyle}" />
                         </DataTemplate>
                     </tv:TableViewTemplateColumn.CellTemplate>
                 </tv:TableViewTemplateColumn>
                 <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" />
                 <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" />
-                <tv:TableViewTextColumn Header="Modified" SortMemberPath="LastWriteTime" Binding="{Binding LastWriteTime}" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" />
+                <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" />
                 <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" />
             </tv:TableView.Columns>
         </tv:TableView>

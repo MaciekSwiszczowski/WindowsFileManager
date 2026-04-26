@@ -1,25 +1,24 @@
 using System.Collections.ObjectModel;
-using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Windows.System;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
+using WinUiFileManager.Presentation.Keyboard;
+using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.TestApp;
 
-public sealed partial class MainWindow : Window
+public sealed class MainWindow : Window
 {
     private readonly Grid _layoutRoot = new();
     private readonly SpecFileEntryTableView _leftTable;
     private readonly SpecFileEntryTableView _rightTable;
+    private readonly KeyboardManager _keyboardManager;
 
     public MainWindow()
     {
@@ -35,7 +34,8 @@ public sealed partial class MainWindow : Window
         _leftTable.CurrentItem = LeftEntries.Count > 0 ? LeftEntries[0] : null;
         _rightTable.CurrentItem = RightEntries.Count > 0 ? RightEntries[0] : null;
         Content = _layoutRoot;
-        _layoutRoot.PreviewKeyDown += Window_PreviewKeyDown;
+        _keyboardManager = new KeyboardManager();
+        KeyboardInputBehavior.SetCommand(_layoutRoot, _keyboardManager.KeyPressedCommand);
     }
 
     public ObservableCollection<FileEntryViewModel> LeftEntries { get; } =
@@ -58,41 +58,6 @@ public sealed partial class MainWindow : Window
         CreateFile("system-file", "dat", "Right", 32_768, DateTime.UtcNow.AddYears(-1), FileAttributes.Hidden | FileAttributes.System),
     ];
 
-    private void Window_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        switch (e.Key)
-        {
-            case VirtualKey.Up:
-                WeakReferenceMessenger.Default.Send(new MoveCursorUpMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.Down:
-                WeakReferenceMessenger.Default.Send(new MoveCursorDownMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.Home:
-                WeakReferenceMessenger.Default.Send(new MoveCursorHomeMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.End:
-                WeakReferenceMessenger.Default.Send(new MoveCursorEndMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.Enter:
-                WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.A:
-                WeakReferenceMessenger.Default.Send(new SelectAllMessage());
-                e.Handled = true;
-                break;
-            case VirtualKey.Escape:
-                WeakReferenceMessenger.Default.Send(new ClearSelectionMessage());
-                e.Handled = true;
-                break;
-        }
-    }
-
     private void BuildLayout()
     {
         _layoutRoot.Padding = new Thickness(12);
@@ -103,7 +68,7 @@ public sealed partial class MainWindow : Window
 
         var leftPanel = CreatePanel("Left panel", @"C:\FileEntryTableTest\Left", _leftTable);
         var rightPanel = CreatePanel("Right panel", @"C:\FileEntryTableTest\Right", _rightTable);
-        var logger = new FileTableMessageLogView();
+        var logger = new MessageLogView();
 
         Grid.SetColumn(rightPanel, 1);
         Grid.SetColumn(logger, 2);

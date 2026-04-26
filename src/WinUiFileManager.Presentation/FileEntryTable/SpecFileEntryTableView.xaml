@@ -37,6 +37,7 @@
             FocusVisualSecondaryThickness="0"
             HeadersVisibility="Columns"
             IsReadOnly="True"
+            DoubleTapped="ParentTable_DoubleTapped"
             SelectionChanged="ParentTable_SelectionChanged"
             SelectionMode="Single"
             SelectionUnit="Row"
@@ -47,6 +48,22 @@
             ScrollViewer.HorizontalScrollMode="Disabled"
             ScrollViewer.VerticalScrollBarVisibility="Hidden"
             ScrollViewer.VerticalScrollMode="Disabled">
+            <tv:TableView.Resources>
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelected"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.35" />
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelectedPointerOver"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.5" />
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelectedPressed"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.6" />
+                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
+                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
+            </tv:TableView.Resources>
             <tv:TableView.Columns>
                 <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True">
                     <tv:TableViewTemplateColumn.CellTemplate>
@@ -82,6 +99,22 @@
             UseSystemFocusVisuals="False"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ScrollViewer.HorizontalScrollMode="Disabled">
+            <tv:TableView.Resources>
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelected"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.35" />
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelectedPointerOver"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.5" />
+                <SolidColorBrush
+                    x:Key="TableViewRowBackgroundSelectedPressed"
+                    Color="{ThemeResource SystemAccentColor}"
+                    Opacity="0.6" />
+                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
+                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
+            </tv:TableView.Resources>
             <tv:TableView.ItemsPanel>
                 <ItemsPanelTemplate>
                     <ItemsStackPanel CacheLength="1.0" />

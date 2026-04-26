@@ -51,7 +51,7 @@ The row the keyboard is "on". Exactly one cursor exists at any time. It may poin
 
 ### 2.2 Explicit selection
 
-The set of real items the user has explicitly marked. Exposed as the `SelectedItems` dependency property. `..` is never present in `SelectedItems` (the property is typed `ObservableCollection<SpecFileEntryViewModel>` and `..` is not a `SpecFileEntryViewModel`). However, `..` can be **visually** selected through user gestures — that highlight state is internal and not exposed externally.
+The set of real items the user has explicitly marked. This is internal control state and is announced with `FileTableSelectionChangedMessage`; it is not exposed as a dependency property. `..` is never present in the announced selection because `..` is not a real `SpecFileEntryViewModel`. However, `..` can be **visually** selected through user gestures — that highlight state is internal and not exposed externally.
 
 ### 2.3 Parent row (`..`)
 
@@ -93,7 +93,6 @@ When a table gains focus, it publishes `FileTableFocusedMessage(Identity)` and s
 | `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
 | `IsRootContent` | `bool` | OneWay | `false` | When `true`, the `..` row is not rendered. |
 | `Identity` | `string` | OneWay | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). |
-| `SelectedItems` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Explicit-selection set. Never contains `..`. |
 | `FilterText` | `string` | OneWay | `""` | Substring filter. |
 | `ColumnLayout` | `ColumnLayout` record | TwoWay | defaults per §4.1 | Column widths; updated on user drag. |
 
@@ -119,7 +118,8 @@ record FileTableFocusedMessage(string Identity);
 
 record FileTableSelectionChangedMessage(
     string Identity,
-    IReadOnlyList<SpecFileEntryViewModel> SelectedItems);
+    IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
+    bool IsParentRowSelected);
 
 record FileTableNavigateUpRequestedMessage(string Identity);
 ```
@@ -226,7 +226,7 @@ Cursor-movement messages never change selection. Toggle messages never move the 
 
 | Behavior | Effect |
 |---|---|
-| Toggle at cursor | On a real row, toggle in `SelectedItems`. On `..`, toggle visual highlight only (no `SelectedItems` change, no `FileTableSelectionChangedMessage`). Cursor does not move. |
+| Toggle at cursor | On a real row, toggle in `SelectedItems`. On `..`, toggle visual highlight only and publish `FileTableSelectionChangedMessage` with updated `IsParentRowSelected`. Cursor does not move. |
 | Toggle at cursor and advance | Same toggle, then move cursor down by one row. At last row: toggle, do not move. On `..`: toggle visual, advance to first real row. |
 
 ### 7.3 Bulk selection
@@ -250,7 +250,7 @@ Range extension uses the cursor as anchor; programmatic cursor moves keep the an
 
 | Gesture | Effect |
 |---|---|
-| Click on a real row | Clear `SelectedItems`, clear `..`'s visual highlight, **add the clicked row to `SelectedItems`**, move cursor there. |
+| Click on a real row | Clear body-table `SelectedItems`, **add the clicked row to `SelectedItems`**, move cursor there. If `..` was already visually selected, keep it visually selected; otherwise leave it unselected. |
 | Click on `..` | Clear `SelectedItems`, visually select `..`, move cursor to `..`. (`..` is never added to `SelectedItems`.) |
 | `Ctrl+Click` on real row | Toggle that row in `SelectedItems`; cursor moves there. |
 | `Ctrl+Click` on `..` | Toggle `..`'s visual highlight; cursor moves to `..`. |
@@ -386,16 +386,16 @@ The control publishes exactly three message types.
 
 Fires when the table gains WinUI keyboard focus. Loss is implicit.
 
-### 13.2 `FileTableSelectionChangedMessage(Identity, SelectedItems)`
+### 13.2 `FileTableSelectionChangedMessage(Identity, SelectedItems, IsParentRowSelected)`
 
-Fires whenever `SelectedItems` changes. `SelectedItems` is a snapshot in `ItemsSource` order. `..`-only visual-state changes do not fire (the message is about real-item selection only). Redundant publications (same list as previous) are suppressed.
+Fires whenever `SelectedItems` changes or the `..` row's visual selection changes. `SelectedItems` is a snapshot in `ItemsSource` order and never contains `..`; `IsParentRowSelected` reports whether `..` is visually selected. Redundant publications are suppressed only when both the selected-item snapshot and `IsParentRowSelected` match the previous publication.
 
 Trigger sources:
 - Toggle / extend / select-all / clear-selection messages affecting real rows.
+- `..` visual selection / deselection, even when `SelectedItems` is unchanged.
 - Mouse `Ctrl+Click` / `Shift+Click`.
 - A click that clears a previously-non-empty `SelectedItems`.
 - `FilterText` change that prunes selected rows.
-- Host mutation of `SelectedItems` via the DP binding.
 
 ### 13.3 `FileTableNavigateUpRequestedMessage(Identity)`
 
@@ -413,7 +413,7 @@ The file table re-publishes `ActivateInvokedMessage` on mouse double-click of a 
 
 ---
 
-## 14. Coordinator (`FileCommandCoordinator`)
+## 14. Command resolution
 
 ### 14.1 Role
 
@@ -422,11 +422,8 @@ A single application-scoped service that holds two pieces of cross-cutting state
 ### 14.2 State held
 
 ```
-class FileCommandCoordinator
-{
-    string? _activeIdentity;
-    Dictionary<string, IReadOnlyList<SpecFileEntryViewModel>> _selectionByIdentity;
-}
+string? activeIdentity;
+Dictionary<string, IReadOnlyList<SpecFileEntryViewModel>> selectionByIdentity;
 ```
 
 - `_activeIdentity` — last-focused table; never reset to null (focus may move to non-table chrome, but the "active" pane stays).
@@ -613,7 +610,6 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 - [ ] `ItemsSource` add / remove / re-order propagates to visible rows.
 - [ ] `IsRootContent` toggle shows / hides `..`.
-- [ ] Adding to host's `SelectedItems` highlights rows.
 - [ ] Setting `ColumnLayout`, `FilterText`, and `Identity` propagates as expected.
 
 ### 17.3 Focus
@@ -632,7 +628,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Sort never pushes `..` below a real row.
 - [ ] `..` visible under any `FilterText`.
 - [ ] `..` never present in `SelectedItems`.
-- [ ] `..` never reported in `FileTableSelectionChangedMessage`.
+- [ ] `..` never appears in `FileTableSelectionChangedMessage.SelectedItems`; its visual selection is reported only by `IsParentRowSelected`.
 - [ ] `..`'s visual selection toggles via `Ctrl+Click`, `Insert`, `Space`, `Ctrl+Space`, `Shift+` range.
 - [ ] Activating `..` (Enter while cursor on `..` and `SelectedItems` empty, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - [ ] When `SelectedItems` is non-empty, neither Enter on `..` nor double-click on `..` publishes the navigate-up message.
@@ -650,7 +646,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.6 Selection
 
-- [ ] `ToggleSelectionAtCursorMessage` on real row: toggle, publish `FileTableSelectionChangedMessage`. On `..`: visual only, no message.
+- [ ] `ToggleSelectionAtCursorMessage` on real row: toggle, publish `FileTableSelectionChangedMessage`. On `..`: visual only, publish with updated `IsParentRowSelected`.
 - [ ] `ToggleSelectionAtCursorAndAdvanceMessage`: toggle then advance. At last row: no advance. On `..`: visual + advance to first real row.
 - [ ] `SelectAllMessage` adds every visible real row, publishes once; `..`'s visual state untouched.
 - [ ] `ClearSelectionMessage` empties `SelectedItems` + clears `..`'s visual; publishes only if `SelectedItems` was non-empty.
@@ -659,7 +655,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.7 Mouse
 
-- [ ] Click on a real row → `SelectedItems` cleared and the clicked row added to it; cursor moves there; `..`'s visual highlight cleared.
+- [ ] Click on a real row after `..` is visually selected → `..` remains visually selected, clicked row is selected, and `FileTableSelectionChangedMessage` reports the clicked real row only.
+- [ ] Click on a real row when `..` is not visually selected → `SelectedItems` cleared and the clicked row added to it; cursor moves there.
 - [ ] Click on `..` → `SelectedItems` cleared, `..` visually selected, cursor moves to `..` (`..` not added to `SelectedItems`).
 - [ ] `Ctrl+Click` on real row → toggle in `SelectedItems`; cursor moves there.
 - [ ] `Ctrl+Click` on `..` → toggle `..`'s visual highlight; cursor moves to `..`.

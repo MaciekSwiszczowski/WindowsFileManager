@@ -155,6 +155,11 @@ public sealed class MessageLogStore
     private static string FormatArguments<T>(T message)
         where T : class
     {
+        if (message is FileTableSelectionChangedMessage selectionChanged)
+        {
+            return $"SelectedItems={FormatSelectedItems(selectionChanged.SelectedItems)}, IsParentRowSelected={selectionChanged.IsParentRowSelected}";
+        }
+
         var parts = message
             .GetType()
             .GetProperties(BindingFlags.Instance | BindingFlags.Public)
@@ -174,4 +179,7 @@ public sealed class MessageLogStore
             IEnumerable values => $"[{string.Join(", ", values.Cast<object>())}]",
             _ => value.ToString() ?? string.Empty,
         };
+
+    private static string FormatSelectedItems(IEnumerable<SpecFileEntryViewModel> items) =>
+        $"[{string.Join(", ", items.Select(static item => item.Name))}]";
 }

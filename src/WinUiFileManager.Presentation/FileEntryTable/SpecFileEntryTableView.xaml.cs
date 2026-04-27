@@ -55,15 +55,17 @@ public sealed partial class SpecFileEntryTableView
     private bool _lastPublishedParentRowSelected;
     private int? _selectionAnchorIndex;
     private int? _selectionCursorIndex;
+    private readonly PointerEventHandler _entryTablePointerPressedHandler;
+    private bool _entryTablePointerPressedHooked;
 
     public SpecFileEntryTableView()
     {
         InitializeComponent();
+        _entryTablePointerPressedHandler = OnEntryTablePointerPressed;
         _activeRowState = new ActiveFileEntryRowState(
-            _parentRow,
             () => ParentTable.ContainerFromItem(_parentRow),
             item => EntryTable.ContainerFromItem(item),
-            SetActiveRowIndicator);
+            static (container, show) => ApplyActiveRowIndicatorVisual(container as DependencyObject, show));
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
@@ -166,7 +168,6 @@ public sealed partial class SpecFileEntryTableView
             ParentTable.SelectedItem = null;
         }
 
-        ValidateActiveRow();
         PublishSelectionChangedIfNeeded();
     }
 
@@ -190,7 +191,6 @@ public sealed partial class SpecFileEntryTableView
             _selectedItems.Add(item);
         }
 
-        ValidateActiveRow();
         PublishSelectionChangedIfNeeded();
     }
 
@@ -198,10 +198,29 @@ public sealed partial class SpecFileEntryTableView
     {
         ParentTable.RowHeight = 32;
         EntryTable.RowHeight = 32;
+        if (!_entryTablePointerPressedHooked)
+        {
+            _entryTablePointerPressedHooked = true;
+            EntryTable.AddHandler(PointerPressedEvent, _entryTablePointerPressedHandler, handledEventsToo: true);
+            Unloaded += FileEntryTableView_Unloaded;
+        }
+
         RefreshParentRow();
         RefreshVisibleItems();
         ApplyColumnLayout();
         SyncSortIndicators();
+    }
+
+    private void FileEntryTableView_Unloaded(object sender, RoutedEventArgs e)
+    {
+        if (!_entryTablePointerPressedHooked)
+        {
+            return;
+        }
+
+        _entryTablePointerPressedHooked = false;
+        Unloaded -= FileEntryTableView_Unloaded;
+        EntryTable.RemoveHandler(PointerPressedEvent, _entryTablePointerPressedHandler);
     }
 
     private void ParentTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -225,7 +244,6 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
-        ActivateParentRowIndicator();
         PublishSelectionChangedIfNeeded();
         ParentTable.Focus(FocusState.Programmatic);
     }
@@ -248,7 +266,6 @@ public sealed partial class SpecFileEntryTableView
             {
                 _selectionAnchorIndex = parentWasSelected ? ParentRowIndex : index;
                 _selectionCursorIndex = index;
-                ActivateBodyRowIndicator(VisibleItems[index]);
             }
         }
         finally
@@ -300,22 +317,21 @@ public sealed partial class SpecFileEntryTableView
     {
         WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity));
         StartObservingKeyboardMessages();
-        ShowActiveRowIndicatorIfAvailable();
     }
 
     private void FileEntryTableView_LostFocus(object sender, RoutedEventArgs e)
     {
-        HideActiveRowIndicator();
         StopObservingKeyboardMessages();
     }
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
-        if (!StringComparer.Ordinal.Equals(message.Identity, Identity))
+        if (message.Identity == Identity)
         {
-            HideActiveRowIndicator();
-            StopObservingKeyboardMessages();
+            return;
         }
+
+        StopObservingKeyboardMessages();
     }
 
     private void StartObservingKeyboardMessages()
@@ -466,7 +482,6 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
-        ActivateParentRowIndicator();
         ParentTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
     }
@@ -496,7 +511,6 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
-        ActivateBodyRowIndicator(item);
         EntryTable.ScrollRowIntoView(index);
         EntryTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
@@ -522,11 +536,6 @@ public sealed partial class SpecFileEntryTableView
         finally
         {
             _syncingSelection = false;
-        }
-
-        if (VisibleItems.Count > 0)
-        {
-            ActivateBodyRowIndicator(VisibleItems[^1]);
         }
 
         PublishSelectionChangedIfNeeded();
@@ -662,15 +671,6 @@ public sealed partial class SpecFileEntryTableView
 
         if (cursorIndex == ParentRowIndex && includesParent)
         {
-            ActivateParentRowIndicator();
-        }
-        else if (cursorIndex >= 0 && cursorIndex < VisibleItems.Count)
-        {
-            ActivateBodyRowIndicator(VisibleItems[cursorIndex]);
-        }
-
-        if (cursorIndex == ParentRowIndex && includesParent)
-        {
             ParentTable.Focus(FocusState.Programmatic);
         }
         else if (cursorIndex >= 0)
@@ -759,28 +759,46 @@ public sealed partial class SpecFileEntryTableView
         WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
     }
 
-    private void Table_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+
+    private void OnEntryTablePointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        if (args.ItemContainer is not TableViewRow row)
+        if (!IsPrimaryPointerPress(e))
         {
             return;
         }
 
-        SetActiveRowIndicator(row, !args.InRecycleQueue && _activeRowState.ShouldShowForItem(args.Item));
+        if (FindAncestorBodyItem(e.OriginalSource as DependencyObject) is { } item)
+        {
+            _activeRowState.ActivateBodyRow(item);
+        }
     }
 
-    private void ActivateParentRowIndicator() => _activeRowState.ActivateParentRow();
+    private static bool IsPrimaryPointerPress(PointerRoutedEventArgs e)
+    {
+        var props = e.GetCurrentPoint(null).Properties;
+        return e.Pointer.PointerDeviceType switch
+        {
+            PointerDeviceType.Mouse or PointerDeviceType.Pen =>
+                props.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed,
+            PointerDeviceType.Touch => true,
+            _ => false,
+        };
+    }
 
-    private void ActivateBodyRowIndicator(SpecFileEntryViewModel item) => _activeRowState.ActivateBodyRow(item);
+    private static SpecFileEntryViewModel? FindAncestorBodyItem(DependencyObject? source)
+    {
+        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
+        {
+            if (current is FrameworkElement { DataContext: SpecFileEntryViewModel item })
+            {
+                return item;
+            }
+        }
 
-    private void HideActiveRowIndicator() => _activeRowState.HideIndicator();
+        return null;
+    }
 
-    private void ShowActiveRowIndicatorIfAvailable() =>
-        _activeRowState.ShowIndicatorIfActiveRowExists(HasParentRow, VisibleItems);
-
-    private void ValidateActiveRow() => _activeRowState.ValidateActiveRow(HasParentRow, VisibleItems);
-
-    private static void SetActiveRowIndicator(DependencyObject? container, bool show)
+    private static void ApplyActiveRowIndicatorVisual(DependencyObject? container, bool show)
     {
         if (container is null)
         {

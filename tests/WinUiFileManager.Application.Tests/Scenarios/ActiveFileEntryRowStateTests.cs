@@ -4,89 +4,97 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class ActiveFileEntryRowStateTests
 {
-    private static ActiveFileEntryRowState CreateSut()
+    [Test]
+    public async Task Test_ActivateBodyRow_ShowsIndicatorOnTargetContainer()
     {
-        var parentRow = SpecFileEntryViewModel.CreateParentEntry();
-        return new ActiveFileEntryRowState(
-            parentRow,
+        // Arrange
+        var item = CreateFileEntry("active.txt");
+        var bodyContainer = new object();
+        var calls = new List<(object? container, bool show)>();
+        var sut = new ActiveFileEntryRowState(
             () => null,
-            _ => null,
-            (_, _) => { });
+            i => i == item ? bodyContainer : null,
+            (container, show) => calls.Add((container, show)));
+
+        // Act
+        sut.ActivateBodyRow(item);
+
+        // Assert
+        await Assert.That(calls.Count).IsEqualTo(1);
+        await Assert.That(calls[0]).IsEqualTo((bodyContainer, true));
     }
 
     [Test]
-    public async Task Test_ActivateBodyRow_ReplacesPreviousActiveRow()
+    public async Task Test_ActivateBodyRow_HidesPreviousBodyIndicatorBeforeShowingNew()
     {
         // Arrange
         var first = CreateFileEntry("first.txt");
         var second = CreateFileEntry("second.txt");
-        var sut = CreateSut();
+        var firstContainer = new object();
+        var secondContainer = new object();
+        var calls = new List<(object? container, bool show)>();
+        var sut = new ActiveFileEntryRowState(
+            () => null,
+            i => i == first ? firstContainer : i == second ? secondContainer : null,
+            (container, show) => calls.Add((container, show)));
 
         // Act
         sut.ActivateBodyRow(first);
         sut.ActivateBodyRow(second);
 
         // Assert
-        await Assert.That(sut.IsBodyRowActive(first)).IsFalse();
-        await Assert.That(sut.IsBodyRowActive(second)).IsTrue();
-        await Assert.That(sut.IsParentRowActive).IsFalse();
+        await Assert.That(calls.Count).IsEqualTo(3);
+        await Assert.That(calls[0]).IsEqualTo((firstContainer, true));
+        await Assert.That(calls[1]).IsEqualTo((firstContainer, false));
+        await Assert.That(calls[2]).IsEqualTo((secondContainer, true));
     }
 
     [Test]
-    public async Task Test_FocusLoss_HidesActiveRowAndFocusGainRestoresIt()
+    public async Task Test_ActivateParentRow_HidesPreviousBodyIndicatorBeforeShowingParent()
     {
         // Arrange
         var item = CreateFileEntry("active.txt");
-        var sut = CreateSut();
+        var bodyContainer = new object();
+        var parentContainer = new object();
+        var calls = new List<(object? container, bool show)>();
+        var sut = new ActiveFileEntryRowState(
+            () => parentContainer,
+            i => i == item ? bodyContainer : null,
+            (container, show) => calls.Add((container, show)));
 
         // Act
         sut.ActivateBodyRow(item);
-        sut.HideIndicator();
-
-        // Assert
-        await Assert.That(sut.IsBodyRowActive(item)).IsFalse();
-
-        // Act
-        sut.ShowIndicatorIfActiveRowExists(parentRowExists: false, [item]);
-
-        // Assert
-        await Assert.That(sut.IsBodyRowActive(item)).IsTrue();
-    }
-
-    [Test]
-    public async Task Test_ValidateRows_ClearsRemovedBodyInstance()
-    {
-        // Arrange
-        var item = CreateFileEntry("active.txt");
-        var replacement = CreateFileEntry("active.txt");
-        var sut = CreateSut();
-
-        // Act
-        sut.ActivateBodyRow(item);
-        sut.ValidateActiveRow(parentRowExists: false, [replacement]);
-
-        // Assert
-        await Assert.That(sut.IsBodyRowActive(item)).IsFalse();
-        await Assert.That(sut.IsBodyRowActive(replacement)).IsFalse();
-    }
-
-    [Test]
-    public async Task Test_ParentRow_CanBeActiveAndClearsWhenParentRowIsRemoved()
-    {
-        // Arrange
-        var sut = CreateSut();
-
-        // Act
         sut.ActivateParentRow();
 
         // Assert
-        await Assert.That(sut.IsParentRowActive).IsTrue();
+        await Assert.That(calls.Count).IsEqualTo(3);
+        await Assert.That(calls[0]).IsEqualTo((bodyContainer, true));
+        await Assert.That(calls[1]).IsEqualTo((bodyContainer, false));
+        await Assert.That(calls[2]).IsEqualTo((parentContainer, true));
+    }
+
+    [Test]
+    public async Task Test_ActivateBodyRow_HidesPreviousParentIndicatorBeforeShowingBody()
+    {
+        // Arrange
+        var item = CreateFileEntry("active.txt");
+        var bodyContainer = new object();
+        var parentContainer = new object();
+        var calls = new List<(object? container, bool show)>();
+        var sut = new ActiveFileEntryRowState(
+            () => parentContainer,
+            i => i == item ? bodyContainer : null,
+            (container, show) => calls.Add((container, show)));
 
         // Act
-        sut.ValidateActiveRow(parentRowExists: false, []);
+        sut.ActivateParentRow();
+        sut.ActivateBodyRow(item);
 
         // Assert
-        await Assert.That(sut.IsParentRowActive).IsFalse();
+        await Assert.That(calls.Count).IsEqualTo(3);
+        await Assert.That(calls[0]).IsEqualTo((parentContainer, true));
+        await Assert.That(calls[1]).IsEqualTo((parentContainer, false));
+        await Assert.That(calls[2]).IsEqualTo((bodyContainer, true));
     }
 
     private static SpecFileEntryViewModel CreateFileEntry(string name)

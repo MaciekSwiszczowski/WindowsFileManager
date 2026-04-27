@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using Microsoft.UI.Xaml;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.FileEntryTable;

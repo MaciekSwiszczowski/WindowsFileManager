@@ -18,6 +18,14 @@
         <Style x:Key="RightAlignEllipsisCellStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisTextCellStyle}">
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
+        <DataTemplate x:Key="ActiveRowIndicatorTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+            <Border
+                x:Name="ActiveRowIndicator"
+                Width="3"
+                HorizontalAlignment="Left"
+                Background="{ThemeResource SystemControlHighlightAccentBrush}"
+                Visibility="Collapsed" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid>
@@ -37,6 +45,7 @@
             FocusVisualSecondaryThickness="0"
             HeadersVisibility="Columns"
             IsReadOnly="True"
+            ContainerContentChanging="Table_ContainerContentChanging"
             DoubleTapped="ParentTable_DoubleTapped"
             SelectionChanged="ParentTable_SelectionChanged"
             SelectionMode="Single"
@@ -65,6 +74,11 @@
                 <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
             </tv:TableView.Resources>
             <tv:TableView.Columns>
+                <tv:TableViewTemplateColumn Header="" Width="6" MinWidth="6" CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <StaticResource ResourceKey="ActiveRowIndicatorTemplate" />
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
                 <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True">
                     <tv:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="fileEntryTable:SpecFileEntryViewModel">
@@ -92,6 +106,7 @@
             FocusVisualSecondaryThickness="0"
             HeadersVisibility="None"
             IsReadOnly="True"
+            ContainerContentChanging="Table_ContainerContentChanging"
             SelectionChanged="EntryTable_SelectionChanged"
             SelectionMode="Extended"
             SelectionUnit="Row"
@@ -121,6 +136,11 @@
                 </ItemsPanelTemplate>
             </tv:TableView.ItemsPanel>
             <tv:TableView.Columns>
+                <tv:TableViewTemplateColumn Header="" Width="6" MinWidth="6" CanSort="False">
+                    <tv:TableViewTemplateColumn.CellTemplate>
+                        <StaticResource ResourceKey="ActiveRowIndicatorTemplate" />
+                    </tv:TableViewTemplateColumn.CellTemplate>
+                </tv:TableViewTemplateColumn>
                 <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100">
                     <tv:TableViewTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="fileEntryTable:SpecFileEntryViewModel">

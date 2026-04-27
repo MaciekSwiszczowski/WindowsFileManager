@@ -6,6 +6,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 public sealed partial class SpecFileEntryTableView
 {
     private const int ParentRowIndex = -1;
+    private const string ActiveRowIndicatorName = "ActiveRowIndicator";
 
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(
@@ -43,6 +44,7 @@ public sealed partial class SpecFileEntryTableView
             new PropertyMetadata(ColumnLayout.Default, OnColumnLayoutChanged));
 
     private readonly SpecFileEntryViewModel _parentRow = SpecFileEntryViewModel.CreateParentEntry();
+    private readonly ActiveFileEntryRowState _activeRowState;
     private readonly List<SpecFileEntryViewModel> _lastPublishedSelection = [];
     private readonly ObservableCollection<SpecFileEntryViewModel> _selectedItems = [];
     private ObservableCollection<SpecFileEntryViewModel>? _attachedItemsSource;
@@ -57,6 +59,11 @@ public sealed partial class SpecFileEntryTableView
     public SpecFileEntryTableView()
     {
         InitializeComponent();
+        _activeRowState = new ActiveFileEntryRowState(
+            _parentRow,
+            () => ParentTable.ContainerFromItem(_parentRow),
+            item => EntryTable.ContainerFromItem(item),
+            SetActiveRowIndicator);
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
@@ -159,6 +166,7 @@ public sealed partial class SpecFileEntryTableView
             ParentTable.SelectedItem = null;
         }
 
+        ValidateActiveRow();
         PublishSelectionChangedIfNeeded();
     }
 
@@ -182,6 +190,7 @@ public sealed partial class SpecFileEntryTableView
             _selectedItems.Add(item);
         }
 
+        ValidateActiveRow();
         PublishSelectionChangedIfNeeded();
     }
 
@@ -216,6 +225,7 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
+        ActivateParentRowIndicator();
         PublishSelectionChangedIfNeeded();
         ParentTable.Focus(FocusState.Programmatic);
     }
@@ -231,16 +241,14 @@ public sealed partial class SpecFileEntryTableView
         try
         {
             var parentWasSelected = ParentTable.SelectedItem is not null;
-            if (!parentWasSelected)
-            {
-                ParentTable.SelectedItem = null;
-            }
+            ParentTable.SelectedItem = null;
 
             SyncSelectedItemsFromEntryTable();
             if (GetBodySelectionIndex(e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } index)
             {
                 _selectionAnchorIndex = parentWasSelected ? ParentRowIndex : index;
                 _selectionCursorIndex = index;
+                ActivateBodyRowIndicator(VisibleItems[index]);
             }
         }
         finally
@@ -270,7 +278,11 @@ public sealed partial class SpecFileEntryTableView
     private void Table_Sorting(object sender, TableViewSortingEventArgs e)
     {
         e.Handled = true;
-        var column = MapColumn(e.Column.SortMemberPath);
+        if (MapColumn(e.Column.SortMemberPath) is not { } column)
+        {
+            return;
+        }
+
         if (_sortColumn == column)
         {
             _sortAscending = !_sortAscending;
@@ -288,15 +300,20 @@ public sealed partial class SpecFileEntryTableView
     {
         WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity));
         StartObservingKeyboardMessages();
+        ShowActiveRowIndicatorIfAvailable();
     }
 
-    private void FileEntryTableView_LostFocus(object sender, RoutedEventArgs e) =>
+    private void FileEntryTableView_LostFocus(object sender, RoutedEventArgs e)
+    {
+        HideActiveRowIndicator();
         StopObservingKeyboardMessages();
+    }
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
         if (!StringComparer.Ordinal.Equals(message.Identity, Identity))
         {
+            HideActiveRowIndicator();
             StopObservingKeyboardMessages();
         }
     }
@@ -449,6 +466,7 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
+        ActivateParentRowIndicator();
         ParentTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
     }
@@ -478,6 +496,7 @@ public sealed partial class SpecFileEntryTableView
             _syncingSelection = false;
         }
 
+        ActivateBodyRowIndicator(item);
         EntryTable.ScrollRowIntoView(index);
         EntryTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
@@ -503,6 +522,11 @@ public sealed partial class SpecFileEntryTableView
         finally
         {
             _syncingSelection = false;
+        }
+
+        if (VisibleItems.Count > 0)
+        {
+            ActivateBodyRowIndicator(VisibleItems[^1]);
         }
 
         PublishSelectionChangedIfNeeded();
@@ -638,6 +662,15 @@ public sealed partial class SpecFileEntryTableView
 
         if (cursorIndex == ParentRowIndex && includesParent)
         {
+            ActivateParentRowIndicator();
+        }
+        else if (cursorIndex >= 0 && cursorIndex < VisibleItems.Count)
+        {
+            ActivateBodyRowIndicator(VisibleItems[cursorIndex]);
+        }
+
+        if (cursorIndex == ParentRowIndex && includesParent)
+        {
             ParentTable.Focus(FocusState.Programmatic);
         }
         else if (cursorIndex >= 0)
@@ -726,6 +759,61 @@ public sealed partial class SpecFileEntryTableView
         WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
     }
 
+    private void Table_ContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.ItemContainer is not TableViewRow row)
+        {
+            return;
+        }
+
+        SetActiveRowIndicator(row, !args.InRecycleQueue && _activeRowState.ShouldShowForItem(args.Item));
+    }
+
+    private void ActivateParentRowIndicator() => _activeRowState.ActivateParentRow();
+
+    private void ActivateBodyRowIndicator(SpecFileEntryViewModel item) => _activeRowState.ActivateBodyRow(item);
+
+    private void HideActiveRowIndicator() => _activeRowState.HideIndicator();
+
+    private void ShowActiveRowIndicatorIfAvailable() =>
+        _activeRowState.ShowIndicatorIfActiveRowExists(HasParentRow, VisibleItems);
+
+    private void ValidateActiveRow() => _activeRowState.ValidateActiveRow(HasParentRow, VisibleItems);
+
+    private static void SetActiveRowIndicator(DependencyObject? container, bool show)
+    {
+        if (container is null)
+        {
+            return;
+        }
+
+        if (FindDescendantByName<Border>(container, ActiveRowIndicatorName) is { } indicator)
+        {
+            indicator.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private static T? FindDescendantByName<T>(DependencyObject parent, string name)
+        where T : FrameworkElement
+    {
+        var childCount = VisualTreeHelper.GetChildrenCount(parent);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is T element && element.Name == name)
+            {
+                return element;
+            }
+
+            if (FindDescendantByName<T>(child, name) is { } match)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
     private void SyncSelectedItemsFromEntryTable()
     {
         var selectedItems = EntryTable.SelectedItems
@@ -769,12 +857,15 @@ public sealed partial class SpecFileEntryTableView
     {
         foreach (var column in table.Columns)
         {
-            column.Width = new GridLength(MapWidth(column.SortMemberPath));
+            if (MapColumn(column.SortMemberPath) is { } fileEntryColumn)
+            {
+                column.Width = new GridLength(MapWidth(fileEntryColumn));
+            }
         }
     }
 
-    private double MapWidth(string? sortMemberPath) =>
-        MapColumn(sortMemberPath) switch
+    private double MapWidth(FileEntryColumn column) =>
+        column switch
         {
             FileEntryColumn.Name => ColumnLayout.NameWidth,
             FileEntryColumn.Extension => ColumnLayout.ExtensionWidth,
@@ -793,7 +884,7 @@ public sealed partial class SpecFileEntryTableView
         }
     }
 
-    private static FileEntryColumn MapColumn(string? sortMemberPath) =>
+    private static FileEntryColumn? MapColumn(string? sortMemberPath) =>
         sortMemberPath switch
         {
             nameof(SpecFileEntryViewModel.Name) => FileEntryColumn.Name,
@@ -801,6 +892,6 @@ public sealed partial class SpecFileEntryTableView
             nameof(SpecFileEntryViewModel.Size) => FileEntryColumn.Size,
             nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
             nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
-            _ => FileEntryColumn.Name,
+            _ => null,
         };
 }

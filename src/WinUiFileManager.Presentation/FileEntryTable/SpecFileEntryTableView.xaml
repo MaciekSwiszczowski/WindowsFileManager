@@ -24,20 +24,23 @@
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
         <DataTemplate x:Key="NameColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
-            <Grid HorizontalAlignment="Left" Background="Blue">
+            <Grid HorizontalAlignment="Left">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="2" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <Rectangle Width="3" Height="10"
-                           HorizontalAlignment="Stretch" Fill="Red"
-                           x:Name="ActiveRowIndicator" Opacity="1"/>
+                <Rectangle Grid.Column="0" 
+                           Width="3" Height="10"
+                           HorizontalAlignment="Stretch" 
+                           Fill="{ThemeResource SystemControlHighlightAccentBrush}"
+                           x:Name="ActiveRowIndicator" 
+                           Opacity="0"/>
                 
-                <TextBlock Grid.Column="2" Text="{x:Bind Name}" Style="{StaticResource EllipsisTextCellStyle}" 
+                <TextBlock Grid.Column="2" Text="{x:Bind Name}" 
+                           Style="{StaticResource EllipsisTextCellStyle}" 
                            HorizontalAlignment="Left" />
-                
             </Grid>
         </DataTemplate>
     </UserControl.Resources>

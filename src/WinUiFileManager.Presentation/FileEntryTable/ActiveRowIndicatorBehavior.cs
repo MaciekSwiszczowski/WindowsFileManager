@@ -10,10 +10,9 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
     private const string ParentTableName = "ParentTable";
     private const string EntryTableName = "EntryTable";
 
-    private SpecFileEntryViewModel? _activeItem;
-    private string? _activeTableName;
+    private (TableView Table, SpecFileEntryViewModel Item)? _activeRow;
     private PointerEventHandler? _pointerPressedHandler;
-    private bool _refreshQueued;
+    private bool _applyQueued;
 
     private const double ActiveOpacity = 1d;
     private const double InactiveOpacity = 0d;
@@ -35,9 +34,8 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         }
 
         _pointerPressedHandler = null;
-        _activeItem = null;
-        _activeTableName = null;
-        _refreshQueued = false;
+        _activeRow = null;
+        _applyQueued = false;
         WeakReferenceMessenger.Default.Unregister<FileTableSelectionChangedMessage>(this);
 
         base.OnDetaching();
@@ -54,15 +52,7 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
             return;
         }
 
-        ActivateItem(table, item);
-    }
-
-    private void ActivateItem(TableView table, SpecFileEntryViewModel item)
-    {
-        _activeItem = item;
-        _activeTableName = table.Name;
-        SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
-        SetItemIndicatorOpacity(table, item, ActiveOpacity);
+        SetActiveRow(table, item);
     }
 
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
@@ -74,7 +64,7 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
 
         if (message.IsParentRowSelected)
         {
-            ActivateParentRow();
+            SetActiveRow(ParentTableName, AssociatedObject.ParentRows.FirstOrDefault());
             return;
         }
 
@@ -84,35 +74,30 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
             return;
         }
 
-        ActivateMessageItem(EntryTableName, item);
+        SetActiveRow(EntryTableName, item);
     }
 
-    private void ActivateParentRow()
+    private void SetActiveRow(string tableName, SpecFileEntryViewModel? item)
     {
-        if (AssociatedObject?.ParentRows.FirstOrDefault() is not { } item)
+        if (item is null || FindTable(tableName) is not { } table)
         {
             ClearActiveItem();
             return;
         }
 
-        ActivateMessageItem(ParentTableName, item);
+        SetActiveRow(table, item);
+        QueueApply();
     }
 
-    private void ActivateMessageItem(string tableName, SpecFileEntryViewModel item)
+    private void SetActiveRow(TableView table, SpecFileEntryViewModel item)
     {
-        if (AssociatedObject is null || FindTable(tableName) is not { } table)
-        {
-            return;
-        }
-
-        ActivateItem(table, item);
-        QueueRefresh();
+        _activeRow = (table, item);
+        ApplyActiveRow();
     }
 
     private void ClearActiveItem()
     {
-        _activeItem = null;
-        _activeTableName = null;
+        _activeRow = null;
 
         if (AssociatedObject is not null)
         {
@@ -120,36 +105,37 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         }
     }
 
-    private void QueueRefresh()
+    private void QueueApply()
     {
-        if (_refreshQueued || AssociatedObject is null)
+        if (_applyQueued || AssociatedObject is null)
         {
             return;
         }
 
-        _refreshQueued = true;
+        _applyQueued = true;
         AssociatedObject.DispatcherQueue.TryEnqueue(() =>
         {
-            _refreshQueued = false;
-            RefreshActiveItem();
+            _applyQueued = false;
+            ApplyActiveRow();
         });
     }
 
-    private void RefreshActiveItem()
+    private void ApplyActiveRow()
     {
-        if (_activeItem is null || _activeTableName is null || FindTable(_activeTableName) is not { } table)
+        if (AssociatedObject is null)
         {
             return;
         }
 
         SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
-        SetItemIndicatorOpacity(table, _activeItem, ActiveOpacity);
+        if (_activeRow is { } activeRow)
+        {
+            SetItemIndicatorOpacity(activeRow.Table, activeRow.Item, ActiveOpacity);
+        }
     }
 
     private TableView? FindTable(string name) =>
-        AssociatedObject is null
-            ? null
-            : FindDescendantTable(AssociatedObject, name);
+        AssociatedObject.FindDescendant<TableView>(table => table.Name == name);
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
     {
@@ -176,23 +162,4 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         }
     }
 
-    private static TableView? FindDescendantTable(DependencyObject parent, string name)
-    {
-        var childCount = VisualTreeHelper.GetChildrenCount(parent);
-        for (var i = 0; i < childCount; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is TableView { Name: var tableName } table && tableName == name)
-            {
-                return table;
-            }
-
-            if (FindDescendantTable(child, name) is { } match)
-            {
-                return match;
-            }
-        }
-
-        return null;
-    }
 }

@@ -40,4 +40,30 @@ internal static class FileEntryTableVisualTreeExtensions
 
         return null;
     }
+
+    public static T? FindDescendant<T>(this DependencyObject? source, Func<T, bool> predicate)
+        where T : DependencyObject
+    {
+        if (source is null)
+        {
+            return null;
+        }
+
+        var childCount = VisualTreeHelper.GetChildrenCount(source);
+        for (var i = 0; i < childCount; i++)
+        {
+            var child = VisualTreeHelper.GetChild(source, i);
+            if (child is T match && predicate(match))
+            {
+                return match;
+            }
+
+            if (child.FindDescendant(predicate) is { } descendant)
+            {
+                return descendant;
+            }
+        }
+
+        return null;
+    }
 }

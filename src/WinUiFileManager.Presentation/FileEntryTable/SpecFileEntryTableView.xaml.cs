@@ -6,7 +6,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 public sealed partial class SpecFileEntryTableView
 {
     private const int ParentRowIndex = -1;
-    private const string ActiveRowIndicatorName = "ActiveRowIndicator";
 
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(
@@ -44,7 +43,6 @@ public sealed partial class SpecFileEntryTableView
             new PropertyMetadata(ColumnLayout.Default, OnColumnLayoutChanged));
 
     private readonly SpecFileEntryViewModel _parentRow = SpecFileEntryViewModel.CreateParentEntry();
-    private readonly ActiveFileEntryRowState _activeRowState;
     private readonly List<SpecFileEntryViewModel> _lastPublishedSelection = [];
     private readonly ObservableCollection<SpecFileEntryViewModel> _selectedItems = [];
     private ObservableCollection<SpecFileEntryViewModel>? _attachedItemsSource;
@@ -55,17 +53,10 @@ public sealed partial class SpecFileEntryTableView
     private bool _lastPublishedParentRowSelected;
     private int? _selectionAnchorIndex;
     private int? _selectionCursorIndex;
-    private readonly PointerEventHandler _entryTablePointerPressedHandler;
-    private bool _entryTablePointerPressedHooked;
 
     public SpecFileEntryTableView()
     {
         InitializeComponent();
-        _entryTablePointerPressedHandler = OnEntryTablePointerPressed;
-        _activeRowState = new ActiveFileEntryRowState(
-            () => ParentTable.ContainerFromItem(_parentRow),
-            item => EntryTable.ContainerFromItem(item),
-            static (container, show) => ApplyActiveRowIndicatorVisual(container as DependencyObject, show));
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
@@ -198,29 +189,10 @@ public sealed partial class SpecFileEntryTableView
     {
         ParentTable.RowHeight = 32;
         EntryTable.RowHeight = 32;
-        if (!_entryTablePointerPressedHooked)
-        {
-            _entryTablePointerPressedHooked = true;
-            EntryTable.AddHandler(PointerPressedEvent, _entryTablePointerPressedHandler, handledEventsToo: true);
-            Unloaded += FileEntryTableView_Unloaded;
-        }
-
         RefreshParentRow();
         RefreshVisibleItems();
         ApplyColumnLayout();
         SyncSortIndicators();
-    }
-
-    private void FileEntryTableView_Unloaded(object sender, RoutedEventArgs e)
-    {
-        if (!_entryTablePointerPressedHooked)
-        {
-            return;
-        }
-
-        _entryTablePointerPressedHooked = false;
-        Unloaded -= FileEntryTableView_Unloaded;
-        EntryTable.RemoveHandler(PointerPressedEvent, _entryTablePointerPressedHandler);
     }
 
     private void ParentTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -758,80 +730,6 @@ public sealed partial class SpecFileEntryTableView
 
         WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
     }
-
-
-    private void OnEntryTablePointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        if (!IsPrimaryPointerPress(e))
-        {
-            return;
-        }
-
-        if (FindAncestorBodyItem(e.OriginalSource as DependencyObject) is { } item)
-        {
-            _activeRowState.ActivateBodyRow(item);
-        }
-    }
-
-    private static bool IsPrimaryPointerPress(PointerRoutedEventArgs e)
-    {
-        var props = e.GetCurrentPoint(null).Properties;
-        return e.Pointer.PointerDeviceType switch
-        {
-            PointerDeviceType.Mouse or PointerDeviceType.Pen =>
-                props.PointerUpdateKind == PointerUpdateKind.LeftButtonPressed,
-            PointerDeviceType.Touch => true,
-            _ => false,
-        };
-    }
-
-    private static SpecFileEntryViewModel? FindAncestorBodyItem(DependencyObject? source)
-    {
-        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
-        {
-            if (current is FrameworkElement { DataContext: SpecFileEntryViewModel item })
-            {
-                return item;
-            }
-        }
-
-        return null;
-    }
-
-    private static void ApplyActiveRowIndicatorVisual(DependencyObject? container, bool show)
-    {
-        if (container is null)
-        {
-            return;
-        }
-
-        if (FindDescendantByName<Border>(container, ActiveRowIndicatorName) is { } indicator)
-        {
-            indicator.Visibility = show ? Visibility.Visible : Visibility.Collapsed;
-        }
-    }
-
-    private static T? FindDescendantByName<T>(DependencyObject parent, string name)
-        where T : FrameworkElement
-    {
-        var childCount = VisualTreeHelper.GetChildrenCount(parent);
-        for (var i = 0; i < childCount; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is T element && element.Name == name)
-            {
-                return element;
-            }
-
-            if (FindDescendantByName<T>(child, name) is { } match)
-            {
-                return match;
-            }
-        }
-
-        return null;
-    }
-
     private void SyncSelectedItemsFromEntryTable()
     {
         var selectedItems = EntryTable.SelectedItems

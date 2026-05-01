@@ -7,7 +7,6 @@
     xmlns:messageLogging="using:WinUiFileManager.Presentation.MessageLogging"
     Title="FileEntry Table TestApp">
     <Grid
-        x:Name="LayoutRoot"
         Padding="12"
         ColumnSpacing="12"
         keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardManager.KeyPressedCommand, Mode=OneWay}">
@@ -35,8 +34,7 @@
 
             <fileEntryTable:SpecFileEntryTableView
                 x:Name="LeftTable"
-                Grid.Row="2"
-                Identity="Left" />
+                Grid.Row="2" />
         </Grid>
 
         <Grid
@@ -59,8 +57,7 @@
 
             <fileEntryTable:SpecFileEntryTableView
                 x:Name="RightTable"
-                Grid.Row="2"
-                Identity="Right" />
+                Grid.Row="2" />
         </Grid>
 
         <messageLogging:MessageLogView Grid.Column="2" />

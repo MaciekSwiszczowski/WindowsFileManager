@@ -12,7 +12,7 @@ SpecFileEntryTableView ──state messages──────┘
 
 External concerns not covered here: filesystem access, navigation history, persistence, the file operation service that performs rename / copy / move / delete, path normalization, clipboard adapters.
 
-The target use case is a Windows Explorer replacement that behaves like Total Commander for folder navigation, the `..` entry, sorting, rename, selection, and filtering.
+The target use case is a Windows Explorer replacement that behaves like Total Commander for folder navigation, the `..` entry, sorting, rename, and selection. Filtering is host-owned and happens before rows reach `ItemsSource`.
 
 ---
 
@@ -64,7 +64,7 @@ Behavior:
 - Can be **visually** selected through a single click, `Ctrl+Click`, `Insert`, `Space`, `Ctrl+Space`, or a `Shift+` range that includes it.
 - **Never appears in `SelectedItems`**.
 - Activating it (Enter while cursor on `..`, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage` — only when `SelectedItems` is empty.
-- Never enters rename. Never the target of any file operation. Never hidden by the filter. Always pinned above all real rows. Not affected by `SelectAll`.
+- Never enters rename. Never the target of any file operation. Always pinned above all real rows. Not affected by `SelectAll`.
 
 When `IsRootContent == true`, the control omits the `..` row entirely.
 
@@ -72,11 +72,7 @@ When `IsRootContent == true`, the control omits the `..` row entirely.
 
 The grid does not edit names. On a rename gesture, the **file operation dialog service** (§16) opens a popup; the grid is uninvolved beyond surfacing user state (selection, focus).
 
-### 2.5 Filter
-
-A string that hides real rows whose `Name` does not contain it (ordinal case-insensitive). Empty string disables the filter. The `..` row is unaffected. The host supplies its own input surface and binds it to `FilterText`.
-
-### 2.6 Focused-for-keyboard
+### 2.5 Focused-for-keyboard
 
 The `SpecFileEntryTableView` instance that most recently gained WinUI keyboard focus owns file-table keyboard input. Focus ownership is observable through `FileTableFocusedMessage`, not through a public dependency property.
 
@@ -92,11 +88,15 @@ When a table gains focus, it publishes `FileTableFocusedMessage(Identity)` and s
 |---|---|---|---|---|
 | `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
 | `IsRootContent` | `bool` | OneWay | `false` | When `true`, the `..` row is not rendered. |
-| `Identity` | `string` | OneWay | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). |
-| `FilterText` | `string` | OneWay | `""` | Substring filter. |
 | `ColumnLayout` | `ColumnLayout` record | TwoWay | defaults per §4.1 | Column widths; updated on user drag. |
 
-### 3.2 Supporting types
+### 3.2 CLR properties
+
+| Property | Type | Default | Description |
+|---|---|---|---|
+| `Identity` | `string` | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). Must be set before `Loaded`. |
+
+### 3.3 Supporting types
 
 ```
 enum FileEntryColumn { Name, Extension, Size, Modified, Attributes }
@@ -109,7 +109,7 @@ record ColumnLayout(
     double AttributesWidth);
 ```
 
-### 3.3 Outgoing messages (control → messenger)
+### 3.4 Outgoing messages (control → messenger)
 
 The control publishes exactly three message types via `IMessenger.Default.Send(...)`. All carry the `Identity` of the publishing instance.
 
@@ -148,7 +148,7 @@ The control does not expose any custom CLR events.
 | 4 | Modified | `Modified` | 120 | 100 | Left, `TableViewDateColumn` formatting |
 | 5 | Attr | `Attributes` | 50 | 40 | Left, character ellipsis, muted |
 
-Reordering, per-column filtering, and show/hide are not supported.
+Reordering, per-column filtering, and show/hide are not supported by the table control.
 
 ### 4.2 Header
 
@@ -170,7 +170,7 @@ Folder rows have an empty Size cell. The `..` row has empty Ext / Size / Modifie
 
 ## 5. Sorting
 
-Exactly one column header shows the sort indicator. Sort state is internal to the control.
+Exactly one column header shows the sort indicator. Sort state is owned by `FileEntryTableSortingBehavior`.
 
 Clicking a header:
 - Already the sort column → toggle the internal sort direction.
@@ -262,17 +262,9 @@ Any pointer interaction brings WinUI keyboard focus to the control. The focus tr
 
 ---
 
-## 8. Filter
+## 8. Filtering
 
-When `FilterText` is non-empty, a real row is visible iff `Name.Contains(filter, OrdinalIgnoreCase)`. Empty string shows everything. `..` is always visible.
-
-Effects:
-- **List**: rendering only; `ItemsSource` is not mutated.
-- **Cursor**: if the cursor row is hidden, cursor moves to the first visible real row, or to `..` if no real row is visible, or `null` at root with empty result.
-- **Selection**: `SelectedItems ⊆ currently-visible real rows` at all times. When a row becomes hidden, it is pruned from `SelectedItems` and a `FileTableSelectionChangedMessage` is published. Clearing the filter does **not** restore previously-pruned rows.
-- **Navigation**: all keyboard movement skips hidden rows.
-
-Sort and column widths are preserved across filter changes.
+Filtering is outside this control. Hosts filter their source collection and assign the resulting rows to `ItemsSource`. The control renders and sorts only the rows it receives, plus the synthetic `..` row when `IsRootContent == false`.
 
 ---
 
@@ -370,11 +362,11 @@ Command intent messages (consumed by the **coordinator**, §14):
 | `CopyPathKeyPressedMessage` | `Ctrl+Shift+C` |
 | `PropertiesKeyPressedMessage` | `Alt+Enter` |
 
-`Esc` is routed by the keyboard manager: if a dialog is open it goes there; if a filter input has focus it clears the filter; if any focused table has non-empty `SelectedItems` it publishes `ClearSelectionMessage`; otherwise it propagates.
+`Esc` is routed by the keyboard manager: if a dialog is open it goes there; if any focused table has non-empty `SelectedItems` it publishes `ClearSelectionMessage`; otherwise it propagates. Host-owned filter inputs handle their own clear behavior.
 
 ### 12.2 Out of scope for the file-table input path
 
-`Tab` / `Shift+Tab` (pane switch — drives WinUI focus directly), `Ctrl+L` (focus path box), `Ctrl+I` (inspector toggle), `Ctrl+R` (refresh — reloads `ItemsSource` externally), `Ctrl+D` (favourites), `Alt+Left` / `Alt+Right` (navigation history), printable characters into the host's filter input.
+`Tab` / `Shift+Tab` (pane switch — drives WinUI focus directly), `Ctrl+L` (focus path box), `Ctrl+I` (inspector toggle), `Ctrl+R` (refresh — reloads `ItemsSource` externally), `Ctrl+D` (favourites), `Alt+Left` / `Alt+Right` (navigation history), printable characters into host-owned inputs.
 
 ---
 
@@ -395,7 +387,7 @@ Trigger sources:
 - `..` visual selection / deselection, even when `SelectedItems` is unchanged.
 - Mouse `Ctrl+Click` / `Shift+Click`.
 - A click that clears a previously-non-empty `SelectedItems`.
-- `FilterText` change that prunes selected rows.
+- `ItemsSource` change that prunes selected rows.
 
 ### 13.3 `FileTableNavigateUpRequestedMessage(Identity)`
 
@@ -610,7 +602,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 - [ ] `ItemsSource` add / remove / re-order propagates to visible rows.
 - [ ] `IsRootContent` toggle shows / hides `..`.
-- [ ] Setting `ColumnLayout`, `FilterText`, and `Identity` propagates as expected.
+- [ ] Setting `ColumnLayout` and `Identity` propagates as expected.
 
 ### 17.3 Focus
 
@@ -626,7 +618,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] With `IsRootContent = false`, `..` renders above all real rows, styled as a folder.
 - [ ] With `IsRootContent = true`, `..` is absent and its navigation rules have no effect.
 - [ ] Sort never pushes `..` below a real row.
-- [ ] `..` visible under any `FilterText`.
+- [ ] `..` remains pinned above all rows supplied by `ItemsSource`.
 - [ ] `..` never present in `SelectedItems`.
 - [ ] `..` never appears in `FileTableSelectionChangedMessage.SelectedItems`; its visual selection is reported only by `IsParentRowSelected`.
 - [ ] `..`'s visual selection toggles via `Ctrl+Click`, `Insert`, `Space`, `Ctrl+Space`, `Shift+` range.
@@ -674,14 +666,12 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `ActivateInvokedMessage` while the table is not observing keyboard-manager messages → ignored entirely.
 - [ ] Mouse double-click reproduces all of the above conditions because the click-portion has updated `SelectedItems` first.
 
-### 17.9 Filter
+### 17.9 Host-owned filtering
 
-- [ ] `FilterText = "abc"` hides non-matching real rows; `..` still visible.
-- [ ] Cursor on hidden row moves to first visible real row.
-- [ ] Hidden rows pruned from `SelectedItems`; publishes a `FileTableSelectionChangedMessage`.
+- [ ] Replacing `ItemsSource` with a filtered collection updates visible rows.
+- [ ] Rows removed from `ItemsSource` are pruned from `SelectedItems`; publishes a `FileTableSelectionChangedMessage`.
 - [ ] `SelectedItems ⊆ visible real rows` invariant holds at all times.
-- [ ] Clearing filter does not restore previously-pruned rows.
-- [ ] Sort and column widths preserved.
+- [ ] Sort and column widths are preserved across `ItemsSource` replacement.
 
 ### 17.10 Sort and columns
 

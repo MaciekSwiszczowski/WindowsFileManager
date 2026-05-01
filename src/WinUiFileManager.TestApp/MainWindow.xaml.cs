@@ -14,6 +14,8 @@ public sealed partial class MainWindow
     {
         InitializeComponent();
 
+        LeftTable.Identity = "Left";
+        RightTable.Identity = "Right";
         LeftTable.ItemsSource = LeftEntries;
         RightTable.ItemsSource = RightEntries;
     }

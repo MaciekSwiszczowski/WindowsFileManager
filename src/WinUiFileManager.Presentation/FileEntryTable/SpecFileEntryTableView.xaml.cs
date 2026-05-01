@@ -19,20 +19,6 @@ public sealed partial class SpecFileEntryTableView
             typeof(SpecFileEntryTableView),
             new PropertyMetadata(false, OnIsRootContentChanged));
 
-    public static readonly DependencyProperty IdentityProperty =
-        DependencyProperty.Register(
-            nameof(Identity),
-            typeof(string),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(string.Empty));
-
-    public static readonly DependencyProperty FilterTextProperty =
-        DependencyProperty.Register(
-            nameof(FilterText),
-            typeof(string),
-            typeof(SpecFileEntryTableView),
-            new PropertyMetadata(string.Empty, OnFilterTextChanged));
-
     public static readonly DependencyProperty ColumnLayoutProperty =
         DependencyProperty.Register(
             nameof(ColumnLayout),
@@ -41,13 +27,13 @@ public sealed partial class SpecFileEntryTableView
             new PropertyMetadata(ColumnLayout.Default, OnColumnLayoutChanged));
 
     private readonly SpecFileEntryViewModel _parentRow = SpecFileEntryViewModel.CreateParentEntry();
+    private IComparer<SpecFileEntryViewModel> _itemComparer = SpecFileEntryComparer.Create(FileEntryColumn.Name, ascending: true);
     private ObservableCollection<SpecFileEntryViewModel>? _attachedItemsSource;
-    private FileEntryColumn _sortColumn = FileEntryColumn.Name;
-    private bool _sortAscending = true;
 
     public SpecFileEntryTableView()
     {
         InitializeComponent();
+        Loaded += SpecFileEntryTableView_Loaded;
     }
 
     public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
@@ -62,17 +48,7 @@ public sealed partial class SpecFileEntryTableView
         set => SetValue(IsRootContentProperty, value);
     }
 
-    public string Identity
-    {
-        get => (string)GetValue(IdentityProperty);
-        set => SetValue(IdentityProperty, value);
-    }
-
-    public string FilterText
-    {
-        get => (string)GetValue(FilterTextProperty);
-        set => SetValue(FilterTextProperty, value);
-    }
+    public string Identity { get; set; } = string.Empty;
 
     public ColumnLayout ColumnLayout
     {
@@ -81,6 +57,14 @@ public sealed partial class SpecFileEntryTableView
     }
 
     public ObservableCollection<SpecFileEntryViewModel> VisibleItems { get; } = [];
+
+    private void SpecFileEntryTableView_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(Identity))
+        {
+            throw new InvalidOperationException($"{nameof(SpecFileEntryTableView)}.{nameof(Identity)} must be set.");
+        }
+    }
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
@@ -91,14 +75,6 @@ public sealed partial class SpecFileEntryTableView
     }
 
     private static void OnIsRootContentChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if (d is SpecFileEntryTableView view)
-        {
-            view.RefreshVisibleItems();
-        }
-    }
-
-    private static void OnFilterTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         if (d is SpecFileEntryTableView view)
         {
@@ -143,22 +119,16 @@ public sealed partial class SpecFileEntryTableView
             VisibleItems.Add(_parentRow);
         }
 
-        foreach (var item in GetFilteredItems().Order(SpecFileEntryComparer.Create(_sortColumn, _sortAscending)))
+        foreach (var item in (ItemsSource ?? []).Order(_itemComparer))
         {
             VisibleItems.Add(item);
         }
     }
 
-    private IEnumerable<SpecFileEntryViewModel> GetFilteredItems()
+    internal void SetItemComparer(IComparer<SpecFileEntryViewModel> itemComparer)
     {
-        foreach (var item in ItemsSource ?? [])
-        {
-            if (string.IsNullOrEmpty(FilterText)
-                || item.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
-            {
-                yield return item;
-            }
-        }
+        _itemComparer = itemComparer;
+        RefreshVisibleItems();
     }
 
     private void FileEntryTableView_Loaded(object sender, RoutedEventArgs e)
@@ -166,7 +136,6 @@ public sealed partial class SpecFileEntryTableView
         EntryTable.RowHeight = 32;
         RefreshVisibleItems();
         ApplyColumnLayout();
-        SyncSortIndicators();
     }
 
     private void EntryTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -175,28 +144,6 @@ public sealed partial class SpecFileEntryTableView
         {
             WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
         }
-    }
-
-    private void Table_Sorting(object sender, TableViewSortingEventArgs e)
-    {
-        e.Handled = true;
-        if (MapColumn(e.Column.SortMemberPath) is not { } column)
-        {
-            return;
-        }
-
-        if (_sortColumn == column)
-        {
-            _sortAscending = !_sortAscending;
-        }
-        else
-        {
-            _sortColumn = column;
-            _sortAscending = true;
-        }
-
-        SyncSortIndicators();
-        RefreshVisibleItems();
     }
 
     private void ApplyColumnLayout()
@@ -226,15 +173,6 @@ public sealed partial class SpecFileEntryTableView
             _ => ColumnLayout.NameWidth,
         };
 
-    private void SyncSortIndicators()
-    {
-        var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
-        foreach (var column in EntryTable.Columns)
-        {
-            column.SortDirection = MapColumn(column.SortMemberPath) == _sortColumn ? direction : null;
-        }
-    }
-
     private static FileEntryColumn? MapColumn(string? sortMemberPath) =>
         sortMemberPath switch
         {
@@ -245,58 +183,4 @@ public sealed partial class SpecFileEntryTableView
             nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
             _ => null,
         };
-
-    private sealed class SpecFileEntryComparer : IComparer<SpecFileEntryViewModel>
-    {
-        private static readonly StringComparer TextComparer = StringComparer.CurrentCultureIgnoreCase;
-
-        private readonly FileEntryColumn _column;
-        private readonly bool _ascending;
-
-        private SpecFileEntryComparer(FileEntryColumn column, bool ascending)
-        {
-            _column = column;
-            _ascending = ascending;
-        }
-
-        public static SpecFileEntryComparer Create(FileEntryColumn column, bool ascending) =>
-            new(column, ascending);
-
-        public int Compare(SpecFileEntryViewModel? x, SpecFileEntryViewModel? y)
-        {
-            if (ReferenceEquals(x, y))
-            {
-                return 0;
-            }
-
-            if (x is null)
-            {
-                return _ascending ? -1 : 1;
-            }
-
-            if (y is null)
-            {
-                return _ascending ? 1 : -1;
-            }
-
-            var result = CompareByColumn(x, y);
-            if (result == 0 && _column != FileEntryColumn.Name)
-            {
-                result = TextComparer.Compare(x.Name, y.Name);
-            }
-
-            return _ascending ? result : -result;
-        }
-
-        private int CompareByColumn(SpecFileEntryViewModel x, SpecFileEntryViewModel y) =>
-            _column switch
-            {
-                FileEntryColumn.Name => TextComparer.Compare(x.Name, y.Name),
-                FileEntryColumn.Extension => TextComparer.Compare(x.Extension, y.Extension),
-                FileEntryColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
-                FileEntryColumn.Modified => x.Modified.CompareTo(y.Modified),
-                FileEntryColumn.Attributes => TextComparer.Compare(x.Attributes, y.Attributes),
-                _ => TextComparer.Compare(x.Name, y.Name),
-            };
-    }
 }

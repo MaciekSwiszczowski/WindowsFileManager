@@ -7,6 +7,7 @@
     xmlns:tv="using:WinUI.TableView"
     Loaded="FileEntryTableView_Loaded">
     <interactivity:Interaction.Behaviors>
+        <fileEntryTable:FileEntryTableSortingBehavior />
         <fileEntryTable:FileEntryTableSelectionBehavior />
         <fileEntryTable:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
@@ -60,7 +61,6 @@
         SelectionMode="Extended"
         SelectionUnit="Row"
         ShowExportOptions="False"
-        Sorting="Table_Sorting"
         UseSystemFocusVisuals="False"
         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
         ScrollViewer.HorizontalScrollMode="Disabled">

@@ -17,7 +17,7 @@ public sealed class SpecFileEntryViewModel
         Attributes = model.Attributes.ToString();
     }
 
-    private SpecFileEntryViewModel()
+    public SpecFileEntryViewModel()
     {
         Model = null;
         EntryKind = FileEntryKind.Folder;

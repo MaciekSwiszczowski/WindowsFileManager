@@ -4,8 +4,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableView>
 {
-    private const string EntryTableName = "EntryTable";
-
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;
     private TableView? _entryTable;
@@ -40,10 +38,15 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
             return;
         }
 
-        var table = AssociatedObject.FindDescendant<TableView>(static candidate => candidate.Name == EntryTableName);
+        var table = AssociatedObject.FindDescendant<TableView>();
+        if (table is null)
+        {
+            return;
+        }
+
         if (ReferenceEquals(_entryTable, table))
         {
-            SyncSortIndicators();
+            ApplySort();
             return;
         }
 
@@ -57,14 +60,19 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
         if (_entryTable is not null)
         {
             _entryTable.Sorting += OnSorting;
-            SyncSortIndicators();
+            ApplySort();
         }
     }
 
     private void OnSorting(object? sender, TableViewSortingEventArgs e)
     {
+        if (_entryTable is null)
+        {
+            return;
+        }
+
         e.Handled = true;
-        if (MapColumn(e.Column.SortMemberPath) is not { } column || AssociatedObject is null)
+        if (MapColumn(e.Column.SortMemberPath) is not { } column)
         {
             return;
         }
@@ -79,11 +87,10 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
             _sortAscending = true;
         }
 
-        SyncSortIndicators();
-        AssociatedObject.SetItemComparer(SpecFileEntryComparer.Create(_sortColumn, _sortAscending));
+        ApplySort();
     }
 
-    private void SyncSortIndicators()
+    private void ApplySort()
     {
         if (_entryTable is null)
         {
@@ -95,6 +102,13 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
         {
             column.SortDirection = MapColumn(column.SortMemberPath) == _sortColumn ? direction : null;
         }
+
+        _entryTable.SortDescriptions.Clear();
+        _entryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
+            MapSortMemberPath(_sortColumn),
+            SortDirection.Ascending,
+            new SpecFileEntryComparer(_sortColumn, _sortAscending),
+            static item => item));
     }
 
     private static FileEntryColumn? MapColumn(string? sortMemberPath) =>
@@ -106,5 +120,16 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
             nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
             nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
             _ => null,
+        };
+
+    private static string MapSortMemberPath(FileEntryColumn column) =>
+        column switch
+        {
+            FileEntryColumn.Name => nameof(SpecFileEntryViewModel.Name),
+            FileEntryColumn.Extension => nameof(SpecFileEntryViewModel.Extension),
+            FileEntryColumn.Size => nameof(SpecFileEntryViewModel.Size),
+            FileEntryColumn.Modified => nameof(SpecFileEntryViewModel.Modified),
+            FileEntryColumn.Attributes => nameof(SpecFileEntryViewModel.Attributes),
+            _ => nameof(SpecFileEntryViewModel.Name),
         };
 }

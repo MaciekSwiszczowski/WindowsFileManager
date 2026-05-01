@@ -6,10 +6,10 @@
     xmlns:keyboard="using:WinUiFileManager.Presentation.Keyboard"
     xmlns:messageLogging="using:WinUiFileManager.Presentation.MessageLogging"
     Title="FileEntry Table TestApp">
+    <!-- keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardManager.KeyPressedCommand, Mode=OneWay}" -->
     <Grid
         Padding="12"
-        ColumnSpacing="12"
-        keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardManager.KeyPressedCommand, Mode=OneWay}">
+        ColumnSpacing="12">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="420" />
             <ColumnDefinition Width="420" />

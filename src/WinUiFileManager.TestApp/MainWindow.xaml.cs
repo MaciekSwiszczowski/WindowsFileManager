@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.Messaging;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.FileEntryTable.Messages;
 using WinUiFileManager.Presentation.Keyboard;
 
 namespace WinUiFileManager.TestApp;
@@ -18,6 +20,13 @@ public sealed partial class MainWindow
         RightTable.Identity = "Right";
         LeftTable.ItemsSource = LeftEntries;
         RightTable.ItemsSource = RightEntries;
+
+        var messenger = WeakReferenceMessenger.Default;
+        var layout = ColumnLayout.Default;
+        messenger.Send(new FileTableParentEntryVisibilityMessage("Left", ShowParentEntry: true));
+        messenger.Send(new FileTableParentEntryVisibilityMessage("Right", ShowParentEntry: true));
+        messenger.Send(new FileTableColumnLayoutMessage("Left", layout));
+        messenger.Send(new FileTableColumnLayoutMessage("Right", layout));
     }
 
     public ObservableCollection<SpecFileEntryViewModel> LeftEntries { get; } =
@@ -28,6 +37,7 @@ public sealed partial class MainWindow
         CreateFile("readme", "md", "Left", 12_842, DateTime.UtcNow.AddDays(-1), FileAttributes.Archive),
         CreateFile("presentation", "pptx", "Left", 2_902_100, DateTime.UtcNow.AddDays(-9), FileAttributes.Archive),
         CreateFile("large-backup", "zip", "Left", 612_004_221, DateTime.UtcNow.AddMonths(-1), FileAttributes.Archive),
+        new SpecFileEntryViewModel(),
     ];
 
     public ObservableCollection<SpecFileEntryViewModel> RightEntries { get; } =

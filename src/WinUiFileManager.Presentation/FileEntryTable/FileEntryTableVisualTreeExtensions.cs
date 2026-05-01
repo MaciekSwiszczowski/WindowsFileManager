@@ -14,56 +14,60 @@ internal static class FileEntryTableVisualTreeExtensions
         };
     }
 
-    public static SpecFileEntryViewModel? FindItem(this DependencyObject? source)
+    extension(DependencyObject? source)
     {
-        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
+        public SpecFileEntryViewModel? FindItem()
         {
-            if (current is FrameworkElement { DataContext: SpecFileEntryViewModel item })
+            for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
             {
-                return item;
+                if (current is FrameworkElement { DataContext: SpecFileEntryViewModel item })
+                {
+                    return item;
+                }
             }
-        }
 
-        return null;
-    }
-
-    public static T? FindAncestor<T>(this DependencyObject? source)
-        where T : DependencyObject
-    {
-        for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
-        {
-            if (current is T match)
-            {
-                return match;
-            }
-        }
-
-        return null;
-    }
-
-    public static T? FindDescendant<T>(this DependencyObject? source, Func<T, bool> predicate)
-        where T : DependencyObject
-    {
-        if (source is null)
-        {
             return null;
         }
 
-        var childCount = VisualTreeHelper.GetChildrenCount(source);
-        for (var i = 0; i < childCount; i++)
+        public T? FindAncestor<T>() where T : DependencyObject
         {
-            var child = VisualTreeHelper.GetChild(source, i);
-            if (child is T match && predicate(match))
+            for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
             {
-                return match;
+                if (current is T match)
+                {
+                    return match;
+                }
             }
 
-            if (child.FindDescendant(predicate) is { } descendant)
-            {
-                return descendant;
-            }
+            return null;
         }
+        public T? FindDescendant<T>() where T : DependencyObject
+            => source.FindDescendant<T>(static _ => true);
 
-        return null;
+        public T? FindDescendant<T>(Func<T, bool> predicate) where T : DependencyObject
+        {
+            if (source is null)
+            {
+                return null;
+            }
+
+            var childCount = VisualTreeHelper.GetChildrenCount(source);
+            for (var i = 0; i < childCount; i++)
+            {
+                var child = VisualTreeHelper.GetChild(source, i);
+                if (child is T match && predicate(match))
+                {
+                    return match;
+                }
+
+                if (child.FindDescendant(predicate) is { } descendant)
+                {
+                    return descendant;
+                }
+            }
+
+            return null;
+        }
     }
+
 }

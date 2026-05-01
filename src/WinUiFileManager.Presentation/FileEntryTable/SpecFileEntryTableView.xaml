@@ -4,11 +4,11 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
-    xmlns:tv="using:WinUI.TableView"
-    Loaded="FileEntryTableView_Loaded">
+    xmlns:tv="using:WinUI.TableView">
     <interactivity:Interaction.Behaviors>
+        <fileEntryTable:FileEntryTableLayoutBehavior />
         <fileEntryTable:FileEntryTableSortingBehavior />
-        <fileEntryTable:FileEntryTableSelectionBehavior />
+        <!-- <fileEntryTable:FileEntryTableSelectionBehavior /> -->
         <fileEntryTable:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
 
@@ -47,8 +47,7 @@
     </UserControl.Resources>
 
     <tv:TableView
-        x:Name="EntryTable"
-        ItemsSource="{x:Bind VisibleItems, Mode=OneWay}"
+        ItemsSource="{x:Bind ItemsSource, Mode=OneWay}"
         AutoGenerateColumns="False"
         CanFilterColumns="False"
         CanReorderColumns="False"

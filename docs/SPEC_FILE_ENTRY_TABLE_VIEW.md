@@ -55,7 +55,7 @@ The set of real items the user has explicitly marked. This is internal control s
 
 ### 2.3 Parent row (`..`)
 
-A synthetic row the control renders at the top of the list when `IsRootContent == false`. Not a `SpecFileEntryViewModel`; not present in `ItemsSource`.
+A synthetic row the control renders at the top of the list when the host has indicated parent navigation is available (see **`FileTableParentEntryVisibilityMessage`** in §3.4). Not a normal `SpecFileEntryViewModel` supplied by the host; not present in `ItemsSource`.
 
 Rendering: Name shows `..`; Ext / Size / Modified / Attributes are blank; styled like a folder row.
 
@@ -66,7 +66,7 @@ Behavior:
 - Activating it (Enter while cursor on `..`, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage` — only when `SelectedItems` is empty.
 - Never enters rename. Never the target of any file operation. Always pinned above all real rows. Not affected by `SelectAll`.
 
-When `IsRootContent == true`, the control omits the `..` row entirely.
+When the host sends `FileTableParentEntryVisibilityMessage(Identity, ShowParentEntry: false)`, the control omits the `..` row entirely (for example at a filesystem root). The default before any message is to show `..` (`ShowParentEntry: true`).
 
 ### 2.4 Rename
 
@@ -87,8 +87,8 @@ When a table gains focus, it publishes `FileTableFocusedMessage(Identity)` and s
 | Property | Type | Mode | Default | Description |
 |---|---|---|---|---|
 | `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
-| `IsRootContent` | `bool` | OneWay | `false` | When `true`, the `..` row is not rendered. |
-| `ColumnLayout` | `ColumnLayout` record | TwoWay | defaults per §4.1 | Column widths; updated on user drag. |
+
+Parent-row visibility and column widths are **not** dependency properties; hosts drive them with messages (§3.4).
 
 ### 3.2 CLR properties
 
@@ -109,9 +109,11 @@ record ColumnLayout(
     double AttributesWidth);
 ```
 
-### 3.4 Outgoing messages (control → messenger)
+### 3.4 Message contracts
 
-The control publishes exactly three message types via `IMessenger.Default.Send(...)`. All carry the `Identity` of the publishing instance.
+Unless noted, messages use `WeakReferenceMessenger.Default` / `IMessenger` and carry the target table’s `Identity` so multi-pane hosts can route per instance.
+
+#### 3.4.1 Outgoing (control or behavior → messenger)
 
 ```
 record FileTableFocusedMessage(string Identity);
@@ -119,20 +121,40 @@ record FileTableFocusedMessage(string Identity);
 record FileTableSelectionChangedMessage(
     string Identity,
     IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
-    bool IsParentRowSelected);
+    bool IsParentRowSelected,
+    SpecFileEntryViewModel? ActiveItem);
 
 record FileTableNavigateUpRequestedMessage(string Identity);
 ```
 
-The control does **not** publish anything for activation of a real row (folder or file). Real-row activation flows through the keyboard manager's `ActivateInvokedMessage` (also published by the control itself on mouse double-click of a real row); the coordinator resolves it from the active table's selection.
+The control does **not** publish anything for activation of a real row (folder or file). Real-row activation flows through the keyboard manager’s `ActivateInvokedMessage` (also published on mouse double-click of a real row); the coordinator resolves it from the active table’s selection.
 
 Trigger conditions are specified in §13.
 
-### 3.4 Incoming messages (messenger → control)
+#### 3.4.2 Incoming (host → control)
+
+| Message | Purpose |
+|---|---|
+| `FileTableParentEntryVisibilityMessage(string Identity, bool ShowParentEntry)` | When `ShowParentEntry` is `true`, the synthetic `..` row is shown (subject to §2.3). When `false`, `..` is hidden (e.g. root directory). |
+| `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
+
+Hosts should send layout (and parent visibility) once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The TestApp sends defaults after wiring `ItemsSource`.
+
+#### 3.4.3 Focus and keyboard observation
 
 The focused control subscribes to the primitive input messages emitted by the keyboard manager (§12). Non-focused controls do not observe those messages.
 
 The control does not expose any custom CLR events.
+
+### 3.5 Attached behaviors (`SpecFileEntryTableView`)
+
+| Behavior | Role |
+|---|---|
+| `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
+| `FileEntryTableParentEntryVisibilityBehavior` | Subscribes to `FileTableParentEntryVisibilityMessage`; toggles synthetic `..` via internal view API. |
+| `FileEntryTableSortingBehavior` | Header sort and `VisibleItems` ordering. |
+| `FileEntryTableSelectionBehavior` | Selection, cursor, `FileTableFocusedMessage`, keyboard commands. |
+| `ActiveRowIndicatorBehavior` | Active row chrome. |
 
 ---
 
@@ -152,7 +174,7 @@ Reordering, per-column filtering, and show/hide are not supported by the table c
 
 ### 4.2 Header
 
-Always visible. Column captions and sort indicators. Resizable via right-edge drag — `ColumnLayout` updates live; widths clamp at the column's minimum.
+Always visible. Column captions and sort indicators. Column widths are applied from **`FileTableColumnLayoutMessage`** (behavior). Header resize gestures are not yet wired to push an updated layout back to the host; persistence of widths remains host-owned (see app `PaneColumnLayout` / `FilePaneTableSortSync` elsewhere).
 
 ### 4.3 Row
 
@@ -176,7 +198,7 @@ Clicking a header:
 - Already the sort column → toggle the internal sort direction.
 - Otherwise → set the internal sort column to the clicked column and use ascending direction.
 
-The control does **not** expose sort state as dependency properties. Persisted UI state is limited to `ColumnLayout`.
+The control does **not** expose sort state as dependency properties. Persisted column widths are a host concern; this control consumes them only via `FileTableColumnLayoutMessage`.
 
 `..` is always pinned visually first regardless of sort state. Directory-before-file ordering is a host-side decision.
 
@@ -264,7 +286,7 @@ Any pointer interaction brings WinUI keyboard focus to the control. The focus tr
 
 ## 8. Filtering
 
-Filtering is outside this control. Hosts filter their source collection and assign the resulting rows to `ItemsSource`. The control renders and sorts only the rows it receives, plus the synthetic `..` row when `IsRootContent == false`.
+Filtering is outside this control. Hosts filter their source collection and assign the resulting rows to `ItemsSource`. The control renders and sorts only the rows it receives, plus the synthetic `..` row when the host has requested it with `FileTableParentEntryVisibilityMessage(..., ShowParentEntry: true)`.
 
 ---
 
@@ -601,8 +623,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 ### 17.2 Data binding
 
 - [ ] `ItemsSource` add / remove / re-order propagates to visible rows.
-- [ ] `IsRootContent` toggle shows / hides `..`.
-- [ ] Setting `ColumnLayout` and `Identity` propagates as expected.
+- [ ] `FileTableParentEntryVisibilityMessage` shows / hides `..`.
+- [ ] `FileTableColumnLayoutMessage` and `Identity` propagate as expected.
 
 ### 17.3 Focus
 
@@ -615,8 +637,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.4 Parent row
 
-- [ ] With `IsRootContent = false`, `..` renders above all real rows, styled as a folder.
-- [ ] With `IsRootContent = true`, `..` is absent and its navigation rules have no effect.
+- [ ] With `ShowParentEntry: true`, `..` renders above all real rows, styled as a folder.
+- [ ] With `ShowParentEntry: false`, `..` is absent and its navigation rules have no effect.
 - [ ] Sort never pushes `..` below a real row.
 - [ ] `..` remains pinned above all rows supplied by `ItemsSource`.
 - [ ] `..` never present in `SelectedItems`.
@@ -677,8 +699,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 - [ ] Header click sets / toggles the internal sort indicator.
 - [ ] The control does not re-order `ItemsSource`.
-- [ ] Column drag updates `ColumnLayout`; clamps at minimum.
-- [ ] Setting `ColumnLayout` programmatically applies to all five columns.
+- [ ] Sending `FileTableColumnLayoutMessage` updates all five data column widths (Name through Attr).
 
 ### 17.11 Coordinator
 

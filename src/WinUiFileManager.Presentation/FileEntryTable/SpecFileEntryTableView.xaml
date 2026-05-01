@@ -5,10 +5,9 @@
     xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:tv="using:WinUI.TableView"
-    Loaded="FileEntryTableView_Loaded"
-    GotFocus="FileEntryTableView_GotFocus"
-    LostFocus="FileEntryTableView_LostFocus">
+    Loaded="FileEntryTableView_Loaded">
     <interactivity:Interaction.Behaviors>
+        <fileEntryTable:FileEntryTableSelectionBehavior />
         <fileEntryTable:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
 
@@ -63,7 +62,6 @@
             HeadersVisibility="Columns"
             IsReadOnly="True"
             DoubleTapped="ParentTable_DoubleTapped"
-            SelectionChanged="ParentTable_SelectionChanged"
             SelectionMode="Single"
             SelectionUnit="Row"
             ShowExportOptions="False"
@@ -114,7 +112,6 @@
             FocusVisualSecondaryThickness="0"
             HeadersVisibility="None"
             IsReadOnly="True"
-            SelectionChanged="EntryTable_SelectionChanged"
             SelectionMode="Extended"
             SelectionUnit="Row"
             ShowExportOptions="False"

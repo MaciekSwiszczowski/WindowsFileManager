@@ -63,7 +63,7 @@ Behavior:
 - Cursor may land on it.
 - Can be **visually** selected through a single click, `Ctrl+Click`, `Insert`, `Space`, `Ctrl+Space`, or a `Shift+` range that includes it.
 - **Never appears in `SelectedItems`**.
-- Activating it (Enter while cursor on `..`, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage` — only when `SelectedItems` is empty.
+- Activating it (Enter while it is the active row, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - Never enters rename. Never the target of any file operation. Always pinned above all real rows. Not affected by `SelectAll`.
 
 When the host sends `FileTableParentEntryVisibilityMessage(Identity, ShowParentEntry: false)`, the control omits the `..` row entirely (for example at a filesystem root). The default before any message is to show `..` (`ShowParentEntry: true`).
@@ -125,9 +125,13 @@ record FileTableSelectionChangedMessage(
     SpecFileEntryViewModel? ActiveItem);
 
 record FileTableNavigateUpRequestedMessage(string Identity);
+
+record FileTableNavigateDownRequestedMessage(
+    string Identity,
+    SpecFileEntryViewModel Item);
 ```
 
-The control does **not** publish anything for activation of a real row (folder or file). Real-row activation flows through the keyboard manager’s `ActivateInvokedMessage` (also published on mouse double-click of a real row); the coordinator resolves it from the active table’s selection.
+Folder activation publishes `FileTableNavigateDownRequestedMessage`; parent-row activation publishes `FileTableNavigateUpRequestedMessage`. File activation is not handled by `SpecFileEntryTableView` yet.
 
 Trigger conditions are specified in §13.
 
@@ -222,15 +226,13 @@ All cursor movements scroll the target into view.
 
 ### 6.2 Activation
 
-There are two activation paths, distinguished by what's under the cursor or click target.
+There are two table-navigation activation paths, distinguished by what's under the active row or click target.
 
-**Navigate-up path.** The control publishes `FileTableNavigateUpRequestedMessage` when:
+**Navigate-up path.** The control publishes `FileTableNavigateUpRequestedMessage` when the user double-clicks `..` or presses Enter while `..` is the active row.
 
-> `SelectedItems` is empty **and** (the user pressed `Enter` while focused with the cursor on `..`, or double-clicked the `..` row).
+**Navigate-down path.** The control publishes `FileTableNavigateDownRequestedMessage` when the user double-clicks a folder row or presses Enter while a folder is the active row.
 
-If `SelectedItems` is non-empty, the user is presumed to have a marked set ready for some other command, and the navigate-up message is not published. The user clears the selection (`Esc`) before navigating up via `Enter` on `..`.
-
-**Default-action path.** The control does **not** publish anything for activation of a real row. The keyboard manager publishes `ActivateInvokedMessage` on `Enter`. The control itself republishes the same `ActivateInvokedMessage` on mouse double-click of a real row (a single click on a row already places that row into `SelectedItems` per §7.5, so the second click finds the table in exactly the state the coordinator's resolution rule expects). The coordinator subscribes to `ActivateInvokedMessage` and resolves it against the active table's selection (§14).
+Both Enter paths are owned by `ActiveRowIndicatorBehavior`, because that behavior owns the active row. Double-click paths are owned by `SpecFileEntryTableView`.
 
 ### 6.3 Navigate up
 
@@ -277,7 +279,8 @@ Range extension uses the cursor as anchor; programmatic cursor moves keep the an
 | `Ctrl+Click` on real row | Toggle that row in `SelectedItems`; cursor moves there. |
 | `Ctrl+Click` on `..` | Toggle `..`'s visual highlight; cursor moves to `..`. |
 | `Shift+Click` | Range select from previous cursor to clicked row; cursor moves there. |
-| Double-click on a real row | The two clicks fire as singles first, leaving `SelectedItems = [clickedRow]`. The double-click gesture then publishes `ActivateInvokedMessage`; the coordinator resolves it via the selection (§14). |
+| Double-click on a folder row | Publishes `FileTableNavigateDownRequestedMessage`. |
+| Double-click on a file row | No table navigation message yet. |
 | Double-click on `..` | The two clicks fire as singles first, leaving `SelectedItems` empty and `..` visually selected. The double-click gesture then publishes `FileTableNavigateUpRequestedMessage`. |
 
 Any pointer interaction brings WinUI keyboard focus to the control. The focus transition publishes `FileTableFocusedMessage` and activates that table's keyboard-message subscriptions.
@@ -326,7 +329,7 @@ Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity)`. Loss 
 
 - `..` always pinned at the top.
 - Click sorts; click again reverses.
-- Navigate-up activation publishes `FileTableNavigateUpRequestedMessage`; real-row activation flows through `ActivateInvokedMessage` and is resolved by the coordinator into navigate-into / open-file.
+- Navigate-up activation publishes `FileTableNavigateUpRequestedMessage`; folder activation publishes `FileTableNavigateDownRequestedMessage`.
 - `Insert` toggles + advances; `Space` / `Ctrl+Space` toggle without advancing.
 - `Backspace` / `Ctrl+PageUp` / `Alt+Up` request navigate-up.
 - `F2` / `Shift+F6` request rename of the single selected item.
@@ -390,16 +393,20 @@ Trigger sources:
 ### 13.3 `FileTableNavigateUpRequestedMessage(Identity)`
 
 Fires when:
-- `SelectedItems` is empty, **and**
 - One of:
-  - The user pressed `Enter` (delivered as `ActivateInvokedMessage` while the table is observing keyboard-manager messages) with the cursor on `..`.
+  - The user pressed `Enter` while `..` is the active row.
   - The user double-clicked the `..` row.
 
-Does not fire when `SelectedItems` is non-empty. Does not fire when the cursor is on a real row (real-row activation flows through `ActivateInvokedMessage`, resolved by the coordinator).
+Does not fire when the active row is a real row.
 
-### 13.4 `ActivateInvokedMessage` (republished from mouse)
+### 13.4 `FileTableNavigateDownRequestedMessage(Identity, Item)`
 
-The file table re-publishes `ActivateInvokedMessage` on mouse double-click of a real row. The keyboard manager publishes the same message on `Enter`. Both feed the coordinator's single resolution path (§14.5). The file table does not republish on double-click of `..` — that path produces `FileTableNavigateUpRequestedMessage` instead.
+Fires when:
+- One of:
+  - The user pressed `Enter` while a folder is the active row.
+  - The user double-clicked a folder row.
+
+Does not fire for files.
 
 ---
 
@@ -427,6 +434,7 @@ From the file table:
 - `FileTableFocusedMessage` → set `_activeIdentity = msg.Identity`.
 - `FileTableSelectionChangedMessage` → `_selectionByIdentity[msg.Identity] = msg.SelectedItems`.
 - `FileTableNavigateUpRequestedMessage` → §14.5.
+- `FileTableNavigateDownRequestedMessage` → §14.5.
 
 From the keyboard manager (or, for `ActivateInvokedMessage`, also from the file table on mouse double-click):
 - `ActivateInvokedMessage` → §14.5.
@@ -478,6 +486,7 @@ In each rule, "active selection" means `_selectionByIdentity[_activeIdentity]` (
 | Trigger | Resolution |
 |---|---|
 | `FileTableNavigateUpRequestedMessage` | Publish `NavigateUpRequestedMessage(msg.Identity)`. |
+| `FileTableNavigateDownRequestedMessage` | Publish `DefaultActionRequestedMessage(msg.Identity, msg.Item)`. |
 | `ActivateInvokedMessage` | Active selection has exactly one item → publish `DefaultActionRequestedMessage(_activeIdentity, items[0])`. Zero or multiple → no-op. |
 | `NavigateUpKeyPressedMessage` | If `_activeIdentity` is null → no-op. Otherwise publish `NavigateUpRequestedMessage(_activeIdentity)`. |
 | `RenameKeyPressedMessage` | If active selection has exactly one item → publish `RenameRequestedMessage(_activeIdentity, items[0])`. Zero or multiple → no-op. |
@@ -494,8 +503,8 @@ The coordinator never publishes a domain message with empty `Items`. The "no sel
 
 Two cases that might seem to need cursor knowledge are handled by the file table directly:
 
-- **Navigate up via `..` activation** — the file table inspects its own cursor and `SelectedItems`, then publishes `FileTableNavigateUpRequestedMessage` when conditions match (§13.3).
-- **Default action on a real row** — by the time `ActivateInvokedMessage` arrives, a single click (or the click portion of a double-click) has already placed the activation target into `SelectedItems`. The coordinator's "exactly one item" rule resolves it.
+- **Navigate up via `..` activation** — the file table inspects its own active row, then publishes `FileTableNavigateUpRequestedMessage` when conditions match (§13.3).
+- **Navigate down via folder activation** — the file table inspects its own active row or double-click target, then publishes `FileTableNavigateDownRequestedMessage` when conditions match (§13.4).
 
 Every other command (Rename, Copy, Move, Delete, CopyPath, Properties, CreateFolder, NavigateUp by keystroke) operates on selection or on the active pane as a whole — selection is enough.
 
@@ -581,7 +590,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 16.7 Messages the dialog service does not handle
 
-`FileTableSelectionChangedMessage`, `NavigateUpRequestedMessage`, `DefaultActionRequestedMessage`, `CopyPathRequestedMessage`, `PropertiesRequestedMessage`, `FileTableFocusedMessage`, `FileTableNavigateUpRequestedMessage` — see §15 for owners.
+`FileTableSelectionChangedMessage`, `NavigateUpRequestedMessage`, `DefaultActionRequestedMessage`, `CopyPathRequestedMessage`, `PropertiesRequestedMessage`, `FileTableFocusedMessage`, `FileTableNavigateUpRequestedMessage`, `FileTableNavigateDownRequestedMessage` — see §15 for owners.
 
 ---
 
@@ -620,8 +629,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `..` never present in `SelectedItems`.
 - [ ] `..` never appears in `FileTableSelectionChangedMessage.SelectedItems`; its visual selection is reported only by `IsParentRowSelected`.
 - [ ] `..` participates in native `TableView` visual selection but never appears in command-target `SelectedItems`.
-- [ ] Activating `..` (Enter while cursor on `..` and `SelectedItems` empty, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
-- [ ] When `SelectedItems` is non-empty, neither Enter on `..` nor double-click on `..` publishes the navigate-up message.
+- [ ] Activating `..` (Enter while active, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - [ ] `..` never targeted by Rename / Delete / Copy / Move / CopyPath / Properties.
 
 ### 17.5 Cursor movement
@@ -649,18 +657,16 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `Ctrl+Click` on real row → toggle in `SelectedItems`; cursor moves there.
 - [ ] `Ctrl+Click` on `..` → toggle `..`'s visual highlight; cursor moves to `..`.
 - [ ] `Shift+Click` → range from previous cursor to clicked row; cursor moves.
-- [ ] Double-click on a real row → after the click puts the row into `SelectedItems`, the double-click publishes `ActivateInvokedMessage`; coordinator publishes `DefaultActionRequestedMessage(clickedRow)`.
+- [ ] Double-click on a folder row publishes `FileTableNavigateDownRequestedMessage`.
+- [ ] Double-click on a file row publishes no table navigation message.
 - [ ] Double-click on `..` → after the click clears `SelectedItems` and visually marks `..`, the double-click publishes `FileTableNavigateUpRequestedMessage`; coordinator publishes `NavigateUpRequestedMessage`.
 - [ ] Click on header sorts; drag header right edge resizes a column.
 
 ### 17.8 Activation
 
-- [ ] `ActivateInvokedMessage` while focused, `SelectedItems` empty, cursor on `..` → publishes `FileTableNavigateUpRequestedMessage`.
-- [ ] `ActivateInvokedMessage` while focused, `SelectedItems` empty, cursor on real row → no `FileTableNavigateUpRequestedMessage` (the file table is silent); coordinator's resolution rule sees an empty selection and emits no domain message.
-- [ ] `ActivateInvokedMessage` while focused, `SelectedItems` has exactly one item → coordinator publishes `DefaultActionRequestedMessage` with that item; the file table publishes nothing extra.
-- [ ] `ActivateInvokedMessage` while focused, `SelectedItems` has multiple items → no domain message published.
-- [ ] `ActivateInvokedMessage` while the table is not observing keyboard-manager messages → ignored entirely.
-- [ ] Mouse double-click reproduces all of the above conditions because the click-portion has updated `SelectedItems` first.
+- [ ] Enter while `..` is active publishes `FileTableNavigateUpRequestedMessage`.
+- [ ] Enter while a folder is active publishes `FileTableNavigateDownRequestedMessage`.
+- [ ] Enter while a file is active publishes no table navigation message.
 
 ### 17.9 Host-owned filtering
 
@@ -688,6 +694,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `PropertiesKeyPressedMessage` follows the same size-1 rule.
 - [ ] `CreateFolderKeyPressedMessage` always publishes `CreateFolderRequestedMessage` with the active identity.
 - [ ] `FileTableNavigateUpRequestedMessage` publishes `NavigateUpRequestedMessage` with the same `Identity`.
+- [ ] `FileTableNavigateDownRequestedMessage` publishes `DefaultActionRequestedMessage` with the same `Identity` and item.
 - [ ] `ActivateInvokedMessage` with active selection of size 1 publishes `DefaultActionRequestedMessage(items[0])`. Size 0 or 2+ → no domain message.
 
 ### 17.12 File operation dialog service

@@ -18,6 +18,7 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
     {
         base.OnAttached();
 
+        AssociatedObject.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
         AssociatedObject.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
         WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
@@ -28,6 +29,11 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         if (AssociatedObject is { } table && _pointerPressedHandler is not null)
         {
             table.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
+        }
+
+        if (AssociatedObject is { } view)
+        {
+            view.PreviewKeyDown -= OnPreviewKeyDown;
         }
 
         _pointerPressedHandler = null;
@@ -51,6 +57,19 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         SetActiveRow(item);
     }
 
+    private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (e.Handled || e.Key != VirtualKey.Enter || AssociatedObject is null || _activeItem is not { } activeItem)
+        {
+            return;
+        }
+
+        if (TrySendNavigationMessage(activeItem))
+        {
+            e.Handled = true;
+        }
+    }
+
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
     {
         if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
@@ -71,6 +90,28 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
     {
         _activeItem = item;
         ApplyActiveRow();
+    }
+
+    private bool TrySendNavigationMessage(SpecFileEntryViewModel item)
+    {
+        if (AssociatedObject is null)
+        {
+            return false;
+        }
+
+        if (item.Model is null)
+        {
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
+            return true;
+        }
+
+        if (item.EntryKind == FileEntryKind.Folder)
+        {
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, item));
+            return true;
+        }
+
+        return false;
     }
 
     private void ClearActiveItem()

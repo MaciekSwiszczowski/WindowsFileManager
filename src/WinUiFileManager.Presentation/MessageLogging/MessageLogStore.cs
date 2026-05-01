@@ -59,6 +59,7 @@ public sealed class MessageLogStore
         Register<DeleteRequestedMessage>();
         Register<FileTableColumnLayoutMessage>();
         Register<FileTableFocusedMessage>();
+        Register<FileTableNavigateDownRequestedMessage>();
         Register<FileTableNavigateUpRequestedMessage>();
         Register<FileTableParentEntryVisibilityMessage>();
         Register<FileTableSelectionChangedMessage>();

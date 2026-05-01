@@ -15,6 +15,10 @@ public sealed partial class SpecFileEntryTableView
     {
         InitializeComponent();
         Loaded += SpecFileEntryTableView_Loaded;
+        AddHandler(
+            UIElement.DoubleTappedEvent,
+            new DoubleTappedEventHandler(EntryTable_DoubleTapped),
+            handledEventsToo: true);
     }
 
     public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
@@ -35,9 +39,22 @@ public sealed partial class SpecFileEntryTableView
 
     private void EntryTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if ((e.OriginalSource as DependencyObject).FindItem() is not null)
+        if ((e.OriginalSource as DependencyObject).FindItem() is not { } item)
         {
-            WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
+            return;
+        }
+
+        if (item.Model is null)
+        {
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
+            e.Handled = true;
+            return;
+        }
+
+        if (item.EntryKind == FileEntryKind.Folder)
+        {
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, item));
+            e.Handled = true;
         }
     }
 }

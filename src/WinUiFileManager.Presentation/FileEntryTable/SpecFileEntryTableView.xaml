@@ -52,7 +52,6 @@
         CanFilterColumns="False"
         CanReorderColumns="False"
         CornerButtonMode="None"
-        DoubleTapped="EntryTable_DoubleTapped"
         FocusVisualPrimaryThickness="0"
         FocusVisualSecondaryThickness="0"
         HeadersVisibility="Columns"

@@ -6,27 +6,18 @@ public sealed record FileLockDiagnostics
         inUse: null,
         lockBy: [],
         lockPids: [],
-        lockServices: [],
-        usage: null,
-        canSwitchTo: null,
-        canClose: null);
+        lockServices: []);
 
     public FileLockDiagnostics(
         bool? inUse,
         IReadOnlyList<string> lockBy,
         IReadOnlyList<int> lockPids,
-        IReadOnlyList<string> lockServices,
-        string? usage,
-        bool? canSwitchTo,
-        bool? canClose)
+        IReadOnlyList<string> lockServices)
     {
         InUse = inUse;
         LockBy = lockBy;
         LockPids = lockPids;
         LockServices = lockServices;
-        Usage = usage;
-        CanSwitchTo = canSwitchTo;
-        CanClose = canClose;
     }
 
     public bool? InUse { get; init; }
@@ -36,10 +27,4 @@ public sealed record FileLockDiagnostics
     public IReadOnlyList<int> LockPids { get; init; }
 
     public IReadOnlyList<string> LockServices { get; init; }
-
-    public string? Usage { get; init; }
-
-    public bool? CanSwitchTo { get; init; }
-
-    public bool? CanClose { get; init; }
 }

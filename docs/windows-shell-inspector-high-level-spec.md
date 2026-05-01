@@ -107,12 +107,9 @@ The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, 
 | Security | Inh | F/D | Whether access rules are inherited. | .NET ACL APIs | Default |
 | Security | Prot | F/D | Whether inheritance is protected / disabled. | .NET ACL APIs | Default |
 | In-use | InUse | F/D | Whether the item is currently reported as being used by one or more processes or services. | Restart Manager | Default |
-| In-use | LockBy | F/D | List of locking applications and/or services. | Restart Manager / IFileIsInUse | Lazy |
+| In-use | LockBy | F/D | List of locking applications and/or services. | Restart Manager | Lazy |
 | In-use | LockPid | F/D | PIDs of processes reported by Restart Manager. | Restart Manager | Lazy |
 | In-use | LockSvc | F/D | Service short names reported by Restart Manager. | Restart Manager | Lazy |
-| In-use | Usage | F/D | Usage type from IFileIsInUse when available. | IFileIsInUse | Advanced |
-| In-use | CanSw | F/D | Whether the UI can switch to the locking application's window. | IFileIsInUse | Advanced |
-| In-use | CanCls | F/D | Whether the locking application can be politely asked to close the file. | IFileIsInUse | Advanced |
 | Cloud | Prov | F/D | Cloud or storage provider display info for the item. | WinRT Provider | Default when applicable |
 | Cloud | SyncRt | F/D | Sync root path or display identity that owns the item. | StorageProviderSyncRootManager | Default when applicable |
 | Cloud | SyncId | F/D | Sync root registration identifier. | StorageProviderSyncRootInfo | Default when applicable |

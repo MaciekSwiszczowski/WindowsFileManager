@@ -9,6 +9,4 @@ internal interface IShellInterop
     void UninitializeCom();
 
     ShellExecutePropertiesResult ExecutePropertiesVerb(string objectName);
-
-    FileIsInUseProbeResult TryGetFileIsInUse(string path);
 }

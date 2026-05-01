@@ -20,6 +20,8 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 
 internal sealed class NtfsFileIdentityService : IFileIdentityService
 {
+    private const int ErrorSuccess = 0;
+    private const int ErrorMoreData = 234;
     private const int FindStreamInfoStandard = 0;
     private const uint GetFinalPathNameNormalized = 0;
     private const uint FileReadAttributesAccess = 0x80;
@@ -37,16 +39,16 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private static readonly FileNtfsMetadataDetails EmptyNtfsMetadataDetails =
         new(0, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue, DateTime.MinValue);
 
-    private readonly IFileIdentityInterop _fileIdentityInterop;
+    private readonly IRestartManagerInterop _restartManagerInterop;
     private readonly ICloudFilesInterop _cloudFilesInterop;
     private readonly FileInspectorInteropOptions _interopOptions;
 
     public NtfsFileIdentityService(
-        IFileIdentityInterop fileIdentityInterop,
+        IRestartManagerInterop restartManagerInterop,
         ICloudFilesInterop cloudFilesInterop,
         FileInspectorInteropOptions? interopOptions = null)
     {
-        _fileIdentityInterop = fileIdentityInterop;
+        _restartManagerInterop = restartManagerInterop;
         _cloudFilesInterop = cloudFilesInterop;
         _interopOptions = interopOptions ?? FileInspectorInteropOptions.AllEnabled;
     }
@@ -452,22 +454,27 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             return Task.FromResult(FileLockDiagnostics.None);
         }
 
-        var result = _fileIdentityInterop.GetLockDiagnostics(path);
-        if (!result.Success)
+        try
+        {
+            var lockBy = new List<string>();
+            var lockPids = new List<int>();
+            var lockServices = new List<string>();
+            var inUse = TryGetRestartManagerLocks(path, lockBy, lockPids, lockServices);
+
+            return Task.FromResult(new FileLockDiagnostics(
+                inUse: inUse,
+                lockBy: lockBy,
+                lockPids: lockPids,
+                lockServices: lockServices));
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
         {
             return Task.FromResult(FileLockDiagnostics.None);
         }
-
-        var diagnostics = new FileLockDiagnostics(
-            inUse: result.InUse,
-            lockBy: result.LockBy,
-            lockPids: result.LockPids,
-            lockServices: result.LockServices,
-            usage: result.Usage,
-            canSwitchTo: result.CanSwitchTo,
-            canClose: result.CanClose);
-
-        return Task.FromResult(diagnostics);
     }
 
     private bool IsInteropEnabled(FileInspectorInteropCategories category) =>
@@ -885,6 +892,94 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         streams.Add($"{streamName.Trim()} ({data.StreamSize} bytes)");
     }
 
+    private bool? TryGetRestartManagerLocks(
+        string path,
+        List<string> lockBy,
+        List<int> lockPids,
+        List<string> lockServices)
+    {
+        var startResult = _restartManagerInterop.StartSession(out var sessionHandle);
+        if (startResult != ErrorSuccess)
+        {
+            return null;
+        }
+
+        try
+        {
+            var resources = new[] { path };
+            var registerResult = _restartManagerInterop.RegisterResources(sessionHandle, resources);
+
+            if (registerResult != ErrorSuccess)
+            {
+                return null;
+            }
+
+            uint processInfoNeeded = 0;
+            uint processInfo = 0;
+            uint rebootReasons;
+
+            var listResult = _restartManagerInterop.GetList(
+                sessionHandle,
+                out processInfoNeeded,
+                ref processInfo,
+                null,
+                out rebootReasons);
+
+            if (listResult != ErrorSuccess && listResult != ErrorMoreData)
+            {
+                return null;
+            }
+
+            if (processInfoNeeded == 0)
+            {
+                return false;
+            }
+
+            processInfo = processInfoNeeded;
+            var processInfos = new RestartManagerProcessInfo[processInfoNeeded];
+            listResult = _restartManagerInterop.GetList(
+                sessionHandle,
+                out processInfoNeeded,
+                ref processInfo,
+                processInfos,
+                out rebootReasons);
+
+            if (listResult != ErrorSuccess)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < processInfo; i++)
+            {
+                var processInfoItem = processInfos[i];
+                var appName = string.IsNullOrWhiteSpace(processInfoItem.AppName)
+                    ? $"PID {processInfoItem.ProcessId}"
+                    : processInfoItem.AppName.Trim();
+
+                lockBy.Add(appName);
+
+                if (processInfoItem.ProcessId > 0)
+                {
+                    lockPids.Add(processInfoItem.ProcessId);
+                }
+
+                if (!string.IsNullOrWhiteSpace(processInfoItem.ServiceShortName))
+                {
+                    lockServices.Add(processInfoItem.ServiceShortName.Trim());
+                }
+            }
+
+            Deduplicate(lockBy);
+            Deduplicate(lockPids);
+            Deduplicate(lockServices);
+            return lockBy.Count > 0 || lockPids.Count > 0 || lockServices.Count > 0;
+        }
+        finally
+        {
+            _ = _restartManagerInterop.EndSession(sessionHandle);
+        }
+    }
+
     private static string GetNullTerminatedString(Windows.Win32.__char_296 buffer, int length)
     {
         var span = MemoryMarshal.CreateReadOnlySpan(
@@ -898,6 +993,29 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         var terminatorIndex = buffer.IndexOf('\0');
         var value = terminatorIndex >= 0 ? buffer[..terminatorIndex] : buffer;
         return value.ToString();
+    }
+
+    private static void Deduplicate<T>(List<T> source)
+    {
+        if (source.Count <= 1)
+        {
+            return;
+        }
+
+        var set = new HashSet<T>();
+        var index = 0;
+        foreach (var item in source)
+        {
+            if (set.Add(item))
+            {
+                source[index++] = item;
+            }
+        }
+
+        if (index < source.Count)
+        {
+            source.RemoveRange(index, source.Count - index);
+        }
     }
 
     private static string SafeIdentityToString(Func<IdentityReference?> factory)

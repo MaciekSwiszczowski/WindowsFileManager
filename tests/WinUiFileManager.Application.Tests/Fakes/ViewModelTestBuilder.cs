@@ -34,7 +34,7 @@ public sealed class ViewModelTestBuilder
         var schedulers = SchedulerProviderOverride ?? new RxSchedulerProvider();
         var fileIdentityService = FileIdentityServiceOverride
             ?? new NtfsFileIdentityService(
-                new FileIdentityInterop(new RestartManagerInterop(), new ShellInterop()),
+                new RestartManagerInterop(),
                 new CloudFilesInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(

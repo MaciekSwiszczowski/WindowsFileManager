@@ -1,19 +1,19 @@
 # Spec: Native Code Modernization
 
-Scope: modernize the native / interop surface of the Windows File Manager with a **handle-safety first** posture. Every OS handle deterministically closed; every `[DllImport]` generated from `NativeMethods.txt`; every COM RCW released through the right API on the right thread; every native-boundary `Async` method honoring its cancellation token. Analyzer rules enforce each of these patterns at build time.
+Scope: modernize the native / interop surface of the Windows File Manager with a **handle-safety first** posture. Every OS handle deterministically closed; every `[DllImport]` generated from `NativeMethods.txt`; shell COM kept out of inspector diagnostics; every native-boundary `Async` method honoring its cancellation token. Analyzer rules enforce each of these patterns at build time.
 
 This spec is the authoritative source for native modernization. It **absorbs** the following items that were previously tracked elsewhere:
 
 - `SPEC_NUGET_MODERNIZATION.md` §1 (CsWin32 expansion — was batch N-1).
 - `SPEC_NUGET_MODERNIZATION.md` §2 (CopyFile2 upgrade — was batch N-4).
 - `SPEC_BUG_FIXES.md` B3 (swallowed `OperationCanceledException`).
-- `SPEC_BUG_FIXES.md` B9 (`Marshal.ReleaseComObject` insufficient for the COM RCW used by file-lock detection).
+- `SPEC_BUG_FIXES.md` B9 (removed by deleting the shell `IFileIsInUse` lock probe instead of retaining a COM RCW in inspector diagnostics).
 
 It explicitly **defers** these to their original homes (revisit after this spec lands):
 
 - `SPEC_NUGET_MODERNIZATION.md` §3 (`CommunityToolkit.HighPerformance.StringPool`).
 - `SPEC_NUGET_MODERNIZATION.md` §4 / §7 (thumbnail `ArrayPool<byte>` pooling).
-- ComWrappers migration (considered, not required — modern `Marshal.FinalReleaseComObject` is sufficient for the single RCW we own).
+- ComWrappers migration (considered, not required — inspector diagnostics no longer own a shell COM RCW).
 
 Landing order: **right after the rename-bug spec** (`SPEC_RENAME_BUGS.md`) closes, before the keyboard-shortcut spec.
 
@@ -21,7 +21,7 @@ Landing order: **right after the rename-bug spec** (`SPEC_RENAME_BUGS.md`) close
 
 1. **Every OS handle wrapped in a `SafeHandle`** at the boundary where it is returned. No long-lived `IntPtr` fields in managed code outside `WinUiFileManager.Interop`.
 2. **One auditable location for every `[DllImport]`** — `NativeMethods.txt`, processed by `Microsoft.Windows.CsWin32`. Zero hand-rolled imports in `src/`.
-3. **Deterministic COM RCW disposal** using `Marshal.FinalReleaseComObject` in `finally`, on the thread that created the RCW, with the COM apartment's threading model documented at every call site.
+3. **No shell COM in inspector diagnostics**. File-lock diagnostics use Restart Manager only; `IFileIsInUse` / `SHCreateItemFromParsingName` is out of scope because it requires STA access and is only additional information.
 4. **CancellationToken contract honored** at every `Async` boundary that touches native code — `OperationCanceledException` flows out instead of being swallowed.
 5. **Compile-time enforcement** of the above via `IDisposableAnalyzers`, `Meziantou.Analyzer`, and `BannedSymbols.txt`.
 6. **Audit checklist** every PR reviewer runs through when native code is touched (see §6).
@@ -32,20 +32,18 @@ Condensed from a read of the repository as of commit `35e965f`. `file:line` refe
 
 ### 2.1. Hand-rolled `[DllImport]`s (targets for M-4)
 
-- `src/WinUiFileManager.Interop/Adapters/FileIdentityInterop.cs` (≈ lines 372-398) — 5 imports: `RmStartSession`, `RmRegisterResources`, `RmGetList`, `RmEndSession` (Restart Manager), `SHCreateItemFromParsingName` (Shell COM binding).
 - `src/WinUiFileManager.Infrastructure/Services/WindowsShellService.cs` (≈ lines 102-118) — 4 imports: `SHObjectProperties`, `ShellExecuteExW`, `CoInitializeEx`, `CoUninitialize`.
 - `src/WinUiFileManager.Infrastructure/FileSystem/NtfsFileIdentityService.cs` (≈ lines 810-879) — 6 imports: `GetFileInformationByHandle`, `CreateFileW`, `GetFileInformationByHandleEx` (multiple `EntryPoint`s), `GetVolumeInformationW`, `GetFinalPathNameByHandleW`, `FindFirstStreamW`, `FindNextStreamW`, `FindClose`, `CfGetPlaceholderStateFromAttributeTag`.
 
-All three files carry file-scoped `#pragma warning disable RS0030` with one-line justifications. These go away when M-4 lands.
+Both files carry file-scoped `#pragma warning disable RS0030` with one-line justifications. These go away when M-4 lands.
 
-### 2.2. COM RCW usage
+### 2.2. COM usage
 
-`FileIdentityInterop.cs` ≈ line 451 — private `IFileIsInUseNative` interface with `[ComImport]` + `[Guid]`. Instantiated via `SHCreateItemFromParsingName` (≈ line 297). Currently released with `Marshal.ReleaseComObject(fileIsInUse)` (≈ line 345).
+The shell `IFileIsInUse` probe was removed from inspector diagnostics. It required STA access, provided only optional lock metadata, and is not supported consistently by applications. Do not reintroduce `IFileIsInUse` / `SHCreateItemFromParsingName` for file-lock detection.
 
 ### 2.3. SafeHandle usage (already correct — keep)
 
 - `NtfsFileIdentityService.OpenMetadataHandle()` (≈ line 359-377) wraps `CreateFileW`'s returned `IntPtr` in `SafeFileHandle`. Good.
-- `FileIdentityInterop.GetFileIdFromHandle(SafeFileHandle safeHandle, …)` (≈ line 157-180) — consumer takes a `SafeFileHandle` and uses `DangerousGetHandle` inside a narrow block. Good.
 - `FileStream` and `Process` usage — `using var` throughout. Good.
 
 ### 2.4. Raw `IntPtr` requiring a SafeHandle (target for M-3)
@@ -72,12 +70,12 @@ Seven methods in `NtfsFileIdentityService` catch `Exception` without an explicit
 - Consumers use `using` or return the `SafeHandle` up the stack; `DangerousGetHandle` is only called inside a `using`-scoped block.
 - Banned: `IntPtr` parameters in non-interop public APIs. Use `SafeHandle` or a domain type.
 
-### 3.2. COM RCW release discipline
+### 3.2. Shell COM boundaries
 
-- All RCWs are released with `Marshal.FinalReleaseComObject` — not `ReleaseComObject` — in a `finally` block.
-- STA-only call sites add a Debug-only guard on the dispatcher thread (`Debug.Assert(DispatcherQueue.HasThreadAccess)` or the equivalent WinAppSDK call). Release-builds pay nothing.
-- The apartment threading model is documented in a comment at every `CoInitializeEx` / `SHCreateItemFromParsingName` call: STA for shell COM, MTA for service-layer interop. No accidental free-threaded calls.
-- Banned: `Marshal.ReleaseComObject` (add to `BannedSymbols.txt`). Allowed: `Marshal.FinalReleaseComObject`.
+- Inspector diagnostics must not activate shell COM objects. Lock diagnostics are Restart Manager only.
+- Shell COM is limited to user-triggered shell operations such as Properties. STA-only call sites add a Debug-only guard on the dispatcher thread (`Debug.Assert(DispatcherQueue.HasThreadAccess)` or the equivalent WinAppSDK call). Release-builds pay nothing.
+- The apartment threading model is documented in a comment at every `CoInitializeEx` call: STA for shell COM. No accidental free-threaded calls.
+- Banned: `IFileIsInUse` / `SHCreateItemFromParsingName` for lock diagnostics.
 
 ### 3.3. CancellationToken contract
 
@@ -97,7 +95,7 @@ Seven methods in `NtfsFileIdentityService` catch `Exception` without an explicit
 ### 3.6. Interop adapters as the boundary
 
 - All native calls live behind an `Interop` adapter pair: an interface in `WinUiFileManager.Application.Abstractions` and an implementation in `WinUiFileManager.Interop` that calls the CsWin32-generated `PInvoke.*`. Services in `Infrastructure` depend on the interface, not on the `PInvoke` namespace.
-- Existing adapters (`FileOperationInterop`, `VolumeInterop`, `FileIdentityInterop`) stay; new ones created in M-4: `ShellInterop`, `RestartManagerInterop`, `CloudFilesInterop`.
+- Existing adapters (`FileOperationInterop`, `VolumeInterop`) stay; the removed file-identity wrapper is not reintroduced. New M-4 adapters are `ShellInterop`, `RestartManagerInterop`, and `CloudFilesInterop`.
 
 ## 4. Analyzer enforcement
 
@@ -131,7 +129,7 @@ dotnet_diagnostic.IDISP007.severity = error
 M:System.Runtime.InteropServices.Marshal.ReleaseComObject(System.Object);Use Marshal.FinalReleaseComObject to release all outstanding references; see SPEC_NATIVE_MODERNIZATION.md §3.2.
 ```
 
-Existing file-scoped `#pragma warning disable RS0030` suppressions stay — each with its current one-line justification. After M-4, the three suppressions in `WindowsShellService.cs`, `NtfsFileIdentityService.cs`, and `FileIdentityInterop.cs` are removed (the last `[DllImport]`s are gone).
+Existing file-scoped `#pragma warning disable RS0030` suppressions stay — each with its current one-line justification. After M-4, the suppressions in `WindowsShellService.cs` and `NtfsFileIdentityService.cs` are removed (the last `[DllImport]`s are gone).
 
 ## 5. Batches
 
@@ -147,14 +145,13 @@ Each batch obeys `SPEC_AGENT_BATCHING_PLAN.md` §2 rules. Diffs are approximate.
 
 Handoff note: `native-batch-1.md`.
 
-### M-2. COM RCW + cancellation correctness (~150 lines; absorbs B3 and B9)
+### M-2. Remove inspector shell-COM lock probe + cancellation correctness (~150 lines; absorbs B3 and B9)
 
-- `FileIdentityInterop.cs` ≈ line 345: `Marshal.ReleaseComObject(fileIsInUse)` → `Marshal.FinalReleaseComObject(fileIsInUse)` (inside the existing `if (fileIsInUse is not null)` null-guard).
-- Add the banned-symbol line in `BannedSymbols.txt` for `ReleaseComObject` (forces compile-time failure if any new callsite appears).
+- Remove the file-identity interop wrapper and the shell `IFileIsInUse` probe. Lock diagnostics use `RestartManagerInterop` directly and no longer expose optional shell-only `Usage` / `CanSwitchTo` / `CanClose` fields.
+- Remove `IFileIsInUse` and `SHCreateItemFromParsingName` from `NativeMethods.txt`.
 - `NtfsFileIdentityService` — add `catch (OperationCanceledException) { throw; }` ahead of the `catch (Exception …)` in seven methods listed in §2.6.
-- STA-thread assertion: in `FileIdentityInterop.TryGetFileIsInUse` add a one-line `Debug.Assert` confirming `CoInitializeEx` was called for STA, with a comment naming the invariant.
 - Tests:
-  - Unit: a shim test against a fake `IFileIsInUseNative` with a tracking RCW substitute that counts releases; assert `FinalReleaseComObject` was used.
+  - Unit: construction and lock diagnostics no longer require the file-identity interop wrapper or shell COM probe.
   - Unit: cancel an `InspectorViewModel` batch that invokes `NtfsFileIdentityService`; assert `OperationCanceledException` propagates.
 
 Handoff note: `native-batch-2.md`.
@@ -173,14 +170,14 @@ Handoff note: `native-batch-3.md`.
 ### M-4. CsWin32 expansion (~600 lines; absorbs NuGet §1 / N-1)
 
 - Add the following to `src/WinUiFileManager.Interop/NativeMethods.txt`:
-  - Shell / OLE: `SHObjectProperties`, `ShellExecuteExW`, `SHELLEXECUTEINFOW`, `SHCreateItemFromParsingName`, `IFileIsInUse`, `CoInitializeEx`, `CoUninitialize`.
+  - Shell / OLE: `SHObjectProperties`, `ShellExecuteExW`, `SHELLEXECUTEINFOW`, `CoInitializeEx`, `CoUninitialize`.
   - Restart Manager: `RmStartSession`, `RmRegisterResources`, `RmGetList`, `RmEndSession`, `RM_PROCESS_INFO`.
   - Cloud Files: `CfGetPlaceholderStateFromAttributeTag`.
   - Registry (needed by L-5 later): `RegNotifyChangeKeyValue`, `REG_NOTIFY_CHANGE_LAST_SET`.
-- Remove every hand-rolled `[DllImport]` block in `WindowsShellService.cs`, `NtfsFileIdentityService.cs`, `FileIdentityInterop.cs`. Call sites use `PInvoke.*` (the CsWin32 namespace).
+- Remove every hand-rolled `[DllImport]` block in `WindowsShellService.cs` and `NtfsFileIdentityService.cs`. Call sites use `PInvoke.*` (the CsWin32 namespace).
 - Introduce three new adapters, each in its own file pair:
   - `IShellInterop` / `ShellInterop` — move `SHObjectProperties`, `ShellExecuteExW`, `CoInitializeEx` / `CoUninitialize` call sites here. Injected into `WindowsShellService`.
-  - `IRestartManagerInterop` / `RestartManagerInterop` — move RM_* call sites. Injected into `FileIdentityInterop`'s caller chain.
+  - `IRestartManagerInterop` / `RestartManagerInterop` — move RM_* call sites. Injected into `NtfsFileIdentityService`.
   - `ICloudFilesInterop` / `CloudFilesInterop` — move `CfGetPlaceholderStateFromAttributeTag`.
 - Split M-4 into two sub-batches if the net diff exceeds 400 lines:
   - M-4a: Shell + OLE APIs + the `ShellInterop` adapter.
@@ -229,7 +226,7 @@ The spec is complete when:
 
 - Thumbnail byte-buffer pooling (`SPEC_NUGET_MODERNIZATION.md` §4 / §7) — tracked separately, deferred.
 - `CommunityToolkit.HighPerformance.StringPool` adoption (`SPEC_NUGET_MODERNIZATION.md` §3) — tracked separately.
-- ComWrappers migration — the codebase has one COM RCW; `FinalReleaseComObject` suffices. Revisit if the RCW count grows.
+- ComWrappers migration — inspector diagnostics no longer own shell COM RCWs. Revisit only if a future feature introduces long-lived COM objects.
 - Serilog (`SPEC_NUGET_MODERNIZATION.md` §5) — logging is not a native-code modernization concern.
 - Rewriting `FileSystemWatcher` to a `ReadDirectoryChangesW`-based custom implementation. `FileSystemWatcher` is adequate with the fixes in `SPEC_BUG_FIXES.md` B-2.
 - General performance optimization. This spec buys safety, not speed.

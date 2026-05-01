@@ -31,8 +31,6 @@ COPYFILE2_EXTENDED_PARAMETERS
 SHObjectProperties
 ShellExecuteExW
 SHELLEXECUTEINFOW
-SHCreateItemFromParsingName
-IFileIsInUse
 CoInitializeEx
 CoUninitialize
 RmStartSession

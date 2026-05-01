@@ -8,7 +8,6 @@ using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Interop.Adapters;
-using WinUiFileManager.Interop.Types;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
@@ -375,10 +374,7 @@ public sealed class FileInspectorViewModelTests
                 inUse: true,
                 lockBy: [$"Locker:{Path.GetFileName(path)}"],
                 lockPids: [1234],
-                lockServices: ["SvcTest"],
-                usage: "TestUsage",
-                canSwitchTo: true,
-                canClose: false));
+                lockServices: ["SvcTest"]));
         }
     }
 
@@ -445,16 +441,13 @@ public sealed class FileInspectorViewModelTests
                 inUse: false,
                 lockBy: [],
                 lockPids: [],
-                lockServices: [],
-                usage: null,
-                canSwitchTo: null,
-                canClose: null));
+                lockServices: []));
         }
     }
 
     private sealed class CloudBatchCancellationIdentityService : IFileIdentityService
     {
-        private readonly NtfsFileIdentityService _service = new(new StubFileIdentityInterop(), new CloudFilesInterop());
+        private readonly NtfsFileIdentityService _service = new(new RestartManagerInterop(), new CloudFilesInterop());
 
         public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
         {
@@ -517,48 +510,7 @@ public sealed class FileInspectorViewModelTests
                 inUse: false,
                 lockBy: [],
                 lockPids: [],
-                lockServices: [],
-                usage: null,
-                canSwitchTo: null,
-                canClose: null));
-        }
-    }
-
-    private sealed class StubFileIdentityInterop : IFileIdentityInterop
-    {
-        public FileIdResult GetFileId(string path)
-        {
-            return new FileIdResult(true, [0x01, 0x02, 0x03], null);
-        }
-
-        public FileLockDiagnosticsResult GetLockDiagnostics(string path)
-        {
-            return new FileLockDiagnosticsResult(true, false, [], [], [], null, null, null, null);
-        }
-
-        public FileIdentityDetailsResult GetIdentityDetails(string path)
-        {
-            return new FileIdentityDetailsResult(true, [0x01, 0x02, 0x03], null, null, null, path, null);
-        }
-
-        public FileLinkDiagnosticsResult GetLinkDiagnostics(string path)
-        {
-            return new FileLinkDiagnosticsResult(true, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, null);
-        }
-
-        public FileStreamDiagnosticsResult GetStreamDiagnostics(string path)
-        {
-            return new FileStreamDiagnosticsResult(true, 0, [], null);
-        }
-
-        public FileSecurityDiagnosticsResult GetSecurityDiagnostics(string path)
-        {
-            return new FileSecurityDiagnosticsResult(true, string.Empty, string.Empty, string.Empty, string.Empty, null, null, null);
-        }
-
-        public FileThumbnailDiagnosticsResult GetThumbnailDiagnostics(string path)
-        {
-            return new FileThumbnailDiagnosticsResult(true, null, string.Empty, null);
+                lockServices: []));
         }
     }
 }

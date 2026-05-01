@@ -291,9 +291,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Locks", "Locked By", "Applications or services that Windows reports as using this item.", 2);
         RegisterField("Locks", "Lock PIDs", "Process IDs of applications using this item. Useful in Task Manager or Process Explorer.", 3);
         RegisterField("Locks", "Lock Services", "Service names associated with the lock, when available.", 4);
-        RegisterField("Locks", "Usage", "How the owning application is using the item, when Windows can determine it.", 5);
-        RegisterField("Locks", "Can Switch To", "Whether Windows reports that the owning application can be brought to the foreground.", 6);
-        RegisterField("Locks", "Can Close", "Whether Windows reports that the owning application supports a cooperative close request.", 7);
 
         RefreshVisibleCategories();
     }
@@ -396,9 +393,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         SetFieldValue("Locked By", string.Empty);
         SetFieldValue("Lock PIDs", string.Empty);
         SetFieldValue("Lock Services", string.Empty);
-        SetFieldValue("Usage", string.Empty);
-        SetFieldValue("Can Switch To", string.Empty);
-        SetFieldValue("Can Close", string.Empty);
     }
 
     private void SetFieldValue(string key, string value)
@@ -851,10 +845,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                     new FileInspectorFieldUpdate("In Use", string.Empty),
                     new FileInspectorFieldUpdate("Locked By", string.Empty),
                     new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
-                    new FileInspectorFieldUpdate("Lock Services", string.Empty),
-                    new FileInspectorFieldUpdate("Usage", string.Empty),
-                    new FileInspectorFieldUpdate("Can Switch To", string.Empty),
-                    new FileInspectorFieldUpdate("Can Close", string.Empty)
+                    new FileInspectorFieldUpdate("Lock Services", string.Empty)
                 ]);
             }
 
@@ -870,12 +861,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                     diagnostics.LockPids.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockPids)),
                 new FileInspectorFieldUpdate(
                     "Lock Services",
-                    diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices)),
-                new FileInspectorFieldUpdate(
-                    "Usage",
-                    string.IsNullOrWhiteSpace(diagnostics.Usage) ? string.Empty : diagnostics.Usage),
-                new FileInspectorFieldUpdate("Can Switch To", FormatOptionalBoolean(diagnostics.CanSwitchTo)),
-                new FileInspectorFieldUpdate("Can Close", FormatOptionalBoolean(diagnostics.CanClose))
+                    diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices))
             ]);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -891,10 +877,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                 new FileInspectorFieldUpdate("In Use", string.Empty),
                 new FileInspectorFieldUpdate("Locked By", string.Empty),
                 new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
-                new FileInspectorFieldUpdate("Lock Services", string.Empty),
-                new FileInspectorFieldUpdate("Usage", string.Empty),
-                new FileInspectorFieldUpdate("Can Switch To", string.Empty),
-                new FileInspectorFieldUpdate("Can Close", string.Empty)
+                new FileInspectorFieldUpdate("Lock Services", string.Empty)
             ]);
         }
     }
@@ -948,10 +931,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         diagnostics.InUse == true
         || diagnostics.LockBy.Count > 0
         || diagnostics.LockPids.Count > 0
-        || diagnostics.LockServices.Count > 0
-        || !string.IsNullOrWhiteSpace(diagnostics.Usage)
-        || diagnostics.CanSwitchTo == true
-        || diagnostics.CanClose == true;
+        || diagnostics.LockServices.Count > 0;
 
     private static string FormatUtc(DateTime value) =>
         value == DateTime.MinValue

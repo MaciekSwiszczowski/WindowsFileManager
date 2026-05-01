@@ -18,7 +18,7 @@ public sealed class NtfsFileIdentityServiceTests
         await File.WriteAllTextAsync($"{filePath}:info", "two");
 
         var sut = new NtfsFileIdentityService(
-            new FileIdentityInterop(new RestartManagerInterop(), new ShellInterop()),
+            new RestartManagerInterop(),
             new CloudFilesInterop());
 
         using var process = Process.GetCurrentProcess();

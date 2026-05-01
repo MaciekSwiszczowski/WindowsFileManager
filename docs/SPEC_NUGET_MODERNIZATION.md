@@ -23,8 +23,6 @@ Append these lines to `src/WinUiFileManager.Interop/NativeMethods.txt`:
 SHObjectProperties
 ShellExecuteExW
 SHELLEXECUTEINFOW
-SHCreateItemFromParsingName
-IFileIsInUse
 CfGetPlaceholderStateFromAttributeTag
 RmStartSession
 RmRegisterResources
@@ -42,7 +40,8 @@ REG_NOTIFY_CHANGE_LAST_SET
 CsWin32 generates `PInvoke.*` wrappers + strongly-typed `SafeHandle`s, constants, and typed enums. Remove the equivalent manual definitions from:
 - `src/WinUiFileManager.Infrastructure/Services/WindowsShellService.cs:101-157`
 - `src/WinUiFileManager.Infrastructure/FileSystem/NtfsFileIdentityService.cs:809-960`
-- `src/WinUiFileManager.Interop/Adapters/FileIdentityInterop.cs:372-469`
+
+Do not add `SHCreateItemFromParsingName` / `IFileIsInUse` for inspector lock diagnostics. That shell COM probe was removed because it is STA-bound and provides only optional application-dependent information.
 
 ### 1.2. Move generated interop into the Interop project
 
@@ -54,12 +53,12 @@ WinUiFileManager.Interop
     IShellInterop.cs          (new)
     ShellInterop.cs           (moves SHObjectProperties + ShellExecuteExW out of Infrastructure)
     IRestartManagerInterop.cs (new)
-    RestartManagerInterop.cs  (moves RM_* calls out of Adapters/FileIdentityInterop.cs)
+    RestartManagerInterop.cs  (owns RM_* calls used by NtfsFileIdentityService)
     ICloudFilesInterop.cs     (new)
     CloudFilesInterop.cs      (moves CfGetPlaceholderStateFromAttributeTag)
 ```
 
-`WindowsShellService`, `NtfsFileIdentityService`, and `FileIdentityInterop` shrink to orchestration logic.
+`WindowsShellService` and `NtfsFileIdentityService` shrink to orchestration logic.
 
 ### 1.3. CsWin32-generated `SafeHandle`s
 
@@ -135,7 +134,7 @@ Reference from `WinUiFileManager.Presentation` and `WinUiFileManager.Infrastruct
 ### 3.2. Call sites
 
 - **`StringPool.Shared`** for file extensions. In `WindowsFileSystemService.BuildEntryModel(ref FileSystemEntry)` (line 160-178), extensions are highly redundant across a folder (`.txt`, `.cs`, etc.). `StringPool.Shared.GetOrAdd(name.AsSpan(lastDot))` dedupes without `ToString()` allocation until a miss.
-- **`SpanOwner<T>`** in `FileIdentityInterop.TryGetRestartManagerLocks` (line 181) instead of `new RmProcessInfo[processInfoNeeded]` — reduces allocation on the "is this file locked" hot path (inspector queries it per selection).
+- **`SpanOwner<T>`** in `NtfsFileIdentityService`'s Restart Manager lock query instead of `new RmProcessInfo[processInfoNeeded]` — reduces allocation on the "is this file locked" hot path (inspector queries it per selection).
 - **`Box<T>`** not needed here; skip.
 
 ### 3.3. Acceptance

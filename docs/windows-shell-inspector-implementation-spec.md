@@ -285,21 +285,16 @@ The implementation is split by category. Each category lists:
 - [`RmRegisterResources`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmregisterresources>)
 - [`RmGetList`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmgetlist>)
 - [`RM_PROCESS_INFO`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/ns-restartmanager-rm_process_info>)
-- [`IFileIsInUse`](<https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ifileisinuse>)
-- [`IFileIsInUse::GetAppName`](<https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileisinuse-getappname>)
-- [`IFileIsInUse::GetCapabilities`](<https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileisinuse-getcapabilities>)
-- [`IFileIsInUse::GetSwitchToHWND`](<https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifileisinuse-getswitchtohwnd>)
 
 ### Keys served from this category
 
-- `InUse`, `LockBy`, `LockPid`, `LockSvc`, `Usage`, `CanSw`, `CanCls`
+- `InUse`, `LockBy`, `LockPid`, `LockSvc`
 
 ### Required methods
 
 | Key(s) | Method(s) | Notes |
 |---|---|---|
 | `InUse`, `LockBy`, `LockPid`, `LockSvc` | [`RmStartSession`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmstartsession>) -> [`RmRegisterResources`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmregisterresources>) -> [`RmGetList`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/nf-restartmanager-rmgetlist>) -> [`RM_PROCESS_INFO`](<https://learn.microsoft.com/en-us/windows/win32/api/restartmanager/ns-restartmanager-rm_process_info>) | Primary supported mechanism for 'who is using this file'. |
-| `Usage`, `CanSw`, `CanCls` | [`IFileIsInUse`](<https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ifileisinuse>) and its methods | Optional enrichment when available. |
 
 ### Hard rule
 
@@ -496,12 +491,9 @@ The implementation is split by category. Each category lists:
 | `Inh` | Managed ACL |
 | `Prot` | Managed ACL |
 | `InUse` | Restart Manager |
-| `LockBy` | Restart Manager / IFileIsInUse |
+| `LockBy` | Restart Manager |
 | `LockPid` | Restart Manager |
 | `LockSvc` | Restart Manager |
-| `Usage` | IFileIsInUse |
-| `CanSw` | IFileIsInUse |
-| `CanCls` | IFileIsInUse |
 | `Prov` | WinRT |
 | `SyncRt` | WinRT provider |
 | `SyncId` | WinRT provider |

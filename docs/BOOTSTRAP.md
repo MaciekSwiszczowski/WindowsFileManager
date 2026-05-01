@@ -599,7 +599,7 @@ Prefer clarity over novelty.
 - Inspector tooltips must explain the user-facing meaning of the property. Do not expose implementation details such as internal Win32, COM, Shell, or interface names in tooltips.
 - Inspector rows are dynamic. A field should be shown only when its value is non-empty.
 - The `Locks` category must contain a stable summary property named `Is locked`. Once lock diagnostics have loaded, this property stays visible in the category and shows `True` or `False` based on the other lock diagnostics in that category.
-- `Is locked` must be `True` only when there is positive lock evidence in the category, such as `In Use = Yes`, a non-empty locker list, non-empty lock PIDs or services, non-empty usage text, or affirmative capability flags. Missing data or all-empty diagnostics must not be treated as locked.
+- `Is locked` must be `True` only when there is positive lock evidence in the category, such as `In Use = Yes`, a non-empty locker list, or non-empty lock PIDs or services. Missing data or all-empty diagnostics must not be treated as locked.
 - Do not show temporary `Loading...` rows for deferred categories.
 - Do not show category-specific loading messages while deferred categories are being fetched. Keep deferred rows hidden until real values arrive.
 - When a file or folder is locked, show `Is locked = True` and only the additional lock fields that have non-empty values.
@@ -608,7 +608,6 @@ Prefer clarity over novelty.
   - `Locked By` identifies the applications or services using the item.
   - `Lock PIDs` helps correlate the lock with Task Manager or Process Explorer.
   - `Lock Services` helps identify background-service locks.
-  - `Usage`, `Can Switch To`, and `Can Close` are advanced diagnostics and must be described in plain language.
 - Keep identity / link / stream / security / thumbnail labels equally plain-language:
   - `File ID`, `Volume Serial`, `File Index (64-bit)`, `Hard Link Count`, and `Final Path` belong in `IDs`.
   - `Link Target`, `Link Status`, `Reparse Tag`, `Reparse Data`, and `Object ID` belong in `Links`.

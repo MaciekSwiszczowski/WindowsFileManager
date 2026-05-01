@@ -18,7 +18,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IRestartManagerInterop, RestartManagerInterop>();
         services.AddSingleton<ICloudFilesInterop, CloudFilesInterop>();
         services.AddSingleton<IVolumeInterop, VolumeInterop>();
-        services.AddSingleton<IFileIdentityInterop, FileIdentityInterop>();
         services.AddSingleton<IFileOperationInterop, FileOperationInterop>();
 
         services.AddSingleton<INtfsVolumePolicyService, NtfsVolumePolicyService>();

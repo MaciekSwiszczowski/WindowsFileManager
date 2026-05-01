@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using System.Threading;
 using TUnit.Core;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.CloudFilters;
@@ -9,29 +8,6 @@ namespace WinUiFileManager.Interop.Tests.Scenarios;
 
 public sealed class InteropAdapterTests
 {
-    [Test]
-    public async Task Test_ShellInterop_TryGetFileIsInUseCore_FinalReleasesAndMapsProbeDetails()
-    {
-        var releasedCount = 0;
-
-        var result = ShellInterop.TryGetFileIsInUseCore(
-            static _ => (0, new FakeFileIsInUseAdapter(new object(), "notepad.exe", 1, 0x0003u)),
-            _ =>
-            {
-                releasedCount++;
-                return 1;
-            },
-            static () => ApartmentState.STA,
-            @"C:\temp\file.txt");
-
-        await Assert.That(result.HResult).IsEqualTo(0);
-        await Assert.That(result.AppName).IsEqualTo("notepad.exe");
-        await Assert.That(result.Usage).IsEqualTo("Editing");
-        await Assert.That(result.CanSwitchTo).IsTrue();
-        await Assert.That(result.CanClose).IsTrue();
-        await Assert.That(releasedCount).IsEqualTo(1);
-    }
-
     [Test]
     public async Task Test_RestartManagerInterop_StartSessionCore_UsesWritableZeroedBuffer()
     {
@@ -98,41 +74,5 @@ public sealed class InteropAdapterTests
             0x9000001A);
 
         await Assert.That(result).IsEqualTo((uint)0x0018);
-    }
-
-    private sealed class FakeFileIsInUseAdapter : ShellInterop.IFileIsInUseAdapter
-    {
-        private readonly string _appName;
-        private readonly uint _capabilities;
-        private readonly object _innerObject;
-        private readonly int _usage;
-
-        public FakeFileIsInUseAdapter(object innerObject, string appName, int usage, uint capabilities)
-        {
-            _innerObject = innerObject;
-            _appName = appName;
-            _usage = usage;
-            _capabilities = capabilities;
-        }
-
-        public object InnerObject => _innerObject;
-
-        public int GetAppName(out IntPtr appName)
-        {
-            appName = Marshal.StringToCoTaskMemUni(_appName);
-            return 0;
-        }
-
-        public int GetUsage(out int usage)
-        {
-            usage = _usage;
-            return 0;
-        }
-
-        public int GetCapabilities(out uint capabilities)
-        {
-            capabilities = _capabilities;
-            return 0;
-        }
     }
 }

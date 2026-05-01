@@ -251,19 +251,19 @@ Apply the same pattern to `JsonSettingsRepository` (a bad persisted path on any 
 
 **Verify.** Hand-edit `%LocalAppData%\WinUiFileManager\favourites.json` to add a favourite with `"path": ""`; restart; other favourites still load; warning in the log.
 
-## B9. `ReleaseComObject` is not sufficient for RCW with multiple refs
+## B9. Shell COM file-lock probe requires STA access
 
-> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2.** Do not fix this ticket in a B-* batch — `Marshal.ReleaseComObject` will also be added to `BannedSymbols.txt` there. If `SPEC_BUG_FIXES.md` B-4 lands before M-2, it skips B9.
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-2.** Do not fix this ticket in a B-* batch — the native-modernization pass removes the shell `IFileIsInUse` lock probe instead of trying to harden the RCW lifetime. If `SPEC_BUG_FIXES.md` B-4 lands before M-2, it skips B9.
 
-**Severity:** Low. Minor native-memory leak in `TryGetFileIsInUse`.
+**Severity:** Low. Optional file-lock metadata came from shell COM, which requires STA access and is not supported consistently by applications.
 
-**File:** `src/WinUiFileManager.Interop/Adapters/FileIdentityInterop.cs:344`
+**File:** removed file-identity interop wrapper / shell `IFileIsInUse` probe.
 
-**Cause.** `Marshal.ReleaseComObject` drops a single reference. If the RCW accumulated refs via STA reentry, some are left alive and the Windows Storage broker keeps state.
+**Cause.** `IFileIsInUse` is a shell COM probe. It can add STA constraints to inspector diagnostics for information that is only advisory.
 
-**Fix.** Change to `Marshal.FinalReleaseComObject(fileIsInUse)`. Keep the `_ =` discard.
+**Fix.** Remove the file-identity interop wrapper and shell `IFileIsInUse` probe. Keep lock detection to Restart Manager data only.
 
-**Verify.** No functional change expected; validate with `VMMap` delta after 1 000 inspector queries (see `SPEC_PERFORMANCE_AND_SCALE.md` if/when written).
+**Verify.** Search `src/` for `IFileIsInUse`, `SHCreateItemFromParsingName`, and the file-identity interop wrapper; no source matches remain.
 
 ## B10. `NavigateUpAsync` `GetParentPath` helper is fragile on `\\?\` paths
 

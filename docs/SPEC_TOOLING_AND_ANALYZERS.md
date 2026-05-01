@@ -234,7 +234,7 @@ Change **types only needed within their owning library** from `public` to `inter
 - `WinUiFileManager.Infrastructure.Persistence.FavouriteDto`
 - `WinUiFileManager.Infrastructure.Persistence.SettingsDto`
 - `WinUiFileManager.Infrastructure.FileSystem.WindowsFileSystemService` (and the sibling Service classes) — they only need to be resolvable via DI; DI works with `internal` when composition root is in a friend assembly. Adjust `AddInfrastructureServices` registrations to use the concrete types by namespace.
-- `WinUiFileManager.Interop.Adapters.FileOperationInterop`, `FileIdentityInterop`, `VolumeInterop` — only the interfaces need to be `public` (and only if consumed cross-assembly; they are, since Application references the interfaces via Abstractions).
+- `WinUiFileManager.Interop.Adapters.FileOperationInterop`, `VolumeInterop` — only the interfaces need to be `public` (and only if consumed cross-assembly; they are, since Application references the interfaces via Abstractions). The old file-identity interop wrapper is removed.
 
 Interfaces in `WinUiFileManager.Application.Abstractions` and `WinUiFileManager.Domain.*` can remain `public` — they are the assembly’s contract.
 

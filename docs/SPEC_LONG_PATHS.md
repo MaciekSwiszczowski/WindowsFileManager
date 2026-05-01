@@ -86,7 +86,6 @@ This table is the source of truth. It tells engineering which APIs are allowed f
 | `Restart Manager` (`RmRegisterResources`) | ✓ | ✗ | Documented MAX_PATH-only per resource. Skip for long paths. |
 | `SHObjectProperties` ("Properties" dialog) | ✓ | ✗ | Shell dialog — no long-path support. Hide/disable. |
 | `ShellExecuteEx` / `Process.Start(UseShellExecute=true)` (open with default app) | ✓ | ✗ | Shell doesn't resolve associations for `\\?\`. Hide/disable. |
-| `SHCreateItemFromParsingName` (used for `IFileIsInUse`) | ✓ | ✗ | Many shell handlers reject long paths; treat as unsupported for `Extended`. |
 | `StorageFile.GetFileFromPathAsync` / `StorageFolder.GetFolderFromPathAsync` | ✓ | ✗ | WinRT Storage broker — inconsistent long-path support; treat as unsupported. |
 | `StorageFile.GetThumbnailAsync` | ✓ | ✗ | Same as above. |
 | `StorageProviderSyncRootManager.GetSyncRootInformationForFolder` | ✓ | ✗ | Same. |
@@ -355,7 +354,7 @@ At construction time in `FileInspectorViewModel`, tag each batch:
 |---|---|
 | NTFS (dates, attributes) | `ReadNtfsMetadata` |
 | IDs (file ID, volume, hardlinks, final path) | `ReadNtfsMetadata` |
-| Locks (Restart Manager, IFileIsInUse) | `QueryInUseLocks` |
+| Locks (Restart Manager) | `QueryInUseLocks` |
 | Links (reparse, shell shortcut detection) | `ReadNtfsMetadata` (shortcut path via FileInfo works) |
 | Streams (ADS) | `ReadAlternateStreams` |
 | Security (ACL) | `ReadSecurity` |

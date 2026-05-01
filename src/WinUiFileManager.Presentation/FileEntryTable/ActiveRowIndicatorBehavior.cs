@@ -7,7 +7,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView>
 {
     private const string DefaultIndicatorName = "ActiveRowIndicator";
-    private const string EntryTableName = "EntryTable";
 
     private SpecFileEntryViewModel? _activeItem;
     private PointerEventHandler? _pointerPressedHandler;
@@ -92,14 +91,11 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         }
 
         SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
-        if (_activeItem is { } activeItem && FindTable() is { } table)
+        if (_activeItem is { } activeItem && AssociatedObject.FindDescendant<TableView>() is { } table)
         {
             SetItemIndicatorOpacity(table, activeItem, ActiveOpacity);
         }
     }
-
-    private TableView? FindTable() =>
-        AssociatedObject.FindDescendant<TableView>(static table => table.Name == EntryTableName);
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
     {

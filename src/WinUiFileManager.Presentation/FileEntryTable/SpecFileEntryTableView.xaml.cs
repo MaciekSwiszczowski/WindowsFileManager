@@ -80,8 +80,6 @@ public sealed partial class SpecFileEntryTableView
         set => SetValue(ColumnLayoutProperty, value);
     }
 
-    public ObservableCollection<SpecFileEntryViewModel> ParentRows { get; } = [];
-
     public ObservableCollection<SpecFileEntryViewModel> VisibleItems { get; } = [];
 
     private static void OnItemsSourceChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -96,7 +94,7 @@ public sealed partial class SpecFileEntryTableView
     {
         if (d is SpecFileEntryTableView view)
         {
-            view.RefreshParentRow();
+            view.RefreshVisibleItems();
         }
     }
 
@@ -136,34 +134,36 @@ public sealed partial class SpecFileEntryTableView
     private void ItemsSource_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
         RefreshVisibleItems();
 
-    private void RefreshParentRow()
-    {
-        ParentRows.Clear();
-        if (!IsRootContent)
-        {
-            ParentRows.Add(_parentRow);
-        }
-    }
-
     private void RefreshVisibleItems()
     {
         VisibleItems.Clear();
 
+        if (!IsRootContent)
+        {
+            VisibleItems.Add(_parentRow);
+        }
+
+        foreach (var item in GetFilteredItems().Order(SpecFileEntryComparer.Create(_sortColumn, _sortAscending)))
+        {
+            VisibleItems.Add(item);
+        }
+    }
+
+    private IEnumerable<SpecFileEntryViewModel> GetFilteredItems()
+    {
         foreach (var item in ItemsSource ?? [])
         {
             if (string.IsNullOrEmpty(FilterText)
                 || item.Name.Contains(FilterText, StringComparison.OrdinalIgnoreCase))
             {
-                VisibleItems.Add(item);
+                yield return item;
             }
         }
     }
 
     private void FileEntryTableView_Loaded(object sender, RoutedEventArgs e)
     {
-        ParentTable.RowHeight = 32;
         EntryTable.RowHeight = 32;
-        RefreshParentRow();
         RefreshVisibleItems();
         ApplyColumnLayout();
         SyncSortIndicators();
@@ -171,15 +171,7 @@ public sealed partial class SpecFileEntryTableView
 
     private void EntryTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
     {
-        if (EntryTable.SelectedItem is SpecFileEntryViewModel)
-        {
-            WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
-        }
-    }
-
-    private void ParentTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
-    {
-        if (ParentTable.SelectedItem is not null)
+        if ((e.OriginalSource as DependencyObject).FindItem() is not null)
         {
             WeakReferenceMessenger.Default.Send(new ActivateInvokedMessage());
         }
@@ -204,11 +196,11 @@ public sealed partial class SpecFileEntryTableView
         }
 
         SyncSortIndicators();
+        RefreshVisibleItems();
     }
 
     private void ApplyColumnLayout()
     {
-        ApplyColumnLayout(ParentTable);
         ApplyColumnLayout(EntryTable);
     }
 
@@ -237,7 +229,7 @@ public sealed partial class SpecFileEntryTableView
     private void SyncSortIndicators()
     {
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
-        foreach (var column in ParentTable.Columns)
+        foreach (var column in EntryTable.Columns)
         {
             column.SortDirection = MapColumn(column.SortMemberPath) == _sortColumn ? direction : null;
         }
@@ -253,4 +245,58 @@ public sealed partial class SpecFileEntryTableView
             nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
             _ => null,
         };
+
+    private sealed class SpecFileEntryComparer : IComparer<SpecFileEntryViewModel>
+    {
+        private static readonly StringComparer TextComparer = StringComparer.CurrentCultureIgnoreCase;
+
+        private readonly FileEntryColumn _column;
+        private readonly bool _ascending;
+
+        private SpecFileEntryComparer(FileEntryColumn column, bool ascending)
+        {
+            _column = column;
+            _ascending = ascending;
+        }
+
+        public static SpecFileEntryComparer Create(FileEntryColumn column, bool ascending) =>
+            new(column, ascending);
+
+        public int Compare(SpecFileEntryViewModel? x, SpecFileEntryViewModel? y)
+        {
+            if (ReferenceEquals(x, y))
+            {
+                return 0;
+            }
+
+            if (x is null)
+            {
+                return _ascending ? -1 : 1;
+            }
+
+            if (y is null)
+            {
+                return _ascending ? 1 : -1;
+            }
+
+            var result = CompareByColumn(x, y);
+            if (result == 0 && _column != FileEntryColumn.Name)
+            {
+                result = TextComparer.Compare(x.Name, y.Name);
+            }
+
+            return _ascending ? result : -result;
+        }
+
+        private int CompareByColumn(SpecFileEntryViewModel x, SpecFileEntryViewModel y) =>
+            _column switch
+            {
+                FileEntryColumn.Name => TextComparer.Compare(x.Name, y.Name),
+                FileEntryColumn.Extension => TextComparer.Compare(x.Extension, y.Extension),
+                FileEntryColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
+                FileEntryColumn.Modified => x.Modified.CompareTo(y.Modified),
+                FileEntryColumn.Attributes => TextComparer.Compare(x.Attributes, y.Attributes),
+                _ => TextComparer.Compare(x.Name, y.Name),
+            };
+    }
 }

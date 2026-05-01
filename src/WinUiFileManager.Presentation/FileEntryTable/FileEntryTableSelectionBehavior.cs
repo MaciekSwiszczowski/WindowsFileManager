@@ -6,22 +6,19 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTableView>
 {
-    private const int ParentRowIndex = -1;
-    private const string ParentTableName = "ParentTable";
     private const string EntryTableName = "EntryTable";
 
     private readonly List<SpecFileEntryViewModel> _lastPublishedSelection = [];
-    private readonly ObservableCollection<SpecFileEntryViewModel> _selectedItems = [];
 
-    private TableView? _parentTable;
     private TableView? _entryTable;
     private HashSet<string>? _pendingSelectedNames;
     private bool _isObservingKeyboardMessages;
-    private bool _parentSelectionPublishQueued;
+    private bool _lastPublishedParentRowSelected;
+    private SpecFileEntryViewModel? _lastPublishedActiveItem;
+    private bool _pendingParentSelected;
     private bool _selectionEventsAttached;
     private bool _syncingSelection;
     private bool _syncVisibleSelectionQueued;
-    private bool _lastPublishedParentRowSelected;
     private int? _selectionAnchorIndex;
     private int? _selectionCursorIndex;
 
@@ -32,7 +29,6 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         AssociatedObject.Loaded += OnLoaded;
         AssociatedObject.GotFocus += OnGotFocus;
         AssociatedObject.LostFocus += OnLostFocus;
-        AssociatedObject.ParentRows.CollectionChanged += ParentRows_CollectionChanged;
         AssociatedObject.VisibleItems.CollectionChanged += VisibleItems_CollectionChanged;
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
@@ -47,20 +43,17 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             view.Loaded -= OnLoaded;
             view.GotFocus -= OnGotFocus;
             view.LostFocus -= OnLostFocus;
-            view.ParentRows.CollectionChanged -= ParentRows_CollectionChanged;
             view.VisibleItems.CollectionChanged -= VisibleItems_CollectionChanged;
         }
 
         WeakReferenceMessenger.Default.Unregister<FileTableFocusedMessage>(this);
-        _parentTable = null;
         _entryTable = null;
-        _parentSelectionPublishQueued = false;
         _syncVisibleSelectionQueued = false;
 
         base.OnDetaching();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => EnsureTables();
+    private void OnLoaded(object sender, RoutedEventArgs e) => EnsureTable();
 
     private void OnGotFocus(object sender, RoutedEventArgs e)
     {
@@ -105,6 +98,8 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         WeakReferenceMessenger.Default.Register<ExtendSelectionPageDownMessage>(this, (_, _) => ExtendSelectionByPage(1));
         WeakReferenceMessenger.Default.Register<ExtendSelectionHomeMessage>(this, (_, _) => ExtendSelectionToBoundary(moveToEnd: false));
         WeakReferenceMessenger.Default.Register<ExtendSelectionEndMessage>(this, (_, _) => ExtendSelectionToBoundary(moveToEnd: true));
+        WeakReferenceMessenger.Default.Register<ToggleSelectionAtCursorMessage>(this, (_, _) => ToggleSelectionAtCursor(advance: false));
+        WeakReferenceMessenger.Default.Register<ToggleSelectionAtCursorAndAdvanceMessage>(this, (_, _) => ToggleSelectionAtCursor(advance: true));
         WeakReferenceMessenger.Default.Register<SelectAllMessage>(this, (_, _) => SelectAllVisibleRows());
         WeakReferenceMessenger.Default.Register<ClearSelectionMessage>(this, (_, _) => ClearSelection());
         WeakReferenceMessenger.Default.Register<ActivateInvokedMessage>(this, (_, _) => ActivateCurrentParentRow());
@@ -130,41 +125,26 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         WeakReferenceMessenger.Default.Unregister<ExtendSelectionPageDownMessage>(this);
         WeakReferenceMessenger.Default.Unregister<ExtendSelectionHomeMessage>(this);
         WeakReferenceMessenger.Default.Unregister<ExtendSelectionEndMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ToggleSelectionAtCursorMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<ToggleSelectionAtCursorAndAdvanceMessage>(this);
         WeakReferenceMessenger.Default.Unregister<SelectAllMessage>(this);
         WeakReferenceMessenger.Default.Unregister<ClearSelectionMessage>(this);
         WeakReferenceMessenger.Default.Unregister<ActivateInvokedMessage>(this);
     }
 
-    private void ParentRows_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void VisibleItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (AssociatedObject?.IsRootContent == true && EnsureTables())
-        {
-            _parentTable!.SelectedItem = null;
-        }
-
-        QueueParentSelectionPublish();
-    }
-
-    private void QueueParentSelectionPublish()
-    {
-        if (_parentSelectionPublishQueued || AssociatedObject is null)
+        if (!EnsureTable())
         {
             return;
         }
 
-        _parentSelectionPublishQueued = true;
-        AssociatedObject.DispatcherQueue.TryEnqueue(() =>
-        {
-            _parentSelectionPublishQueued = false;
-            PublishSelectionChangedIfNeeded();
-        });
-    }
-
-    private void VisibleItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        _pendingSelectedNames ??= _selectedItems
+        _pendingSelectedNames ??= _entryTable!.SelectedItems
+            .OfType<SpecFileEntryViewModel>()
+            .Where(static item => !IsParentRow(item))
             .Select(static item => item.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _pendingParentSelected = _entryTable!.SelectedItems.OfType<SpecFileEntryViewModel>().Any(IsParentRow);
 
         QueueVisibleSelectionSync();
     }
@@ -186,38 +166,32 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
 
     private void SyncSelectionWithVisibleItems()
     {
-        if (AssociatedObject is null)
+        if (!EnsureTable() || AssociatedObject is null)
         {
             return;
         }
 
         var selectedNames = _pendingSelectedNames ?? [];
+        var parentSelected = _pendingParentSelected;
         _pendingSelectedNames = null;
-
-        _selectedItems.Clear();
-        foreach (var item in AssociatedObject.VisibleItems.Where(item => selectedNames.Contains(item.Name)))
-        {
-            _selectedItems.Add(item);
-        }
-
-        PublishSelectionChangedIfNeeded();
-    }
-
-    private void ParentTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (!EnsureTables() || _syncingSelection || _parentTable!.SelectedItem is null)
-        {
-            return;
-        }
+        _pendingParentSelected = false;
 
         _syncingSelection = true;
         try
         {
             _entryTable!.SelectedItems.Clear();
-            _entryTable.SelectedItem = null;
-            _selectedItems.Clear();
-            _selectionAnchorIndex = ParentRowIndex;
-            _selectionCursorIndex = ParentRowIndex;
+            foreach (var item in AssociatedObject.VisibleItems)
+            {
+                if (IsParentRow(item) ? parentSelected : selectedNames.Contains(item.Name))
+                {
+                    _entryTable.SelectedItems.Add(item);
+                }
+            }
+
+            _selectionCursorIndex = ClampSelectionIndex(_selectionCursorIndex);
+            _entryTable.SelectedItem = _selectionCursorIndex is { } cursorIndex
+                ? AssociatedObject.VisibleItems[cursorIndex]
+                : _entryTable.SelectedItems.OfType<SpecFileEntryViewModel>().LastOrDefault();
         }
         finally
         {
@@ -225,32 +199,24 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         }
 
         PublishSelectionChangedIfNeeded();
-        _parentTable.Focus(FocusState.Programmatic);
     }
 
     private void EntryTable_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (!EnsureTables() || _syncingSelection)
+        if (!EnsureTable() || _syncingSelection)
         {
             return;
         }
 
-        _syncingSelection = true;
-        try
+        if (GetRowIndex(e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault() ?? _entryTable!.SelectedItem as SpecFileEntryViewModel) is { } index)
         {
-            var parentWasSelected = _parentTable!.SelectedItem is not null;
-            _parentTable.SelectedItem = null;
-
-            SyncSelectedItemsFromEntryTable();
-            if (GetBodySelectionIndex(e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } index)
-            {
-                _selectionAnchorIndex = parentWasSelected ? ParentRowIndex : index;
-                _selectionCursorIndex = index;
-            }
+            _selectionAnchorIndex = index;
+            _selectionCursorIndex = index;
         }
-        finally
+        else if (_entryTable!.SelectedItems.Count == 0)
         {
-            _syncingSelection = false;
+            _selectionAnchorIndex = null;
+            _selectionCursorIndex = null;
         }
 
         PublishSelectionChangedIfNeeded();
@@ -265,18 +231,7 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             return;
         }
 
-        var nextIndex = currentIndex.Value + delta;
-
-        if (nextIndex < 0 && HasParentRow)
-        {
-            SelectParentRow();
-            return;
-        }
-
-        if (AssociatedObject is not null && nextIndex >= 0 && nextIndex < AssociatedObject.VisibleItems.Count)
-        {
-            SelectBodyIndex(nextIndex);
-        }
+        SelectRowIndex(ClampSelectionIndex(currentIndex.Value + delta));
     }
 
     private void MoveCursorByPage(int direction)
@@ -293,93 +248,41 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             return;
         }
 
-        var targetIndex = currentIndex.Value + (direction * GetVisibleBodyRowCount());
-        if (direction < 0 && targetIndex < 0 && HasParentRow)
-        {
-            SelectParentRow();
-            return;
-        }
-
-        if (AssociatedObject is { VisibleItems.Count: > 0 } view)
-        {
-            SelectBodyIndex(Math.Clamp(targetIndex, 0, view.VisibleItems.Count - 1));
-        }
+        SelectRowIndex(ClampSelectionIndex(currentIndex.Value + (direction * GetVisibleRowCount())));
     }
 
     private void MoveToBoundary(bool moveToEnd)
     {
-        if (AssociatedObject is not { } view)
+        if (AssociatedObject is not { VisibleItems.Count: > 0 } view)
         {
             return;
         }
 
-        if (moveToEnd)
-        {
-            if (view.VisibleItems.Count > 0)
-            {
-                SelectBodyIndex(view.VisibleItems.Count - 1);
-            }
-            else if (!view.IsRootContent)
-            {
-                SelectParentRow();
-            }
+        SelectRowIndex(moveToEnd ? view.VisibleItems.Count - 1 : 0);
+    }
 
-            return;
-        }
-
-        if (!view.IsRootContent)
+    private void SelectFirstAvailableRow()
+    {
+        if (AssociatedObject is { VisibleItems.Count: > 0 })
         {
-            SelectParentRow();
-        }
-        else if (view.VisibleItems.Count > 0)
-        {
-            SelectBodyIndex(0);
+            SelectRowIndex(0);
         }
     }
 
-    private void SelectParentRow()
+    private void SelectRowIndex(int? index)
     {
-        if (!EnsureTables() || AssociatedObject is not { ParentRows.Count: > 0 } view)
+        if (!EnsureTable() || AssociatedObject is not { } view || index is null || index < 0 || index >= view.VisibleItems.Count)
         {
             return;
         }
 
+        var item = view.VisibleItems[index.Value];
         _syncingSelection = true;
         try
         {
-            _entryTable!.SelectedItems.Clear();
-            _entryTable.SelectedItem = null;
-            _parentTable!.SelectedItem = view.ParentRows[0];
-            _selectedItems.Clear();
-            _selectionAnchorIndex = ParentRowIndex;
-            _selectionCursorIndex = ParentRowIndex;
-        }
-        finally
-        {
-            _syncingSelection = false;
-        }
-
-        _parentTable.Focus(FocusState.Programmatic);
-        PublishSelectionChangedIfNeeded();
-    }
-
-    private void SelectBodyIndex(int index)
-    {
-        if (!EnsureTables() || AssociatedObject is not { } view || index < 0 || index >= view.VisibleItems.Count)
-        {
-            return;
-        }
-
-        var item = view.VisibleItems[index];
-        _syncingSelection = true;
-        try
-        {
-            _parentTable!.SelectedItem = null;
             _entryTable!.SelectedItems.Clear();
             _entryTable.SelectedItems.Add(item);
             _entryTable.SelectedItem = item;
-            _selectedItems.Clear();
-            _selectedItems.Add(item);
             _selectionAnchorIndex = index;
             _selectionCursorIndex = index;
         }
@@ -388,14 +291,14 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             _syncingSelection = false;
         }
 
-        _entryTable.ScrollRowIntoView(index);
+        _entryTable.ScrollRowIntoView(index.Value);
         _entryTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
     }
 
     private void SelectAllVisibleRows()
     {
-        if (!EnsureTables() || AssociatedObject is null)
+        if (!EnsureTable() || AssociatedObject is not { } view)
         {
             return;
         }
@@ -403,19 +306,15 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         _syncingSelection = true;
         try
         {
-            _parentTable!.SelectedItem = null;
             _entryTable!.SelectedItems.Clear();
-            _selectedItems.Clear();
-            foreach (var item in AssociatedObject.VisibleItems)
+            foreach (var item in view.VisibleItems)
             {
                 _entryTable.SelectedItems.Add(item);
-                _selectedItems.Add(item);
             }
 
-            _selectionAnchorIndex = AssociatedObject.VisibleItems.Count > 0 ? 0 : null;
-            _selectionCursorIndex = AssociatedObject.VisibleItems.Count > 0
-                ? AssociatedObject.VisibleItems.Count - 1
-                : null;
+            _selectionAnchorIndex = view.VisibleItems.Count > 0 ? 0 : null;
+            _selectionCursorIndex = view.VisibleItems.Count > 0 ? view.VisibleItems.Count - 1 : null;
+            _entryTable.SelectedItem = _selectionCursorIndex is { } cursorIndex ? view.VisibleItems[cursorIndex] : null;
         }
         finally
         {
@@ -427,7 +326,7 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
 
     private void ClearSelection()
     {
-        if (!EnsureTables())
+        if (!EnsureTable())
         {
             return;
         }
@@ -435,10 +334,8 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         _syncingSelection = true;
         try
         {
-            _parentTable!.SelectedItem = null;
             _entryTable!.SelectedItems.Clear();
             _entryTable.SelectedItem = null;
-            _selectedItems.Clear();
             _selectionAnchorIndex = null;
             _selectionCursorIndex = null;
         }
@@ -450,52 +347,88 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         PublishSelectionChangedIfNeeded();
     }
 
-    private void ExtendSelection(int delta)
+    private void ToggleSelectionAtCursor(bool advance)
     {
-        if (delta == 0)
+        if (!EnsureTable() || AssociatedObject is not { } view)
         {
             return;
         }
 
-        if (EnsureSelectionAnchor() is not { } anchor)
+        var index = GetCurrentSelectionIndex();
+        if (index is null)
+        {
+            SelectFirstAvailableRow();
+            index = GetCurrentSelectionIndex();
+        }
+
+        if (index is null || index < 0 || index >= view.VisibleItems.Count)
+        {
+            return;
+        }
+
+        var item = view.VisibleItems[index.Value];
+        _syncingSelection = true;
+        try
+        {
+            if (_entryTable!.SelectedItems.Contains(item))
+            {
+                _entryTable.SelectedItems.Remove(item);
+            }
+            else
+            {
+                _entryTable.SelectedItems.Add(item);
+            }
+
+            _entryTable.SelectedItem = item;
+            _selectionAnchorIndex = index;
+            _selectionCursorIndex = index;
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
+
+        PublishSelectionChangedIfNeeded();
+
+        if (advance && index.Value < view.VisibleItems.Count - 1)
+        {
+            _selectionCursorIndex = index.Value + 1;
+            _entryTable!.SelectedItem = view.VisibleItems[_selectionCursorIndex.Value];
+            _entryTable.ScrollRowIntoView(_selectionCursorIndex.Value);
+            PublishSelectionChangedIfNeeded();
+        }
+    }
+
+    private void ExtendSelection(int delta)
+    {
+        if (delta == 0 || EnsureSelectionAnchor() is not { } anchor)
         {
             return;
         }
 
         var currentIndex = _selectionCursorIndex ?? anchor;
-        var targetIndex = ClampSelectionIndex(currentIndex + delta);
-        ApplySelectionRange(anchor, targetIndex);
+        ApplySelectionRange(anchor, ClampSelectionIndex(currentIndex + delta));
     }
 
     private void ExtendSelectionByPage(int direction)
     {
-        if (direction == 0)
-        {
-            return;
-        }
-
-        if (EnsureSelectionAnchor() is not { } anchor)
+        if (direction == 0 || EnsureSelectionAnchor() is not { } anchor)
         {
             return;
         }
 
         var currentIndex = _selectionCursorIndex ?? anchor;
-        var targetIndex = ClampSelectionIndex(currentIndex + (direction * GetVisibleBodyRowCount()));
-        ApplySelectionRange(anchor, targetIndex);
+        ApplySelectionRange(anchor, ClampSelectionIndex(currentIndex + (direction * GetVisibleRowCount())));
     }
 
     private void ExtendSelectionToBoundary(bool moveToEnd)
     {
-        if (EnsureSelectionAnchor() is not { } anchor || AssociatedObject is null)
+        if (EnsureSelectionAnchor() is not { } anchor || AssociatedObject is not { VisibleItems.Count: > 0 } view)
         {
             return;
         }
 
-        var targetIndex = moveToEnd
-            ? AssociatedObject.VisibleItems.Count - 1
-            : HasParentRow ? ParentRowIndex : 0;
-
-        ApplySelectionRange(anchor, ClampSelectionIndex(targetIndex));
+        ApplySelectionRange(anchor, moveToEnd ? view.VisibleItems.Count - 1 : 0);
     }
 
     private int? EnsureSelectionAnchor()
@@ -517,100 +450,70 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         return currentIndex;
     }
 
-    private void ApplySelectionRange(int anchorIndex, int cursorIndex)
+    private void ApplySelectionRange(int anchorIndex, int? cursorIndex)
     {
-        if (!EnsureTables() || AssociatedObject is not { } view ||
-            view.ParentRows.Count == 0 && view.VisibleItems.Count == 0)
+        if (!EnsureTable() || AssociatedObject is not { } view || cursorIndex is null || view.VisibleItems.Count == 0)
         {
             return;
         }
 
-        anchorIndex = ClampSelectionIndex(anchorIndex);
-        cursorIndex = ClampSelectionIndex(cursorIndex);
-
-        var startIndex = Math.Min(anchorIndex, cursorIndex);
-        var endIndex = Math.Max(anchorIndex, cursorIndex);
-        var includesParent = HasParentRow && startIndex <= ParentRowIndex && endIndex >= ParentRowIndex;
+        anchorIndex = ClampSelectionIndex(anchorIndex) ?? 0;
+        var targetIndex = cursorIndex.Value;
+        var startIndex = Math.Min(anchorIndex, targetIndex);
+        var endIndex = Math.Max(anchorIndex, targetIndex);
 
         _syncingSelection = true;
         try
         {
-            _parentTable!.SelectedItem = includesParent ? view.ParentRows[0] : null;
             _entryTable!.SelectedItems.Clear();
-            _selectedItems.Clear();
-
-            for (var i = Math.Max(0, startIndex); i <= endIndex && i < view.VisibleItems.Count; i++)
+            for (var i = startIndex; i <= endIndex && i < view.VisibleItems.Count; i++)
             {
-                var item = view.VisibleItems[i];
-                _entryTable.SelectedItems.Add(item);
-                _selectedItems.Add(item);
+                _entryTable.SelectedItems.Add(view.VisibleItems[i]);
             }
 
-            _entryTable.SelectedItem =
-                cursorIndex >= 0 && cursorIndex < view.VisibleItems.Count
-                    ? view.VisibleItems[cursorIndex]
-                    : null;
-
+            _entryTable.SelectedItem = view.VisibleItems[targetIndex];
             _selectionAnchorIndex = anchorIndex;
-            _selectionCursorIndex = cursorIndex;
+            _selectionCursorIndex = targetIndex;
         }
         finally
         {
             _syncingSelection = false;
         }
 
-        if (cursorIndex == ParentRowIndex && includesParent)
-        {
-            _parentTable.Focus(FocusState.Programmatic);
-        }
-        else if (cursorIndex >= 0)
-        {
-            _entryTable.ScrollRowIntoView(cursorIndex);
-            _entryTable.Focus(FocusState.Programmatic);
-        }
-
+        _entryTable.ScrollRowIntoView(targetIndex);
+        _entryTable.Focus(FocusState.Programmatic);
         PublishSelectionChangedIfNeeded();
     }
 
-    private int ClampSelectionIndex(int index)
+    private int? ClampSelectionIndex(int? index)
     {
-        if (AssociatedObject is null)
-        {
-            return index;
-        }
-
-        var minimumIndex = HasParentRow ? ParentRowIndex : 0;
-        var maximumIndex = AssociatedObject.VisibleItems.Count > 0
-            ? AssociatedObject.VisibleItems.Count - 1
-            : minimumIndex;
-
-        return Math.Clamp(index, minimumIndex, maximumIndex);
-    }
-
-    private int? GetCurrentSelectionIndex()
-    {
-        if (!EnsureTables())
+        if (AssociatedObject is not { VisibleItems.Count: > 0 } view || index is null)
         {
             return null;
         }
 
-        if (_selectionCursorIndex is { } cursorIndex)
-        {
-            return ClampSelectionIndex(cursorIndex);
-        }
-
-        if (_parentTable!.SelectedItem is not null)
-        {
-            return ParentRowIndex;
-        }
-
-        return GetBodySelectionIndex(_entryTable!.SelectedItem as SpecFileEntryViewModel)
-            ?? GetLastSelectedBodyIndex();
+        return Math.Clamp(index.Value, 0, view.VisibleItems.Count - 1);
     }
 
-    private int? GetLastSelectedBodyIndex()
+    private int? GetCurrentSelectionIndex()
     {
-        if (!EnsureTables())
+        if (!EnsureTable())
+        {
+            return null;
+        }
+
+        if (ClampSelectionIndex(_selectionCursorIndex) is { } cursorIndex)
+        {
+            return cursorIndex;
+        }
+
+        return GetRowIndex(_entryTable!.SelectedItem as SpecFileEntryViewModel)
+            ?? GetLastSelectedRowIndex();
+    }
+
+    private int? GetLastSelectedRowIndex()
+    {
+        if (!EnsureTable())
         {
             return null;
         }
@@ -618,7 +521,7 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         int? lastIndex = null;
         foreach (var item in _entryTable!.SelectedItems.OfType<SpecFileEntryViewModel>())
         {
-            if (GetBodySelectionIndex(item) is { } index)
+            if (GetRowIndex(item) is { } index)
             {
                 lastIndex = index;
             }
@@ -627,7 +530,7 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         return lastIndex;
     }
 
-    private int? GetBodySelectionIndex(SpecFileEntryViewModel? item)
+    private int? GetRowIndex(SpecFileEntryViewModel? item)
     {
         if (item is null || AssociatedObject is null)
         {
@@ -638,36 +541,20 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         return index >= 0 ? index : null;
     }
 
-    private void SelectFirstAvailableRow()
-    {
-        if (AssociatedObject is null)
-        {
-            return;
-        }
-
-        if (HasParentRow)
-        {
-            SelectParentRow();
-        }
-        else if (AssociatedObject.VisibleItems.Count > 0)
-        {
-            SelectBodyIndex(0);
-        }
-    }
-
-    private int GetVisibleBodyRowCount() =>
+    private int GetVisibleRowCount() =>
         _entryTable is null
             ? 1
             : Math.Max(1, (int)(_entryTable.ActualHeight / Math.Max(_entryTable.RowHeight, 1d)) - 1);
 
-    private bool HasParentRow =>
-        AssociatedObject is { IsRootContent: false, ParentRows.Count: > 0 };
-
-    private bool IsParentRowSelected => _parentTable?.SelectedItem is not null;
-
     private void ActivateCurrentParentRow()
     {
-        if (AssociatedObject is null || _parentTable?.SelectedItem is null || _selectedItems.Count > 0)
+        if (AssociatedObject is null || GetActiveItem() is not { } activeItem || !IsParentRow(activeItem))
+        {
+            return;
+        }
+
+        var selectedEntries = GetSelectedEntries();
+        if (selectedEntries.Count > 0)
         {
             return;
         }
@@ -675,26 +562,35 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
     }
 
-    private void SyncSelectedItemsFromEntryTable()
+    private SpecFileEntryViewModel? GetActiveItem()
     {
-        if (AssociatedObject is null || !EnsureTables())
+        if (AssociatedObject is null)
         {
-            return;
+            return null;
+        }
+
+        return ClampSelectionIndex(_selectionCursorIndex) is { } cursorIndex
+            ? AssociatedObject.VisibleItems[cursorIndex]
+            : _entryTable?.SelectedItem as SpecFileEntryViewModel;
+    }
+
+    private List<SpecFileEntryViewModel> GetSelectedEntries()
+    {
+        if (!EnsureTable() || AssociatedObject is null)
+        {
+            return [];
         }
 
         var selectedItems = _entryTable!.SelectedItems
             .OfType<SpecFileEntryViewModel>()
+            .Where(static item => !IsParentRow(item))
             .ToHashSet();
 
-        _selectedItems.Clear();
-        foreach (var item in AssociatedObject.VisibleItems)
-        {
-            if (selectedItems.Contains(item))
-            {
-                _selectedItems.Add(item);
-            }
-        }
+        return [.. AssociatedObject.VisibleItems.Where(selectedItems.Contains)];
     }
+
+    private bool IsParentRowSelected =>
+        _entryTable?.SelectedItems.OfType<SpecFileEntryViewModel>().Any(IsParentRow) == true;
 
     private void PublishSelectionChangedIfNeeded()
     {
@@ -703,32 +599,38 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             return;
         }
 
+        var selectedEntries = GetSelectedEntries();
         var isParentRowSelected = IsParentRowSelected;
+        var activeItem = GetActiveItem();
         if (_lastPublishedParentRowSelected == isParentRowSelected
-            && _lastPublishedSelection.SequenceEqual(_selectedItems))
+            && _lastPublishedSelection.SequenceEqual(selectedEntries)
+            && ReferenceEquals(_lastPublishedActiveItem, activeItem))
         {
             return;
         }
 
         _lastPublishedParentRowSelected = isParentRowSelected;
+        _lastPublishedActiveItem = activeItem;
         _lastPublishedSelection.Clear();
-        _lastPublishedSelection.AddRange(_selectedItems);
+        _lastPublishedSelection.AddRange(selectedEntries);
 
         WeakReferenceMessenger.Default.Send(
-            new FileTableSelectionChangedMessage(AssociatedObject.Identity, _selectedItems.ToList(), isParentRowSelected));
+            new FileTableSelectionChangedMessage(
+                AssociatedObject.Identity,
+                selectedEntries,
+                isParentRowSelected,
+                activeItem));
     }
 
-    private bool EnsureTables()
+    private bool EnsureTable()
     {
         if (AssociatedObject is null)
         {
             return false;
         }
 
-        _parentTable ??= FindTable(ParentTableName);
-        _entryTable ??= FindTable(EntryTableName);
-
-        if (_parentTable is null || _entryTable is null)
+        _entryTable ??= AssociatedObject.FindDescendant<TableView>(static table => table.Name == EntryTableName);
+        if (_entryTable is null)
         {
             return false;
         }
@@ -737,17 +639,13 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
         return true;
     }
 
-    private TableView? FindTable(string name) =>
-        AssociatedObject.FindDescendant<TableView>(table => table.Name == name);
-
     private void AttachSelectionEvents()
     {
-        if (_selectionEventsAttached || _parentTable is null || _entryTable is null)
+        if (_selectionEventsAttached || _entryTable is null)
         {
             return;
         }
 
-        _parentTable.SelectionChanged += ParentTable_SelectionChanged;
         _entryTable.SelectionChanged += EntryTable_SelectionChanged;
         _selectionEventsAttached = true;
     }
@@ -759,16 +657,11 @@ public sealed class FileEntryTableSelectionBehavior : Behavior<SpecFileEntryTabl
             return;
         }
 
-        if (_parentTable is not null)
-        {
-            _parentTable.SelectionChanged -= ParentTable_SelectionChanged;
-        }
-
-        if (_entryTable is not null)
-        {
-            _entryTable.SelectionChanged -= EntryTable_SelectionChanged;
-        }
+        _entryTable?.SelectionChanged -= EntryTable_SelectionChanged;
 
         _selectionEventsAttached = false;
     }
+
+    private static bool IsParentRow(SpecFileEntryViewModel item) =>
+        item.Model is null;
 }

@@ -3,4 +3,5 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 public sealed record FileTableSelectionChangedMessage(
     string Identity,
     IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
-    bool IsParentRowSelected);
+    bool IsParentRowSelected,
+    SpecFileEntryViewModel? ActiveItem = null);

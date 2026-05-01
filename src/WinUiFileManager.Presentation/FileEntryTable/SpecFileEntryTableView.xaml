@@ -30,6 +30,7 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
+                <!-- Active row indicator -->
                 <Rectangle Grid.Column="0" 
                            Width="3" Height="10"
                            HorizontalAlignment="Stretch" 
@@ -44,111 +45,55 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-        </Grid.RowDefinitions>
-
-        <tv:TableView
-            x:Name="ParentTable"
-            ItemsSource="{x:Bind ParentRows, Mode=OneWay}"
-            AutoGenerateColumns="False"
-            CanFilterColumns="False"
-            CanReorderColumns="False"
-            CornerButtonMode="None"
-            FocusVisualPrimaryThickness="0"
-            FocusVisualSecondaryThickness="0"
-            HeadersVisibility="Columns"
-            IsReadOnly="True"
-            DoubleTapped="ParentTable_DoubleTapped"
-            SelectionMode="Single"
-            SelectionUnit="Row"
-            ShowExportOptions="False"
-            Sorting="Table_Sorting"
-            UseSystemFocusVisuals="False"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            ScrollViewer.HorizontalScrollMode="Disabled"
-            ScrollViewer.VerticalScrollBarVisibility="Hidden"
-            ScrollViewer.VerticalScrollMode="Disabled">
-            <tv:TableView.Resources>
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelected"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.35" />
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelectedPointerOver"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.5" />
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelectedPressed"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.6" />
-                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
-                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
-                <x:Boolean x:Key="TableViewRowSelectionIndicatorVisualEnabled">False</x:Boolean>
-                <x:Boolean x:Key="TableViewRowSelectionCheckMarkVisualEnabled">False</x:Boolean>
-            </tv:TableView.Resources>
-            <tv:TableView.Columns>
-                <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True"
-                                            CellTemplate="{StaticResource NameColumnTemplate}" />
-                <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
-                <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" CanSort="True" />
-                <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" CanSort="True" />
-                <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
-            </tv:TableView.Columns>
-        </tv:TableView>
-
-        <tv:TableView
-            x:Name="EntryTable"
-            Grid.Row="1"
-            ItemsSource="{x:Bind VisibleItems, Mode=OneWay}"
-            AutoGenerateColumns="False"
-            CanFilterColumns="False"
-            CanReorderColumns="False"
-            CornerButtonMode="None"
-            DoubleTapped="EntryTable_DoubleTapped"
-            FocusVisualPrimaryThickness="0"
-            FocusVisualSecondaryThickness="0"
-            HeadersVisibility="None"
-            IsReadOnly="True"
-            SelectionMode="Extended"
-            SelectionUnit="Row"
-            ShowExportOptions="False"
-            UseSystemFocusVisuals="False"
-            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-            ScrollViewer.HorizontalScrollMode="Disabled">
-            <tv:TableView.Resources>
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelected"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.35" />
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelectedPointerOver"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.5" />
-                <SolidColorBrush
-                    x:Key="TableViewRowBackgroundSelectedPressed"
-                    Color="{ThemeResource SystemAccentColor}"
-                    Opacity="0.6" />
-                <x:Boolean x:Key="TableViewRowSelectionIndicatorVisualEnabled">False</x:Boolean>
-                <x:Boolean x:Key="TableViewRowSelectionCheckMarkVisualEnabled">False</x:Boolean>
-                <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
-                <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
-            </tv:TableView.Resources>
-            <tv:TableView.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <ItemsStackPanel CacheLength="1.0" />
-                </ItemsPanelTemplate>
-            </tv:TableView.ItemsPanel>
-            <tv:TableView.Columns>
-                <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100"
-                                            CellTemplate="{StaticResource NameColumnTemplate}" />
-                <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" />
-                <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" />
-                <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" />
-                <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" />
-            </tv:TableView.Columns>
-        </tv:TableView>
-    </Grid>
+    <tv:TableView
+        x:Name="EntryTable"
+        ItemsSource="{x:Bind VisibleItems, Mode=OneWay}"
+        AutoGenerateColumns="False"
+        CanFilterColumns="False"
+        CanReorderColumns="False"
+        CornerButtonMode="None"
+        DoubleTapped="EntryTable_DoubleTapped"
+        FocusVisualPrimaryThickness="0"
+        FocusVisualSecondaryThickness="0"
+        HeadersVisibility="Columns"
+        IsReadOnly="True"
+        SelectionMode="Extended"
+        SelectionUnit="Row"
+        ShowExportOptions="False"
+        Sorting="Table_Sorting"
+        UseSystemFocusVisuals="False"
+        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+        ScrollViewer.HorizontalScrollMode="Disabled">
+        <tv:TableView.Resources>
+            <SolidColorBrush
+                x:Key="TableViewRowBackgroundSelected"
+                Color="{ThemeResourceExtension SystemAccentColor}"
+                Opacity="0.35" />
+            <SolidColorBrush
+                x:Key="TableViewRowBackgroundSelectedPointerOver"
+                Color="{ThemeResourceExtension SystemAccentColor}"
+                Opacity="0.5" />
+            <SolidColorBrush
+                x:Key="TableViewRowBackgroundSelectedPressed"
+                Color="{ThemeResourceExtension SystemAccentColor}"
+                Opacity="0.6" />
+            <x:Boolean x:Key="TableViewRowSelectionIndicatorVisualEnabled">False</x:Boolean>
+            <x:Boolean x:Key="TableViewRowSelectionCheckMarkVisualEnabled">False</x:Boolean>
+            <SolidColorBrush x:Key="TableViewRowFocusVisualPrimaryBrush" Color="Transparent" />
+            <SolidColorBrush x:Key="TableViewRowFocusBorderBrush" Color="Transparent" />
+        </tv:TableView.Resources>
+        <tv:TableView.ItemsPanel>
+            <ItemsPanelTemplate>
+                <ItemsStackPanel CacheLength="1.0" />
+            </ItemsPanelTemplate>
+        </tv:TableView.ItemsPanel>
+        <tv:TableView.Columns>
+            <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True"
+                                        CellTemplate="{StaticResourceExtension NameColumnTemplate}" />
+            <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResourceExtension MutedEllipsisCellStyle}" CanSort="True" />
+            <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResourceExtension RightAlignEllipsisCellStyle}" CanSort="True" />
+            <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResourceExtension EllipsisTextCellStyle}" CanSort="True" />
+            <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResourceExtension MutedEllipsisCellStyle}" CanSort="True" />
+        </tv:TableView.Columns>
+    </tv:TableView>
 </UserControl>

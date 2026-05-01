@@ -67,15 +67,15 @@
         <tv:TableView.Resources>
             <SolidColorBrush
                 x:Key="TableViewRowBackgroundSelected"
-                Color="{ThemeResourceExtension SystemAccentColor}"
+                Color="{ThemeResource SystemAccentColor}"
                 Opacity="0.35" />
             <SolidColorBrush
                 x:Key="TableViewRowBackgroundSelectedPointerOver"
-                Color="{ThemeResourceExtension SystemAccentColor}"
+                Color="{ThemeResource SystemAccentColor}"
                 Opacity="0.5" />
             <SolidColorBrush
                 x:Key="TableViewRowBackgroundSelectedPressed"
-                Color="{ThemeResourceExtension SystemAccentColor}"
+                Color="{ThemeResource SystemAccentColor}"
                 Opacity="0.6" />
             <x:Boolean x:Key="TableViewRowSelectionIndicatorVisualEnabled">False</x:Boolean>
             <x:Boolean x:Key="TableViewRowSelectionCheckMarkVisualEnabled">False</x:Boolean>
@@ -89,11 +89,11 @@
         </tv:TableView.ItemsPanel>
         <tv:TableView.Columns>
             <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True"
-                                        CellTemplate="{StaticResourceExtension NameColumnTemplate}" />
-            <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResourceExtension MutedEllipsisCellStyle}" CanSort="True" />
-            <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResourceExtension RightAlignEllipsisCellStyle}" CanSort="True" />
-            <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResourceExtension EllipsisTextCellStyle}" CanSort="True" />
-            <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResourceExtension MutedEllipsisCellStyle}" CanSort="True" />
+                                        CellTemplate="{StaticResource NameColumnTemplate}" />
+            <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
+            <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" CanSort="True" />
+            <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" CanSort="True" />
+            <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
         </tv:TableView.Columns>
     </tv:TableView>
 </UserControl>

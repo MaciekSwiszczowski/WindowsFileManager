@@ -48,7 +48,6 @@ public sealed class MessageLogStore
     private void RegisterMessages()
     {
         Register<ActivateInvokedMessage>();
-        Register<ClearSelectionMessage>();
         Register<CopyKeyPressedMessage>();
         Register<CopyPathKeyPressedMessage>();
         Register<CopyPathRequestedMessage>();
@@ -58,23 +57,11 @@ public sealed class MessageLogStore
         Register<DefaultActionRequestedMessage>();
         Register<DeleteKeyPressedMessage>();
         Register<DeleteRequestedMessage>();
-        Register<ExtendSelectionDownMessage>();
-        Register<ExtendSelectionEndMessage>();
-        Register<ExtendSelectionHomeMessage>();
-        Register<ExtendSelectionPageDownMessage>();
-        Register<ExtendSelectionPageUpMessage>();
-        Register<ExtendSelectionUpMessage>();
         Register<FileTableColumnLayoutMessage>();
         Register<FileTableFocusedMessage>();
         Register<FileTableNavigateUpRequestedMessage>();
         Register<FileTableParentEntryVisibilityMessage>();
         Register<FileTableSelectionChangedMessage>();
-        Register<MoveCursorDownMessage>();
-        Register<MoveCursorEndMessage>();
-        Register<MoveCursorHomeMessage>();
-        Register<MoveCursorPageDownMessage>();
-        Register<MoveCursorPageUpMessage>();
-        Register<MoveCursorUpMessage>();
         Register<MoveKeyPressedMessage>();
         Register<MoveRequestedMessage>();
         Register<NavigateUpKeyPressedMessage>();
@@ -83,9 +70,6 @@ public sealed class MessageLogStore
         Register<PropertiesRequestedMessage>();
         Register<RenameKeyPressedMessage>();
         Register<RenameRequestedMessage>();
-        Register<SelectAllMessage>();
-        Register<ToggleSelectionAtCursorAndAdvanceMessage>();
-        Register<ToggleSelectionAtCursorMessage>();
     }
 
     private void Register<T>()

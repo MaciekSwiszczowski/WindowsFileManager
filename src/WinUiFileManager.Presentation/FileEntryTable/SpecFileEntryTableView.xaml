@@ -8,7 +8,7 @@
     <interactivity:Interaction.Behaviors>
         <fileEntryTable:FileEntryTableLayoutBehavior />
         <fileEntryTable:FileEntryTableSortingBehavior />
-        <!-- <fileEntryTable:FileEntryTableSelectionBehavior /> -->
+        <fileEntryTable:FileEntryTableKeyboardSelectionBehavior />
         <fileEntryTable:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
 

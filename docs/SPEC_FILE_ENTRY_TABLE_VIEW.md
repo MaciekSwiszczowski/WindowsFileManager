@@ -153,7 +153,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableParentEntryVisibilityBehavior` | Subscribes to `FileTableParentEntryVisibilityMessage`; toggles synthetic `..` via internal view API. |
 | `FileEntryTableSortingBehavior` | Header sort and `VisibleItems` ordering. |
-| `FileEntryTableSelectionBehavior` | Selection, cursor, `FileTableFocusedMessage`, keyboard commands. |
+| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
 
 ---
@@ -343,33 +343,13 @@ Out of scope:
 
 The shell attaches `KeyboardInputBehavior.Command` to the element that should own file-manager keyboard routing. The behavior listens to that element's `PreviewKeyDown`, converts the key and modifier state into `KeyboardInput`, invokes the bound command, and applies `KeyboardInput.Handled` back to the event.
 
-`KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized keystrokes to one **primitive intent message** through the messenger and marks the input handled. Unrecognized keys are ignored.
+`KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized application command keystrokes to intent messages through the messenger and marks the input handled. Unrecognized keys are ignored.
 
-The keyboard manager is dumb on purpose: it does not know which table is focused, what is selected, or what commands mean. It just translates keystrokes to messages.
+Table row navigation and row selection are handled by `WinUI.TableView` itself. The table no longer uses messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
 
-### 12.1 Primitive intent messages
+`FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts only `Shift+Up` and `Shift+Down` because WinUI.TableView 1.4.1 does not advance its internal row cursor during repeated row-range extension.
 
-State-mutation messages (consumed only by the `SpecFileEntryTableView` currently observing keyboard-manager messages):
-
-| Message | Default shortcut | Behavior in the focused table |
-|---|---|---|
-| `MoveCursorUpMessage` | `Up` | §6.1 |
-| `MoveCursorDownMessage` | `Down` | §6.1 |
-| `MoveCursorPageUpMessage` | `PageUp` | §6.1 |
-| `MoveCursorPageDownMessage` | `PageDown` | §6.1 |
-| `MoveCursorHomeMessage` | `Home`, `Ctrl+Home` | §6.1 |
-| `MoveCursorEndMessage` | `End`, `Ctrl+End` | §6.1 |
-| `ExtendSelectionUpMessage` | `Shift+Up` | §7.4 |
-| `ExtendSelectionDownMessage` | `Shift+Down` | §7.4 |
-| `ExtendSelectionPageUpMessage` | `Shift+PageUp` | §7.4 |
-| `ExtendSelectionPageDownMessage` | `Shift+PageDown` | §7.4 |
-| `ExtendSelectionHomeMessage` | `Shift+Home` | §7.4 |
-| `ExtendSelectionEndMessage` | `Shift+End` | §7.4 |
-| `ToggleSelectionAtCursorMessage` | `Space`, `Ctrl+Space` | §7.2 |
-| `ToggleSelectionAtCursorAndAdvanceMessage` | `Insert` | §7.2 |
-| `SelectAllMessage` | `Ctrl+A` | §7.3 |
-| `ClearSelectionMessage` | `Ctrl+Shift+A`, `Esc` (when selection non-empty) | §7.3 |
-| `ActivateInvokedMessage` | `Enter` (also published by the file table on mouse double-click of a real row) | If `SelectedItems` is empty AND the cursor is on `..`, publish `FileTableNavigateUpRequestedMessage` (§6.2). Otherwise the file table takes no further action; the coordinator handles activation against the active selection. |
+### 12.1 Command intent messages
 
 Command intent messages (consumed by the **coordinator**, §14):
 
@@ -383,8 +363,6 @@ Command intent messages (consumed by the **coordinator**, §14):
 | `CreateFolderKeyPressedMessage` | `F7`, `Ctrl+Shift+N` |
 | `CopyPathKeyPressedMessage` | `Ctrl+Shift+C` |
 | `PropertiesKeyPressedMessage` | `Alt+Enter` |
-
-`Esc` is routed by the keyboard manager: if a dialog is open it goes there; if any focused table has non-empty `SelectedItems` it publishes `ClearSelectionMessage`; otherwise it propagates. Host-owned filter inputs handle their own clear behavior.
 
 ### 12.2 Out of scope for the file-table input path
 
@@ -402,14 +380,12 @@ Fires when the table gains WinUI keyboard focus. Loss is implicit.
 
 ### 13.2 `FileTableSelectionChangedMessage(Identity, SelectedItems, IsParentRowSelected)`
 
-Fires whenever `SelectedItems` changes or the `..` row's visual selection changes. `SelectedItems` is a snapshot in `ItemsSource` order and never contains `..`; `IsParentRowSelected` reports whether `..` is visually selected. Redundant publications are suppressed only when both the selected-item snapshot and `IsParentRowSelected` match the previous publication.
+Fires whenever native `TableView` selection changes, including the explicit `Shift+Up/Down` workaround path. `SelectedItems` is a snapshot of selected real rows and never contains `..`; `IsParentRowSelected` reports whether `..` is selected.
 
 Trigger sources:
-- Toggle / extend / select-all / clear-selection messages affecting real rows.
-- `..` visual selection / deselection, even when `SelectedItems` is unchanged.
-- Mouse `Ctrl+Click` / `Shift+Click`.
-- A click that clears a previously-non-empty `SelectedItems`.
-- `ItemsSource` change that prunes selected rows.
+- Native mouse selection and multi-selection.
+- Native keyboard selection.
+- `FileEntryTableKeyboardSelectionBehavior` handling repeated `Shift+Up/Down` range extension.
 
 ### 13.3 `FileTableNavigateUpRequestedMessage(Identity)`
 
@@ -643,29 +619,27 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `..` remains pinned above all rows supplied by `ItemsSource`.
 - [ ] `..` never present in `SelectedItems`.
 - [ ] `..` never appears in `FileTableSelectionChangedMessage.SelectedItems`; its visual selection is reported only by `IsParentRowSelected`.
-- [ ] `..`'s visual selection toggles via `Ctrl+Click`, `Insert`, `Space`, `Ctrl+Space`, `Shift+` range.
+- [ ] `..` participates in native `TableView` visual selection but never appears in command-target `SelectedItems`.
 - [ ] Activating `..` (Enter while cursor on `..` and `SelectedItems` empty, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - [ ] When `SelectedItems` is non-empty, neither Enter on `..` nor double-click on `..` publishes the navigate-up message.
 - [ ] `..` never targeted by Rename / Delete / Copy / Move / CopyPath / Properties.
 
 ### 17.5 Cursor movement
 
-- [ ] `MoveCursorUpMessage` on `..`: no-op. From first real row with `..`: lands on `..`.
-- [ ] `MoveCursorDownMessage` at last: no-op. From `..`: first real row.
-- [ ] `MoveCursorPageUp` / `MoveCursorPageDown` clamp; cross the seam.
-- [ ] `MoveCursorHome` lands on `..` if shown, else first real row.
-- [ ] `MoveCursorEnd` lands on last real row, or `..` on empty list.
+- [ ] Native `Up` on `..`: no-op. From first real row with `..`: lands on `..`.
+- [ ] Native `Down` at last: no-op. From `..`: first real row.
+- [ ] Native `PageUp` / `PageDown` clamp; cross the seam.
+- [ ] Native `Home` lands on `..` if shown, else first visible row.
+- [ ] Native `End` lands on last visible row, or `..` on empty list.
 - [ ] All cursor changes scroll the target into view.
-- [ ] Non-focused tables ignore every `MoveCursor*Message`.
+- [ ] Non-focused tables do not receive keyboard navigation.
 
 ### 17.6 Selection
 
-- [ ] `ToggleSelectionAtCursorMessage` on real row: toggle, publish `FileTableSelectionChangedMessage`. On `..`: visual only, publish with updated `IsParentRowSelected`.
-- [ ] `ToggleSelectionAtCursorAndAdvanceMessage`: toggle then advance. At last row: no advance. On `..`: visual + advance to first real row.
-- [ ] `SelectAllMessage` adds every visible real row, publishes once; `..`'s visual state untouched.
-- [ ] `ClearSelectionMessage` empties `SelectedItems` + clears `..`'s visual; publishes only if `SelectedItems` was non-empty.
-- [ ] `ExtendSelection*Message` boundary clamp; new cursor row enters the range; `..` joins visually if crossed but stays out of `SelectedItems`.
-- [ ] After a programmatic cursor move, the next range op anchors from the new cursor.
+- [ ] Native row selection publishes `FileTableSelectionChangedMessage`.
+- [ ] Native mouse multi-selection publishes `FileTableSelectionChangedMessage`.
+- [ ] Repeated `Shift+Up` / `Shift+Down` can extend beyond two rows and publishes `FileTableSelectionChangedMessage`.
+- [ ] `..` can be selected visually but stays out of `FileTableSelectionChangedMessage.SelectedItems`.
 
 ### 17.7 Mouse
 
@@ -730,6 +704,6 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 - [ ] 100 000-item directory scrolls smoothly at 60 fps.
 - [ ] Cursor / page / Home / End respond in under 100 ms.
-- [ ] `SelectAllMessage` on 100 000 items publishes exactly one `FileTableSelectionChangedMessage`.
+- [ ] Native select-all on 100 000 items remains responsive and publishes `FileTableSelectionChangedMessage`.
 - [ ] Rapid re-binding of `ItemsSource` during scroll produces no stale rows.
 - [ ] Non-focused table in a dual-pane scenario stays responsive via bindings while ignoring keyboard messages.

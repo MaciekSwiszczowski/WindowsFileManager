@@ -15,10 +15,9 @@ public sealed partial class SpecFileEntryTableView
     {
         InitializeComponent();
         Loaded += SpecFileEntryTableView_Loaded;
-        AddHandler(
-            UIElement.DoubleTappedEvent,
-            new DoubleTappedEventHandler(EntryTable_DoubleTapped),
-            handledEventsToo: true);
+        EntryTable.GotFocus += EntryTable_GotFocus;
+        EntryTable.LostFocus += EntryTable_LostFocus;
+        AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(EntryTable_DoubleTapped), handledEventsToo: true);
     }
 
     public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
@@ -58,5 +57,15 @@ public sealed partial class SpecFileEntryTableView
             WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, item));
             e.Handled = true;
         }
+    }
+
+    private void EntryTable_GotFocus(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity, IsFocused: true));
+    }
+
+    private void EntryTable_LostFocus(object sender, RoutedEventArgs e)
+    {
+        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity, IsFocused: false));
     }
 }

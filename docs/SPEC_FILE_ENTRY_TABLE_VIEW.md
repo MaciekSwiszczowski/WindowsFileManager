@@ -76,7 +76,7 @@ The grid does not edit names. On a rename gesture, the **file operation dialog s
 
 The `SpecFileEntryTableView` instance that most recently gained WinUI keyboard focus owns file-table keyboard input. Focus ownership is observable through `FileTableFocusedMessage`, not through a public dependency property.
 
-When a table gains focus, it publishes `FileTableFocusedMessage(Identity)` and starts observing keyboard-manager messages. Every table also observes `FileTableFocusedMessage`; when a table receives the message with a foreign `Identity`, it stops observing keyboard-manager messages.
+When a table gains focus, it publishes `FileTableFocusedMessage(Identity, IsFocused: true)` and starts observing keyboard-manager messages. When it loses focus, it publishes `FileTableFocusedMessage(Identity, IsFocused: false)`. Every table also observes `FileTableFocusedMessage`; when a table receives a focused message with a foreign `Identity`, it stops observing keyboard-manager messages.
 
 ---
 
@@ -116,7 +116,7 @@ Unless noted, messages use `WeakReferenceMessenger.Default` / `IMessenger` and c
 #### 3.4.1 Outgoing (control or behavior → messenger)
 
 ```
-record FileTableFocusedMessage(string Identity);
+record FileTableFocusedMessage(string Identity, bool IsFocused = true);
 
 record FileTableSelectionChangedMessage(
     string Identity,
@@ -141,6 +141,7 @@ Trigger conditions are specified in §13.
 |---|---|
 | `FileTableParentEntryVisibilityMessage(string Identity, bool ShowParentEntry)` | When `ShowParentEntry` is `true`, the synthetic `..` row is shown (subject to §2.3). When `false`, `..` is hidden (e.g. root directory). |
 | `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
+| `FileTableSelectedItemsRequestMessage(string Identity)` | Request-response message. Replies with the current real selected rows for the matching table. |
 
 Hosts should send layout (and parent visibility) once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The TestApp sends defaults after wiring `ItemsSource`.
 
@@ -157,7 +158,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableParentEntryVisibilityBehavior` | Subscribes to `FileTableParentEntryVisibilityMessage`; toggles synthetic `..` via internal view API. |
 | `FileEntryTableSortingBehavior` | Header sort and `VisibleItems` ordering. |
-| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
+| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
 
@@ -298,10 +299,10 @@ Filtering is outside this control. Hosts filter their source collection and assi
 
 The control does not expose focus state. Focus is represented by message subscriptions:
 
-- On `GotFocus`, the table publishes `FileTableFocusedMessage(Identity)` and starts observing keyboard-manager messages.
+- On `GotFocus`, the table publishes `FileTableFocusedMessage(Identity, IsFocused: true)` and starts observing keyboard-manager messages.
 - Every table remains subscribed to `FileTableFocusedMessage`.
-- When a table receives `FileTableFocusedMessage` with a foreign `Identity`, it stops observing keyboard-manager messages.
-- On `LostFocus`, the table stops observing keyboard-manager messages. This covers focus moving to non-table controls such as logger, path box, buttons, or dialogs.
+- When a table receives `FileTableFocusedMessage` with a foreign `Identity` and `IsFocused: true`, it stops observing keyboard-manager messages.
+- On `LostFocus`, the table publishes `FileTableFocusedMessage(Identity, IsFocused: false)` and stops observing keyboard-manager messages. This covers focus moving to non-table controls such as logger, path box, buttons, or dialogs.
 
 Keyboard-message handlers do not need their own focus guards because inactive tables are not subscribed to those messages.
 
@@ -309,7 +310,7 @@ The control does not disable itself for any reason. Hosts that block interaction
 
 No system focus rectangle is drawn on rows or cells.
 
-Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity)`. Loss of focus is implicit for the host; the next gain identifies the new owner.
+Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity, IsFocused: true)`. Every `LostFocus` deactivation publishes `FileTableFocusedMessage(Identity, IsFocused: false)`.
 
 ---
 
@@ -378,13 +379,15 @@ Command intent messages (consumed by the **coordinator**, §14):
 
 The control publishes exactly three message types.
 
-### 13.1 `FileTableFocusedMessage(Identity)`
+### 13.1 `FileTableFocusedMessage(Identity, IsFocused)`
 
-Fires when the table gains WinUI keyboard focus. Loss is implicit.
+Fires when the table gains or loses WinUI keyboard focus.
 
 ### 13.2 `FileTableSelectionChangedMessage(Identity, SelectedItems, IsParentRowSelected)`
 
 Fires whenever native `TableView` selection changes, including the explicit `Shift+Up/Down` workaround path. `SelectedItems` is a snapshot of selected real rows and never contains `..`; `IsParentRowSelected` reports whether `..` is selected.
+
+The same real-row selection snapshot is also available on demand through `FileTableSelectedItemsRequestMessage(Identity)`. The response is read directly from the current native `TableView.SelectedItems`, so command handlers can double-check selection immediately before copy, move, delete, rename, properties, or path-copy work.
 
 Trigger sources:
 - Native mouse selection and multi-selection.
@@ -432,7 +435,7 @@ The coordinator does **not** track cursor. The two activation paths handle their
 ### 14.3 Subscriptions
 
 From the file table:
-- `FileTableFocusedMessage` → set `_activeIdentity = msg.Identity`.
+- `FileTableFocusedMessage(IsFocused: true)` → set `_activeIdentity = msg.Identity`.
 - `FileTableSelectionChangedMessage` → `_selectionByIdentity[msg.Identity] = msg.SelectedItems`.
 - `FileTableNavigateUpRequestedMessage` → §14.5.
 - `FileTableNavigateDownRequestedMessage` → §14.5.
@@ -614,10 +617,10 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.3 Focus
 
-- [ ] Clicking any row or tabbing in publishes `FileTableFocusedMessage`.
+- [ ] Clicking any row or tabbing in publishes `FileTableFocusedMessage(Identity, IsFocused: true)`.
 - [ ] Clicking any row or tabbing in starts keyboard-manager message observation for that table.
-- [ ] A foreign `FileTableFocusedMessage` stops keyboard-manager message observation.
-- [ ] Focus to a non-table control stops keyboard-manager message observation; no message is published on loss.
+- [ ] A foreign focused `FileTableFocusedMessage` stops keyboard-manager message observation.
+- [ ] Focus to a non-table control publishes `FileTableFocusedMessage(Identity, IsFocused: false)` and stops keyboard-manager message observation.
 - [ ] In a multi-table host, only the focused table reacts to keyboard-manager input messages.
 - [ ] Non-focused instances are not subscribed to keyboard-manager input messages.
 
@@ -650,6 +653,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Native mouse multi-selection publishes `FileTableSelectionChangedMessage`.
 - [ ] Repeated `Shift+Up` / `Shift+Down` can extend beyond two rows and publishes `FileTableSelectionChangedMessage`.
 - [ ] `..` can be selected visually but stays out of `FileTableSelectionChangedMessage.SelectedItems`.
+- [ ] `FileTableSelectedItemsRequestMessage(Identity)` replies with the current real selected rows from that table.
 
 ### 17.7 Mouse
 
@@ -685,7 +689,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.11 Coordinator
 
-- [ ] `FileTableFocusedMessage` updates `_activeIdentity`.
+- [ ] `FileTableFocusedMessage(IsFocused: true)` updates `_activeIdentity`.
 - [ ] `FileTableSelectionChangedMessage` updates the per-identity selection map.
 - [ ] `NavigateUpKeyPressedMessage` publishes `NavigateUpRequestedMessage` with the active identity.
 - [ ] `CopyKeyPressedMessage` with empty active selection → no `CopyRequestedMessage`.

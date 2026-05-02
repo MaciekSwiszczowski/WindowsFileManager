@@ -38,6 +38,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
     {
         base.OnAttached();
         AssociatedObject.Loaded += OnLoaded;
+        WeakReferenceMessenger.Default.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
     }
 
     protected override void OnDetaching()
@@ -49,6 +50,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
         DetachTableEvents();
         _entryTable = null;
+        WeakReferenceMessenger.Default.Unregister<FileTableSelectedItemsRequestMessage>(this);
 
         base.OnDetaching();
     }
@@ -299,6 +301,16 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         return true;
     }
 
+    private void OnSelectedItemsRequested(object recipient, FileTableSelectedItemsRequestMessage message)
+    {
+        if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
+        {
+            return;
+        }
+
+        message.Reply(GetSelectedItemsSnapshot());
+    }
+
     private void AttachTableEvents()
     {
         if (_selectionEventsAttached || _entryTable is null)
@@ -330,4 +342,17 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
     private static bool IsModifierDown(VirtualKey key) =>
         InputKeyboardSource.GetKeyStateForCurrentThread(key)
             .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+
+    private IReadOnlyList<SpecFileEntryViewModel> GetSelectedItemsSnapshot()
+    {
+        if (_entryTable is null)
+        {
+            return [];
+        }
+
+        return _entryTable.SelectedItems
+            .OfType<SpecFileEntryViewModel>()
+            .Where(static item => item.Model is not null)
+            .ToList();
+    }
 }

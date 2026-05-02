@@ -1,3 +1,4 @@
+using System.Reactive.Disposables;
 using CommunityToolkit.Mvvm.Messaging;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Messages;
@@ -9,6 +10,7 @@ public sealed partial class MainWindow
 {
     private readonly FileEntryTableDataSource _leftDataSource;
     private readonly FileEntryTableDataSource _rightDataSource;
+    private readonly CompositeDisposable _subscriptions = new();
 
     public KeyboardManager KeyboardManager { get; } = new();
 
@@ -33,12 +35,10 @@ public sealed partial class MainWindow
                 Environment.SpecialFolder.DesktopDirectory),
             uiScheduler);
 
-        LeftTable.ItemsSource = _leftDataSource.Items;
-        RightTable.ItemsSource = _rightDataSource.Items;
-        LeftPathText.Text = _leftDataSource.CurrentPath;
-        RightPathText.Text = _rightDataSource.CurrentPath;
-        _leftDataSource.CurrentPathChanged += OnLeftPathChanged;
-        _rightDataSource.CurrentPathChanged += OnRightPathChanged;
+        _subscriptions.Add(_leftDataSource.States
+            .Subscribe(ApplyLeftState));
+        _subscriptions.Add(_rightDataSource.States
+            .Subscribe(ApplyRightState));
         Closed += OnClosed;
 
         var messenger = WeakReferenceMessenger.Default;
@@ -49,20 +49,21 @@ public sealed partial class MainWindow
 
     private void OnClosed(object sender, Microsoft.UI.Xaml.WindowEventArgs args)
     {
-        _leftDataSource.CurrentPathChanged -= OnLeftPathChanged;
-        _rightDataSource.CurrentPathChanged -= OnRightPathChanged;
+        _subscriptions.Dispose();
         _leftDataSource.Dispose();
         _rightDataSource.Dispose();
     }
 
-    private void OnLeftPathChanged(object? sender, EventArgs args)
+    private void ApplyLeftState(FileEntryTableDataState state)
     {
-        LeftPathText.Text = _leftDataSource.CurrentPath;
+        LeftTable.ItemsSource = state.Items;
+        LeftPathText.Text = state.CurrentPath;
     }
 
-    private void OnRightPathChanged(object? sender, EventArgs args)
+    private void ApplyRightState(FileEntryTableDataState state)
     {
-        RightPathText.Text = _rightDataSource.CurrentPath;
+        RightTable.ItemsSource = state.Items;
+        RightPathText.Text = state.CurrentPath;
     }
 
     private static string ResolveInitialPath(

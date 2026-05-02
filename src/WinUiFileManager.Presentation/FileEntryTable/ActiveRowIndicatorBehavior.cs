@@ -132,9 +132,9 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
         }
 
         SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
-        if (_activeItem is { } activeItem && AssociatedObject.FindDescendant<TableView>() is { } table)
+        if (_activeItem is { } activeItem)
         {
-            SetItemIndicatorOpacity(table, activeItem, ActiveOpacity);
+            SetItemIndicatorOpacity(AssociatedObject.Table, activeItem, ActiveOpacity);
         }
     }
 

@@ -158,6 +158,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableParentEntryVisibilityBehavior` | Subscribes to `FileTableParentEntryVisibilityMessage`; toggles synthetic `..` via internal view API. |
 | `FileEntryTableSortingBehavior` | Header sort and `VisibleItems` ordering. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
+| `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
 
 ---
@@ -321,7 +322,7 @@ Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity)`. Loss 
 - All text cells ellipsise; no wrapping.
 - Vertical scroll bar only when overflow; never horizontal.
 - `..` is styled identically to a folder row.
-- When `..` is visually selected, it renders the standard selection background.
+- When `..` is visually selected, its selection background renders at 50% of the normal selected-row opacity because it is not part of command-target selection.
 
 ---
 
@@ -629,6 +630,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `..` never present in `SelectedItems`.
 - [ ] `..` never appears in `FileTableSelectionChangedMessage.SelectedItems`; its visual selection is reported only by `IsParentRowSelected`.
 - [ ] `..` participates in native `TableView` visual selection but never appears in command-target `SelectedItems`.
+- [ ] When `..` is selected, its selection background is 50% of normal selected-row opacity.
 - [ ] Activating `..` (Enter while active, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - [ ] `..` never targeted by Rename / Delete / Copy / Move / CopyPath / Properties.
 

@@ -38,11 +38,7 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
             return;
         }
 
-        var table = AssociatedObject.FindDescendant<TableView>();
-        if (table is null)
-        {
-            return;
-        }
+        var table = AssociatedObject.Table;
 
         if (ReferenceEquals(_entryTable, table))
         {

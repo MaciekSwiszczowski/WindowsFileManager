@@ -25,13 +25,7 @@ public sealed class FileEntryTableLayoutBehavior : Behavior<SpecFileEntryTableVi
             return;
         }
 
-        var table = AssociatedObject?.FindDescendant<TableView>();
-        if (table is null)
-        {
-            return;
-        }
-
-        foreach (var column in table.Columns)
+        foreach (var column in AssociatedObject.Table.Columns)
         {
             if (MapColumn(column.SortMemberPath) is { } fileEntryColumn)
             {

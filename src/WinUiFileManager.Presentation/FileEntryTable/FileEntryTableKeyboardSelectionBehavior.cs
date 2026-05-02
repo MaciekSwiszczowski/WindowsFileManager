@@ -287,11 +287,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
             return false;
         }
 
-        var table = AssociatedObject.FindDescendant<TableView>();
-        if (table is null)
-        {
-            return false;
-        }
+        var table = AssociatedObject.Table;
 
         if (!ReferenceEquals(_entryTable, table))
         {

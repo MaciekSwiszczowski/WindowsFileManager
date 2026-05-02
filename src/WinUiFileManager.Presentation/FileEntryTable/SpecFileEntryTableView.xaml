@@ -9,6 +9,7 @@
         <fileEntryTable:FileEntryTableLayoutBehavior />
         <fileEntryTable:FileEntryTableSortingBehavior />
         <fileEntryTable:FileEntryTableKeyboardSelectionBehavior />
+        <fileEntryTable:ParentRowSelectionOpacityBehavior />
         <fileEntryTable:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
 
@@ -47,6 +48,7 @@
     </UserControl.Resources>
 
     <tv:TableView
+        x:Name="EntryTable"
         ItemsSource="{x:Bind ItemsSource, Mode=OneWay}"
         AutoGenerateColumns="False"
         CanFilterColumns="False"

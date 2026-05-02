@@ -27,6 +27,8 @@ public sealed partial class SpecFileEntryTableView
         set => SetValue(ItemsSourceProperty, value);
     }
 
+    public TableView Table => EntryTable;
+
     public string Identity { get; set; } = string.Empty;
 
     private void SpecFileEntryTableView_Loaded(object sender, RoutedEventArgs e)

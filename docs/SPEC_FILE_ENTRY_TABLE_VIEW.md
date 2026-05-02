@@ -1,6 +1,6 @@
 # Spec: SpecFileEntryTableView
 
-`SpecFileEntryTableView` is a self-contained grid control that renders a single directory's contents in a Total Commander-style list: five fixed columns (Name, Ext, Size, Modified, Attributes), a synthetic `..` parent row pinned above the list, and a keyboard-first interaction model.
+`SpecFileEntryTableView` is a self-contained grid control that renders a single directory's contents in a Total Commander-style list: five fixed columns (Name, Ext, Size, Modified, Attributes), a host-supplied `..` parent row pinned above the list, and a keyboard-first interaction model.
 
 This document also specifies the messaging architecture the control participates in: the **keyboard manager**, the **file command coordinator**, and the **file operation dialog service**. Together these form a one-way data flow:
 
@@ -24,7 +24,7 @@ The target use case is a Windows Explorer replacement that behaves like Total Co
 enum FileEntryKind { File, Folder }
 ```
 
-There is no `Parent` value. The `..` row is synthetic and rendered by the control itself (§2.3); it is never represented by a `SpecFileEntryViewModel` instance.
+There is no `Parent` value. The `..` row is synthetic and represented by `SpecFileEntryViewModel.CreateParentEntry()` (§2.3), which has `Model == null`, `Name == ".."`, and `EntryKind == FileEntryKind.Folder`.
 
 ### 1.2 `SpecFileEntryViewModel`
 
@@ -32,12 +32,13 @@ A row's view-model. The control reads these properties; it does not mutate insta
 
 | Property | Type | Description |
 |---|---|---|
+| `Model` | `FileSystemEntryModel?` | Real filesystem entry. `null` only for the synthetic `..` row. |
 | `Name` | `string` | File or folder name. Displayed in the Name column. |
 | `Extension` | `string` | File extension without leading dot, or empty string for extension-less items and folders. |
 | `Size` | `string` | Formatted size (e.g. `"4.21 MB"`, `"512 B"`). Empty for folders. |
 | `Modified` | `DateTime` | Last-write time in local time. Display formatting is owned by the Modified column. |
 | `Attributes` | `string` | Formatted attribute flags. Empty if none. |
-| `Kind` | `FileEntryKind` | Governs row styling and activation semantics. |
+| `EntryKind` | `FileEntryKind` | Governs row styling and activation semantics. |
 
 The control stores `Modified` as a `DateTime`; `Size` and `Attributes` remain display values.
 
@@ -51,11 +52,11 @@ The row the keyboard is "on". Exactly one cursor exists at any time. It may poin
 
 ### 2.2 Explicit selection
 
-The set of real items the user has explicitly marked. This is internal control state and is announced with `FileTableSelectionChangedMessage`; it is not exposed as a dependency property. `..` is never present in the announced selection because `..` is not a real `SpecFileEntryViewModel`. However, `..` can be **visually** selected through user gestures — that highlight state is internal and not exposed externally.
+The set of real items the user has explicitly marked. This is internal control state and is announced with `FileTableSelectionChangedMessage`; it is not exposed as a dependency property. `..` is never present in the announced command-target selection because its `Model` is `null`. However, `..` can be **visually** selected through user gestures and is reported through `IsParentRowSelected`.
 
 ### 2.3 Parent row (`..`)
 
-A synthetic row the control renders at the top of the list when the host has indicated parent navigation is available (see **`FileTableParentEntryVisibilityMessage`** in §3.4). Not a normal `SpecFileEntryViewModel` supplied by the host; not present in `ItemsSource`.
+A synthetic row supplied by the host collection when parent navigation is available. At a filesystem root, the host omits this row. The row may be inserted into the bound `ObservableCollection` at any position and at any time; table sorting keeps it visually pinned above real rows.
 
 Rendering: Name shows `..`; Ext / Size / Modified / Attributes are blank; styled like a folder row.
 
@@ -66,7 +67,7 @@ Behavior:
 - Activating it (Enter while it is the active row, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - Never enters rename. Never the target of any file operation. Always pinned above all real rows. Not affected by `SelectAll`.
 
-When the host sends `FileTableParentEntryVisibilityMessage(Identity, ShowParentEntry: false)`, the control omits the `..` row entirely (for example at a filesystem root). The default before any message is to show `..` (`ShowParentEntry: true`).
+The table recognizes `..` by `Model == null` and `Name == ".."`. It does not decide root/parent availability itself; that belongs to the collection owner.
 
 ### 2.4 Rename
 
@@ -86,9 +87,9 @@ When a table gains focus, it publishes `FileTableFocusedMessage(Identity, IsFocu
 
 | Property | Type | Mode | Default | Description |
 |---|---|---|---|---|
-| `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Real items. Does not contain `..`. |
+| `ItemsSource` | `ObservableCollection<SpecFileEntryViewModel>` | OneWay | empty | Rows to display. May contain the synthetic `..` row. |
 
-Parent-row visibility and column widths are **not** dependency properties; hosts drive them with messages (§3.4).
+Column widths are **not** dependency properties; hosts drive them with messages (§3.4). Parent-row availability is expressed by adding or omitting `SpecFileEntryViewModel.CreateParentEntry()` in `ItemsSource`.
 
 ### 3.2 CLR properties
 
@@ -139,11 +140,10 @@ Trigger conditions are specified in §13.
 
 | Message | Purpose |
 |---|---|
-| `FileTableParentEntryVisibilityMessage(string Identity, bool ShowParentEntry)` | When `ShowParentEntry` is `true`, the synthetic `..` row is shown (subject to §2.3). When `false`, `..` is hidden (e.g. root directory). |
 | `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
 | `FileTableSelectedItemsRequestMessage(string Identity)` | Request-response message. Replies with the current real selected rows for the matching table. |
 
-Hosts should send layout (and parent visibility) once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The TestApp sends defaults after wiring `ItemsSource`.
+Hosts should send layout once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The TestApp sends defaults after wiring `ItemsSource`.
 
 #### 3.4.3 Focus and keyboard observation
 
@@ -156,8 +156,7 @@ The control does not expose any custom CLR events.
 | Behavior | Role |
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
-| `FileEntryTableParentEntryVisibilityBehavior` | Subscribes to `FileTableParentEntryVisibilityMessage`; toggles synthetic `..` via internal view API. |
-| `FileEntryTableSortingBehavior` | Header sort and `VisibleItems` ordering. |
+| `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
@@ -291,7 +290,7 @@ Any pointer interaction brings WinUI keyboard focus to the control. The focus tr
 
 ## 8. Filtering
 
-Filtering is outside this control. Hosts filter their source collection and assign the resulting rows to `ItemsSource`. The control renders and sorts only the rows it receives, plus the synthetic `..` row when the host has requested it with `FileTableParentEntryVisibilityMessage(..., ShowParentEntry: true)`.
+Filtering is outside this control. Hosts filter their source collection and assign the resulting rows to `ItemsSource`. If parent navigation is available, the host keeps the synthetic `..` row in the collection; sorting keeps it pinned above the filtered real rows.
 
 ---
 
@@ -612,7 +611,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 ### 17.2 Data binding
 
 - [ ] `ItemsSource` add / remove / re-order propagates to visible rows.
-- [ ] `FileTableParentEntryVisibilityMessage` shows / hides `..`.
+- [ ] Adding / removing the synthetic `..` row from `ItemsSource` shows / hides parent navigation.
 - [ ] `FileTableColumnLayoutMessage` and `Identity` propagate as expected.
 
 ### 17.3 Focus
@@ -626,8 +625,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.4 Parent row
 
-- [ ] With `ShowParentEntry: true`, `..` renders above all real rows, styled as a folder.
-- [ ] With `ShowParentEntry: false`, `..` is absent and its navigation rules have no effect.
+- [ ] When `ItemsSource` contains `SpecFileEntryViewModel.CreateParentEntry()`, `..` renders above all real rows, styled as a folder.
+- [ ] When `ItemsSource` omits the parent entry, `..` is absent and its navigation rules have no effect.
 - [ ] Sort never pushes `..` below a real row.
 - [ ] `..` remains pinned above all rows supplied by `ItemsSource`.
 - [ ] `..` never present in `SelectedItems`.

@@ -28,9 +28,10 @@
                 Text="Left panel" />
 
             <TextBlock
+                x:Name="LeftPathText"
                 Grid.Row="1"
                 Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                Text="C:\FileEntryTableTest\Left" />
+                TextTrimming="CharacterEllipsis" />
 
             <fileEntryTable:SpecFileEntryTableView
                 x:Name="LeftTable"
@@ -51,9 +52,10 @@
                 Text="Right panel" />
 
             <TextBlock
+                x:Name="RightPathText"
                 Grid.Row="1"
                 Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                Text="C:\FileEntryTableTest\Right" />
+                TextTrimming="CharacterEllipsis" />
 
             <fileEntryTable:SpecFileEntryTableView
                 x:Name="RightTable"

@@ -48,7 +48,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
         private readonly string _path;
         private readonly ILogger _logger;
         private readonly IObserver<DirectoryChange> _observer;
-        private readonly object _gate = new();
+        private readonly Lock _gate = new();
         private readonly SerialDisposable _watcher = new();
         private bool _disposed;
 

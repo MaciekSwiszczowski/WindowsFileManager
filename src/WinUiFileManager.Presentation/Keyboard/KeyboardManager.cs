@@ -1,6 +1,4 @@
 using System.Windows.Input;
-using CommunityToolkit.Mvvm.Messaging;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 namespace WinUiFileManager.Presentation.Keyboard;
 
@@ -26,10 +24,6 @@ public sealed class KeyboardManager
                 break;
 
             case { Key: VirtualKey.Back, Control: false, Shift: false, Alt: false }:
-                Send(new NavigateUpKeyPressedMessage());
-                input.Handled = true;
-                break;
-            case { Key: VirtualKey.PageUp, Control: true, Shift: false, Alt: false }:
                 Send(new NavigateUpKeyPressedMessage());
                 input.Handled = true;
                 break;

@@ -1,7 +1,6 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 /// <summary>
-/// Primitive intent message triggered by 'Backspace'.
-/// Consumed by the coordinator to initiate navigation to the parent directory.
+/// Primitive keyboard intent for navigating the active pane to its parent directory.
 /// </summary>
 public sealed record NavigateUpKeyPressedMessage;

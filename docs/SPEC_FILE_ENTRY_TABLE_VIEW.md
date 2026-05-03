@@ -157,7 +157,7 @@ The control does not expose any custom CLR events.
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first. |
-| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and works around the WinUI.TableView 1.4.1 repeated `Shift+Up/Down` range-selection bug. |
+| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and works around WinUI.TableView 1.4.1 row-range extension bugs for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
 
@@ -237,7 +237,7 @@ Both Enter paths are owned by `ActiveRowIndicatorBehavior`, because that behavio
 
 ### 6.3 Navigate up
 
-`Backspace` / `Ctrl+PageUp` / `Alt+Up` are interpreted by the keyboard manager as primitive navigate-up intents and resolved by the coordinator. The control is uninvolved (it has no parent path). Activating `..` (above) is the only navigate-up path that involves the table.
+`Backspace` / `Alt+Up` are interpreted by the keyboard manager as primitive navigate-up intents and resolved by the coordinator. The control is uninvolved (it has no parent path). Activating `..` (above) is the only navigate-up path that involves the table.
 
 ---
 
@@ -332,7 +332,7 @@ Every `GotFocus` activation publishes `FileTableFocusedMessage(Identity, IsFocus
 - Click sorts; click again reverses.
 - Navigate-up activation publishes `FileTableNavigateUpRequestedMessage`; folder activation publishes `FileTableNavigateDownRequestedMessage`.
 - `Insert` toggles + advances; `Space` / `Ctrl+Space` toggle without advancing.
-- `Backspace` / `Ctrl+PageUp` / `Alt+Up` request navigate-up.
+- `Backspace` / `Alt+Up` request navigate-up.
 - `F2` / `Shift+F6` request rename of the single selected item.
 - `F5` / `F6` / `F8` operate on `SelectedItems`; empty selection is a no-op.
 - `Ctrl+A` / `Ctrl+Shift+A` select all / clear.
@@ -349,9 +349,9 @@ The shell attaches `KeyboardInputBehavior.Command` to the element that should ow
 
 `KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized application command keystrokes to intent messages through the messenger and marks the input handled. Unrecognized keys are ignored.
 
-Table row navigation and row selection are handled by `WinUI.TableView` itself. The table no longer uses messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
+Table row navigation and row selection are handled by `WinUI.TableView` itself. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
 
-`FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts only `Shift+Up` and `Shift+Down` because WinUI.TableView 1.4.1 does not advance its internal row cursor during repeated row-range extension.
+`FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures (`Shift+Up/Down`, `Shift+Home/End`, `Shift+PageUp/PageDown`) because WinUI.TableView 1.4.1 does not reliably advance its internal row cursor during repeated row-range extension.
 
 ### 12.1 Command intent messages
 
@@ -359,7 +359,7 @@ Command intent messages (consumed by the **coordinator**, §14):
 
 | Message | Default shortcut |
 |---|---|
-| `NavigateUpKeyPressedMessage` | `Backspace`, `Ctrl+PageUp`, `Alt+Up` |
+| `NavigateUpKeyPressedMessage` | `Backspace`, `Alt+Up` |
 | `RenameKeyPressedMessage` | `F2`, `Shift+F6` |
 | `DeleteKeyPressedMessage` | `Delete`, `F8`, `Shift+Delete` |
 | `CopyKeyPressedMessage` | `F5` |
@@ -651,6 +651,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Native row selection publishes `FileTableSelectionChangedMessage`.
 - [ ] Native mouse multi-selection publishes `FileTableSelectionChangedMessage`.
 - [ ] Repeated `Shift+Up` / `Shift+Down` can extend beyond two rows and publishes `FileTableSelectionChangedMessage`.
+- [ ] `Shift+Home` / `Shift+End` extend selection to the first / last visible row.
+- [ ] `Shift+PageUp` / `Shift+PageDown` extend selection by one visible page and clamp at list boundaries.
 - [ ] `..` can be selected visually but stays out of `FileTableSelectionChangedMessage.SelectedItems`.
 - [ ] `FileTableSelectedItemsRequestMessage(Identity)` replies with the current real selected rows from that table.
 

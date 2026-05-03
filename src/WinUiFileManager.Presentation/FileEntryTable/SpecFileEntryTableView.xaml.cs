@@ -1,6 +1,3 @@
-using CommunityToolkit.Mvvm.Messaging;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
-
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed partial class SpecFileEntryTableView

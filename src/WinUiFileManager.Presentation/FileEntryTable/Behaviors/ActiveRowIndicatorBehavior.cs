@@ -1,8 +1,4 @@
-using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Xaml.Interactivity;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
-
-namespace WinUiFileManager.Presentation.FileEntryTable;
+namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView>
 {

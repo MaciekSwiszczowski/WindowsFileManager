@@ -1,6 +1,6 @@
-using Microsoft.Xaml.Interactivity;
+using WinUiFileManager.Presentation.FileEntryTable;
 
-namespace WinUiFileManager.Presentation.FileEntryTable;
+namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableView>
 {

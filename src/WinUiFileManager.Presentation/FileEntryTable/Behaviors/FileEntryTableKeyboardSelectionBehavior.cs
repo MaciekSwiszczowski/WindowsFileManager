@@ -1,10 +1,13 @@
 using System.Reflection;
-using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Xaml.Interactivity;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
-namespace WinUiFileManager.Presentation.FileEntryTable;
+namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
+/// <summary>
+/// Publishes table selection state and patches WinUI.TableView range extension for
+/// Shift+Up/Down (extend one row), Shift+Home/End (extend to first/last row), and
+/// Shift+PageUp/PageDown (extend by one visible page). Non-shift navigation and
+/// selection gestures are left to the native TableView implementation.
+/// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileEntryTableView>
 {
     private static readonly PropertyInfo? LastSelectionUnitProperty =
@@ -64,14 +67,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
             return;
         }
 
-        var delta = e.Key switch
-        {
-            VirtualKey.Up => -1,
-            VirtualKey.Down => 1,
-            _ => 0,
-        };
-
-        if (delta == 0 || !ExtendSelection(delta))
+        if (!ExtendSelection(e.Key))
         {
             return;
         }
@@ -115,7 +111,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         PublishSelectionChanged();
     }
 
-    private bool ExtendSelection(int delta)
+    private bool ExtendSelection(VirtualKey key)
     {
         if (!EnsureTable() || _entryTable!.Items.Count == 0)
         {
@@ -136,14 +132,56 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
         var anchorIndex = ClampIndex(_selectionAnchorIndex) ?? currentIndex.Value;
         var cursorIndex = ClampIndex(_selectionCursorIndex) ?? currentIndex.Value;
-        var targetIndex = ClampIndex(cursorIndex + delta);
-        if (targetIndex is null)
+        if (!TryGetTargetIndex(key, cursorIndex, out var targetIndex))
         {
             return false;
         }
 
-        ApplySelectionRange(anchorIndex, targetIndex.Value);
+        ApplySelectionRange(anchorIndex, targetIndex);
         return true;
+    }
+
+    private bool TryGetTargetIndex(VirtualKey key, int cursorIndex, out int targetIndex)
+    {
+        targetIndex = key switch
+        {
+            VirtualKey.Up => cursorIndex - 1,
+            VirtualKey.Down => cursorIndex + 1,
+            VirtualKey.Home => 0,
+            VirtualKey.End => _entryTable!.Items.Count - 1,
+            VirtualKey.PageUp => cursorIndex - GetPageRowCount(),
+            VirtualKey.PageDown => cursorIndex + GetPageRowCount(),
+            _ => cursorIndex,
+        };
+
+        if (key is not (VirtualKey.Up
+            or VirtualKey.Down
+            or VirtualKey.Home
+            or VirtualKey.End
+            or VirtualKey.PageUp
+            or VirtualKey.PageDown))
+        {
+            return false;
+        }
+
+        targetIndex = ClampIndex(targetIndex) ?? cursorIndex;
+        return true;
+    }
+
+    private int GetPageRowCount()
+    {
+        if (_entryTable is null)
+        {
+            return 1;
+        }
+
+        var rowHeight = _entryTable.RowHeight;
+        if (double.IsNaN(rowHeight) || rowHeight <= 0)
+        {
+            rowHeight = 32d;
+        }
+
+        return Math.Max(1, (int)Math.Floor(_entryTable.ActualHeight / rowHeight) - 1);
     }
 
     private void ApplySelectionRange(int anchorIndex, int targetIndex)

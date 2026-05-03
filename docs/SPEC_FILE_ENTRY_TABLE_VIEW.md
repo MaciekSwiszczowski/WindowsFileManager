@@ -160,7 +160,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row and scrolls it into view. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
-| `ActiveRowIndicatorBehavior` | Active row chrome. |
+| `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
 
 ---
 
@@ -184,7 +184,7 @@ Always visible. Column captions and sort indicators. Column widths are applied f
 
 ### 4.3 Row
 
-Row height, selection highlight, and other visual sizing take the control's defaults. The application merges the WinUI **compact sizes** resource dictionary at app level, so rows and headers inherit the denser compact metrics out of the box. Fine-tuning is deferred.
+Row height, selection highlight, and other visual sizing take the control's defaults. The application merges the WinUI compact density resource dictionary (`ms-appx:///Microsoft.UI.Xaml/DensityStyles/Compact.xaml`) at app level, so rows and headers inherit the denser compact metrics out of the box. Fine-tuning is deferred.
 
 The control virtualizes rows. A directory of 100 000 items must scroll smoothly.
 
@@ -360,6 +360,8 @@ Table row navigation and row selection are handled by `WinUI.TableView` itself w
 | `End` | Select the last visible row and scroll it into view. |
 | `PageUp` | If the current row is visible and not already the first visible row, select the first visible row; otherwise move up by the current visible row count. Clamp to the first row. |
 | `PageDown` | If the current row is visible and not already the last visible row, select the last visible row; otherwise move down by the current visible row count. Clamp to the last row. |
+
+After a handled `Home` / `End` / `PageUp` / `PageDown`, the behavior must synchronize the selected item, selected index, TableView current cell slot, and realized row focus so the next native `Up` / `Down` starts from the new row.
 
 `FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures:
 
@@ -663,6 +665,8 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Native `Home` lands on `..` if shown, else first visible row.
 - [ ] Native `End` lands on last visible row, or `..` on empty list.
 - [ ] All cursor changes scroll the target into view.
+- [ ] Active row indicator follows `Home`, `End`, `PageUp`, and `PageDown`, including when the target row is realized after scrolling.
+- [ ] After `Home`, `End`, `PageUp`, or `PageDown`, the next native `Up` / `Down` starts from the newly selected row.
 - [ ] Non-focused tables do not receive keyboard navigation.
 
 ### 17.6 Selection

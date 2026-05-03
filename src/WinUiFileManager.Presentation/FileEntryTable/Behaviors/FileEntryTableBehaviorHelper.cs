@@ -90,6 +90,8 @@ internal static class FileEntryTableBehaviorHelper
     {
         targetIndex = key switch
         {
+            VirtualKey.Up => currentIndex - 1,
+            VirtualKey.Down => currentIndex + 1,
             VirtualKey.Home => 0,
             VirtualKey.End => table.Items.Count - 1,
             VirtualKey.PageUp => GetPageTargetIndex(table, currentIndex, pageUp: true),
@@ -97,7 +99,12 @@ internal static class FileEntryTableBehaviorHelper
             _ => currentIndex,
         };
 
-        if (key is not (VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown))
+        if (key is not (VirtualKey.Up
+            or VirtualKey.Down
+            or VirtualKey.Home
+            or VirtualKey.End
+            or VirtualKey.PageUp
+            or VirtualKey.PageDown))
         {
             return false;
         }
@@ -137,10 +144,20 @@ internal static class FileEntryTableBehaviorHelper
         return true;
     }
 
-    public static void SelectSingleRow(TableView table, int targetIndex)
+    public static void SelectSingleRow(
+        TableView table,
+        FileEntryTableNavigationState navigationState,
+        int targetIndex)
     {
         if (table.Items[targetIndex] is not { } item)
         {
+            return;
+        }
+
+        navigationState.SetCurrent(table, targetIndex, resetSelectionAnchor: true);
+        if (table.SelectedItems.Count == 1 && ReferenceEquals(table.SelectedItems[0], item))
+        {
+            table.ScrollRowIntoView(targetIndex);
             return;
         }
 

@@ -15,8 +15,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     private bool _selectionEventsAttached;
     private bool _syncingSelection;
     private bool _shiftRangeActive;
-    private int? _selectionAnchorIndex;
-    private int? _selectionCursorIndex;
 
     protected override void OnAttached()
     {
@@ -71,24 +69,21 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
                 _entryTable!,
                 e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
         {
-            _selectionAnchorIndex = addedIndex;
-            _selectionCursorIndex = addedIndex;
+            NavigationState?.SetCurrent(_entryTable!, addedIndex, resetSelectionAnchor: true);
             PublishSelectionChanged();
             return;
         }
 
         if (_entryTable!.SelectedItems.Count == 0)
         {
-            _selectionAnchorIndex = null;
-            _selectionCursorIndex = null;
+            NavigationState?.Reset();
             PublishSelectionChanged();
             return;
         }
 
         if (GetCurrentSelectedIndex() is { } selectedIndex)
         {
-            _selectionAnchorIndex = selectedIndex;
-            _selectionCursorIndex = selectedIndex;
+            NavigationState?.SetCurrent(_entryTable!, selectedIndex, resetSelectionAnchor: true);
         }
 
         PublishSelectionChanged();
@@ -96,7 +91,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     private bool ExtendSelection(VirtualKey key)
     {
-        if (!EnsureTable() || _entryTable!.Items.Count == 0)
+        if (!EnsureTable() || NavigationState is null || _entryTable!.Items.Count == 0)
         {
             return false;
         }
@@ -109,12 +104,11 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
         if (!_shiftRangeActive)
         {
-            _selectionAnchorIndex = currentIndex;
-            _selectionCursorIndex = currentIndex;
+            NavigationState.SetCurrent(_entryTable!, currentIndex.Value, resetSelectionAnchor: true);
         }
 
-        var anchorIndex = ClampIndex(_selectionAnchorIndex) ?? currentIndex.Value;
-        var cursorIndex = ClampIndex(_selectionCursorIndex) ?? currentIndex.Value;
+        var anchorIndex = NavigationState.GetSelectionAnchorIndex(_entryTable!) ?? currentIndex.Value;
+        var cursorIndex = NavigationState.GetSelectionCursorIndex(_entryTable!) ?? currentIndex.Value;
         if (!FileEntryTableBehaviorHelper.TryGetRangeTargetIndex(_entryTable!, key, cursorIndex, out var targetIndex))
         {
             return false;
@@ -152,8 +146,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         }
 
         _shiftRangeActive = true;
-        _selectionAnchorIndex = anchorIndex;
-        _selectionCursorIndex = targetIndex;
+        NavigationState?.SetSelectionRange(_entryTable, anchorIndex, targetIndex);
         _entryTable.ScrollRowIntoView(targetIndex);
         PublishSelectionChanged();
     }
@@ -171,9 +164,9 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         var selectedItems = selectedRows
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
-        var activeItem = ClampIndex(_selectionCursorIndex) is { } cursorIndex
+        var activeItem = NavigationState?.GetSelectionCursorIndex(_entryTable) is { } cursorIndex
             ? _entryTable.Items[cursorIndex] as SpecFileEntryViewModel
-            : _entryTable.SelectedItem as SpecFileEntryViewModel;
+            : NavigationState?.GetCurrentItem(_entryTable) ?? _entryTable.SelectedItem as SpecFileEntryViewModel;
 
         WeakReferenceMessenger.Default.Send(
             new FileTableSelectionChangedMessage(
@@ -184,7 +177,8 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     }
 
     private int? GetCurrentIndex() =>
-        ClampIndex(_selectionCursorIndex)
+        (_entryTable is not null ? NavigationState?.GetSelectionCursorIndex(_entryTable) : null)
+        ?? (_entryTable is not null ? NavigationState?.GetCurrentIndex(_entryTable) : null)
         ?? GetCurrentSelectedIndex()
         ?? (_entryTable?.Items.Count > 0 ? 0 : null);
 

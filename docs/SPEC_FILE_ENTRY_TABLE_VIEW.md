@@ -96,7 +96,7 @@ Column widths are **not** dependency properties; hosts drive them with messages 
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `Identity` | `string` | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). Must be set before `Loaded`. |
-| `NavigationState` | `FileEntryTableNavigationState` | new instance | Shared per-control cursor and selection-anchor state. Phase 1 only exposes and passes it to behaviors; existing behavior logic still owns its current runtime state. |
+| `NavigationState` | `FileEntryTableNavigationState` | new instance | Shared per-control cursor and selection-anchor state used by keyboard navigation and shifted range selection. |
 
 ### 3.3 Supporting types
 
@@ -158,12 +158,12 @@ The control does not expose any custom CLR events.
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first. |
-| `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row and scrolls it into view. |
+| `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row, updates `NavigationState`, and scrolls it into view. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
-| `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
+| `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Up`, `Down`, `Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
 
-All attached behaviors derive from `FileEntryTableBehavior`, which captures the owning control's `NavigationState` on attach. The state is intentionally not consumed by behavior logic yet; it is the shared surface for the next navigation/selection refactor phase.
+All attached behaviors derive from `FileEntryTableBehavior`, which captures the owning control's `NavigationState` on attach.
 
 ---
 
@@ -353,18 +353,20 @@ The shell attaches `KeyboardInputBehavior.Command` to the element that should ow
 
 `KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized application command keystrokes to intent messages through the messenger and marks the input handled. Unrecognized keys are ignored.
 
-Table row navigation and row selection are handled by `WinUI.TableView` itself where it behaves correctly. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
+Table row navigation and row selection are handled locally by table behaviors where `WinUI.TableView` does not keep enough public state synchronized. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
 
 `FileEntryTableKeyboardNavigationBehavior` handles plain navigation keys that are expected to move the current row without extending selection:
 
 | Shortcut | Behavior |
 |---|---|
+| `Up` | Select the previous row and scroll it into view. |
+| `Down` | Select the next row and scroll it into view. |
 | `Home` | Select the first visible row and scroll it into view. |
 | `End` | Select the last visible row and scroll it into view. |
 | `PageUp` | If the current row is visible and not already the first visible row, select the first visible row; otherwise move up by the current visible row count. Clamp to the first row. |
 | `PageDown` | If the current row is visible and not already the last visible row, select the last visible row; otherwise move down by the current visible row count. Clamp to the last row. |
 
-After a handled `Home` / `End` / `PageUp` / `PageDown`, the behavior must synchronize the selected item, selected index, TableView current cell slot, and realized row focus so the next native `Up` / `Down` starts from the new row.
+All handled plain navigation updates `NavigationState` before changing `TableView.SelectedItems`, so later plain navigation and shifted range selection start from the same row.
 
 `FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures:
 
@@ -662,14 +664,14 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 17.5 Cursor movement
 
-- [ ] Native `Up` on `..`: no-op. From first real row with `..`: lands on `..`.
-- [ ] Native `Down` at last: no-op. From `..`: first real row.
-- [ ] Native `PageUp` / `PageDown` clamp; cross the seam.
-- [ ] Native `Home` lands on `..` if shown, else first visible row.
-- [ ] Native `End` lands on last visible row, or `..` on empty list.
+- [ ] `Up` on `..`: no-op. From first real row with `..`: lands on `..`.
+- [ ] `Down` at last: no-op. From `..`: first real row.
+- [ ] `PageUp` / `PageDown` clamp; cross the seam.
+- [ ] `Home` lands on `..` if shown, else first visible row.
+- [ ] `End` lands on last visible row, or `..` on empty list.
 - [ ] All cursor changes scroll the target into view.
-- [ ] Active row indicator follows `Home`, `End`, `PageUp`, and `PageDown`, including when the target row is realized after scrolling.
-- [ ] After `Home`, `End`, `PageUp`, or `PageDown`, the next native `Up` / `Down` starts from the newly selected row.
+- [ ] Active row indicator follows `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown`, including when the target row is realized after scrolling.
+- [ ] After `Home`, `End`, `PageUp`, or `PageDown`, the next `Up` / `Down` starts from the newly selected row.
 - [ ] Non-focused tables do not receive keyboard navigation.
 
 ### 17.6 Selection

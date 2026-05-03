@@ -2,20 +2,17 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed class FileEntryTableNavigationState
 {
-    public SpecFileEntryViewModel? CurrentItem { get; private set; }
-
-    public int? CurrentIndex { get; private set; }
-
-    public int? SelectionAnchorIndex { get; private set; }
-
-    public int? SelectionCursorIndex { get; private set; }
+    private SpecFileEntryViewModel? _currentItem;
+    private int? _currentIndex;
+    private int? _selectionAnchorIndex;
+    private int? _selectionCursorIndex;
 
     public void Reset()
     {
-        CurrentItem = null;
-        CurrentIndex = null;
-        SelectionAnchorIndex = null;
-        SelectionCursorIndex = null;
+        _currentItem = null;
+        _currentIndex = null;
+        _selectionAnchorIndex = null;
+        _selectionCursorIndex = null;
     }
 
     public void SetCurrent(TableView table, int index, bool resetSelectionAnchor)
@@ -30,33 +27,42 @@ public sealed class FileEntryTableNavigationState
         SetCurrent(table.Items[currentIndex.Value] as SpecFileEntryViewModel, currentIndex, resetSelectionAnchor);
     }
 
-    public void SetCurrent(SpecFileEntryViewModel? item, int? index, bool resetSelectionAnchor)
+    private void SetCurrent(SpecFileEntryViewModel? item, int? index, bool resetSelectionAnchor)
     {
-        CurrentItem = item;
-        CurrentIndex = index;
-        SelectionCursorIndex = index;
+        _currentItem = item;
+        _currentIndex = index;
+        _selectionCursorIndex = index;
 
         if (resetSelectionAnchor)
         {
-            SelectionAnchorIndex = index;
+            _selectionAnchorIndex = index;
         }
     }
 
-    public void SetSelectionRange(int anchorIndex, int cursorIndex)
+    public void SetSelectionRange(TableView table, int anchorIndex, int cursorIndex)
     {
-        SelectionAnchorIndex = anchorIndex;
-        SelectionCursorIndex = cursorIndex;
-        CurrentIndex = cursorIndex;
+        var currentIndex = ClampIndex(table, cursorIndex);
+        if (currentIndex is null)
+        {
+            Reset();
+            return;
+        }
+
+        _selectionAnchorIndex = ClampIndex(table, anchorIndex) ?? currentIndex;
+        _selectionCursorIndex = currentIndex;
+        _currentIndex = currentIndex;
+        _currentItem = table.Items[currentIndex.Value] as SpecFileEntryViewModel;
     }
 
     public int? GetCurrentIndex(TableView table)
     {
-        if (ClampIndex(table, CurrentIndex) is { } currentIndex)
+        if (ClampIndex(table, _currentIndex) is { } currentIndex)
         {
             return currentIndex;
         }
 
-        if (CurrentItem is not null && table.Items.IndexOf(CurrentItem) is var itemIndex && itemIndex >= 0)
+        if (_currentItem is not null &&
+            table.Items.IndexOf(_currentItem) is var itemIndex and >= 0)
         {
             return itemIndex;
         }
@@ -64,11 +70,21 @@ public sealed class FileEntryTableNavigationState
         return null;
     }
 
-    public int? GetSelectionAnchorIndex(TableView table) => ClampIndex(table, SelectionAnchorIndex);
+    public int? GetSelectionAnchorIndex(TableView table) => ClampIndex(table, _selectionAnchorIndex);
 
-    public int? GetSelectionCursorIndex(TableView table) => ClampIndex(table, SelectionCursorIndex);
+    public int? GetSelectionCursorIndex(TableView table) => ClampIndex(table, _selectionCursorIndex);
 
-    public static int? ClampIndex(TableView table, int? index)
+    public SpecFileEntryViewModel? GetCurrentItem(TableView table)
+    {
+        if (GetCurrentIndex(table) is { } currentIndex)
+        {
+            return table.Items[currentIndex] as SpecFileEntryViewModel;
+        }
+
+        return _currentItem;
+    }
+
+    private static int? ClampIndex(TableView table, int? index)
     {
         if (index is null || table.Items.Count == 0)
         {

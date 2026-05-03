@@ -1,8 +1,9 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 /// <summary>
-/// Handles plain table keyboard navigation that WinUI.TableView does not provide
-/// reliably for this control:
+/// Handles plain table keyboard navigation with the shared table navigation state:
+/// Up selects the previous row,
+/// Down selects the next row,
 /// Home selects the first visible row,
 /// End selects the last visible row,
 /// PageUp selects the first visible row when the current row is inside the viewport
@@ -45,18 +46,30 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
                 VirtualKey.Control,
                 VirtualKey.Menu)
             || !EnsureTable()
+            || NavigationState is null
             || _entryTable!.Items.Count == 0
             || !FileEntryTableBehaviorHelper.TryGetNavigationTargetIndex(
                 _entryTable,
                 e.Key,
-                FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(_entryTable),
+                GetCurrentIndex(),
                 out var targetIndex))
         {
             return;
         }
 
-        FileEntryTableBehaviorHelper.SelectSingleRow(_entryTable, targetIndex);
+        FileEntryTableBehaviorHelper.SelectSingleRow(_entryTable, NavigationState, targetIndex);
         e.Handled = true;
+    }
+
+    private int GetCurrentIndex()
+    {
+        if (_entryTable is null)
+        {
+            return 0;
+        }
+
+        return NavigationState?.GetCurrentIndex(_entryTable)
+            ?? FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(_entryTable);
     }
 
     private bool EnsureTable()

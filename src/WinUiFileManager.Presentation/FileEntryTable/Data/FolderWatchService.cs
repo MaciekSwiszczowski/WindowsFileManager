@@ -4,7 +4,7 @@ using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
 using WinUiFileManager.Domain.ValueObjects;
 
-namespace WinUiFileManager.TestApp;
+namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
 internal sealed class FolderWatchService : IDisposable
 {

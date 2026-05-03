@@ -144,7 +144,7 @@ Trigger conditions are specified in §13.
 | `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
 | `FileTableSelectedItemsRequestMessage(string Identity)` | Request-response message. Replies with the current real selected rows for the matching table. |
 
-Hosts should send layout once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The TestApp sends defaults after wiring `ItemsSource`.
+Hosts should send layout once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The application shell sends defaults after wiring `ItemsSource`.
 
 #### 3.4.3 Focus and keyboard observation
 

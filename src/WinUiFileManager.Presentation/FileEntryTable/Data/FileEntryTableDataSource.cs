@@ -11,7 +11,7 @@ using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
-namespace WinUiFileManager.TestApp;
+namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
 internal sealed class FileEntryTableDataSource : IDisposable
 {

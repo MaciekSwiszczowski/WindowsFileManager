@@ -1,25 +1,28 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using Microsoft.UI.Dispatching;
+using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+using UiDispatcherQueuePriority = Microsoft.UI.Dispatching.DispatcherQueuePriority;
+using UiDispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
-namespace WinUiFileManager.TestApp;
+namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
 internal sealed class DispatcherQueueScheduler : LocalScheduler, ISchedulerPeriodic
 {
-    public DispatcherQueueScheduler(DispatcherQueue dispatcherQueue)
-        : this(dispatcherQueue, DispatcherQueuePriority.Normal)
+    public DispatcherQueueScheduler(UiDispatcherQueue dispatcherQueue)
+        : this(dispatcherQueue, UiDispatcherQueuePriority.Normal)
     {
     }
 
-    public DispatcherQueueScheduler(DispatcherQueue dispatcherQueue, DispatcherQueuePriority priority)
+    public DispatcherQueueScheduler(UiDispatcherQueue dispatcherQueue, UiDispatcherQueuePriority priority)
     {
         DispatcherQueue = dispatcherQueue ?? throw new ArgumentNullException(nameof(dispatcherQueue));
         Priority = priority;
     }
 
-    public DispatcherQueue DispatcherQueue { get; }
+    public UiDispatcherQueue DispatcherQueue { get; }
 
-    public DispatcherQueuePriority Priority { get; }
+    public UiDispatcherQueuePriority Priority { get; }
 
     public override IDisposable Schedule<TState>(
         TState state,
@@ -81,7 +84,7 @@ internal sealed class DispatcherQueueScheduler : LocalScheduler, ISchedulerPerio
             activeTimer.Stop();
         });
 
-        void OnTick(DispatcherQueueTimer sender, object args) => currentState = action(currentState);
+        void OnTick(UiDispatcherQueueTimer sender, object args) => currentState = action(currentState);
     }
 
     private IDisposable ScheduleDelayed<TState>(
@@ -90,9 +93,9 @@ internal sealed class DispatcherQueueScheduler : LocalScheduler, ISchedulerPerio
         Func<IScheduler, TState, IDisposable> action)
     {
         var disposable = new MultipleAssignmentDisposable();
-        DispatcherQueueTimer? timer = DispatcherQueue.CreateTimer();
+        UiDispatcherQueueTimer? timer = DispatcherQueue.CreateTimer();
 
-        void OnTick(DispatcherQueueTimer sender, object args)
+        void OnTick(UiDispatcherQueueTimer sender, object args)
         {
             var activeTimer = Interlocked.Exchange(ref timer, null);
             if (activeTimer is null)

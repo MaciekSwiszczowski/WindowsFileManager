@@ -67,7 +67,7 @@ Behavior:
 - Activating it (Enter while it is the active row, or double-click on `..`) publishes `FileTableNavigateUpRequestedMessage`.
 - Never enters rename. Never the target of any file operation. Always pinned above all real rows. Not affected by `SelectAll`.
 
-The table recognizes `..` by `Model == null` and `Name == ".."`. It does not decide root/parent availability itself; that belongs to the collection owner.
+The table recognizes `..` through `SpecFileEntryViewModel.IsParentEntry`. It does not decide root/parent availability itself; that belongs to the collection owner.
 
 ### 2.4 Rename
 
@@ -358,8 +358,8 @@ Table row navigation and row selection are handled by `WinUI.TableView` itself w
 |---|---|
 | `Home` | Select the first visible row and scroll it into view. |
 | `End` | Select the last visible row and scroll it into view. |
-| `PageUp` | Select the row one visible page above the current row, clamped to the first row. |
-| `PageDown` | Select the row one visible page below the current row, clamped to the last row. |
+| `PageUp` | If the current row is visible and not already the first visible row, select the first visible row; otherwise move up by the current visible row count. Clamp to the first row. |
+| `PageDown` | If the current row is visible and not already the last visible row, select the last visible row; otherwise move down by the current visible row count. Clamp to the last row. |
 
 `FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures:
 
@@ -369,8 +369,8 @@ Table row navigation and row selection are handled by `WinUI.TableView` itself w
 | `Shift+Down` | Extend the current range one row down. |
 | `Shift+Home` | Extend the current range to the first visible row. |
 | `Shift+End` | Extend the current range to the last visible row. |
-| `Shift+PageUp` | Extend the current range one visible page up, clamped to the first row. |
-| `Shift+PageDown` | Extend the current range one visible page down, clamped to the last row. |
+| `Shift+PageUp` | If the cursor is visible and not already the first visible row, extend to the first visible row; otherwise extend up by the current visible row count. Clamp to the first row. |
+| `Shift+PageDown` | If the cursor is visible and not already the last visible row, extend to the last visible row; otherwise extend down by the current visible row count. Clamp to the last row. |
 
 ### 12.1 Command intent messages
 
@@ -671,7 +671,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Native mouse multi-selection publishes `FileTableSelectionChangedMessage`.
 - [ ] Repeated `Shift+Up` / `Shift+Down` can extend beyond two rows and publishes `FileTableSelectionChangedMessage`.
 - [ ] `Shift+Home` / `Shift+End` extend selection to the first / last visible row.
-- [ ] `Shift+PageUp` / `Shift+PageDown` extend selection by one visible page and clamp at list boundaries.
+- [ ] `Shift+PageUp` / `Shift+PageDown` first extend to the visible viewport boundary, then by the current visible row count, and clamp at list boundaries.
 - [ ] `..` can be selected visually but stays out of `FileTableSelectionChangedMessage.SelectedItems`.
 - [ ] `FileTableSelectedItemsRequestMessage(Identity)` replies with the current real selected rows from that table.
 

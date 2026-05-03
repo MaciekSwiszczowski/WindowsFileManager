@@ -30,12 +30,12 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             return _ascending ? 1 : -1;
         }
 
-        if (IsParentRow(left))
+        if (SpecFileEntryViewModel.IsParentEntry(left))
         {
-            return IsParentRow(right) ? 0 : -1;
+            return SpecFileEntryViewModel.IsParentEntry(right) ? 0 : -1;
         }
 
-        if (IsParentRow(right))
+        if (SpecFileEntryViewModel.IsParentEntry(right))
         {
             return 1;
         }
@@ -60,6 +60,4 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             _ => TextComparer.Compare(x.Name, y.Name),
         };
 
-    private static bool IsParentRow(SpecFileEntryViewModel item) =>
-        item.Model is null && item.Name == "..";
 }

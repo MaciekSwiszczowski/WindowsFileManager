@@ -95,7 +95,7 @@ public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView
             return false;
         }
 
-        if (item.Model is null)
+        if (SpecFileEntryViewModel.IsParentEntry(item))
         {
             WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
             return true;

@@ -42,7 +42,7 @@ public sealed partial class SpecFileEntryTableView
             return;
         }
 
-        if (item.Model is null)
+        if (SpecFileEntryViewModel.IsParentEntry(item))
         {
             WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
             e.Handled = true;

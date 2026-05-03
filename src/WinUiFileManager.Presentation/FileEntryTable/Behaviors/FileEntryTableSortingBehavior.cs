@@ -68,7 +68,7 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
         }
 
         e.Handled = true;
-        if (MapColumn(e.Column.SortMemberPath) is not { } column)
+        if (FileEntryTableBehaviorHelper.MapColumn(e.Column.SortMemberPath) is not { } column)
         {
             return;
         }
@@ -96,36 +96,16 @@ public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableV
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
         foreach (var column in _entryTable.Columns)
         {
-            column.SortDirection = MapColumn(column.SortMemberPath) == _sortColumn ? direction : null;
+            column.SortDirection = FileEntryTableBehaviorHelper.MapColumn(column.SortMemberPath) == _sortColumn
+                ? direction
+                : null;
         }
 
         _entryTable.SortDescriptions.Clear();
         _entryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
-            MapSortMemberPath(_sortColumn),
+            FileEntryTableBehaviorHelper.MapSortMemberPath(_sortColumn),
             SortDirection.Ascending,
             new SpecFileEntryComparer(_sortColumn, _sortAscending),
             static item => item));
     }
-
-    private static FileEntryColumn? MapColumn(string? sortMemberPath) =>
-        sortMemberPath switch
-        {
-            nameof(SpecFileEntryViewModel.Name) => FileEntryColumn.Name,
-            nameof(SpecFileEntryViewModel.Extension) => FileEntryColumn.Extension,
-            nameof(SpecFileEntryViewModel.Size) => FileEntryColumn.Size,
-            nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
-            nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
-            _ => null,
-        };
-
-    private static string MapSortMemberPath(FileEntryColumn column) =>
-        column switch
-        {
-            FileEntryColumn.Name => nameof(SpecFileEntryViewModel.Name),
-            FileEntryColumn.Extension => nameof(SpecFileEntryViewModel.Extension),
-            FileEntryColumn.Size => nameof(SpecFileEntryViewModel.Size),
-            FileEntryColumn.Modified => nameof(SpecFileEntryViewModel.Modified),
-            FileEntryColumn.Attributes => nameof(SpecFileEntryViewModel.Attributes),
-            _ => nameof(SpecFileEntryViewModel.Name),
-        };
 }

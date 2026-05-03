@@ -25,7 +25,7 @@ public sealed class FileEntryTableLayoutBehavior : Behavior<SpecFileEntryTableVi
 
         foreach (var column in AssociatedObject.Table.Columns)
         {
-            if (MapColumn(column.SortMemberPath) is { } fileEntryColumn)
+            if (FileEntryTableBehaviorHelper.MapColumn(column.SortMemberPath) is { } fileEntryColumn)
             {
                 column.Width = new GridLength(MapWidth(fileEntryColumn, message.Layout));
             }
@@ -41,16 +41,5 @@ public sealed class FileEntryTableLayoutBehavior : Behavior<SpecFileEntryTableVi
             FileEntryColumn.Modified => layout.ModifiedWidth,
             FileEntryColumn.Attributes => layout.AttributesWidth,
             _ => layout.NameWidth,
-        };
-
-    private static FileEntryColumn? MapColumn(string? sortMemberPath) =>
-        sortMemberPath switch
-        {
-            nameof(SpecFileEntryViewModel.Name) => FileEntryColumn.Name,
-            nameof(SpecFileEntryViewModel.Extension) => FileEntryColumn.Extension,
-            nameof(SpecFileEntryViewModel.Size) => FileEntryColumn.Size,
-            nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
-            nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
-            _ => null,
         };
 }

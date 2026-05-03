@@ -5,8 +5,10 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// reliably for this control:
 /// Home selects the first visible row,
 /// End selects the last visible row,
-/// PageUp selects the row one visible page above the current row,
-/// PageDown selects the row one visible page below the current row.
+/// PageUp selects the first visible row when the current row is inside the viewport
+/// and not already first; otherwise it moves up by the current visible row count,
+/// PageDown selects the last visible row when the current row is inside the viewport
+/// and not already last; otherwise it moves down by the current visible row count.
 /// Page movement clamps at the list boundaries and scrolls the target row into view.
 /// </summary>
 public sealed class FileEntryTableKeyboardNavigationBehavior : Behavior<SpecFileEntryTableView>
@@ -38,118 +40,32 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : Behavior<SpecFile
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Handled
-            || IsModifierDown(VirtualKey.Shift)
-            || IsModifierDown(VirtualKey.Control)
-            || IsModifierDown(VirtualKey.Menu)
+            || FileEntryTableBehaviorHelper.HasAnyModifier(
+                VirtualKey.Shift,
+                VirtualKey.Control,
+                VirtualKey.Menu)
             || !EnsureTable()
             || _entryTable!.Items.Count == 0
-            || !TryGetTargetIndex(e.Key, out var targetIndex))
+            || !FileEntryTableBehaviorHelper.TryGetNavigationTargetIndex(
+                _entryTable,
+                e.Key,
+                FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(_entryTable),
+                out var targetIndex))
         {
             return;
         }
 
-        SelectSingleRow(targetIndex);
+        FileEntryTableBehaviorHelper.SelectSingleRow(_entryTable, targetIndex);
         e.Handled = true;
-    }
-
-    private bool TryGetTargetIndex(VirtualKey key, out int targetIndex)
-    {
-        var currentIndex = GetCurrentIndex();
-        targetIndex = key switch
-        {
-            VirtualKey.Home => 0,
-            VirtualKey.End => _entryTable!.Items.Count - 1,
-            VirtualKey.PageUp => currentIndex - GetPageRowCount(),
-            VirtualKey.PageDown => currentIndex + GetPageRowCount(),
-            _ => currentIndex,
-        };
-
-        if (key is not (VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown))
-        {
-            return false;
-        }
-
-        targetIndex = Math.Clamp(targetIndex, 0, _entryTable!.Items.Count - 1);
-        return true;
-    }
-
-    private int GetCurrentIndex()
-    {
-        if (_entryTable is null)
-        {
-            return 0;
-        }
-
-        if (_entryTable.SelectedIndex >= 0)
-        {
-            return _entryTable.SelectedIndex;
-        }
-
-        if (_entryTable.SelectedItem is not null)
-        {
-            var selectedItemIndex = _entryTable.Items.IndexOf(_entryTable.SelectedItem);
-            if (selectedItemIndex >= 0)
-            {
-                return selectedItemIndex;
-            }
-        }
-
-        foreach (var item in _entryTable.SelectedItems.Reverse())
-        {
-            var selectedIndex = _entryTable.Items.IndexOf(item);
-            if (selectedIndex >= 0)
-            {
-                return selectedIndex;
-            }
-        }
-
-        return 0;
-    }
-
-    private int GetPageRowCount()
-    {
-        if (_entryTable is null)
-        {
-            return 1;
-        }
-
-        var rowHeight = _entryTable.RowHeight;
-        if (double.IsNaN(rowHeight) || rowHeight <= 0)
-        {
-            rowHeight = 32d;
-        }
-
-        return Math.Max(1, (int)Math.Floor(_entryTable.ActualHeight / rowHeight) - 1);
-    }
-
-    private void SelectSingleRow(int targetIndex)
-    {
-        if (_entryTable?.Items[targetIndex] is not { } item)
-        {
-            return;
-        }
-
-        _entryTable.SelectedItems.Clear();
-        _entryTable.SelectedItems.Add(item);
-        _entryTable.ScrollRowIntoView(targetIndex);
     }
 
     private bool EnsureTable()
     {
-        if (AssociatedObject is null)
-        {
-            return false;
-        }
-
-        var table = AssociatedObject.Table;
-        if (!ReferenceEquals(_entryTable, table))
-        {
-            DetachTableEvents();
-            _entryTable = table;
-        }
-
-        AttachTableEvents();
-        return true;
+        return FileEntryTableBehaviorHelper.EnsureTable(
+            AssociatedObject,
+            ref _entryTable,
+            DetachTableEvents,
+            AttachTableEvents);
     }
 
     private void AttachTableEvents()
@@ -177,8 +93,4 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : Behavior<SpecFile
 
         _eventsAttached = false;
     }
-
-    private static bool IsModifierDown(VirtualKey key) =>
-        InputKeyboardSource.GetKeyStateForCurrentThread(key)
-            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
 }

@@ -4,8 +4,10 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// Publishes table selection state and patches shifted row-range selection:
 /// Shift+Up extends the range one row up, Shift+Down extends it one row down,
 /// Shift+Home extends it to the first visible row, Shift+End extends it to the last visible row,
-/// Shift+PageUp extends it one visible page up, and
-/// Shift+PageDown extends it one visible page down.
+/// Shift+PageUp extends it to the first visible row when the cursor is inside the viewport
+/// and not already first; otherwise it extends up by the current visible row count,
+/// Shift+PageDown extends it to the last visible row when the cursor is inside the viewport
+/// and not already last; otherwise it extends down by the current visible row count.
 /// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileEntryTableView>
 {
@@ -41,7 +43,9 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Handled || !IsModifierDown(VirtualKey.Shift) || IsModifierDown(VirtualKey.Control))
+        if (e.Handled
+            || !FileEntryTableBehaviorHelper.IsModifierDown(VirtualKey.Shift)
+            || FileEntryTableBehaviorHelper.IsModifierDown(VirtualKey.Control))
         {
             return;
         }
@@ -63,7 +67,9 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
         _shiftRangeActive = false;
 
-        if (GetRowIndex(e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
+        if (FileEntryTableBehaviorHelper.GetRowIndex(
+                _entryTable!,
+                e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
         {
             _selectionAnchorIndex = addedIndex;
             _selectionCursorIndex = addedIndex;
@@ -109,56 +115,13 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
         var anchorIndex = ClampIndex(_selectionAnchorIndex) ?? currentIndex.Value;
         var cursorIndex = ClampIndex(_selectionCursorIndex) ?? currentIndex.Value;
-        if (!TryGetTargetIndex(key, cursorIndex, out var targetIndex))
+        if (!FileEntryTableBehaviorHelper.TryGetRangeTargetIndex(_entryTable!, key, cursorIndex, out var targetIndex))
         {
             return false;
         }
 
         ApplySelectionRange(anchorIndex, targetIndex);
         return true;
-    }
-
-    private bool TryGetTargetIndex(VirtualKey key, int cursorIndex, out int targetIndex)
-    {
-        targetIndex = key switch
-        {
-            VirtualKey.Up => cursorIndex - 1,
-            VirtualKey.Down => cursorIndex + 1,
-            VirtualKey.Home => 0,
-            VirtualKey.End => _entryTable!.Items.Count - 1,
-            VirtualKey.PageUp => cursorIndex - GetPageRowCount(),
-            VirtualKey.PageDown => cursorIndex + GetPageRowCount(),
-            _ => cursorIndex,
-        };
-
-        if (key is not (VirtualKey.Up
-            or VirtualKey.Down
-            or VirtualKey.Home
-            or VirtualKey.End
-            or VirtualKey.PageUp
-            or VirtualKey.PageDown))
-        {
-            return false;
-        }
-
-        targetIndex = ClampIndex(targetIndex) ?? cursorIndex;
-        return true;
-    }
-
-    private int GetPageRowCount()
-    {
-        if (_entryTable is null)
-        {
-            return 1;
-        }
-
-        var rowHeight = _entryTable.RowHeight;
-        if (double.IsNaN(rowHeight) || rowHeight <= 0)
-        {
-            rowHeight = 32d;
-        }
-
-        return Math.Max(1, (int)Math.Floor(_entryTable.ActualHeight / rowHeight) - 1);
     }
 
     private void ApplySelectionRange(int anchorIndex, int targetIndex)
@@ -206,7 +169,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
             .OfType<SpecFileEntryViewModel>()
             .ToList();
         var selectedItems = selectedRows
-            .Where(static item => item.Model is not null)
+            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
         var activeItem = ClampIndex(_selectionCursorIndex) is { } cursorIndex
             ? _entryTable.Items[cursorIndex] as SpecFileEntryViewModel
@@ -216,7 +179,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
             new FileTableSelectionChangedMessage(
                 AssociatedObject.Identity,
                 selectedItems,
-                selectedRows.Any(static item => item.Model is null),
+                selectedRows.Any(static item => SpecFileEntryViewModel.IsParentEntry(item)),
                 activeItem));
     }
 
@@ -237,14 +200,16 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
             return _entryTable.SelectedIndex;
         }
 
-        if (GetRowIndex(_entryTable.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
+        if (FileEntryTableBehaviorHelper.GetRowIndex(
+                _entryTable,
+                _entryTable.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
         {
             return selectedItemIndex;
         }
 
         foreach (var item in _entryTable.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
         {
-            if (GetRowIndex(item) is { } selectedIndex)
+            if (FileEntryTableBehaviorHelper.GetRowIndex(_entryTable, item) is { } selectedIndex)
             {
                 return selectedIndex;
             }
@@ -253,44 +218,23 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         return null;
     }
 
-    private int? GetRowIndex(SpecFileEntryViewModel? item)
-    {
-        if (_entryTable is null || item is null)
-        {
-            return null;
-        }
-
-        var index = _entryTable.Items.IndexOf(item);
-        return index >= 0 ? index : null;
-    }
-
     private int? ClampIndex(int? index)
     {
-        if (_entryTable is null || _entryTable.Items.Count == 0 || index is null)
+        if (_entryTable is null)
         {
             return null;
         }
 
-        return Math.Clamp(index.Value, 0, _entryTable.Items.Count - 1);
+        return FileEntryTableBehaviorHelper.ClampIndex(_entryTable, index);
     }
 
     private bool EnsureTable()
     {
-        if (AssociatedObject is null)
-        {
-            return false;
-        }
-
-        var table = AssociatedObject.Table;
-
-        if (!ReferenceEquals(_entryTable, table))
-        {
-            DetachTableEvents();
-            _entryTable = table;
-        }
-
-        AttachTableEvents();
-        return true;
+        return FileEntryTableBehaviorHelper.EnsureTable(
+            AssociatedObject,
+            ref _entryTable,
+            DetachTableEvents,
+            AttachTableEvents);
     }
 
     private void OnSelectedItemsRequested(object recipient, FileTableSelectedItemsRequestMessage message)
@@ -331,10 +275,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         _selectionEventsAttached = false;
     }
 
-    private static bool IsModifierDown(VirtualKey key) =>
-        InputKeyboardSource.GetKeyStateForCurrentThread(key)
-            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-
     private IReadOnlyList<SpecFileEntryViewModel> GetSelectedItemsSnapshot()
     {
         if (_entryTable is null)
@@ -344,7 +284,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
 
         return _entryTable.SelectedItems
             .OfType<SpecFileEntryViewModel>()
-            .Where(static item => item.Model is not null)
+            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
     }
 }

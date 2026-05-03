@@ -30,6 +30,8 @@ public sealed class SpecFileEntryViewModel
 
     public static SpecFileEntryViewModel CreateParentEntry() => new();
 
+    public static bool IsParentEntry(SpecFileEntryViewModel item) => item.Model is null;
+
     public FileSystemEntryModel? Model { get; }
 
     public FileEntryKind EntryKind { get; }

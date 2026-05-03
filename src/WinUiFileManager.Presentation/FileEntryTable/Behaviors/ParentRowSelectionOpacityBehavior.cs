@@ -51,7 +51,8 @@ public sealed class ParentRowSelectionOpacityBehavior : Behavior<SpecFileEntryTa
             return;
         }
 
-        if (GetParentItem(table) is not { } parentItem)
+        if (FileEntryTableBehaviorHelper.GetParentItem(table) is not { } parentItem
+            || !SpecFileEntryViewModel.IsParentEntry(parentItem))
         {
             ResetParentSelectionOpacity(table);
             return;
@@ -105,13 +106,4 @@ public sealed class ParentRowSelectionOpacityBehavior : Behavior<SpecFileEntryTa
         }
     }
 
-    private static SpecFileEntryViewModel? GetParentItem(TableView table)
-    {
-        if (table.Items.Count == 0 || table.Items[0] is not SpecFileEntryViewModel { Model: null } parentItem)
-        {
-            return null;
-        }
-
-        return parentItem;
-    }
 }

@@ -11,33 +11,22 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBehavior
 {
-    private TableView? _entryTable;
-    private bool _selectionEventsAttached;
     private bool _syncingSelection;
     private bool _shiftRangeActive;
 
     protected override void OnAttached()
     {
         base.OnAttached();
-        AssociatedObject.Loaded += OnLoaded;
+        TrackTableOnLoaded();
         WeakReferenceMessenger.Default.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
     }
 
     protected override void OnDetaching()
     {
-        if (AssociatedObject is { } view)
-        {
-            view.Loaded -= OnLoaded;
-        }
-
-        DetachTableEvents();
-        _entryTable = null;
         WeakReferenceMessenger.Default.Unregister<FileTableSelectedItemsRequestMessage>(this);
 
         base.OnDetaching();
     }
-
-    private void OnLoaded(object sender, RoutedEventArgs e) => EnsureTable();
 
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -66,15 +55,15 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         _shiftRangeActive = false;
 
         if (FileEntryTableBehaviorHelper.GetRowIndex(
-                _entryTable!,
+                EntryTable!,
                 e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
         {
-            NavigationState?.SetCurrent(_entryTable!, addedIndex, resetSelectionAnchor: true);
+            NavigationState?.SetCurrent(EntryTable!, addedIndex, resetSelectionAnchor: true);
             PublishSelectionChanged();
             return;
         }
 
-        if (_entryTable!.SelectedItems.Count == 0)
+        if (EntryTable!.SelectedItems.Count == 0)
         {
             NavigationState?.Reset();
             PublishSelectionChanged();
@@ -83,7 +72,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
         if (GetCurrentSelectedIndex() is { } selectedIndex)
         {
-            NavigationState?.SetCurrent(_entryTable!, selectedIndex, resetSelectionAnchor: true);
+            NavigationState?.SetCurrent(EntryTable!, selectedIndex, resetSelectionAnchor: true);
         }
 
         PublishSelectionChanged();
@@ -91,7 +80,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     private bool ExtendSelection(VirtualKey key)
     {
-        if (!EnsureTable() || NavigationState is null || _entryTable!.Items.Count == 0)
+        if (!EnsureTable() || NavigationState is null || EntryTable!.Items.Count == 0)
         {
             return false;
         }
@@ -104,12 +93,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
         if (!_shiftRangeActive)
         {
-            NavigationState.SetCurrent(_entryTable!, currentIndex.Value, resetSelectionAnchor: true);
+            NavigationState.SetCurrent(EntryTable!, currentIndex.Value, resetSelectionAnchor: true);
         }
 
-        var anchorIndex = NavigationState.GetSelectionAnchorIndex(_entryTable!) ?? currentIndex.Value;
-        var cursorIndex = NavigationState.GetSelectionCursorIndex(_entryTable!) ?? currentIndex.Value;
-        if (!FileEntryTableBehaviorHelper.TryGetRangeTargetIndex(_entryTable!, key, cursorIndex, out var targetIndex))
+        var anchorIndex = NavigationState.GetSelectionAnchorIndex(EntryTable!) ?? currentIndex.Value;
+        var cursorIndex = NavigationState.GetSelectionCursorIndex(EntryTable!) ?? currentIndex.Value;
+        if (!FileEntryTableBehaviorHelper.TryGetRangeTargetIndex(EntryTable!, key, cursorIndex, out var targetIndex))
         {
             return false;
         }
@@ -120,7 +109,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     private void ApplySelectionRange(int anchorIndex, int targetIndex)
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return;
         }
@@ -134,10 +123,10 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         _syncingSelection = true;
         try
         {
-            _entryTable.SelectedItems.Clear();
+            EntryTable.SelectedItems.Clear();
             for (var i = startIndex; i <= endIndex; i++)
             {
-                _entryTable.SelectedItems.Add(_entryTable.Items[i]);
+                EntryTable.SelectedItems.Add(EntryTable.Items[i]);
             }
         }
         finally
@@ -146,27 +135,27 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         }
 
         _shiftRangeActive = true;
-        NavigationState?.SetSelectionRange(_entryTable, anchorIndex, targetIndex);
-        _entryTable.ScrollRowIntoView(targetIndex);
+        NavigationState?.SetSelectionRange(EntryTable, anchorIndex, targetIndex);
+        EntryTable.ScrollRowIntoView(targetIndex);
         PublishSelectionChanged();
     }
 
     private void PublishSelectionChanged()
     {
-        if (AssociatedObject is null || _entryTable is null)
+        if (AssociatedObject is null || EntryTable is null)
         {
             return;
         }
 
-        var selectedRows = _entryTable.SelectedItems
+        var selectedRows = EntryTable.SelectedItems
             .OfType<SpecFileEntryViewModel>()
             .ToList();
         var selectedItems = selectedRows
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
-        var activeItem = NavigationState?.GetSelectionCursorIndex(_entryTable) is { } cursorIndex
-            ? _entryTable.Items[cursorIndex] as SpecFileEntryViewModel
-            : NavigationState?.GetCurrentItem(_entryTable) ?? _entryTable.SelectedItem as SpecFileEntryViewModel;
+        var activeItem = NavigationState?.GetSelectionCursorIndex(EntryTable) is { } cursorIndex
+            ? EntryTable.Items[cursorIndex] as SpecFileEntryViewModel
+            : NavigationState?.GetCurrentItem(EntryTable) ?? EntryTable.SelectedItem as SpecFileEntryViewModel;
 
         WeakReferenceMessenger.Default.Send(
             new FileTableSelectionChangedMessage(
@@ -177,33 +166,33 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     }
 
     private int? GetCurrentIndex() =>
-        (_entryTable is not null ? NavigationState?.GetSelectionCursorIndex(_entryTable) : null)
-        ?? (_entryTable is not null ? NavigationState?.GetCurrentIndex(_entryTable) : null)
+        (EntryTable is not null ? NavigationState?.GetSelectionCursorIndex(EntryTable) : null)
+        ?? (EntryTable is not null ? NavigationState?.GetCurrentIndex(EntryTable) : null)
         ?? GetCurrentSelectedIndex()
-        ?? (_entryTable?.Items.Count > 0 ? 0 : null);
+        ?? (EntryTable?.Items.Count > 0 ? 0 : null);
 
     private int? GetCurrentSelectedIndex()
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return null;
         }
 
-        if (_entryTable.SelectedIndex >= 0)
+        if (EntryTable.SelectedIndex >= 0)
         {
-            return _entryTable.SelectedIndex;
+            return EntryTable.SelectedIndex;
         }
 
         if (FileEntryTableBehaviorHelper.GetRowIndex(
-                _entryTable,
-                _entryTable.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
+                EntryTable,
+                EntryTable.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
         {
             return selectedItemIndex;
         }
 
-        foreach (var item in _entryTable.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
+        foreach (var item in EntryTable.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
         {
-            if (FileEntryTableBehaviorHelper.GetRowIndex(_entryTable, item) is { } selectedIndex)
+            if (FileEntryTableBehaviorHelper.GetRowIndex(EntryTable, item) is { } selectedIndex)
             {
                 return selectedIndex;
             }
@@ -214,21 +203,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     private int? ClampIndex(int? index)
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return null;
         }
 
-        return FileEntryTableBehaviorHelper.ClampIndex(_entryTable, index);
-    }
-
-    private bool EnsureTable()
-    {
-        return FileEntryTableBehaviorHelper.EnsureTable(
-            AssociatedObject,
-            ref _entryTable,
-            DetachTableEvents,
-            AttachTableEvents);
+        return FileEntryTableBehaviorHelper.ClampIndex(EntryTable, index);
     }
 
     private void OnSelectedItemsRequested(object recipient, FileTableSelectedItemsRequestMessage message)
@@ -241,44 +221,28 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         message.Reply(GetSelectedItemsSnapshot());
     }
 
-    private void AttachTableEvents()
-    {
-        if (_selectionEventsAttached || _entryTable is null)
-        {
-            return;
-        }
-
-        _entryTable.PreviewKeyDown += EntryTable_PreviewKeyDown;
-        _entryTable.SelectionChanged += EntryTable_SelectionChanged;
-        _selectionEventsAttached = true;
-    }
-
-    private void DetachTableEvents()
-    {
-        if (!_selectionEventsAttached)
-        {
-            return;
-        }
-
-        if (_entryTable is not null)
-        {
-            _entryTable.PreviewKeyDown -= EntryTable_PreviewKeyDown;
-            _entryTable.SelectionChanged -= EntryTable_SelectionChanged;
-        }
-
-        _selectionEventsAttached = false;
-    }
-
     private IReadOnlyList<SpecFileEntryViewModel> GetSelectedItemsSnapshot()
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return [];
         }
 
-        return _entryTable.SelectedItems
+        return EntryTable.SelectedItems
             .OfType<SpecFileEntryViewModel>()
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
+    }
+
+    protected override void OnTableAttached(TableView table)
+    {
+        table.PreviewKeyDown += EntryTable_PreviewKeyDown;
+        table.SelectionChanged += EntryTable_SelectionChanged;
+    }
+
+    protected override void OnTableDetaching(TableView table)
+    {
+        table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
+        table.SelectionChanged -= EntryTable_SelectionChanged;
     }
 }

@@ -40,6 +40,12 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             return 1;
         }
 
+        var entryKindResult = CompareEntryKind(left, right);
+        if (entryKindResult != 0)
+        {
+            return entryKindResult;
+        }
+
         var result = CompareByColumn(left, right);
         if (result == 0 && _column != FileEntryColumn.Name)
         {
@@ -60,4 +66,13 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             _ => TextComparer.Compare(x.Name, y.Name),
         };
 
+    private static int CompareEntryKind(SpecFileEntryViewModel x, SpecFileEntryViewModel y)
+    {
+        if (x.EntryKind == y.EntryKind)
+        {
+            return 0;
+        }
+
+        return x.EntryKind == FileEntryKind.Folder ? -1 : 1;
+    }
 }

@@ -6,63 +6,27 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
 {
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;
-    private TableView? _entryTable;
 
     protected override void OnAttached()
     {
         base.OnAttached();
-        AssociatedObject.Loaded += OnLoaded;
+        TrackTableOnLoaded();
     }
 
-    protected override void OnDetaching()
+    protected override void OnTableAttached(TableView table)
     {
-        if (AssociatedObject is { } view)
-        {
-            view.Loaded -= OnLoaded;
-        }
-
-        if (_entryTable is not null)
-        {
-            _entryTable.Sorting -= OnSorting;
-        }
-
-        _entryTable = null;
-
-        base.OnDetaching();
+        table.Sorting += OnSorting;
+        ApplySort();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    protected override void OnTableDetaching(TableView table)
     {
-        if (AssociatedObject is null)
-        {
-            return;
-        }
-
-        var table = AssociatedObject.Table;
-
-        if (ReferenceEquals(_entryTable, table))
-        {
-            ApplySort();
-            return;
-        }
-
-        if (_entryTable is not null)
-        {
-            _entryTable.Sorting -= OnSorting;
-        }
-
-        _entryTable = table;
-
-        if (_entryTable is not null)
-        {
-            _entryTable.Sorting += OnSorting;
-            ApplySort();
-        }
+        table.Sorting -= OnSorting;
     }
 
     private void OnSorting(object? sender, TableViewSortingEventArgs e)
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return;
         }
@@ -88,21 +52,21 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
 
     private void ApplySort()
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return;
         }
 
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
-        foreach (var column in _entryTable.Columns)
+        foreach (var column in EntryTable.Columns)
         {
             column.SortDirection = FileEntryTableBehaviorHelper.MapColumn(column.SortMemberPath) == _sortColumn
                 ? direction
                 : null;
         }
 
-        _entryTable.SortDescriptions.Clear();
-        _entryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
+        EntryTable.SortDescriptions.Clear();
+        EntryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
             FileEntryTableBehaviorHelper.MapSortMemberPath(_sortColumn),
             SortDirection.Ascending,
             new SpecFileEntryComparer(_sortColumn, _sortAscending),

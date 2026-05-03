@@ -157,7 +157,7 @@ The control does not expose any custom CLR events.
 | Behavior | Role |
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
-| `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first. |
+| `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first and folders remain before files. |
 | `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row, updates `NavigationState`, and scrolls it into view. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
@@ -209,7 +209,7 @@ Clicking a header:
 
 The control does **not** expose sort state as dependency properties. Persisted column widths are a host concern; this control consumes them only via `FileTableColumnLayoutMessage`.
 
-`..` is always pinned visually first regardless of sort state. Directory-before-file ordering is a host-side decision.
+`..` is always pinned visually first regardless of sort state. Folders are always displayed before files; the selected sort column and direction are applied within each group.
 
 ---
 

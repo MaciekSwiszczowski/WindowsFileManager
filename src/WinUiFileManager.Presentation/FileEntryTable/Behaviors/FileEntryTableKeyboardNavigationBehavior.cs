@@ -14,29 +14,16 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBehavior
 {
-    private TableView? _entryTable;
-    private bool _eventsAttached;
-
     protected override void OnAttached()
     {
         base.OnAttached();
-        AssociatedObject.Loaded += OnLoaded;
+        TrackTableOnLoaded();
     }
 
     protected override void OnDetaching()
     {
-        if (AssociatedObject is { } view)
-        {
-            view.Loaded -= OnLoaded;
-        }
-
-        DetachTableEvents();
-        _entryTable = null;
-
         base.OnDetaching();
     }
-
-    private void OnLoaded(object sender, RoutedEventArgs e) => EnsureTable();
 
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -47,9 +34,9 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
                 VirtualKey.Menu)
             || !EnsureTable()
             || NavigationState is null
-            || _entryTable!.Items.Count == 0
+            || EntryTable!.Items.Count == 0
             || !FileEntryTableBehaviorHelper.TryGetNavigationTargetIndex(
-                _entryTable,
+                EntryTable,
                 e.Key,
                 GetCurrentIndex(),
                 out var targetIndex))
@@ -57,53 +44,28 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
             return;
         }
 
-        FileEntryTableBehaviorHelper.SelectSingleRow(_entryTable, NavigationState, targetIndex);
+        FileEntryTableBehaviorHelper.SelectSingleRow(EntryTable, NavigationState, targetIndex);
         e.Handled = true;
     }
 
     private int GetCurrentIndex()
     {
-        if (_entryTable is null)
+        if (EntryTable is null)
         {
             return 0;
         }
 
-        return NavigationState?.GetCurrentIndex(_entryTable)
-            ?? FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(_entryTable);
+        return NavigationState?.GetCurrentIndex(EntryTable)
+            ?? FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(EntryTable);
     }
 
-    private bool EnsureTable()
+    protected override void OnTableAttached(TableView table)
     {
-        return FileEntryTableBehaviorHelper.EnsureTable(
-            AssociatedObject,
-            ref _entryTable,
-            DetachTableEvents,
-            AttachTableEvents);
+        table.PreviewKeyDown += EntryTable_PreviewKeyDown;
     }
 
-    private void AttachTableEvents()
+    protected override void OnTableDetaching(TableView table)
     {
-        if (_eventsAttached || _entryTable is null)
-        {
-            return;
-        }
-
-        _entryTable.PreviewKeyDown += EntryTable_PreviewKeyDown;
-        _eventsAttached = true;
-    }
-
-    private void DetachTableEvents()
-    {
-        if (!_eventsAttached)
-        {
-            return;
-        }
-
-        if (_entryTable is not null)
-        {
-            _entryTable.PreviewKeyDown -= EntryTable_PreviewKeyDown;
-        }
-
-        _eventsAttached = false;
+        table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
     }
 }

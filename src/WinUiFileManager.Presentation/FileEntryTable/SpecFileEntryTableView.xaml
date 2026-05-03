@@ -9,6 +9,7 @@
     <interactivity:Interaction.Behaviors>
         <behaviors:FileEntryTableLayoutBehavior />
         <behaviors:FileEntryTableSortingBehavior />
+        <behaviors:FileEntryTableKeyboardNavigationBehavior />
         <behaviors:FileEntryTableKeyboardSelectionBehavior />
         <behaviors:ParentRowSelectionOpacityBehavior />
         <behaviors:ActiveRowIndicatorBehavior />

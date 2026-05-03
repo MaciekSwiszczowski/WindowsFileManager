@@ -157,7 +157,8 @@ The control does not expose any custom CLR events.
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first. |
-| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and works around WinUI.TableView 1.4.1 row-range extension bugs for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
+| `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row and scrolls it into view. |
+| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. |
 
@@ -349,9 +350,27 @@ The shell attaches `KeyboardInputBehavior.Command` to the element that should ow
 
 `KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized application command keystrokes to intent messages through the messenger and marks the input handled. Unrecognized keys are ignored.
 
-Table row navigation and row selection are handled by `WinUI.TableView` itself. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
+Table row navigation and row selection are handled by `WinUI.TableView` itself where it behaves correctly. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
 
-`FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures (`Shift+Up/Down`, `Shift+Home/End`, `Shift+PageUp/PageDown`) because WinUI.TableView 1.4.1 does not reliably advance its internal row cursor during repeated row-range extension.
+`FileEntryTableKeyboardNavigationBehavior` handles plain navigation keys that are expected to move the current row without extending selection:
+
+| Shortcut | Behavior |
+|---|---|
+| `Home` | Select the first visible row and scroll it into view. |
+| `End` | Select the last visible row and scroll it into view. |
+| `PageUp` | Select the row one visible page above the current row, clamped to the first row. |
+| `PageDown` | Select the row one visible page below the current row, clamped to the last row. |
+
+`FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures:
+
+| Shortcut | Behavior |
+|---|---|
+| `Shift+Up` | Extend the current range one row up. |
+| `Shift+Down` | Extend the current range one row down. |
+| `Shift+Home` | Extend the current range to the first visible row. |
+| `Shift+End` | Extend the current range to the last visible row. |
+| `Shift+PageUp` | Extend the current range one visible page up, clamped to the first row. |
+| `Shift+PageDown` | Extend the current range one visible page down, clamped to the last row. |
 
 ### 12.1 Command intent messages
 

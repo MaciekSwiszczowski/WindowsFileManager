@@ -1,35 +1,14 @@
-using System.Reflection;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 /// <summary>
-/// Publishes table selection state and patches WinUI.TableView range extension for
-/// Shift+Up/Down (extend one row), Shift+Home/End (extend to first/last row), and
-/// Shift+PageUp/PageDown (extend by one visible page). Non-shift navigation and
-/// selection gestures are left to the native TableView implementation.
+/// Publishes table selection state and patches shifted row-range selection:
+/// Shift+Up extends the range one row up, Shift+Down extends it one row down,
+/// Shift+Home extends it to the first visible row, Shift+End extends it to the last visible row,
+/// Shift+PageUp extends it one visible page up, and
+/// Shift+PageDown extends it one visible page down.
 /// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileEntryTableView>
 {
-    private static readonly PropertyInfo? LastSelectionUnitProperty =
-        typeof(TableView).GetProperty(
-            "LastSelectionUnit",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-
-    private static readonly PropertyInfo? CurrentRowIndexProperty =
-        typeof(TableView).GetProperty(
-            "CurrentRowIndex",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-
-    private static readonly PropertyInfo? SelectionStartRowIndexProperty =
-        typeof(TableView).GetProperty(
-            "SelectionStartRowIndex",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-
-    private static readonly PropertyInfo? SelectionStartCellSlotProperty =
-        typeof(TableView).GetProperty(
-            "SelectionStartCellSlot",
-            BindingFlags.NonPublic | BindingFlags.Instance);
-
     private TableView? _entryTable;
     private bool _selectionEventsAttached;
     private bool _syncingSelection;
@@ -88,7 +67,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         {
             _selectionAnchorIndex = addedIndex;
             _selectionCursorIndex = addedIndex;
-            SyncNativeKeyboardState(addedIndex, addedIndex);
             PublishSelectionChanged();
             return;
         }
@@ -105,7 +83,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         {
             _selectionAnchorIndex = selectedIndex;
             _selectionCursorIndex = selectedIndex;
-            SyncNativeKeyboardState(selectedIndex, selectedIndex);
         }
 
         PublishSelectionChanged();
@@ -214,7 +191,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         _shiftRangeActive = true;
         _selectionAnchorIndex = anchorIndex;
         _selectionCursorIndex = targetIndex;
-        SyncNativeKeyboardState(anchorIndex, targetIndex);
         _entryTable.ScrollRowIntoView(targetIndex);
         PublishSelectionChanged();
     }
@@ -296,28 +272,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileE
         }
 
         return Math.Clamp(index.Value, 0, _entryTable.Items.Count - 1);
-    }
-
-    private void SyncNativeKeyboardState(int anchorIndex, int cursorIndex)
-    {
-        if (_entryTable is null)
-        {
-            return;
-        }
-
-        try
-        {
-            LastSelectionUnitProperty?.SetValue(_entryTable, TableViewSelectionUnit.Row);
-            SelectionStartRowIndexProperty?.SetValue(_entryTable, (int?)anchorIndex);
-            CurrentRowIndexProperty?.SetValue(_entryTable, (int?)cursorIndex);
-            SelectionStartCellSlotProperty?.SetValue(_entryTable, null);
-        }
-        catch
-        {
-            // This is only compensating for WinUI.TableView 1.4.1 internals.
-            // If the package changes those names, the explicit range selection
-            // above still works and native follow-up navigation falls back.
-        }
     }
 
     private bool EnsureTable()

@@ -84,8 +84,18 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
 
     private void SetActiveRow(SpecFileEntryViewModel item)
     {
+        if (ReferenceEquals(_activeItem, item))
+        {
+            return;
+        }
+
+        if (AssociatedObject is { } view && _activeItem is { } previousActiveItem)
+        {
+            SetItemIndicatorOpacity(view.Table, previousActiveItem, InactiveOpacity);
+        }
+
         _activeItem = item;
-        ApplyActiveRow();
+        ApplyActiveItemIndicator();
     }
 
     private bool TrySendNavigationMessage(SpecFileEntryViewModel item)
@@ -112,26 +122,22 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
 
     private void ClearActiveItem()
     {
-        _activeItem = null;
-
-        if (AssociatedObject is not null)
+        if (AssociatedObject is { } view && _activeItem is { } previousActiveItem)
         {
-            SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
+            SetItemIndicatorOpacity(view.Table, previousActiveItem, InactiveOpacity);
         }
+
+        _activeItem = null;
     }
 
-    private void ApplyActiveRow()
+    private void ApplyActiveItemIndicator()
     {
-        if (AssociatedObject is null)
+        if (AssociatedObject is null || _activeItem is not { } activeItem)
         {
             return;
         }
 
-        SetDescendantIndicatorOpacity(AssociatedObject, InactiveOpacity);
-        if (_activeItem is { } activeItem)
-        {
-            SetItemIndicatorOpacity(AssociatedObject.Table, activeItem, ActiveOpacity);
-        }
+        SetItemIndicatorOpacity(AssociatedObject.Table, activeItem, ActiveOpacity);
     }
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)

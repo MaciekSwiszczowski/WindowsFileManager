@@ -157,13 +157,22 @@ internal static class FileEntryTableBehaviorHelper
         navigationState.SetCurrent(table, targetIndex, resetSelectionAnchor: true);
         if (table.SelectedItems.Count == 1 && ReferenceEquals(table.SelectedItems[0], item))
         {
-            table.ScrollRowIntoView(targetIndex);
+            ScrollRowIntoViewIfNeeded(table, targetIndex);
             return;
         }
 
         table.SelectedItems.Clear();
         table.SelectedItems.Add(item);
-        table.ScrollRowIntoView(targetIndex);
+        ScrollRowIntoViewIfNeeded(table, targetIndex);
+    }
+
+    public static void ScrollRowIntoViewIfNeeded(TableView table, int targetIndex)
+    {
+        var visibleRange = GetVisibleRowRange(table);
+        if (targetIndex < visibleRange.FirstIndex || targetIndex > visibleRange.LastIndex)
+        {
+            table.ScrollRowIntoView(targetIndex);
+        }
     }
 
     public static SpecFileEntryViewModel? GetParentItem(TableView table) =>

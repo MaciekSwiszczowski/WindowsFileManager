@@ -136,7 +136,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
         _shiftRangeActive = true;
         NavigationState?.SetSelectionRange(EntryTable, anchorIndex, targetIndex);
-        EntryTable.ScrollRowIntoView(targetIndex);
+        FileEntryTableBehaviorHelper.ScrollRowIntoViewIfNeeded(EntryTable, targetIndex);
         PublishSelectionChanged();
     }
 

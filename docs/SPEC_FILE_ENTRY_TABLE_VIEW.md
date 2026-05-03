@@ -670,6 +670,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `Home` lands on `..` if shown, else first visible row.
 - [ ] `End` lands on last visible row, or `..` on empty list.
 - [ ] All cursor changes scroll the target into view.
+- [ ] Holding `Up` / `Down` moves selection smoothly through visible rows without delayed jumps.
 - [ ] Active row indicator follows `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown`, including when the target row is realized after scrolling.
 - [ ] After `Home`, `End`, `PageUp`, or `PageDown`, the next `Up` / `Down` starts from the newly selected row.
 - [ ] Non-focused tables do not receive keyboard navigation.

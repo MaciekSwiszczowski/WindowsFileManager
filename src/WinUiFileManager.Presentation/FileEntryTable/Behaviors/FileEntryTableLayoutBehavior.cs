@@ -1,8 +1,6 @@
-using WinUiFileManager.Presentation.FileEntryTable;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class FileEntryTableLayoutBehavior : Behavior<SpecFileEntryTableView>
+public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehavior
 {
     protected override void OnAttached()
     {

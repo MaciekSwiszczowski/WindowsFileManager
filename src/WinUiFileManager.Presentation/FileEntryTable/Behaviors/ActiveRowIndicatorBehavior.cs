@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ActiveRowIndicatorBehavior : Behavior<SpecFileEntryTableView>
+public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
 {
     private const string DefaultIndicatorName = "ActiveRowIndicator";
 

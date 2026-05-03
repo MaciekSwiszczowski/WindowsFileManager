@@ -9,7 +9,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// Shift+PageDown extends it to the last visible row when the cursor is inside the viewport
 /// and not already last; otherwise it extends down by the current visible row count.
 /// </summary>
-public sealed class FileEntryTableKeyboardSelectionBehavior : Behavior<SpecFileEntryTableView>
+public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBehavior
 {
     private TableView? _entryTable;
     private bool _selectionEventsAttached;

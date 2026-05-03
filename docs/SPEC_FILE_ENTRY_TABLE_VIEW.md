@@ -96,6 +96,7 @@ Column widths are **not** dependency properties; hosts drive them with messages 
 | Property | Type | Default | Description |
 |---|---|---|---|
 | `Identity` | `string` | `""` | Tagged onto every outgoing message so consumers can distinguish table instances (e.g. `"Left"`, `"Right"`). Must be set before `Loaded`. |
+| `NavigationState` | `FileEntryTableNavigationState` | new instance | Shared per-control cursor and selection-anchor state. Phase 1 only exposes and passes it to behaviors; existing behavior logic still owns its current runtime state. |
 
 ### 3.3 Supporting types
 
@@ -161,6 +162,8 @@ The control does not expose any custom CLR events.
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
+
+All attached behaviors derive from `FileEntryTableBehavior`, which captures the owning control's `NavigationState` on attach. The state is intentionally not consumed by behavior logic yet; it is the shared surface for the next navigation/selection refactor phase.
 
 ---
 

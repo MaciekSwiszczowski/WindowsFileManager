@@ -25,6 +25,8 @@ public sealed partial class SpecFileEntryTableView
 
     public TableView Table => EntryTable;
 
+    public FileEntryTableNavigationState NavigationState { get; } = new();
+
     public string Identity { get; set; } = string.Empty;
 
     private void SpecFileEntryTableView_Loaded(object sender, RoutedEventArgs e)

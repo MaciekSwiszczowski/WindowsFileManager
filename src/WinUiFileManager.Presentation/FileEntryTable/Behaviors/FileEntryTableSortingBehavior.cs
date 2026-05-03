@@ -2,7 +2,7 @@ using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class FileEntryTableSortingBehavior : Behavior<SpecFileEntryTableView>
+public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
 {
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;

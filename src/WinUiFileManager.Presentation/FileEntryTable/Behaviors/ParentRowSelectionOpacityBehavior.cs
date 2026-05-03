@@ -2,7 +2,7 @@ using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ParentRowSelectionOpacityBehavior : Behavior<SpecFileEntryTableView>
+public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
 {
     private const double ParentSelectionOpacity = 0.5d;
     private const double DefaultSelectionOpacity = 1d;

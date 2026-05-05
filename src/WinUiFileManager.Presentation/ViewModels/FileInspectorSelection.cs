@@ -90,6 +90,9 @@ public sealed record FileInspectorSelection(
             AttributesFlags: model.Attributes);
     }
 
+    public static FileInspectorSelection NoSelection(string statusMessage, long refreshVersion) =>
+        Empty(statusMessage, refreshVersion);
+
     private static FileInspectorSelection Empty(string statusMessage, long refreshVersion)
     {
         return new FileInspectorSelection(

@@ -1,15 +1,11 @@
-using System.Linq;
-using Microsoft.Extensions.Logging.Abstractions;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
 using Microsoft.Reactive.Testing;
 using Microsoft.UI.Xaml;
-using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Application.Tests.Fakes;
-using WinUiFileManager.Application.Tests.Fixtures;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Infrastructure.FileSystem;
-using WinUiFileManager.Interop.Adapters;
-using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Application.Messages;
+using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.FileEntryTable.Messages;
+using WinUiFileManager.Presentation.ViewModels.FileInspector;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
@@ -96,6 +92,52 @@ public sealed class FileInspectorViewModelTests
 
         await Assert.That(identityService.ToggleRequests.Count).IsEqualTo(1);
         await Assert.That(identityService.ToggleRequests[0]).IsEqualTo((@"C:\temp\alpha.txt", FileAttributes.ReadOnly, true));
+    }
+
+    [Test]
+    public async Task Test_SelectionChangedMessage_ShowsBasicFieldsThenThrottlesDeferredLoad()
+    {
+        var scheduler = new TestScheduler();
+        using var sut = new FileInspectorViewModel(
+            new RecordingFileIdentityService(),
+            new FakeClipboardService(),
+            new FakeShellService(),
+            new TestSchedulerProvider(scheduler),
+            NullLogger<FileInspectorViewModel>.Instance);
+        var entry = CreateSpecEntry(
+            name: "delayed.txt",
+            fullPath: @"C:\temp\delayed.txt",
+            kind: ItemKind.File,
+            size: 512);
+
+        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage("Left", IsFocused: true));
+        WeakReferenceMessenger.Default.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [entry],
+                IsParentRowSelected: false,
+                ActiveItem: entry));
+
+        scheduler.AdvanceBy(10);
+
+        await Assert.That(sut.HasItem).IsTrue();
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("delayed.txt");
+        await Assert.That(GetFieldValue(sut, "IDs", "File ID")).IsEqualTo(string.Empty);
+
+        scheduler.AdvanceBy(TimeSpan.FromMilliseconds(299).Ticks);
+
+        await Assert.That(GetFieldValue(sut, "IDs", "File ID")).IsEqualTo(string.Empty);
+
+        WeakReferenceMessenger.Default.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [],
+                IsParentRowSelected: false));
+
+        scheduler.AdvanceBy(10);
+
+        await Assert.That(sut.HasItem).IsFalse();
+        await Assert.That(sut.StatusMessage).IsEqualTo("No selection");
     }
 
     [Test]
@@ -208,11 +250,10 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_ShowPropertiesCommand_UsesShellServiceForCurrentSelection()
     {
         var shellService = new FakeShellService();
-        using var sut = new FileInspectorViewModel(
+        using var sut = new TestFileInspectorDetailsViewModel(
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             shellService,
-            new FileTableFocusService(),
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance);
         var entry = CreateEntry(
@@ -228,13 +269,12 @@ public sealed class FileInspectorViewModelTests
         await Assert.That(shellService.LastPropertiesPath?.DisplayPath).IsEqualTo(@"C:\temp\image.jpg");
     }
 
-    private static FileInspectorViewModel CreateSubject(IFileIdentityService identityService)
+    private static TestFileInspectorDetailsViewModel CreateSubject(IFileIdentityService identityService)
     {
-        return new FileInspectorViewModel(
+        return new TestFileInspectorDetailsViewModel(
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
-            new FileTableFocusService(),
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance);
     }
@@ -255,7 +295,23 @@ public sealed class FileInspectorViewModelTests
         return new FileEntryViewModel(model);
     }
 
-    private static string GetFieldValue(FileInspectorViewModel sut, string category, string key)
+    private static SpecFileEntryViewModel CreateSpecEntry(string name, string fullPath, ItemKind kind, long size)
+    {
+        var normalizedPath = NormalizedPath.FromUserInput(fullPath);
+        var model = new FileSystemEntryModel(
+            normalizedPath,
+            name,
+            Path.GetExtension(name),
+            kind,
+            size,
+            DateTime.UtcNow,
+            DateTime.UtcNow,
+            FileAttributes.Archive);
+
+        return new SpecFileEntryViewModel(model);
+    }
+
+    private static string GetFieldValue(FileInspectorDetailsViewModelBase sut, string category, string key)
     {
         return sut.Fields
             .Single(f =>
@@ -264,7 +320,7 @@ public sealed class FileInspectorViewModelTests
             .Value;
     }
 
-    private static List<FileInspectorCategoryViewModel> GetVisibleCategories(FileInspectorViewModel sut)
+    private static List<FileInspectorCategoryViewModel> GetVisibleCategories(FileInspectorDetailsViewModelBase sut)
     {
         return sut.Categories
             .Where(static category => category.Visibility == Visibility.Visible)
@@ -272,7 +328,7 @@ public sealed class FileInspectorViewModelTests
     }
 
     private static List<FileInspectorFieldViewModel> GetVisibleFields(
-        FileInspectorViewModel sut,
+        FileInspectorDetailsViewModelBase sut,
         FileInspectorCategoryViewModel category)
     {
         return sut.Fields
@@ -519,4 +575,17 @@ public sealed class FileInspectorViewModelTests
                 lockServices: []));
         }
     }
+
+    private sealed class TestFileInspectorDetailsViewModel(
+        IFileIdentityService fileIdentityService,
+        IClipboardService clipboardService,
+        IShellService shellService,
+        ISchedulerProvider schedulers,
+        ILogger<FileInspectorViewModel> logger)
+        : FileInspectorDetailsViewModelBase(
+            fileIdentityService,
+            clipboardService,
+            shellService,
+            schedulers,
+            logger);
 }

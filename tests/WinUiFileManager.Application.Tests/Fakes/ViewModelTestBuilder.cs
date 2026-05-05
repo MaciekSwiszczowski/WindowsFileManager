@@ -130,7 +130,6 @@ public sealed class ViewModelTestBuilder
             fileIdentityService,
             clipboardService,
             shellService,
-            new FileTableFocusService(),
             schedulers,
             NullLogger<FileInspectorViewModel>.Instance);
     }

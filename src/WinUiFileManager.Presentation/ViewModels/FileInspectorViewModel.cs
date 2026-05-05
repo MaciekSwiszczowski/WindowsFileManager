@@ -1,17 +1,24 @@
-using WinUiFileManager.Presentation.Services;
+using DynamicData;
+using DynamicData.Binding;
+using System.Reactive.Linq;
+using System.Reactive.Disposables;
+using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.ViewModels.FileInspector;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
-public sealed partial class FileInspectorViewModel : FileInspector.FileInspectorDetailsViewModelBase
+public sealed partial class FileInspectorViewModel : FileInspectorDetailsViewModelBase
 {
-    private readonly FileTableFocusService _fileTableFocusService;
+    private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(300);
+
+    private readonly CompositeDisposable _subscriptions = new();
+    private readonly SourceList<SpecFileEntryViewModel> _selectedItemsSource = new();
     private bool _disposed;
 
     public FileInspectorViewModel(
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
         IShellService shellService,
-        FileTableFocusService fileTableFocusService,
         ISchedulerProvider schedulers,
         ILogger<FileInspectorViewModel> logger)
         : base(
@@ -21,8 +28,44 @@ public sealed partial class FileInspectorViewModel : FileInspector.FileInspector
             schedulers,
             logger)
     {
-        _fileTableFocusService = fileTableFocusService;
-        SubscribeToTableMessages();
+        _subscriptions.Add(_selectedItemsSource
+            .Connect()
+            .Bind(SelectedItems)
+            .Subscribe(_ => OnPropertyChanged(nameof(SelectedItems))));
+        _subscriptions.Add(_selectedItemsSource);
+
+        var observable = WeakReferenceMessenger.Default
+            .CreateObservable<FileTableSelectionChangedMessage>()
+            .ObserveOn(schedulers.Background);
+
+        _subscriptions.Add(
+            observable
+                .Where(static message => message.SelectedItems.Count == 0)
+                .ObserveOn(schedulers.MainThread)
+                .Subscribe(_ =>
+                {
+                    UpdateSelectedItems([]);
+                    ShowNoSelection();
+                }));
+
+        _subscriptions.Add(
+            observable
+                .Where(static message => message.SelectedItems.Count == 1)
+                .ObserveOn(schedulers.MainThread)
+                .Subscribe(message =>
+                {
+                    UpdateSelectedItems(message.SelectedItems);
+                    ApplyBasicTableSelection(message.SelectedItems);
+                }));
+
+        _subscriptions.Add(
+            observable
+                .Where(static message => message.SelectedItems.Count == 1)
+                .Throttle(SelectionThrottle, schedulers.Background)
+                .ObserveOn(schedulers.MainThread)
+                .Subscribe(message => LoadDeferredTableSelection(message.SelectedItems)));
+
+        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
     public override void Dispose()
@@ -33,29 +76,40 @@ public sealed partial class FileInspectorViewModel : FileInspector.FileInspector
         }
 
         _disposed = true;
+        _subscriptions.Dispose();
         WeakReferenceMessenger.Default.UnregisterAll(this);
         base.Dispose();
-    }
-
-    private void SubscribeToTableMessages()
-    {
-        WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
-        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
         if (message.IsFocused)
         {
-            ApplyTableSelectionForIdentity(message.Identity);
+            var selectedItems = RequestSelectedItems(message.Identity);
+            UpdateSelectedItems(selectedItems);
+            ApplyTableSelection(selectedItems);
         }
     }
 
-    private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
+    public ObservableCollectionExtended<SpecFileEntryViewModel> SelectedItems { get; } = [];
+
+    private static IReadOnlyList<SpecFileEntryViewModel> RequestSelectedItems(string identity)
     {
-        if (string.Equals(message.Identity, _fileTableFocusService.SourcePanelIdentity, StringComparison.Ordinal))
+        if (string.IsNullOrWhiteSpace(identity))
         {
-            ApplyTableSelection(message.SelectedItems);
+            return [];
         }
+
+        var request = WeakReferenceMessenger.Default.Send(new FileTableSelectedItemsRequestMessage(identity));
+        return request.HasReceivedResponse ? request.Response : [];
+    }
+
+    private void UpdateSelectedItems(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
+    {
+        _selectedItemsSource.Edit(items =>
+        {
+            items.Clear();
+            items.AddRange(selectedEntries);
+        });
     }
 }

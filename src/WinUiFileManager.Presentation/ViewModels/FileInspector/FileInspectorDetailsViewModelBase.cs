@@ -33,6 +33,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
     private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
+    private FileInspectorSelection? _currentTableSelection;
     private CancellationTokenSource _deferredLoadCancellation = new();
     private bool _preserveDeferredVisibilityUntilFinalBatch;
     private bool _disposed;
@@ -52,16 +53,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
 
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
-
-    public Visibility DetailsVisibility => HasItem ? Visibility.Visible : Visibility.Collapsed;
-    public Visibility SearchVisibility => HasItem && string.IsNullOrWhiteSpace(StatusMessage)
-        ? Visibility.Visible
-        : Visibility.Collapsed;
-    public Visibility StatusMessageVisibility => string.IsNullOrWhiteSpace(StatusMessage)
-        ? Visibility.Collapsed
-        : Visibility.Visible;
-
-    public Visibility EmptyStateVisibility => HasItem ? Visibility.Collapsed : Visibility.Visible;
 
     protected FileInspectorDetailsViewModelBase(
         IFileIdentityService fileIdentityService,
@@ -118,14 +109,15 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             return;
         }
 
+        var hadSelection = !string.IsNullOrWhiteSpace(_currentFullPath);
+        HasItem = selection.HasItem;
         if (!selection.HasItem)
         {
             Clear(selection.StatusMessage);
             return;
         }
 
-        var hadItem = HasItem;
-        var isSameItem = hadItem
+        var isSameItem = hadSelection
             && string.Equals(_currentFullPath, selection.FullPath, StringComparison.OrdinalIgnoreCase);
         var isSameVersion = selection.RefreshVersion == _currentSelectionVersion;
 
@@ -136,7 +128,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             return;
         }
 
-        var preserveDeferredVisibility = hadItem;
+        var preserveDeferredVisibility = hadSelection;
         ApplyBasicSelection(selection, preserveDeferredVisibility);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
@@ -146,7 +138,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     [RelayCommand]
     private async Task CopyAllAsync()
     {
-        if (!HasItem)
+        if (string.IsNullOrWhiteSpace(_currentFullPath))
         {
             return;
         }
@@ -173,7 +165,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     [RelayCommand]
     private void Refresh()
     {
-        if (HasItem)
+        if (_lastTableSelection.Count == 1)
         {
             ApplyTableSelection(_lastTableSelection);
         }
@@ -182,7 +174,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     [RelayCommand]
     private async Task ShowPropertiesAsync()
     {
-        if (!HasItem || string.IsNullOrWhiteSpace(_currentFullPath))
+        if (string.IsNullOrWhiteSpace(_currentFullPath))
         {
             return;
         }
@@ -195,7 +187,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     public void Clear(string statusMessage)
     {
         IsLoadingDetails = false;
-        HasItem = false;
         StatusMessage = statusMessage;
         _currentFullPath = string.Empty;
         _preserveDeferredVisibilityUntilFinalBatch = false;
@@ -214,19 +205,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _deferredLoadCancellation.Cancel();
         _deferredLoadCancellation.Dispose();
         GC.SuppressFinalize(this);
-    }
-
-    partial void OnHasItemChanged(bool value)
-    {
-        OnPropertyChanged(nameof(DetailsVisibility));
-        OnPropertyChanged(nameof(SearchVisibility));
-        OnPropertyChanged(nameof(EmptyStateVisibility));
-    }
-
-    partial void OnStatusMessageChanged(string value)
-    {
-        OnPropertyChanged(nameof(SearchVisibility));
-        OnPropertyChanged(nameof(StatusMessageVisibility));
     }
 
     partial void OnSearchTextChanged(string value)
@@ -303,19 +281,13 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         RefreshVisibleCategories();
     }
 
-    protected void ApplyTableSelectionForIdentity(string identity)
+    protected void ApplyTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
-        if (string.IsNullOrWhiteSpace(identity))
-        {
-            ApplyTableSelection([]);
-            return;
-        }
-
-        var request = WeakReferenceMessenger.Default.Send(new FileTableSelectedItemsRequestMessage(identity));
-        ApplyTableSelection(request.HasReceivedResponse ? request.Response : []);
+        ApplyBasicTableSelection(selectedEntries);
+        LoadDeferredTableSelection(selectedEntries);
     }
 
-    protected void ApplyTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
+    internal void ApplyBasicTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
         _lastTableSelection = selectedEntries;
         _ = Interlocked.Increment(ref _tableSelectionRefreshVersion);
@@ -324,8 +296,30 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             selectedEntries,
             _tableSelectionRefreshVersion);
 
+        _currentTableSelection = selection;
         ApplySelection(selection);
+    }
+
+    internal void LoadDeferredTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
+    {
+        if (selectedEntries.Count != 1)
+        {
+            return;
+        }
+
+        var selection = _currentTableSelection?.RefreshVersion == _currentSelectionVersion
+            ? _currentTableSelection
+            : FileInspectorSelection.FromSelection(selectedEntries, _currentSelectionVersion);
         StartDeferredLoad(selection);
+    }
+
+    internal void ShowNoSelection()
+    {
+        _lastTableSelection = [];
+        _currentTableSelection = null;
+        CancelCurrentDeferredLoad();
+        var refreshVersion = Interlocked.Increment(ref _tableSelectionRefreshVersion);
+        ApplySelection(FileInspectorSelection.NoSelection("No selection", refreshVersion));
     }
 
     private void StartDeferredLoad(FileInspectorSelection selection)
@@ -463,7 +457,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             ClearDeferredFields();
         }
 
-        HasItem = true;
         _preserveDeferredVisibilityUntilFinalBatch = preserveDeferredVisibility;
         RefreshVisibleCategories(preserveDeferredVisibility);
     }
@@ -577,7 +570,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             return;
         }
 
-        if (!HasItem)
+        if (string.IsNullOrWhiteSpace(_currentFullPath))
         {
             foreach (var category in Categories)
             {
@@ -1028,14 +1021,16 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         if (batchResult.IsFinalBatch)
         {
             IsLoadingDetails = false;
-            if (HasItem)
+            if (string.IsNullOrWhiteSpace(_currentFullPath))
             {
-                StatusMessage = string.Empty;
+                return;
             }
+
+            StatusMessage = string.Empty;
         }
     }
 
-    private bool _hasCurrentSelection => HasItem;
+    private bool _hasCurrentSelection => !string.IsNullOrWhiteSpace(_currentFullPath);
 
     private static bool HasPositiveLockEvidence(FileLockDiagnostics diagnostics) =>
         diagnostics.InUse == true

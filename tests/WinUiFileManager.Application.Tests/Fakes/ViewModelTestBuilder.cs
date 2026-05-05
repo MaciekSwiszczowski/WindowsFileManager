@@ -4,6 +4,7 @@ using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure.Scheduling;
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
@@ -83,12 +84,12 @@ public sealed class ViewModelTestBuilder
             persistPaneState,
             DialogService,
             FavouritesRepository,
-            schedulers,
             NullLogger<MainShellViewModel>.Instance,
             CreateInspectorViewModel(
                 fileIdentityService,
                 ClipboardService,
-                ShellService),
+                ShellService,
+                schedulers),
             CreatePaneViewModel(
                 openEntry, renameHandler, fsService, changeStream, schedulers, volumePolicy, pathService,
                 NullLogger<FilePaneViewModel>.Instance),
@@ -122,12 +123,15 @@ public sealed class ViewModelTestBuilder
     private static FileInspectorViewModel CreateInspectorViewModel(
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
-        IShellService shellService)
+        IShellService shellService,
+        ISchedulerProvider schedulers)
     {
         return new FileInspectorViewModel(
             fileIdentityService,
             clipboardService,
             shellService,
+            new FileTableFocusService(),
+            schedulers,
             NullLogger<FileInspectorViewModel>.Instance);
     }
 }

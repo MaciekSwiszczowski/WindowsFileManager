@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Reactive.Testing;
 using Microsoft.UI.Xaml;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Tests.Fakes;
@@ -8,6 +9,7 @@ using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Interop.Adapters;
+using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
@@ -210,6 +212,8 @@ public sealed class FileInspectorViewModelTests
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             shellService,
+            new FileTableFocusService(),
+            new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance);
         var entry = CreateEntry(
             name: "image.jpg",
@@ -230,6 +234,8 @@ public sealed class FileInspectorViewModelTests
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
+            new FileTableFocusService(),
+            new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance);
     }
 

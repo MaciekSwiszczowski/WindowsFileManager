@@ -1,19 +1,18 @@
 namespace WinUiFileManager.Presentation.Controls;
 
-public sealed partial class FileInspectorView : UserControl
+public sealed partial class FileInspectorView
 {
     public FileInspectorView()
     {
         InitializeComponent();
     }
 
-    private FileInspectorViewModel? _viewModel;
     public FileInspectorViewModel? ViewModel
     {
-        get => _viewModel;
+        get;
         set
         {
-            _viewModel = value;
+            field = value;
             DataContext = value;
             Bindings.Update();
         }

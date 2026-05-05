@@ -1,8 +1,9 @@
 using System.Collections.Frozen;
-using System.Linq;
+using System.Reactive.Concurrency;
 using System.Runtime.CompilerServices;
 using Microsoft.UI.Xaml.Media.Imaging;
-using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 using Windows.Storage.Streams;
 
 namespace WinUiFileManager.Presentation.ViewModels;
@@ -14,6 +15,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private readonly IFileIdentityService _fileIdentityService;
     private readonly IClipboardService _clipboardService;
     private readonly IShellService _shellService;
+    private readonly FileTableFocusService _fileTableFocusService;
+    private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
@@ -30,6 +33,9 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
+    private long _tableSelectionRefreshVersion;
+    private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
+    private CancellationTokenSource _deferredLoadCancellation = new();
     private bool _preserveDeferredVisibilityUntilFinalBatch;
     private bool _disposed;
 
@@ -59,17 +65,19 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
     public Visibility EmptyStateVisibility => HasItem ? Visibility.Collapsed : Visibility.Visible;
 
-    public event EventHandler? RefreshRequested;
-
     public FileInspectorViewModel(
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
         IShellService shellService,
+        FileTableFocusService fileTableFocusService,
+        ISchedulerProvider schedulers,
         ILogger<FileInspectorViewModel> logger)
     {
         _fileIdentityService = fileIdentityService;
         _clipboardService = clipboardService;
         _shellService = shellService;
+        _fileTableFocusService = fileTableFocusService;
+        _schedulers = schedulers;
         _logger = logger;
 
         InitializeFieldDefinitions();
@@ -104,6 +112,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
                 IsFinalBatch: true,
                 LoadCloudBatchAsync)
         ];
+
+        SubscribeToTableMessages();
     }
 
     public void ApplySelection(FileInspectorSelection selection)
@@ -170,7 +180,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     {
         if (HasItem)
         {
-            RefreshRequested?.Invoke(this, EventArgs.Empty);
+            ApplyTableSelection(_lastTableSelection);
         }
     }
 
@@ -206,6 +216,10 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         }
 
         _disposed = true;
+        _deferredLoadCancellation.Cancel();
+        _deferredLoadCancellation.Dispose();
+        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _fileTableFocusService.PropertyChanged -= OnFileTableFocusServicePropertyChanged;
     }
 
     partial void OnHasItemChanged(bool value)
@@ -293,6 +307,133 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         RegisterField("Locks", "Lock Services", "Service names associated with the lock, when available.", 4);
 
         RefreshVisibleCategories();
+    }
+
+    private void SubscribeToTableMessages()
+    {
+        WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+        _fileTableFocusService.PropertyChanged += OnFileTableFocusServicePropertyChanged;
+    }
+
+    private void OnFileTableFocusServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(FileTableFocusService.ActivePanelIdentity))
+        {
+            ApplyActiveTableSelection();
+        }
+    }
+
+    private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
+    {
+        if (!string.Equals(message.Identity, _fileTableFocusService.ActivePanelIdentity, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        ApplyTableSelection(message.SelectedItems);
+    }
+
+    private void ApplyActiveTableSelection()
+    {
+        var identity = _fileTableFocusService.ActivePanelIdentity;
+        if (string.IsNullOrWhiteSpace(identity))
+        {
+            ApplyTableSelection([]);
+            return;
+        }
+
+        var request = WeakReferenceMessenger.Default.Send(new FileTableSelectedItemsRequestMessage(identity));
+        ApplyTableSelection(request.HasReceivedResponse ? request.Response : []);
+    }
+
+    private void ApplyTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
+    {
+        _lastTableSelection = selectedEntries;
+        _ = Interlocked.Increment(ref _tableSelectionRefreshVersion);
+
+        var selection = FileInspectorSelection.FromSelection(
+            selectedEntries,
+            _tableSelectionRefreshVersion);
+
+        ApplySelection(selection);
+        StartDeferredLoad(selection);
+    }
+
+    private void StartDeferredLoad(FileInspectorSelection selection)
+    {
+        CancelCurrentDeferredLoad();
+
+        if (!selection.CanLoadDeferred)
+        {
+            return;
+        }
+
+        _ = LoadDeferredBatchesForSelectionAsync(
+            selection,
+            _deferredLoadCancellation.Token);
+    }
+
+    private async Task LoadDeferredBatchesForSelectionAsync(
+        FileInspectorSelection selection,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Run(async () =>
+            {
+                await foreach (var batch in LoadDeferredBatchesAsync(selection, cancellationToken)
+                    .ConfigureAwait(false))
+                {
+                    await RunOnMainThreadAsync(
+                        () => ApplyDeferredBatch(batch),
+                        cancellationToken).ConfigureAwait(false);
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _disposed)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Inspector deferred batch streaming failed");
+        }
+    }
+
+    private Task RunOnMainThreadAsync(Action action, CancellationToken cancellationToken)
+    {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled(cancellationToken);
+        }
+
+        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _schedulers.MainThread.Schedule(() =>
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                completion.TrySetCanceled(cancellationToken);
+                return;
+            }
+
+            try
+            {
+                action();
+                completion.TrySetResult();
+            }
+            catch (Exception ex)
+            {
+                completion.TrySetException(ex);
+            }
+        });
+
+        return completion.Task;
+    }
+
+    private void CancelCurrentDeferredLoad()
+    {
+        _deferredLoadCancellation.Cancel();
+        _deferredLoadCancellation.Dispose();
+        _deferredLoadCancellation = new CancellationTokenSource();
     }
 
     private void RegisterField(string category, string key, string tooltip, int sortOrder)
@@ -437,7 +578,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
 
             if (updated)
             {
-                RefreshRequested?.Invoke(this, EventArgs.Empty);
+                ApplyTableSelection(_lastTableSelection);
             }
 
             return updated;

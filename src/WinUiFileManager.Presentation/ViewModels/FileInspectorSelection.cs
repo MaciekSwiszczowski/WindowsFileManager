@@ -1,3 +1,5 @@
+using WinUiFileManager.Presentation.FileEntryTable;
+
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed record FileInspectorSelection(
@@ -30,6 +32,37 @@ public sealed record FileInspectorSelection(
             return Empty(string.Empty, refreshVersion);
         }
 
+        if (selectedEntries.Count != 1)
+        {
+            return Empty(string.Empty, refreshVersion);
+        }
+
+        var entry = selectedEntries[0];
+        if (entry.Model is not { } model)
+        {
+            return Empty(string.Empty, refreshVersion);
+        }
+
+        return new FileInspectorSelection(
+            HasItem: true,
+            StatusMessage: string.Empty,
+            CanLoadDeferred: true,
+            RefreshVersion: refreshVersion,
+            FullPath: model.FullPath.DisplayPath,
+            Name: entry.Name,
+            Extension: entry.Extension,
+            Kind: model.Kind,
+            SizeBytes: model.Size,
+            CreationTimeUtc: model.CreationTimeUtc,
+            LastWriteTimeUtc: model.LastWriteTimeUtc,
+            Attributes: entry.Attributes,
+            AttributesFlags: model.Attributes);
+    }
+
+    public static FileInspectorSelection FromSelection(
+        IReadOnlyList<SpecFileEntryViewModel> selectedEntries,
+        long refreshVersion)
+    {
         if (selectedEntries.Count != 1)
         {
             return Empty(string.Empty, refreshVersion);

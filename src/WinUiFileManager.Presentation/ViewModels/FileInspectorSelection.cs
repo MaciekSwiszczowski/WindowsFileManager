@@ -4,7 +4,6 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed record FileInspectorSelection(
     bool HasItem,
-    string StatusMessage,
     bool CanLoadDeferred,
     long RefreshVersion,
     string FullPath,
@@ -24,28 +23,27 @@ public sealed record FileInspectorSelection(
     {
         if (isPaneLoading)
         {
-            return Empty("Pane is loading...", refreshVersion);
+            return Empty(refreshVersion);
         }
 
         if (selectedEntries.Count == 0)
         {
-            return Empty(string.Empty, refreshVersion);
+            return Empty(refreshVersion);
         }
 
         if (selectedEntries.Count != 1)
         {
-            return Empty(string.Empty, refreshVersion);
+            return Empty(refreshVersion);
         }
 
         var entry = selectedEntries[0];
         if (entry.Model is not { } model)
         {
-            return Empty(string.Empty, refreshVersion);
+            return Empty(refreshVersion);
         }
 
         return new FileInspectorSelection(
             HasItem: true,
-            StatusMessage: string.Empty,
             CanLoadDeferred: true,
             RefreshVersion: refreshVersion,
             FullPath: model.FullPath.DisplayPath,
@@ -65,18 +63,17 @@ public sealed record FileInspectorSelection(
     {
         if (selectedEntries.Count != 1)
         {
-            return Empty(string.Empty, refreshVersion);
+            return Empty(refreshVersion);
         }
 
         var entry = selectedEntries[0];
         if (entry.Model is not { } model)
         {
-            return Empty(string.Empty, refreshVersion);
+            return Empty(refreshVersion);
         }
 
         return new FileInspectorSelection(
             HasItem: true,
-            StatusMessage: string.Empty,
             CanLoadDeferred: true,
             RefreshVersion: refreshVersion,
             FullPath: model.FullPath.DisplayPath,
@@ -90,14 +87,12 @@ public sealed record FileInspectorSelection(
             AttributesFlags: model.Attributes);
     }
 
-    public static FileInspectorSelection NoSelection(string statusMessage, long refreshVersion) =>
-        Empty(statusMessage, refreshVersion);
+    public static FileInspectorSelection NoSelection(long refreshVersion) =>
+        Empty(refreshVersion);
 
-    private static FileInspectorSelection Empty(string statusMessage, long refreshVersion)
-    {
-        return new FileInspectorSelection(
+    private static FileInspectorSelection Empty(long refreshVersion) =>
+        new(
             HasItem: false,
-            StatusMessage: statusMessage,
             CanLoadDeferred: false,
             RefreshVersion: refreshVersion,
             FullPath: string.Empty,
@@ -109,5 +104,4 @@ public sealed record FileInspectorSelection(
             LastWriteTimeUtc: DateTime.MinValue,
             Attributes: string.Empty,
             AttributesFlags: FileAttributes.None);
-    }
 }

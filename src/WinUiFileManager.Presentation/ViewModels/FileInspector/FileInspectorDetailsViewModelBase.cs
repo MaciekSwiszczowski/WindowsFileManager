@@ -45,9 +45,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     public partial bool IsLoadingDetails { get; set; }
 
     [ObservableProperty]
-    public partial string StatusMessage { get; set; } = string.Empty;
-
-    [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
@@ -113,7 +110,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         HasItem = selection.HasItem;
         if (!selection.HasItem)
         {
-            Clear(selection.StatusMessage);
+            Clear();
             return;
         }
 
@@ -124,7 +121,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         if (isSameItem && isSameVersion)
         {
             IsLoadingDetails = selection.CanLoadDeferred;
-            StatusMessage = string.Empty;
             return;
         }
 
@@ -132,7 +128,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         ApplyBasicSelection(selection, preserveDeferredVisibility);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
-        StatusMessage = string.Empty;
     }
 
     [RelayCommand]
@@ -184,10 +179,9 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             CancellationToken.None);
     }
 
-    public void Clear(string statusMessage)
+    public void Clear()
     {
         IsLoadingDetails = false;
-        StatusMessage = statusMessage;
         _currentFullPath = string.Empty;
         _preserveDeferredVisibilityUntilFinalBatch = false;
         ClearFieldValues();
@@ -319,7 +313,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _currentTableSelection = null;
         CancelCurrentDeferredLoad();
         var refreshVersion = Interlocked.Increment(ref _tableSelectionRefreshVersion);
-        ApplySelection(FileInspectorSelection.NoSelection("No selection", refreshVersion));
+        ApplySelection(FileInspectorSelection.NoSelection(refreshVersion));
     }
 
     private void StartDeferredLoad(FileInspectorSelection selection)
@@ -1025,8 +1019,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             {
                 return;
             }
-
-            StatusMessage = string.Empty;
         }
     }
 

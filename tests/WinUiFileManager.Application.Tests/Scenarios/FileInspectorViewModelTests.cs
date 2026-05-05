@@ -137,7 +137,6 @@ public sealed class FileInspectorViewModelTests
         scheduler.AdvanceBy(10);
 
         await Assert.That(sut.HasItem).IsFalse();
-        await Assert.That(sut.StatusMessage).IsEqualTo("No selection");
     }
 
     [Test]

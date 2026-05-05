@@ -9,7 +9,6 @@ using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
@@ -359,12 +358,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private void OnNavigateDownRequested(object recipient, FileTableNavigateDownRequestedMessage message)
     {
         if (message.Identity != Identity
-            || message.Item.Model is not { Kind: ItemKind.Directory } model)
+            || message.Item.Kind != ItemKind.Directory)
         {
             return;
         }
 
-        LoadDirectory(model.FullPath.DisplayPath);
+        LoadDirectory(message.Item.FullPath.DisplayPath);
     }
 
     private static string GetKey(SpecFileEntryViewModel item)

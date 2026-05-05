@@ -2,7 +2,6 @@ using System.Collections;
 using System.Reflection;
 using CommunityToolkit.Mvvm.Messaging;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 namespace WinUiFileManager.Presentation.MessageLogging;
 
@@ -161,8 +160,10 @@ public sealed class MessageLogStore
         {
             null => "null",
             SpecFileEntryViewModel item => item.Name,
+            FileSystemEntryModel item => item.Name,
             string text => text,
             IEnumerable<SpecFileEntryViewModel> items => $"[{string.Join(", ", items.Select(static item => item.Name))}]",
+            IEnumerable<FileSystemEntryModel> items => $"[{string.Join(", ", items.Select(static item => item.Name))}]",
             IEnumerable values => $"[{string.Join(", ", values.Cast<object>())}]",
             _ => value.ToString() ?? string.Empty,
         };

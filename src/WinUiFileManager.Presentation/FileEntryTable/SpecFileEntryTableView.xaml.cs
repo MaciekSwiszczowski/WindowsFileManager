@@ -53,7 +53,11 @@ public sealed partial class SpecFileEntryTableView
 
         if (item.EntryKind == FileEntryKind.Folder)
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, item));
+            if (item.Model is { } model)
+            {
+                WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
+            }
+
             e.Handled = true;
         }
     }

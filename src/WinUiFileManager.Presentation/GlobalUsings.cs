@@ -1,4 +1,4 @@
-﻿global using System.Collections.Generic;
+global using System.Collections.Generic;
 global using System.Collections.ObjectModel;
 global using System.Collections.Specialized;
 global using System.ComponentModel;
@@ -20,5 +20,6 @@ global using WinUiFileManager.Domain.Enums;
 global using WinUiFileManager.Domain.Events;
 global using WinUiFileManager.Domain.Results;
 global using WinUiFileManager.Domain.ValueObjects;
+global using WinUiFileManager.Application.Messages;
 global using WinUiFileManager.Presentation.FileEntryTable.Messages;
 global using WinUiFileManager.Presentation.ViewModels;

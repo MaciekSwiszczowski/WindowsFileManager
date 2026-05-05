@@ -111,9 +111,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
             return true;
         }
 
-        if (item.EntryKind == FileEntryKind.Folder)
+        if (item is { EntryKind: FileEntryKind.Folder, Model: { } model })
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, item));
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model));
             return true;
         }
 

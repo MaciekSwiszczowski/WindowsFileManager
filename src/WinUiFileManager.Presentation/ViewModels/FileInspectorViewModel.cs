@@ -219,7 +219,7 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _deferredLoadCancellation.Cancel();
         _deferredLoadCancellation.Dispose();
         WeakReferenceMessenger.Default.UnregisterAll(this);
-        _fileTableFocusService.PropertyChanged -= OnFileTableFocusServicePropertyChanged;
+        _fileTableFocusService.ActivePanelChanged -= OnFileTableFocusServiceActivePanelChanged;
     }
 
     partial void OnHasItemChanged(bool value)
@@ -312,15 +312,12 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private void SubscribeToTableMessages()
     {
         WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
-        _fileTableFocusService.PropertyChanged += OnFileTableFocusServicePropertyChanged;
+        _fileTableFocusService.ActivePanelChanged += OnFileTableFocusServiceActivePanelChanged;
     }
 
-    private void OnFileTableFocusServicePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnFileTableFocusServiceActivePanelChanged(object? sender, EventArgs e)
     {
-        if (e.PropertyName == nameof(FileTableFocusService.ActivePanelIdentity))
-        {
-            ApplyActiveTableSelection();
-        }
+        ApplyActiveTableSelection();
     }
 
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)

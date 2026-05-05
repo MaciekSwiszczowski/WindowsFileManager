@@ -2,34 +2,27 @@ namespace WinUiFileManager.Presentation.Services;
 
 public sealed class FileTableFocusService
 {
-    private const string LeftPanelIdentity = "Left";
-    private const string RightPanelIdentity = "Right";
-
-    private string _activePanelIdentity = string.Empty;
+    private string _sourcePanelIdentity = string.Empty;
+    private string _targetPanelIdentity = string.Empty;
 
     public FileTableFocusService()
     {
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
-    public event EventHandler? ActivePanelChanged;
+    public string SourcePanelIdentity => _sourcePanelIdentity;
 
-    public string ActivePanelIdentity => _activePanelIdentity;
-
-    public string TargetPanelIdentity =>
-        _activePanelIdentity switch
-        {
-            LeftPanelIdentity => RightPanelIdentity,
-            RightPanelIdentity => LeftPanelIdentity,
-            _ => string.Empty
-        };
+    public string TargetPanelIdentity => _targetPanelIdentity;
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
-        if (message.IsFocused && _activePanelIdentity != message.Identity)
+        if (message.IsFocused)
         {
-            _activePanelIdentity = message.Identity;
-            ActivePanelChanged?.Invoke(this, EventArgs.Empty);
+            _sourcePanelIdentity = message.Identity;
+        }
+        else
+        {
+            _targetPanelIdentity = message.Identity;
         }
     }
 }

@@ -219,7 +219,6 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         _deferredLoadCancellation.Cancel();
         _deferredLoadCancellation.Dispose();
         WeakReferenceMessenger.Default.UnregisterAll(this);
-        _fileTableFocusService.ActivePanelChanged -= OnFileTableFocusServiceActivePanelChanged;
     }
 
     partial void OnHasItemChanged(bool value)
@@ -312,17 +311,20 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
     private void SubscribeToTableMessages()
     {
         WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
-        _fileTableFocusService.ActivePanelChanged += OnFileTableFocusServiceActivePanelChanged;
+        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
-    private void OnFileTableFocusServiceActivePanelChanged(object? sender, EventArgs e)
+    private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
-        ApplyActiveTableSelection();
+        if (message.IsFocused)
+        {
+            ApplyTableSelectionForIdentity(message.Identity);
+        }
     }
 
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
     {
-        if (!string.Equals(message.Identity, _fileTableFocusService.ActivePanelIdentity, StringComparison.Ordinal))
+        if (!string.Equals(message.Identity, _fileTableFocusService.SourcePanelIdentity, StringComparison.Ordinal))
         {
             return;
         }
@@ -330,9 +332,8 @@ public sealed partial class FileInspectorViewModel : ObservableObject, IDisposab
         ApplyTableSelection(message.SelectedItems);
     }
 
-    private void ApplyActiveTableSelection()
+    private void ApplyTableSelectionForIdentity(string identity)
     {
-        var identity = _fileTableFocusService.ActivePanelIdentity;
         if (string.IsNullOrWhiteSpace(identity))
         {
             ApplyTableSelection([]);

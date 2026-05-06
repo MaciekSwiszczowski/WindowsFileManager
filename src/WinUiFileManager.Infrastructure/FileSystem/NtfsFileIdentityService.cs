@@ -312,16 +312,19 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 WIN32_FIND_STREAM_DATA data;
                 fixed (char* pathPointer = path)
                 {
-                    using var handle = new SafeFindFilesHandle(
-                        (IntPtr)PInvoke.FindFirstStream(pathPointer, STREAM_INFO_LEVELS.FindStreamInfoStandard, &data, 0),
-                        ownsHandle: true);
+                    var findHandle = PInvoke.FindFirstStream(
+                        pathPointer,
+                        STREAM_INFO_LEVELS.FindStreamInfoStandard,
+                        &data,
+                        0);
+                    using var handle = new SafeFindFilesHandle(findHandle, ownsHandle: true);
                     if (handle.IsInvalid)
                     {
                         return Task.FromResult(new FileStreamDiagnosticsDetails("0", streams));
                     }
 
                     AddStreamName(streams, data);
-                    while (PInvoke.FindNextStream(new HANDLE(handle.DangerousGetHandle()), &data))
+                    while (PInvoke.FindNextStream(handle.DangerousGetHandleForPInvoke(), &data))
                     {
                         AddStreamName(streams, data);
                     }

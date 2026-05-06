@@ -6,26 +6,15 @@ namespace WinUiFileManager.Interop.SafeHandles;
 
 internal sealed class SafeFindFilesHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
-    private readonly Func<IntPtr, bool> _releaseHandle;
-
-    public SafeFindFilesHandle()
-        : this(IntPtr.Zero, ownsHandle: true)
-    {
-    }
-
-    internal SafeFindFilesHandle(IntPtr preexistingHandle, bool ownsHandle, Func<IntPtr, bool>? releaseHandle = null)
+    internal unsafe SafeFindFilesHandle(HANDLE preexistingHandle, bool ownsHandle)
         : base(ownsHandle)
     {
-        SetHandle(preexistingHandle);
-        _releaseHandle = releaseHandle ?? FindCloseCore;
+        SetHandle((nint)preexistingHandle.Value);
     }
+
+    internal HANDLE DangerousGetHandleForPInvoke() => new(DangerousGetHandle());
 
     protected override bool ReleaseHandle()
-    {
-        return _releaseHandle(handle);
-    }
-
-    private static bool FindCloseCore(IntPtr handle)
     {
         return PInvoke.FindClose(new HANDLE(handle));
     }

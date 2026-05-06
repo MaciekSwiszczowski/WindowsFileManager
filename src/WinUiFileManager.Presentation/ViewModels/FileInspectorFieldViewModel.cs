@@ -4,17 +4,17 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 {
     private readonly string _searchPrefix;
 
-    public FileInspectorFieldViewModel(string category, string key, string tooltip, string value = "", int sortOrder = 0)
+    public FileInspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "", int sortOrder = 0)
     {
         Category = category;
         Key = key;
         Tooltip = tooltip;
         Value = value;
         SortOrder = sortOrder;
-        _searchPrefix = string.Concat(Category, " ", Key, " ");
+        _searchPrefix = string.Concat(Category.GetDisplayName(), " ", Key, " ");
     }
 
-    public string Category { get; }
+    public FileInspectorCategory Category { get; }
 
     public string Key { get; }
 
@@ -23,7 +23,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     public int SortOrder { get; }
 
     [ObservableProperty]
-    public partial string Value { get; set; } = string.Empty;
+    public partial string Value { get; set; }
 
     [ObservableProperty]
     public partial ImageSource? ThumbnailSource { get; set; }

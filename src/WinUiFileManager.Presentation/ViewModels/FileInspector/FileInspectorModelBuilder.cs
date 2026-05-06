@@ -1,3 +1,5 @@
+using WinUiFileManager.Presentation.ViewModels.FileInspector.Categories;
+
 namespace WinUiFileManager.Presentation.ViewModels.FileInspector;
 
 internal sealed class FileInspectorModelBuilder
@@ -18,7 +20,7 @@ internal sealed class FileInspectorModelBuilder
         var fields = new ObservableCollection<FileInspectorFieldViewModel>();
         var categories = new ObservableCollection<FileInspectorCategoryViewModel>();
         var fieldMap = new Dictionary<string, FileInspectorFieldViewModel>(StringComparer.OrdinalIgnoreCase);
-        var categoryMap = new Dictionary<string, FileInspectorCategoryViewModel>(StringComparer.OrdinalIgnoreCase);
+        var categoryMap = new Dictionary<FileInspectorCategory, FileInspectorCategoryViewModel>();
         var deferredFieldKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var provider in CreateCategoryProviders())
@@ -70,9 +72,9 @@ internal sealed class FileInspectorModelBuilder
     ];
 
     private static FileInspectorCategoryViewModel GetOrCreateCategory(
-        string category,
+        FileInspectorCategory category,
         ObservableCollection<FileInspectorCategoryViewModel> categories,
-        Dictionary<string, FileInspectorCategoryViewModel> categoryMap)
+        Dictionary<FileInspectorCategory, FileInspectorCategoryViewModel> categoryMap)
     {
         if (categoryMap.TryGetValue(category, out var existingCategory))
         {
@@ -83,7 +85,7 @@ internal sealed class FileInspectorModelBuilder
         categoryMap.Add(category, createdCategory);
         var insertIndex = 0;
         while (insertIndex < categories.Count
-               && FileInspectorCategorySort.GetSortOrder(categories[insertIndex].Name) <= FileInspectorCategorySort.GetSortOrder(category))
+               && FileInspectorCategorySort.GetSortOrder(categories[insertIndex].Category) <= FileInspectorCategorySort.GetSortOrder(category))
         {
             insertIndex++;
         }

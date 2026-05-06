@@ -2,7 +2,7 @@ namespace WinUiFileManager.Presentation.ViewModels.FileInspector;
 
 internal interface IFileInspectorCategoryProvider
 {
-    string Category { get; }
+    FileInspectorCategory Category { get; }
 
     IReadOnlyList<FileInspectorFieldDefinition> Fields { get; }
 }

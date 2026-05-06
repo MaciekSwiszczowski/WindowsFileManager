@@ -1,9 +1,9 @@
-using System.Collections.Frozen;
 using System.Reactive.Concurrency;
 using System.Runtime.CompilerServices;
 using Windows.Storage.Streams;
 using Microsoft.UI.Xaml.Media.Imaging;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.ViewModels.FileInspector.Categories;
 
 namespace WinUiFileManager.Presentation.ViewModels.FileInspector;
 
@@ -16,18 +16,8 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     private readonly IShellService _shellService;
     private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<FileInspectorViewModel> _logger;
-    private readonly IReadOnlyDictionary<string, FileInspectorFieldViewModel> _fieldMap;
+    private readonly FileInspectorFieldStore _fieldStore;
     private readonly List<InspectorBatchDefinition> _deferredBatches;
-    private readonly IReadOnlySet<string> _deferredFieldKeys;
-    private static readonly FrozenDictionary<string, FileAttributes> ToggleableNtfsFlags =
-        new Dictionary<string, FileAttributes>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["Read Only"] = FileAttributes.ReadOnly,
-            ["Hidden"] = FileAttributes.Hidden,
-            ["Archive"] = FileAttributes.Archive,
-            ["Temporary"] = FileAttributes.Temporary,
-            ["Not Content Indexed"] = FileAttributes.NotContentIndexed
-        }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
@@ -64,41 +54,40 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _logger = logger;
 
         var inspectorModel = new FileInspectorModelBuilder(
-            static key => ToggleableNtfsFlags.ContainsKey(key),
+            NtfsFileInspectorCategory.CanToggleField,
             ToggleNtfsFlagAsync).Build();
-        Fields = inspectorModel.Fields;
-        Categories = inspectorModel.Categories;
-        _fieldMap = inspectorModel.FieldMap;
-        _deferredFieldKeys = inspectorModel.DeferredFieldKeys;
+        _fieldStore = new FileInspectorFieldStore(inspectorModel);
+        Fields = _fieldStore.Fields;
+        Categories = _fieldStore.Categories;
 
         _deferredBatches =
         [
             new InspectorBatchDefinition(
-                "IDs",
+                FileInspectorCategory.Ids,
                 IsFinalBatch: false,
                 LoadIdentityBatchAsync),
             new InspectorBatchDefinition(
-                "Locks",
+                FileInspectorCategory.Locks,
                 IsFinalBatch: false,
                 LoadLockDiagnosticsBatchAsync),
             new InspectorBatchDefinition(
-                "Links",
+                FileInspectorCategory.Links,
                 IsFinalBatch: false,
                 LoadLinkBatchAsync),
             new InspectorBatchDefinition(
-                "Streams",
+                FileInspectorCategory.Streams,
                 IsFinalBatch: false,
                 LoadStreamBatchAsync),
             new InspectorBatchDefinition(
-                "Security",
+                FileInspectorCategory.Security,
                 IsFinalBatch: false,
                 LoadSecurityBatchAsync),
             new InspectorBatchDefinition(
-                "Thumbnails",
+                FileInspectorCategory.Thumbnails,
                 IsFinalBatch: false,
                 LoadThumbnailBatchAsync),
             new InspectorBatchDefinition(
-                "Cloud",
+                FileInspectorCategory.Cloud,
                 IsFinalBatch: true,
                 LoadCloudBatchAsync)
         ];
@@ -147,11 +136,11 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         var builder = new StringBuilder();
         foreach (var grouping in Categories
             .Where(static category => category.HasVisibleFields)
-            .OrderBy(category => FileInspectorCategorySort.GetSortOrder(category.Name)))
+            .OrderBy(static category => FileInspectorCategorySort.GetSortOrder(category.Category)))
         {
             builder.AppendLine(grouping.Name);
             foreach (var field in Fields
-                .Where(field => field.IsVisible && string.Equals(field.Category, grouping.Name, StringComparison.OrdinalIgnoreCase))
+                .Where(field => field.IsVisible && field.Category == grouping.Category)
                 .OrderBy(static field => field.SortOrder))
             {
                 builder.Append("  ").Append(field.Key).Append(": ").AppendLine(field.Value);
@@ -190,7 +179,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         IsLoadingDetails = false;
         _currentFullPath = string.Empty;
         _preserveDeferredVisibilityUntilFinalBatch = false;
-        ClearFieldValues();
+        _fieldStore.ClearValues();
         RefreshVisibleCategories();
     }
 
@@ -332,93 +321,42 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
     private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
     {
-        SetFieldValue("Name", selection.Name);
-        SetFieldValue("Full Path", selection.FullPath);
-        SetFieldValue("Type", selection.Kind == ItemKind.Directory ? "Folder" : "File");
-        SetFieldValue("Extension", selection.Extension);
-        SetFieldValue("Size", FormatSize(selection.SizeBytes));
-        SetFieldValue("Attributes", selection.Attributes);
+        BasicFileInspectorCategory.ApplySelection(selection, _fieldStore);
         _currentFullPath = selection.FullPath;
 
         if (preserveDeferredVisibility)
         {
-            BeginDeferredRefresh();
+            _fieldStore.BeginDeferredRefresh();
         }
         else
         {
-            ApplyNtfsFlags(selection.AttributesFlags);
-            ClearDeferredFields();
+            NtfsFileInspectorCategory.ApplyAttributes(selection.AttributesFlags, _fieldStore);
+            _fieldStore.ClearDeferredFields();
         }
 
         _preserveDeferredVisibilityUntilFinalBatch = preserveDeferredVisibility;
         RefreshVisibleCategories(preserveDeferredVisibility);
     }
 
-    private void ClearDeferredFields()
-    {
-        foreach (var key in _deferredFieldKeys)
-        {
-            SetFieldValue(key, string.Empty);
-            SetFieldLoading(key, false);
-            if (string.Equals(key, "Thumbnail", StringComparison.OrdinalIgnoreCase))
-            {
-                SetFieldThumbnailSource(key, null);
-            }
-        }
-    }
-
-    private void ApplyNtfsFlags(FileAttributes attributes)
-    {
-        SetFieldValue("Read Only", FormatFlag(attributes.HasFlag(FileAttributes.ReadOnly)));
-        SetFieldValue("Hidden", FormatFlag(attributes.HasFlag(FileAttributes.Hidden)));
-        SetFieldValue("System", FormatFlag(attributes.HasFlag(FileAttributes.System)));
-        SetFieldValue("Archive", FormatFlag(attributes.HasFlag(FileAttributes.Archive)));
-        SetFieldValue("Temporary", FormatFlag(attributes.HasFlag(FileAttributes.Temporary)));
-        SetFieldValue("Offline", FormatFlag(attributes.HasFlag(FileAttributes.Offline)));
-        SetFieldValue("Not Content Indexed", FormatFlag(attributes.HasFlag(FileAttributes.NotContentIndexed)));
-        SetFieldValue("Encrypted", FormatFlag(attributes.HasFlag(FileAttributes.Encrypted)));
-        SetFieldValue("Compressed", FormatFlag(attributes.HasFlag(FileAttributes.Compressed)));
-        SetFieldValue("Sparse", FormatFlag(attributes.HasFlag(FileAttributes.SparseFile)));
-        SetFieldValue("Reparse Point", FormatFlag(attributes.HasFlag(FileAttributes.ReparsePoint)));
-    }
-
-    private void ClearLockFields()
-    {
-        SetFieldValue("Is locked", string.Empty);
-        SetFieldValue("In Use", string.Empty);
-        SetFieldValue("Locked By", string.Empty);
-        SetFieldValue("Lock PIDs", string.Empty);
-        SetFieldValue("Lock Services", string.Empty);
-    }
-
     private void SetFieldValue(string key, string value)
     {
-        if (_fieldMap.TryGetValue(key, out var field))
-        {
-            field.Value = value;
-        }
+        _fieldStore.SetValue(key, value);
     }
 
     private void SetFieldThumbnailSource(string key, ImageSource? value)
     {
-        if (_fieldMap.TryGetValue(key, out var field))
-        {
-            field.ThumbnailSource = value;
-        }
+        _fieldStore.SetThumbnailSource(key, value);
     }
 
     private void SetFieldLoading(string key, bool isLoading)
     {
-        if (_fieldMap.TryGetValue(key, out var field))
-        {
-            field.IsLoading = isLoading;
-        }
+        _fieldStore.SetLoading(key, isLoading);
     }
 
     private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
     {
         if (string.IsNullOrWhiteSpace(_currentFullPath)
-            || !ToggleableNtfsFlags.TryGetValue(key, out var flag))
+            || !NtfsFileInspectorCategory.TryGetToggleFlag(key, out var flag))
         {
             return false;
         }
@@ -445,17 +383,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         }
     }
 
-    private void ClearFieldValues()
-    {
-        foreach (var field in Fields)
-        {
-            field.Value = string.Empty;
-            field.ThumbnailSource = null;
-            field.IsLoading = false;
-            field.IsVisible = false;
-        }
-    }
-
     private void RefreshVisibleCategories(bool preserveDeferredVisibility = false)
     {
         if (_disposed)
@@ -463,40 +390,14 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             return;
         }
 
-        if (string.IsNullOrWhiteSpace(_currentFullPath))
-        {
-            foreach (var category in Categories)
-            {
-                category.RefreshVisibility();
-            }
-
-            OnPropertyChanged(nameof(HasVisibleFields));
-            return;
-        }
-
-        var search = SearchText.Trim();
-        var hasSearch = !string.IsNullOrWhiteSpace(search);
-        foreach (var field in Fields)
-        {
-            if (preserveDeferredVisibility
-                && IsDeferredField(field)
-                && field.IsVisible)
-            {
-                continue;
-            }
-
-            field.IsVisible = ShouldFieldBeVisible(field, search, hasSearch);
-        }
-
-        foreach (var category in Categories.OrderBy(category => FileInspectorCategorySort.GetSortOrder(category.Name)))
-        {
-            category.RefreshVisibility();
-        }
-
+        _fieldStore.RefreshVisibleCategories(
+            _currentFullPath,
+            SearchText,
+            preserveDeferredVisibility);
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 
-    public bool HasVisibleFields => Categories.Any(static category => category.HasVisibleFields);
+    public bool HasVisibleFields => _fieldStore.HasVisibleFields;
 
     public async IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
         FileInspectorSelection selection,
@@ -882,7 +783,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             SetFieldLoading(update.Key, false);
         }
 
-        if (batchResult.Category == "Thumbnails")
+        if (batchResult.Category == FileInspectorCategory.Thumbnails)
         {
             _ = ApplyThumbnailSourceAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
@@ -925,28 +826,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             ? "Unavailable"
             : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
 
-    private static string FormatSize(long sizeBytes)
-    {
-        if (sizeBytes < 0)
-        {
-            return string.Empty;
-        }
-
-        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
-        var suffixIndex = 0;
-        var size = (double)sizeBytes;
-
-        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
-        {
-            size /= 1024;
-            suffixIndex++;
-        }
-
-        return suffixIndex == 0
-            ? $"{size:F0} {suffixes[suffixIndex]}"
-            : $"{size:F2} {suffixes[suffixIndex]}";
-    }
-
     private static string FormatOptionalBoolean(bool? value) =>
         value switch
         {
@@ -956,41 +835,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         };
 
     private static string FormatFlag(bool value) => value ? "Yes" : "No";
-
-    private void BeginDeferredRefresh()
-    {
-        foreach (var key in _deferredFieldKeys)
-        {
-            if (!_fieldMap.TryGetValue(key, out var field))
-            {
-                continue;
-            }
-
-            if (field.IsVisible)
-            {
-                field.IsLoading = true;
-            }
-        }
-    }
-
-    private static bool ShouldFieldBeVisible(FileInspectorFieldViewModel field, string search, bool hasSearch)
-    {
-        if (field.IsLoading)
-        {
-            return true;
-        }
-
-        var hasValue = field.ThumbnailSource is not null || !string.IsNullOrWhiteSpace(field.Value);
-        if (!hasValue)
-        {
-            return false;
-        }
-
-        return !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private bool IsDeferredField(FileInspectorFieldViewModel field) =>
-        _deferredFieldKeys.Contains(field.Key);
 
     private async Task ApplyThumbnailSourceAsync(long selectionVersion, byte[]? thumbnailBytes)
     {
@@ -1040,7 +884,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     }
 
     private sealed record InspectorBatchDefinition(
-        string Category,
+        FileInspectorCategory Category,
         bool IsFinalBatch,
         Func<FileInspectorSelection, CancellationToken, Task<InspectorBatchLoadResult>> LoadAsync);
 

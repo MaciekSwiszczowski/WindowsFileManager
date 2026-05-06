@@ -1,13 +1,14 @@
-using System.Linq;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileInspectorCategoryViewModel : ObservableObject
 {
-    public FileInspectorCategoryViewModel(string name)
+    public FileInspectorCategoryViewModel(FileInspectorCategory category)
     {
-        Name = name;
+        Category = category;
+        Name = category.GetDisplayName();
     }
+
+    public FileInspectorCategory Category { get; }
 
     public string Name { get; }
 

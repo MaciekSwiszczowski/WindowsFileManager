@@ -1,6 +1,8 @@
+using System.Buffers;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Microsoft.Win32.SafeHandles;
+using Nerdbank.Streams;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Provider;
@@ -352,7 +354,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 group,
                 daclSummary,
                 saclSummary,
-                security.AreAccessRulesProtected ? false : true,
+                !security.AreAccessRulesProtected,
                 security.AreAccessRulesProtected));
         }
         catch (OperationCanceledException)
@@ -399,9 +401,17 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 {
                     thumbnail.Seek(0);
                     using var input = thumbnail.AsStreamForRead();
-                    using var memory = new MemoryStream();
-                    await input.CopyToAsync(memory, cancellationToken);
-                    thumbnailBytes = memory.ToArray();
+                    using var sequence = new Sequence<byte>(ArrayPool<byte>.Shared);
+                    int read;
+                    do
+                    {
+                        var memory = sequence.GetMemory(8192);
+                        read = await input.ReadAsync(memory, cancellationToken).ConfigureAwait(false);
+                        sequence.Advance(read);
+                    }
+                    while (read > 0);
+
+                    thumbnailBytes = sequence.AsReadOnlySequence.ToArray();
                 }
             }
 
@@ -763,16 +773,14 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 return null;
             }
 
-            uint processInfoNeeded = 0;
             uint processInfo = 0;
-            uint rebootReasons;
 
             var listResult = _restartManagerInterop.GetList(
                 sessionHandle,
-                out processInfoNeeded,
+                out var processInfoNeeded,
                 ref processInfo,
-                null,
-                out rebootReasons);
+                processInfos: null,
+                out _);
 
             if (listResult != ErrorSuccess && listResult != ErrorMoreData)
             {
@@ -791,7 +799,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 out processInfoNeeded,
                 ref processInfo,
                 processInfos,
-                out rebootReasons);
+                out _);
 
             if (listResult != ErrorSuccess)
             {
@@ -836,14 +844,10 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             return;
         }
 
-        var set = new HashSet<T>();
         var index = 0;
-        foreach (var item in source)
+        foreach (var item in source.ToList().Distinct())
         {
-            if (set.Add(item))
-            {
-                source[index++] = item;
-            }
+            source[index++] = item;
         }
 
         if (index < source.Count)

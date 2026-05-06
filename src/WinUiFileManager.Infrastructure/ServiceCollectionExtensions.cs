@@ -17,6 +17,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IShellInterop, ShellInterop>();
         services.AddSingleton<IRestartManagerInterop, RestartManagerInterop>();
         services.AddSingleton<ICloudFilesInterop, CloudFilesInterop>();
+        services.AddSingleton<IFileSystemMetadataInterop, FileSystemMetadataInterop>();
         services.AddSingleton<IVolumeInterop, VolumeInterop>();
         services.AddSingleton<IFileOperationInterop, FileOperationInterop>();
 

@@ -1,20 +1,13 @@
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using Microsoft.Win32.SafeHandles;
-using Windows.Win32;
-using Windows.Win32.Foundation;
-using Windows.Win32.Storage.FileSystem;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using Windows.Storage.Provider;
-using Windows.Storage.Streams;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Interop.Adapters;
-using WinUiFileManager.Interop.SafeHandles;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
@@ -22,9 +15,6 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 {
     private const int ErrorSuccess = 0;
     private const int ErrorMoreData = 234;
-    private const int FindStreamInfoStandard = 0;
-    private const uint GetFinalPathNameNormalized = 0;
-    private const uint FileReadAttributesAccess = 0x80;
     private const System.IO.FileAttributes FileAttributePinned = (System.IO.FileAttributes)0x00080000;
     private const System.IO.FileAttributes FileAttributeUnpinned = (System.IO.FileAttributes)0x00100000;
     private const System.IO.FileAttributes FileAttributeRecallOnOpen = (System.IO.FileAttributes)0x00040000;
@@ -41,15 +31,18 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
     private readonly IRestartManagerInterop _restartManagerInterop;
     private readonly ICloudFilesInterop _cloudFilesInterop;
+    private readonly IFileSystemMetadataInterop _fileSystemMetadataInterop;
     private readonly FileInspectorInteropOptions _interopOptions;
 
     public NtfsFileIdentityService(
         IRestartManagerInterop restartManagerInterop,
         ICloudFilesInterop cloudFilesInterop,
+        IFileSystemMetadataInterop fileSystemMetadataInterop,
         FileInspectorInteropOptions? interopOptions = null)
     {
         _restartManagerInterop = restartManagerInterop;
         _cloudFilesInterop = cloudFilesInterop;
+        _fileSystemMetadataInterop = fileSystemMetadataInterop;
         _interopOptions = interopOptions ?? FileInspectorInteropOptions.AllEnabled;
     }
 
@@ -64,8 +57,13 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
         try
         {
-            using var handle = OpenMetadataHandle(path);
-            return Task.FromResult(GetFileIdFromHandle(handle));
+            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
+            if (!_fileSystemMetadataInterop.TryGetNtfsFileIdBytes(handle, out var bytes) || bytes is null)
+            {
+                return Task.FromResult(NtfsFileId.None);
+            }
+
+            return Task.FromResult(new NtfsFileId(bytes));
         }
         catch
         {
@@ -89,25 +87,28 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
         try
         {
-            using var handle = OpenMetadataHandle(path);
-            var fileId = GetFileIdFromHandle(handle);
+            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
+            var fileId = _fileSystemMetadataInterop.TryGetNtfsFileIdBytes(handle, out var idBytes) && idBytes is not null
+                ? new NtfsFileId(idBytes)
+                : NtfsFileId.None;
 
-            var legacyInfo = TryGetLegacyFileInfo(handle, out var legacyError);
-            if (!string.IsNullOrWhiteSpace(legacyError))
+            var hasLegacy = _fileSystemMetadataInterop.TryGetLegacyFileIndex(handle, out var legacyInfo, out var legacyError);
+            if (!hasLegacy)
             {
                 _ = legacyError;
             }
 
-            var volumeSerial = TryGetVolumeSerial(path);
-            var finalPath = TryGetFinalPath(handle) ?? Path.GetFullPath(path);
+            var root = Path.GetPathRoot(Path.GetFullPath(path));
+            var volumeSerial = _fileSystemMetadataInterop.TryGetVolumeSerialHex(root ?? string.Empty);
+            var finalPath = _fileSystemMetadataInterop.TryGetFinalPath(handle) ?? Path.GetFullPath(path);
 
             return Task.FromResult(new FileIdentityDetails(
                 fileId,
                 volumeSerial ?? string.Empty,
-                legacyInfo is null
-                    ? string.Empty
-                    : $"0x{((ulong)legacyInfo.Value.nFileIndexHigh << 32 | legacyInfo.Value.nFileIndexLow):X16}",
-                legacyInfo is null ? string.Empty : legacyInfo.Value.nNumberOfLinks.ToString(),
+                hasLegacy
+                    ? $"0x{((ulong)legacyInfo.FileIndexHigh << 32 | legacyInfo.FileIndexLow):X16}"
+                    : string.Empty,
+                hasLegacy ? legacyInfo.NumberOfLinks.ToString() : string.Empty,
                 finalPath));
         }
         catch (OperationCanceledException)
@@ -137,26 +138,18 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
         try
         {
-            using var handle = OpenMetadataHandle(path);
-            unsafe
+            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
+            if (!_fileSystemMetadataInterop.TryGetFileBasicInfo(handle, out var basicInfo))
             {
-                FILE_BASIC_INFO basicInfo;
-                if (!PInvoke.GetFileInformationByHandleEx(
-                        new HANDLE(handle.DangerousGetHandle()),
-                        FILE_INFO_BY_HANDLE_CLASS.FileBasicInfo,
-                        &basicInfo,
-                        (uint)sizeof(FILE_BASIC_INFO)))
-                {
-                    throw new InvalidOperationException($"GetFileInformationByHandleEx failed: {Marshal.GetLastPInvokeError()}");
-                }
-
-                return Task.FromResult(new FileNtfsMetadataDetails(
-                    (System.IO.FileAttributes)basicInfo.FileAttributes,
-                    FromFileTimeUtc(basicInfo.CreationTime),
-                    FromFileTimeUtc(basicInfo.LastAccessTime),
-                    FromFileTimeUtc(basicInfo.LastWriteTime),
-                    FromFileTimeUtc(basicInfo.ChangeTime)));
+                throw new InvalidOperationException("GetFileInformationByHandleEx(FileBasicInfo) failed.");
             }
+
+            return Task.FromResult(new FileNtfsMetadataDetails(
+                (System.IO.FileAttributes)basicInfo.FileAttributes,
+                FromFileTimeUtc(basicInfo.CreationTime),
+                FromFileTimeUtc(basicInfo.LastAccessTime),
+                FromFileTimeUtc(basicInfo.LastWriteTime),
+                FromFileTimeUtc(basicInfo.ChangeTime)));
         }
         catch (OperationCanceledException)
         {
@@ -211,7 +204,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
             var available = await TryGetAvailabilityAsync(storageItem, cancellationToken);
             var (syncState, transferState, customStatus) = await CloudPropertyValuesProvider(storageItem, cancellationToken);
 
-            using var handle = OpenMetadataHandle(path);
+            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
             var placeholderState = TryGetPlaceholderState(handle, attributes);
             var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
             var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
@@ -306,31 +299,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
         try
         {
-            var streams = new List<string>();
-            unsafe
-            {
-                WIN32_FIND_STREAM_DATA data;
-                fixed (char* pathPointer = path)
-                {
-                    var findHandle = PInvoke.FindFirstStream(
-                        pathPointer,
-                        STREAM_INFO_LEVELS.FindStreamInfoStandard,
-                        &data,
-                        0);
-                    using var handle = new SafeFindFilesHandle(findHandle, ownsHandle: true);
-                    if (handle.IsInvalid)
-                    {
-                        return Task.FromResult(new FileStreamDiagnosticsDetails("0", streams));
-                    }
-
-                    AddStreamName(streams, data);
-                    while (PInvoke.FindNextStream(handle.DangerousGetHandleForPInvoke(), &data))
-                    {
-                        AddStreamName(streams, data);
-                    }
-                }
-            }
-
+            var streams = _fileSystemMetadataInterop.EnumerateAlternateDataStreamDisplayLines(path);
             return Task.FromResult(new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams));
         }
         catch (OperationCanceledException)
@@ -483,28 +452,6 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private bool IsInteropEnabled(FileInspectorInteropCategories category) =>
         _interopOptions.IsEnabled(category);
 
-    private static SafeFileHandle OpenMetadataHandle(string path)
-    {
-        var flags = Directory.Exists(path)
-            ? FILE_FLAGS_AND_ATTRIBUTES.FILE_FLAG_BACKUP_SEMANTICS
-            : 0;
-        var handle = PInvoke.CreateFile(
-            path,
-            FileReadAttributesAccess,
-            FILE_SHARE_MODE.FILE_SHARE_READ | FILE_SHARE_MODE.FILE_SHARE_WRITE | FILE_SHARE_MODE.FILE_SHARE_DELETE,
-            null,
-            FILE_CREATION_DISPOSITION.OPEN_EXISTING,
-            flags,
-            null);
-
-        if (handle.IsInvalid)
-        {
-            throw new InvalidOperationException($"CreateFileW failed: {Marshal.GetLastPInvokeError()}");
-        }
-
-        return handle;
-    }
-
     private static FileNtfsMetadataDetails GetFallbackNtfsMetadata(string path)
     {
         FileSystemInfo info = File.Exists(path) ? new FileInfo(path) : new DirectoryInfo(path);
@@ -519,20 +466,12 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
 
     private uint TryGetPlaceholderState(SafeFileHandle handle, System.IO.FileAttributes attributes)
     {
-        unsafe
+        if (!_fileSystemMetadataInterop.TryGetFileAttributeReparseTag(handle, out var reparseTag))
         {
-            FILE_ATTRIBUTE_TAG_INFO tagInfo;
-            if (!PInvoke.GetFileInformationByHandleEx(
-                    new HANDLE(handle.DangerousGetHandle()),
-                    FILE_INFO_BY_HANDLE_CLASS.FileAttributeTagInfo,
-                    &tagInfo,
-                    (uint)sizeof(FILE_ATTRIBUTE_TAG_INFO)))
-            {
-                return PlaceholderStateNone;
-            }
-
-            return _cloudFilesInterop.GetPlaceholderState((uint)attributes, tagInfo.ReparseTag);
+            return PlaceholderStateNone;
         }
+
+        return _cloudFilesInterop.GetPlaceholderState((uint)attributes, reparseTag);
     }
 
     private static async Task<StorageProviderSyncRootInfo?> TryGetSyncRootInfoAsync(string path)
@@ -802,99 +741,6 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private static DateTime FromFileTimeUtc(long fileTime) =>
         fileTime <= 0 ? DateTime.MinValue : DateTime.FromFileTimeUtc(fileTime);
 
-    private static NtfsFileId GetFileIdFromHandle(SafeFileHandle handle)
-    {
-        unsafe
-        {
-            FILE_ID_INFO fileIdInfo;
-            if (!PInvoke.GetFileInformationByHandleEx(
-                    new HANDLE(handle.DangerousGetHandle()),
-                    FILE_INFO_BY_HANDLE_CLASS.FileIdInfo,
-                    &fileIdInfo,
-                    (uint)sizeof(FILE_ID_INFO)))
-            {
-                return NtfsFileId.None;
-            }
-
-            var identifier = MemoryMarshal.CreateReadOnlySpan(
-                ref Unsafe.As<Windows.Win32.__byte_16, byte>(ref fileIdInfo.FileId.Identifier),
-                16);
-            var bytes = new byte[identifier.Length];
-            identifier.CopyTo(bytes);
-            return new NtfsFileId(bytes);
-        }
-    }
-
-    private static BY_HANDLE_FILE_INFORMATION? TryGetLegacyFileInfo(
-        SafeFileHandle handle,
-        out string? error)
-    {
-        error = null;
-        if (!PInvoke.GetFileInformationByHandle(handle, out var info))
-        {
-            error = Marshal.GetLastPInvokeError().ToString();
-            return null;
-        }
-
-        return info;
-    }
-
-    private static string? TryGetVolumeSerial(string path)
-    {
-        var root = Path.GetPathRoot(Path.GetFullPath(path));
-        if (string.IsNullOrWhiteSpace(root))
-        {
-            return null;
-        }
-
-        unsafe
-        {
-            uint serial = 0;
-            uint maximumComponentLength = 0;
-            fixed (char* rootPath = root)
-            {
-                if (!PInvoke.GetVolumeInformation(rootPath, null, 0, &serial, &maximumComponentLength, null, null, 0))
-                {
-                    return null;
-                }
-            }
-
-            return serial.ToString("X8");
-        }
-    }
-
-    private static unsafe string? TryGetFinalPath(SafeFileHandle handle)
-    {
-        Span<char> buffer = stackalloc char[1024];
-        fixed (char* bufferPointer = buffer)
-        {
-            var len = PInvoke.GetFinalPathNameByHandle(new HANDLE(handle.DangerousGetHandle()), bufferPointer, (uint)buffer.Length, GetFinalPathNameNormalized);
-            if (len == 0)
-            {
-                return null;
-            }
-
-            var sliceLength = (int)Math.Min(len, (uint)buffer.Length);
-            return GetNullTerminatedString(buffer[..sliceLength]);
-        }
-    }
-
-    private static void AddStreamName(List<string> streams, WIN32_FIND_STREAM_DATA data)
-    {
-        var streamName = GetNullTerminatedString(data.cStreamName, 296);
-        if (string.IsNullOrWhiteSpace(streamName))
-        {
-            return;
-        }
-
-        if (string.Equals(streamName, "::$DATA", StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        streams.Add($"{streamName.Trim()} ({data.StreamSize} bytes)");
-    }
-
     private bool? TryGetRestartManagerLocks(
         string path,
         List<string> lockBy,
@@ -981,21 +827,6 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         {
             _ = _restartManagerInterop.EndSession(sessionHandle);
         }
-    }
-
-    private static string GetNullTerminatedString(Windows.Win32.__char_296 buffer, int length)
-    {
-        var span = MemoryMarshal.CreateReadOnlySpan(
-            ref Unsafe.As<Windows.Win32.__char_296, char>(ref buffer),
-            length);
-        return GetNullTerminatedString(span);
-    }
-
-    private static string GetNullTerminatedString(ReadOnlySpan<char> buffer)
-    {
-        var terminatorIndex = buffer.IndexOf('\0');
-        var value = terminatorIndex >= 0 ? buffer[..terminatorIndex] : buffer;
-        return value.ToString();
     }
 
     private static void Deduplicate<T>(List<T> source)

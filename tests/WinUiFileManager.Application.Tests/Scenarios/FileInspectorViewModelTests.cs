@@ -1,10 +1,8 @@
 using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.Logging;
 using Microsoft.Reactive.Testing;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Messages;
-using WinUiFileManager.Presentation.ViewModels.FileInspector;
 using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
@@ -202,9 +200,9 @@ public sealed class FileInspectorViewModelTests
         var originalCloudPropertyValuesProvider = NtfsFileIdentityService.CloudPropertyValuesProvider;
         using var sut = CreateSubject(new CloudBatchCancellationIdentityService());
         using var cancellationSource = new CancellationTokenSource();
-        await using var enumerator = sut.LoadDeferredBatchesAsync(
-            selection,
-            cancellationSource.Token).GetAsyncEnumerator();
+        await using var enumerator = sut
+            .LoadDeferredBatchesAsync(selection, cancellationSource.Token)
+            .GetAsyncEnumerator();
 
         try
         {
@@ -507,7 +505,10 @@ public sealed class FileInspectorViewModelTests
 
     private sealed class CloudBatchCancellationIdentityService : IFileIdentityService
     {
-        private readonly NtfsFileIdentityService _service = new(new RestartManagerInterop(), new CloudFilesInterop());
+        private readonly NtfsFileIdentityService _service = new(
+            new RestartManagerInterop(),
+            new CloudFilesInterop(),
+            new FileSystemMetadataInterop());
 
         public Task<NtfsFileId> GetFileIdAsync(string path, CancellationToken cancellationToken)
         {

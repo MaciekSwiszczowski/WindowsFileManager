@@ -36,7 +36,8 @@ public sealed class ViewModelTestBuilder
         var fileIdentityService = FileIdentityServiceOverride
             ?? new NtfsFileIdentityService(
                 new RestartManagerInterop(),
-                new CloudFilesInterop());
+                new CloudFilesInterop(),
+                new FileSystemMetadataInterop());
         var volumePolicy = new NtfsVolumePolicyService(volumeInterop);
         var planner = new WindowsFileOperationPlanner(
             NullLogger<WindowsFileOperationPlanner>.Instance);

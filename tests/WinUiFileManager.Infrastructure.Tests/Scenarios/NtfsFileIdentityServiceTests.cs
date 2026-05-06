@@ -19,7 +19,8 @@ public sealed class NtfsFileIdentityServiceTests
 
         var sut = new NtfsFileIdentityService(
             new RestartManagerInterop(),
-            new CloudFilesInterop());
+            new CloudFilesInterop(),
+            new FileSystemMetadataInterop());
 
         using var process = Process.GetCurrentProcess();
         process.Refresh();

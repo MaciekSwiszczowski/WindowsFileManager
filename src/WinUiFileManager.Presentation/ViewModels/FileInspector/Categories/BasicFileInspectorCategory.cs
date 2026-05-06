@@ -16,7 +16,7 @@ internal sealed class BasicFileInspectorCategory : IFileInspectorCategoryProvide
         new(Basic, "Attributes", "File system attributes", 5, IsDeferred: false)
     ];
 
-    public static void ApplySelection(FileInspectorSelection selection, FileInspectorFieldStore fields)
+    public static void ApplySelection(FileInspectorSelection selection, FileInspectorFieldState fields)
     {
         fields.SetValue("Name", selection.Name);
         fields.SetValue("Full Path", selection.FullPath);

@@ -1,11 +1,11 @@
 namespace WinUiFileManager.Presentation.ViewModels.FileInspector;
 
-internal sealed class FileInspectorFieldStore
+internal sealed class FileInspectorFieldState
 {
     private readonly IReadOnlyDictionary<string, FileInspectorFieldViewModel> _fieldMap;
     private readonly IReadOnlySet<string> _deferredFieldKeys;
 
-    public FileInspectorFieldStore(FileInspectorModel model)
+    public FileInspectorFieldState(FileInspectorModel model)
     {
         Fields = model.Fields;
         Categories = model.Categories;

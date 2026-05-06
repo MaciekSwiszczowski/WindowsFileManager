@@ -41,7 +41,7 @@ internal sealed class NtfsFileInspectorCategory : IFileInspectorCategoryProvider
     public static bool TryGetToggleFlag(string key, out FileAttributes flag) =>
         ToggleableFlags.TryGetValue(key, out flag);
 
-    public static void ApplyAttributes(FileAttributes attributes, FileInspectorFieldStore fields)
+    public static void ApplyAttributes(FileAttributes attributes, FileInspectorFieldState fields)
     {
         fields.SetValue("Read Only", FormatFlag(attributes.HasFlag(FileAttributes.ReadOnly)));
         fields.SetValue("Hidden", FormatFlag(attributes.HasFlag(FileAttributes.Hidden)));

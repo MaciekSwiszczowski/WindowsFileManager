@@ -1,4 +1,3 @@
-using System.Reactive.Concurrency;
 using System.Runtime.CompilerServices;
 using Windows.Storage.Streams;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -14,16 +13,15 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     private readonly IFileIdentityService _fileIdentityService;
     private readonly IClipboardService _clipboardService;
     private readonly IShellService _shellService;
-    private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<FileInspectorViewModel> _logger;
-    private readonly FileInspectorFieldStore _fieldStore;
+    private readonly FileInspectorFieldState _fieldState;
+    private readonly FileInspectorDeferredLoader _deferredLoader;
     private readonly List<InspectorBatchDefinition> _deferredBatches;
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
     private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
     private FileInspectorSelection? _currentTableSelection;
-    private CancellationTokenSource _deferredLoadCancellation = new();
     private bool _preserveDeferredVisibilityUntilFinalBatch;
     private bool _disposed;
 
@@ -50,15 +48,14 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _fileIdentityService = fileIdentityService;
         _clipboardService = clipboardService;
         _shellService = shellService;
-        _schedulers = schedulers;
         _logger = logger;
 
         var inspectorModel = new FileInspectorModelBuilder(
             NtfsFileInspectorCategory.CanToggleField,
             ToggleNtfsFlagAsync).Build();
-        _fieldStore = new FileInspectorFieldStore(inspectorModel);
-        Fields = _fieldStore.Fields;
-        Categories = _fieldStore.Categories;
+        _fieldState = new FileInspectorFieldState(inspectorModel);
+        Fields = _fieldState.Fields;
+        Categories = _fieldState.Categories;
 
         _deferredBatches =
         [
@@ -91,6 +88,13 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
                 IsFinalBatch: true,
                 LoadCloudBatchAsync)
         ];
+
+        _deferredLoader = new FileInspectorDeferredLoader(
+            schedulers,
+            logger,
+            LoadDeferredBatchesAsync,
+            ApplyDeferredBatch,
+            () => _disposed);
 
     }
 
@@ -179,7 +183,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         IsLoadingDetails = false;
         _currentFullPath = string.Empty;
         _preserveDeferredVisibilityUntilFinalBatch = false;
-        _fieldStore.ClearValues();
+        _fieldState.ClearValues();
         RefreshVisibleCategories();
     }
 
@@ -191,8 +195,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         }
 
         _disposed = true;
-        _deferredLoadCancellation.Cancel();
-        _deferredLoadCancellation.Dispose();
+        _deferredLoader.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -237,101 +240,29 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     {
         _lastTableSelection = [];
         _currentTableSelection = null;
-        CancelCurrentDeferredLoad();
+        _deferredLoader.Cancel();
         var refreshVersion = Interlocked.Increment(ref _tableSelectionRefreshVersion);
         ApplySelection(FileInspectorSelection.NoSelection(refreshVersion));
     }
 
     private void StartDeferredLoad(FileInspectorSelection selection)
     {
-        CancelCurrentDeferredLoad();
-
-        if (!selection.CanLoadDeferred)
-        {
-            return;
-        }
-
-        _ = LoadDeferredBatchesForSelectionAsync(
-            selection,
-            _deferredLoadCancellation.Token);
-    }
-
-    private async Task LoadDeferredBatchesForSelectionAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            await Task.Run(async () =>
-            {
-                await foreach (var batch in LoadDeferredBatchesAsync(selection, cancellationToken)
-                    .ConfigureAwait(false))
-                {
-                    await RunOnMainThreadAsync(
-                        () => ApplyDeferredBatch(batch),
-                        cancellationToken).ConfigureAwait(false);
-                }
-            }, cancellationToken).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || _disposed)
-        {
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Inspector deferred batch streaming failed");
-        }
-    }
-
-    private Task RunOnMainThreadAsync(Action action, CancellationToken cancellationToken)
-    {
-        if (cancellationToken.IsCancellationRequested)
-        {
-            return Task.FromCanceled(cancellationToken);
-        }
-
-        var completion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        _schedulers.MainThread.Schedule(() =>
-        {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                completion.TrySetCanceled(cancellationToken);
-                return;
-            }
-
-            try
-            {
-                action();
-                completion.TrySetResult();
-            }
-            catch (Exception ex)
-            {
-                completion.TrySetException(ex);
-            }
-        });
-
-        return completion.Task;
-    }
-
-    private void CancelCurrentDeferredLoad()
-    {
-        _deferredLoadCancellation.Cancel();
-        _deferredLoadCancellation.Dispose();
-        _deferredLoadCancellation = new CancellationTokenSource();
+        _deferredLoader.Start(selection);
     }
 
     private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
     {
-        BasicFileInspectorCategory.ApplySelection(selection, _fieldStore);
+        BasicFileInspectorCategory.ApplySelection(selection, _fieldState);
         _currentFullPath = selection.FullPath;
 
         if (preserveDeferredVisibility)
         {
-            _fieldStore.BeginDeferredRefresh();
+            _fieldState.BeginDeferredRefresh();
         }
         else
         {
-            NtfsFileInspectorCategory.ApplyAttributes(selection.AttributesFlags, _fieldStore);
-            _fieldStore.ClearDeferredFields();
+            NtfsFileInspectorCategory.ApplyAttributes(selection.AttributesFlags, _fieldState);
+            _fieldState.ClearDeferredFields();
         }
 
         _preserveDeferredVisibilityUntilFinalBatch = preserveDeferredVisibility;
@@ -340,17 +271,17 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
     private void SetFieldValue(string key, string value)
     {
-        _fieldStore.SetValue(key, value);
+        _fieldState.SetValue(key, value);
     }
 
     private void SetFieldThumbnailSource(string key, ImageSource? value)
     {
-        _fieldStore.SetThumbnailSource(key, value);
+        _fieldState.SetThumbnailSource(key, value);
     }
 
     private void SetFieldLoading(string key, bool isLoading)
     {
-        _fieldStore.SetLoading(key, isLoading);
+        _fieldState.SetLoading(key, isLoading);
     }
 
     private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
@@ -390,14 +321,14 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             return;
         }
 
-        _fieldStore.RefreshVisibleCategories(
+        _fieldState.RefreshVisibleCategories(
             _currentFullPath,
             SearchText,
             preserveDeferredVisibility);
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 
-    public bool HasVisibleFields => _fieldStore.HasVisibleFields;
+    public bool HasVisibleFields => _fieldState.HasVisibleFields;
 
     public async IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
         FileInspectorSelection selection,

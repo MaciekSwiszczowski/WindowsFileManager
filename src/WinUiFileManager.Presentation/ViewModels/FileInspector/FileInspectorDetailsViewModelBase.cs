@@ -1,6 +1,3 @@
-using System.Runtime.CompilerServices;
-using Windows.Storage.Streams;
-using Microsoft.UI.Xaml.Media.Imaging;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.ViewModels.FileInspector.Categories;
 
@@ -8,15 +5,13 @@ namespace WinUiFileManager.Presentation.ViewModels.FileInspector;
 
 public abstract partial class FileInspectorDetailsViewModelBase : ObservableObject, IDisposable
 {
-    private static readonly TimeSpan DeferredLoadTimeout = TimeSpan.FromSeconds(5);
-
     private readonly IFileIdentityService _fileIdentityService;
     private readonly IClipboardService _clipboardService;
     private readonly IShellService _shellService;
     private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly FileInspectorFieldState _fieldState;
     private readonly FileInspectorDeferredLoader _deferredLoader;
-    private readonly List<InspectorBatchDefinition> _deferredBatches;
+    private readonly FileInspectorThumbnailMaterializer _thumbnailMaterializer;
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
@@ -57,79 +52,25 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         Fields = _fieldState.Fields;
         Categories = _fieldState.Categories;
 
-        _deferredBatches =
-        [
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Ids,
-                IsFinalBatch: false,
-                (selection, token) => IdentityFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Locks,
-                IsFinalBatch: false,
-                (selection, token) => LocksFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Links,
-                IsFinalBatch: false,
-                (selection, token) => LinksFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Streams,
-                IsFinalBatch: false,
-                (selection, token) => StreamsFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Security,
-                IsFinalBatch: false,
-                (selection, token) => SecurityFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Thumbnails,
-                IsFinalBatch: false,
-                (selection, token) => ThumbnailsFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token)),
-            new InspectorBatchDefinition(
-                FileInspectorCategory.Cloud,
-                IsFinalBatch: true,
-                (selection, token) => CloudFileInspectorCategory.LoadAsync(
-                    _fileIdentityService,
-                    _logger,
-                    selection,
-                    DeferredLoadTimeout,
-                    token))
-        ];
+        var deferredBatchPlan = new FileInspectorDeferredBatchPlan(
+            fileIdentityService,
+            logger,
+            () => _disposed);
 
         _deferredLoader = new FileInspectorDeferredLoader(
             schedulers,
             logger,
-            LoadDeferredBatchesAsync,
+            deferredBatchPlan.LoadAsync,
             ApplyDeferredBatch,
             () => _disposed);
+
+        _thumbnailMaterializer = new FileInspectorThumbnailMaterializer(
+            _fieldState,
+            logger,
+            () => _disposed,
+            () => _hasCurrentSelection,
+            () => _currentSelectionVersion,
+            () => RefreshVisibleCategories());
 
     }
 
@@ -309,11 +250,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _fieldState.SetValue(key, value);
     }
 
-    private void SetFieldThumbnailSource(string key, ImageSource? value)
-    {
-        _fieldState.SetThumbnailSource(key, value);
-    }
-
     private void SetFieldLoading(string key, bool isLoading)
     {
         _fieldState.SetLoading(key, isLoading);
@@ -365,27 +301,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
     public bool HasVisibleFields => _fieldState.HasVisibleFields;
 
-    public async IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
-        FileInspectorSelection selection,
-        [EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        if (_disposed || !selection.CanLoadDeferred)
-        {
-            yield break;
-        }
-
-        foreach (var batch in _deferredBatches)
-        {
-            var loadResult = await batch.LoadAsync(selection, cancellationToken);
-            yield return new FileInspectorDeferredBatchResult(
-                selection.RefreshVersion,
-                batch.Category,
-                batch.IsFinalBatch,
-                loadResult.Updates,
-                loadResult.ThumbnailBytes);
-        }
-    }
-
     public void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
     {
         if (_disposed || !_hasCurrentSelection)
@@ -406,7 +321,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
         if (batchResult.Category == FileInspectorCategory.Thumbnails)
         {
-            _ = ApplyThumbnailSourceAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
+            _ = _thumbnailMaterializer.ApplyAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
 
         if (batchResult.IsFinalBatch)
@@ -431,55 +346,4 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
     private bool _hasCurrentSelection => !string.IsNullOrWhiteSpace(_currentFullPath);
 
-    private async Task ApplyThumbnailSourceAsync(long selectionVersion, byte[]? thumbnailBytes)
-    {
-        if (_disposed || !_hasCurrentSelection || selectionVersion != _currentSelectionVersion)
-        {
-            return;
-        }
-
-        if (thumbnailBytes is null || thumbnailBytes.Length == 0)
-        {
-            SetFieldThumbnailSource("Thumbnail", null);
-            SetFieldLoading("Thumbnail", false);
-            return;
-        }
-
-        try
-        {
-            using var stream = new InMemoryRandomAccessStream();
-            using (var writer = new DataWriter())
-            {
-                writer.WriteBytes(thumbnailBytes);
-                var buffer = writer.DetachBuffer();
-                await stream.WriteAsync(buffer);
-            }
-
-            stream.Seek(0);
-            var bitmap = new BitmapImage();
-            await bitmap.SetSourceAsync(stream);
-
-            if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
-            {
-                SetFieldThumbnailSource("Thumbnail", bitmap);
-                SetFieldValue("Thumbnail", "Preview");
-                SetFieldLoading("Thumbnail", false);
-                RefreshVisibleCategories();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Failed to materialize thumbnail preview.");
-            if (!_disposed && _hasCurrentSelection && selectionVersion == _currentSelectionVersion)
-            {
-                SetFieldThumbnailSource("Thumbnail", null);
-                SetFieldLoading("Thumbnail", false);
-            }
-        }
-    }
-
-    private sealed record InspectorBatchDefinition(
-        FileInspectorCategory Category,
-        bool IsFinalBatch,
-        Func<FileInspectorSelection, CancellationToken, Task<FileInspectorBatchLoadResult>> LoadAsync);
 }

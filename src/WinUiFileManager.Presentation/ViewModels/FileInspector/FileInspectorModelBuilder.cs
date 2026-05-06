@@ -55,7 +55,7 @@ internal sealed class FileInspectorModelBuilder
             category.RefreshVisibility();
         }
 
-        return new FileInspectorModel(fields, categories, fieldMap, categoryMap, deferredFieldKeys);
+        return new FileInspectorModel(fields, categories, fieldMap, deferredFieldKeys);
     }
 
     private static IReadOnlyList<IFileInspectorCategoryProvider> CreateCategoryProviders() =>

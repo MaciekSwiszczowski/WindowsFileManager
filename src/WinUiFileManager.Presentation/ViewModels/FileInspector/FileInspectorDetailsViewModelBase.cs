@@ -62,31 +62,66 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             new InspectorBatchDefinition(
                 FileInspectorCategory.Ids,
                 IsFinalBatch: false,
-                LoadIdentityBatchAsync),
+                (selection, token) => IdentityFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Locks,
                 IsFinalBatch: false,
-                LoadLockDiagnosticsBatchAsync),
+                (selection, token) => LocksFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Links,
                 IsFinalBatch: false,
-                LoadLinkBatchAsync),
+                (selection, token) => LinksFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Streams,
                 IsFinalBatch: false,
-                LoadStreamBatchAsync),
+                (selection, token) => StreamsFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Security,
                 IsFinalBatch: false,
-                LoadSecurityBatchAsync),
+                (selection, token) => SecurityFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Thumbnails,
                 IsFinalBatch: false,
-                LoadThumbnailBatchAsync),
+                (selection, token) => ThumbnailsFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token)),
             new InspectorBatchDefinition(
                 FileInspectorCategory.Cloud,
                 IsFinalBatch: true,
-                LoadCloudBatchAsync)
+                (selection, token) => CloudFileInspectorCategory.LoadAsync(
+                    _fileIdentityService,
+                    _logger,
+                    selection,
+                    DeferredLoadTimeout,
+                    token))
         ];
 
         _deferredLoader = new FileInspectorDeferredLoader(
@@ -351,351 +386,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         }
     }
 
-    private async Task<InspectorBatchLoadResult> LoadNtfsBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var details = await _fileIdentityService.GetNtfsMetadataDetailsAsync(selection.FullPath, timeoutCts.Token);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Read Only", FormatFlag(details.Attributes.HasFlag(FileAttributes.ReadOnly))),
-                new FileInspectorFieldUpdate("Hidden", FormatFlag(details.Attributes.HasFlag(FileAttributes.Hidden))),
-                new FileInspectorFieldUpdate("System", FormatFlag(details.Attributes.HasFlag(FileAttributes.System))),
-                new FileInspectorFieldUpdate("Archive", FormatFlag(details.Attributes.HasFlag(FileAttributes.Archive))),
-                new FileInspectorFieldUpdate("Temporary", FormatFlag(details.Attributes.HasFlag(FileAttributes.Temporary))),
-                new FileInspectorFieldUpdate("Offline", FormatFlag(details.Attributes.HasFlag(FileAttributes.Offline))),
-                new FileInspectorFieldUpdate("Not Content Indexed", FormatFlag(details.Attributes.HasFlag(FileAttributes.NotContentIndexed))),
-                new FileInspectorFieldUpdate("Encrypted", FormatFlag(details.Attributes.HasFlag(FileAttributes.Encrypted))),
-                new FileInspectorFieldUpdate("Compressed", FormatFlag(details.Attributes.HasFlag(FileAttributes.Compressed))),
-                new FileInspectorFieldUpdate("Sparse", FormatFlag(details.Attributes.HasFlag(FileAttributes.SparseFile))),
-                new FileInspectorFieldUpdate("Reparse Point", FormatFlag(details.Attributes.HasFlag(FileAttributes.ReparsePoint))),
-                new FileInspectorFieldUpdate("Created", FormatRequiredUtc(details.CreationTimeUtc)),
-                new FileInspectorFieldUpdate("Accessed", FormatRequiredUtc(details.LastAccessTimeUtc)),
-                new FileInspectorFieldUpdate("Modified", FormatRequiredUtc(details.LastWriteTimeUtc)),
-                new FileInspectorFieldUpdate("MFT Changed", FormatRequiredUtc(details.ChangeTimeUtc))
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load NTFS metadata for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Created", "Unavailable"),
-                new FileInspectorFieldUpdate("Accessed", "Unavailable"),
-                new FileInspectorFieldUpdate("Modified", "Unavailable"),
-                new FileInspectorFieldUpdate("MFT Changed", "Unavailable")
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadIdentityBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var ntfsDetails = await _fileIdentityService.GetNtfsMetadataDetailsAsync(selection.FullPath, timeoutCts.Token);
-            var details = await _fileIdentityService.GetIdentityDetailsAsync(selection.FullPath, timeoutCts.Token);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Created", FormatRequiredUtc(ntfsDetails.CreationTimeUtc)),
-                new FileInspectorFieldUpdate("Accessed", FormatRequiredUtc(ntfsDetails.LastAccessTimeUtc)),
-                new FileInspectorFieldUpdate("Modified", FormatRequiredUtc(ntfsDetails.LastWriteTimeUtc)),
-                new FileInspectorFieldUpdate("MFT Changed", FormatRequiredUtc(ntfsDetails.ChangeTimeUtc)),
-                new FileInspectorFieldUpdate(
-                    "File ID",
-                    details.FileId == NtfsFileId.None ? "Unavailable" : details.FileId.HexDisplay),
-                new FileInspectorFieldUpdate("Volume Serial", details.VolumeSerial),
-                new FileInspectorFieldUpdate("File Index (64-bit)", details.LegacyFileIndex),
-                new FileInspectorFieldUpdate("Hard Link Count", details.HardLinkCount),
-                new FileInspectorFieldUpdate("Final Path", details.FinalPath)
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load identity details for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult([new FileInspectorFieldUpdate("File ID", "Unavailable")]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadLinkBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetLinkDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Link Target", diagnostics.LinkTarget),
-                new FileInspectorFieldUpdate("Link Status", diagnostics.LinkStatus),
-                new FileInspectorFieldUpdate("Reparse Tag", diagnostics.ReparseTag),
-                new FileInspectorFieldUpdate("Reparse Data", diagnostics.ReparseData),
-                new FileInspectorFieldUpdate("Object ID", diagnostics.ObjectId)
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load link diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Link Target", string.Empty),
-                new FileInspectorFieldUpdate("Link Status", string.Empty),
-                new FileInspectorFieldUpdate("Reparse Tag", string.Empty),
-                new FileInspectorFieldUpdate("Reparse Data", string.Empty),
-                new FileInspectorFieldUpdate("Object ID", string.Empty)
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadStreamBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetStreamDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            var hasStreams = !string.IsNullOrWhiteSpace(diagnostics.AlternateStreamCount)
-                && diagnostics.AlternateStreamCount != "0";
-
-            return hasStreams
-                ? new InspectorBatchLoadResult([
-                    new FileInspectorFieldUpdate("Alternate Stream Count", diagnostics.AlternateStreamCount),
-                    new FileInspectorFieldUpdate(
-                        "Alternate Streams",
-                        diagnostics.AlternateStreams.Count == 0
-                            ? string.Empty
-                            : string.Join(Environment.NewLine, diagnostics.AlternateStreams))
-                ])
-                : new InspectorBatchLoadResult([
-                    new FileInspectorFieldUpdate("Alternate Stream Count", string.Empty),
-                    new FileInspectorFieldUpdate("Alternate Streams", string.Empty)
-                ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load stream diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Alternate Stream Count", string.Empty),
-                new FileInspectorFieldUpdate("Alternate Streams", string.Empty)
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadSecurityBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetSecurityDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Owner", diagnostics.Owner),
-                new FileInspectorFieldUpdate("Group", diagnostics.Group),
-                new FileInspectorFieldUpdate("DACL Summary", diagnostics.DaclSummary),
-                new FileInspectorFieldUpdate("SACL Summary", diagnostics.SaclSummary),
-                new FileInspectorFieldUpdate("Inherited", FormatOptionalBoolean(diagnostics.Inherited)),
-                new FileInspectorFieldUpdate("Protected", FormatOptionalBoolean(diagnostics.Protected))
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load security diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Owner", string.Empty),
-                new FileInspectorFieldUpdate("Group", string.Empty),
-                new FileInspectorFieldUpdate("DACL Summary", string.Empty),
-                new FileInspectorFieldUpdate("SACL Summary", string.Empty),
-                new FileInspectorFieldUpdate("Inherited", string.Empty),
-                new FileInspectorFieldUpdate("Protected", string.Empty)
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadThumbnailBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetThumbnailDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Has Thumbnail", diagnostics.ThumbnailBytes is { Length: > 0 } ? "Yes" : "No"),
-                new FileInspectorFieldUpdate("Association", diagnostics.ProgId)
-            ], diagnostics.ThumbnailBytes);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load thumbnail diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Has Thumbnail", "No"),
-                new FileInspectorFieldUpdate("Association", string.Empty)
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadCloudBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetCloudDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            if (!diagnostics.IsCloudControlled)
-            {
-                return new InspectorBatchLoadResult(
-                [
-                    new FileInspectorFieldUpdate("Status", string.Empty),
-                    new FileInspectorFieldUpdate("Provider", string.Empty),
-                    new FileInspectorFieldUpdate("Sync Root", string.Empty),
-                    new FileInspectorFieldUpdate("Root ID", string.Empty),
-                    new FileInspectorFieldUpdate("Provider ID", string.Empty),
-                    new FileInspectorFieldUpdate("Available", string.Empty),
-                    new FileInspectorFieldUpdate("Transfer", string.Empty),
-                    new FileInspectorFieldUpdate("Custom", string.Empty)
-                ]);
-            }
-
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Status", diagnostics.Status),
-                new FileInspectorFieldUpdate("Provider", diagnostics.Provider),
-                new FileInspectorFieldUpdate("Sync Root", diagnostics.SyncRoot),
-                new FileInspectorFieldUpdate("Root ID", diagnostics.SyncRootId),
-                new FileInspectorFieldUpdate("Provider ID", diagnostics.ProviderId),
-                new FileInspectorFieldUpdate("Available", diagnostics.Available),
-                new FileInspectorFieldUpdate("Transfer", diagnostics.Transfer),
-                new FileInspectorFieldUpdate("Custom", diagnostics.Custom)
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load cloud diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Status", string.Empty),
-                new FileInspectorFieldUpdate("Provider", string.Empty),
-                new FileInspectorFieldUpdate("Sync Root", string.Empty),
-                new FileInspectorFieldUpdate("Root ID", string.Empty),
-                new FileInspectorFieldUpdate("Provider ID", string.Empty),
-                new FileInspectorFieldUpdate("Available", string.Empty),
-                new FileInspectorFieldUpdate("Transfer", string.Empty),
-                new FileInspectorFieldUpdate("Custom", string.Empty)
-            ]);
-        }
-    }
-
-    private async Task<InspectorBatchLoadResult> LoadLockDiagnosticsBatchAsync(
-        FileInspectorSelection selection,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            timeoutCts.CancelAfter(DeferredLoadTimeout);
-
-            var diagnostics = await _fileIdentityService.GetLockDiagnosticsAsync(selection.FullPath, timeoutCts.Token);
-            if (!HasPositiveLockEvidence(diagnostics))
-            {
-                return new InspectorBatchLoadResult(
-                [
-                    new FileInspectorFieldUpdate("Is locked", "False"),
-                    new FileInspectorFieldUpdate("In Use", string.Empty),
-                    new FileInspectorFieldUpdate("Locked By", string.Empty),
-                    new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
-                    new FileInspectorFieldUpdate("Lock Services", string.Empty)
-                ]);
-            }
-
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Is locked", "True"),
-                new FileInspectorFieldUpdate("In Use", FormatOptionalBoolean(diagnostics.InUse)),
-                new FileInspectorFieldUpdate(
-                    "Locked By",
-                    diagnostics.LockBy.Count == 0 ? string.Empty : string.Join(Environment.NewLine, diagnostics.LockBy)),
-                new FileInspectorFieldUpdate(
-                    "Lock PIDs",
-                    diagnostics.LockPids.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockPids)),
-                new FileInspectorFieldUpdate(
-                    "Lock Services",
-                    diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices))
-            ]);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load lock diagnostics for {Path}", selection.FullPath);
-            return new InspectorBatchLoadResult(
-            [
-                new FileInspectorFieldUpdate("Is locked", "False"),
-                new FileInspectorFieldUpdate("In Use", string.Empty),
-                new FileInspectorFieldUpdate("Locked By", string.Empty),
-                new FileInspectorFieldUpdate("Lock PIDs", string.Empty),
-                new FileInspectorFieldUpdate("Lock Services", string.Empty)
-            ]);
-        }
-    }
-
     public void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
     {
         if (_disposed || !_hasCurrentSelection)
@@ -740,32 +430,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     }
 
     private bool _hasCurrentSelection => !string.IsNullOrWhiteSpace(_currentFullPath);
-
-    private static bool HasPositiveLockEvidence(FileLockDiagnostics diagnostics) =>
-        diagnostics.InUse == true
-        || diagnostics.LockBy.Count > 0
-        || diagnostics.LockPids.Count > 0
-        || diagnostics.LockServices.Count > 0;
-
-    private static string FormatUtc(DateTime value) =>
-        value == DateTime.MinValue
-            ? string.Empty
-            : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
-
-    private static string FormatRequiredUtc(DateTime value) =>
-        value == DateTime.MinValue
-            ? "Unavailable"
-            : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
-
-    private static string FormatOptionalBoolean(bool? value) =>
-        value switch
-        {
-            true => "Yes",
-            false => "No",
-            _ => string.Empty
-        };
-
-    private static string FormatFlag(bool value) => value ? "Yes" : "No";
 
     private async Task ApplyThumbnailSourceAsync(long selectionVersion, byte[]? thumbnailBytes)
     {
@@ -817,9 +481,5 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     private sealed record InspectorBatchDefinition(
         FileInspectorCategory Category,
         bool IsFinalBatch,
-        Func<FileInspectorSelection, CancellationToken, Task<InspectorBatchLoadResult>> LoadAsync);
-
-    private sealed record InspectorBatchLoadResult(
-        IReadOnlyList<FileInspectorFieldUpdate> Updates,
-        byte[]? ThumbnailBytes = null);
+        Func<FileInspectorSelection, CancellationToken, Task<FileInspectorBatchLoadResult>> LoadAsync);
 }

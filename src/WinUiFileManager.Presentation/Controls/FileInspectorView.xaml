@@ -7,6 +7,7 @@
 
     <UserControl.Resources>
         <converters:CollectionVisibilityConverter x:Key="CollectionVisibilityConverter" />
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <Style x:Key="InspectorCellStyle" TargetType="TextBlock">
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="TextWrapping" Value="Wrap" />
@@ -80,7 +81,7 @@
                     <ItemsRepeater.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:FileInspectorCategoryViewModel">
                             <Expander Header="{x:Bind Name, Mode=OneWay}"
-                                      Visibility="{x:Bind Visibility, Mode=OneWay}"
+                                      Visibility="{x:Bind HasVisibleFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
                                       IsExpanded="{x:Bind IsExpanded, Mode=TwoWay}"
                                       HorizontalAlignment="Stretch"
                                       HorizontalContentAlignment="Stretch">
@@ -125,7 +126,7 @@
                                             </ItemsRepeater.Layout>
                                             <ItemsRepeater.ItemTemplate>
                                                 <DataTemplate x:DataType="viewModels:FileInspectorFieldViewModel">
-                                                    <Grid Visibility="{x:Bind RowVisibility, Mode=OneWay}">
+                                                    <Grid Visibility="{x:Bind IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                                         <Grid.ColumnDefinitions>
                                                             <ColumnDefinition Width="180" />
                                                             <ColumnDefinition Width="*" />
@@ -158,17 +159,17 @@
                                                                                   IsActive="True"
                                                                                   HorizontalAlignment="Left"
                                                                                   VerticalAlignment="Center"
-                                                                                  Visibility="{x:Bind LoadingVisibility, Mode=OneWay}" />
+                                                                                  Visibility="{x:Bind IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                                     <TextBlock Text="{x:Bind DisplayValue, Mode=OneWay}"
                                                                                Style="{StaticResource InspectorCellStyle}"
-                                                                               Visibility="{x:Bind ValueVisibility, Mode=OneWay}" />
+                                                                               Visibility="{x:Bind ShowsValue, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                                     <Border Width="30"
                                                                             Height="30"
                                                                             Padding="0"
                                                                             Margin="0"
                                                                             HorizontalAlignment="Left"
                                                                             VerticalAlignment="Center"
-                                                                            Visibility="{x:Bind ThumbnailVisibility, Mode=OneWay}">
+                                                                            Visibility="{x:Bind ShowsThumbnail, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                                                                         <Image Source="{x:Bind ThumbnailSource, Mode=OneWay}"
                                                                                Width="30"
                                                                                Height="30"
@@ -182,7 +183,7 @@
                                                                           VerticalAlignment="Center"
                                                                           IsChecked="{x:Bind IsToggleOn, Mode=OneWay}"
                                                                           Command="{x:Bind ToggleCommand, Mode=OneWay}"
-                                                                          Visibility="{x:Bind ToggleVisibility, Mode=OneWay}" />
+                                                                          Visibility="{x:Bind ShowsToggle, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                                                             </Grid>
                                                         </Border>
                                                     </Grid>

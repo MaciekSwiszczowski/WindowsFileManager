@@ -19,12 +19,8 @@ public sealed partial class FileInspectorCategoryViewModel : ObservableObject
 
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
 
-    public Visibility Visibility => HasVisibleFields ? Visibility.Visible : Visibility.Collapsed;
-
     public void RefreshVisibility()
     {
         HasVisibleFields = Fields.Any(static field => field.IsVisible);
     }
-
-    partial void OnHasVisibleFieldsChanged(bool value) => OnPropertyChanged(nameof(Visibility));
 }

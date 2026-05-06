@@ -44,19 +44,11 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     public string DisplayValue => Value;
 
-    public Visibility ValueVisibility => !IsLoading && ThumbnailSource is null
-        ? Visibility.Visible
-        : Visibility.Collapsed;
+    public bool ShowsValue => !IsLoading && ThumbnailSource is null;
 
-    public Visibility ThumbnailVisibility => !IsLoading && ThumbnailSource is not null
-        ? Visibility.Visible
-        : Visibility.Collapsed;
+    public bool ShowsThumbnail => !IsLoading && ThumbnailSource is not null;
 
-    public Visibility LoadingVisibility => IsLoading ? Visibility.Visible : Visibility.Collapsed;
-
-    public Visibility RowVisibility => IsVisible ? Visibility.Visible : Visibility.Collapsed;
-
-    public Visibility ToggleVisibility => CanToggle && !IsLoading ? Visibility.Visible : Visibility.Collapsed;
+    public bool ShowsToggle => CanToggle && !IsLoading;
 
     public string SearchText => string.Concat(_searchPrefix, Value);
 
@@ -64,23 +56,20 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     {
         CanToggle = true;
         ToggleCommand = new AsyncRelayCommand(() => ToggleAsync(toggleAsync));
-        OnPropertyChanged(nameof(ToggleVisibility));
+        OnPropertyChanged(nameof(ShowsToggle));
     }
 
     partial void OnThumbnailSourceChanged(ImageSource? value)
     {
-        OnPropertyChanged(nameof(ValueVisibility));
-        OnPropertyChanged(nameof(ThumbnailVisibility));
+        OnPropertyChanged(nameof(ShowsValue));
+        OnPropertyChanged(nameof(ShowsThumbnail));
     }
-
-    partial void OnIsVisibleChanged(bool value) => OnPropertyChanged(nameof(RowVisibility));
 
     partial void OnIsLoadingChanged(bool value)
     {
-        OnPropertyChanged(nameof(ValueVisibility));
-        OnPropertyChanged(nameof(ThumbnailVisibility));
-        OnPropertyChanged(nameof(LoadingVisibility));
-        OnPropertyChanged(nameof(ToggleVisibility));
+        OnPropertyChanged(nameof(ShowsValue));
+        OnPropertyChanged(nameof(ShowsThumbnail));
+        OnPropertyChanged(nameof(ShowsToggle));
     }
 
     partial void OnValueChanged(string value)
@@ -92,7 +81,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
         }
     }
 
-    partial void OnCanToggleChanged(bool value) => OnPropertyChanged(nameof(ToggleVisibility));
+    partial void OnCanToggleChanged(bool value) => OnPropertyChanged(nameof(ShowsToggle));
 
     private async Task ToggleAsync(Func<bool, Task<bool>> toggleAsync)
     {

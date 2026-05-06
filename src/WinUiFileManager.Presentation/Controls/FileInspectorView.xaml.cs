@@ -32,20 +32,20 @@ public sealed partial class FileInspectorView
     {
         if (ViewModel is not null)
         {
-            await ViewModel.CopyAllCommand.ExecuteAsync(null);
+            await ViewModel.Commands.CopyAllCommand.ExecuteAsync(null);
         }
     }
 
     private void OnRefreshClick(object sender, RoutedEventArgs e)
     {
-        ViewModel?.RefreshCommand.Execute(null);
+        ViewModel?.Commands.RefreshCommand.Execute(null);
     }
 
     private async void OnPropertiesClick(object sender, RoutedEventArgs e)
     {
         if (ViewModel is not null)
         {
-            await ViewModel.ShowPropertiesCommand.ExecuteAsync(null);
+            await ViewModel.Commands.ShowPropertiesCommand.ExecuteAsync(null);
         }
     }
 }

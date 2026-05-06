@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using Microsoft.Reactive.Testing;
-using Microsoft.UI.Xaml;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Messages;
@@ -24,7 +23,6 @@ public sealed class FileInspectorViewModelTests
 
         sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
 
-        await Assert.That(sut.HasItem).IsTrue();
         await Assert.That(sut.IsLoadingDetails).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("notes.txt");
         await Assert.That(GetFieldValue(sut, "Basic", "Type")).IsEqualTo("File");
@@ -120,7 +118,6 @@ public sealed class FileInspectorViewModelTests
 
         scheduler.AdvanceBy(10);
 
-        await Assert.That(sut.HasItem).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("delayed.txt");
         await Assert.That(GetFieldValue(sut, "IDs", "File ID")).IsEqualTo(string.Empty);
 
@@ -136,7 +133,7 @@ public sealed class FileInspectorViewModelTests
 
         scheduler.AdvanceBy(10);
 
-        await Assert.That(sut.HasItem).IsFalse();
+        await Assert.That(sut.SelectedItems).IsEmpty();
     }
 
     [Test]
@@ -249,12 +246,13 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_ShowPropertiesCommand_UsesShellServiceForCurrentSelection()
     {
         var shellService = new FakeShellService();
-        using var sut = new TestFileInspectorDetailsViewModel(
+        using var sut = new FileInspectorViewModel(
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             shellService,
             new TestSchedulerProvider(new TestScheduler()),
-            NullLogger<FileInspectorViewModel>.Instance);
+            NullLogger<FileInspectorViewModel>.Instance,
+            subscribeToMessages: false);
         var entry = CreateEntry(
             name: "image.jpg",
             fullPath: @"C:\temp\image.jpg",
@@ -263,19 +261,20 @@ public sealed class FileInspectorViewModelTests
 
         sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
 
-        await sut.ShowPropertiesCommand.ExecuteAsync(null);
+        await sut.Commands.ShowPropertiesCommand.ExecuteAsync(null);
 
         await Assert.That(shellService.LastPropertiesPath?.DisplayPath).IsEqualTo(@"C:\temp\image.jpg");
     }
 
-    private static TestFileInspectorDetailsViewModel CreateSubject(IFileIdentityService identityService)
+    private static FileInspectorViewModel CreateSubject(IFileIdentityService identityService)
     {
-        return new TestFileInspectorDetailsViewModel(
+        return new FileInspectorViewModel(
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
             new TestSchedulerProvider(new TestScheduler()),
-            NullLogger<FileInspectorViewModel>.Instance);
+            NullLogger<FileInspectorViewModel>.Instance,
+            subscribeToMessages: false);
     }
 
     private static FileEntryViewModel CreateEntry(string name, string fullPath, ItemKind kind, long size)
@@ -310,28 +309,28 @@ public sealed class FileInspectorViewModelTests
         return new SpecFileEntryViewModel(model);
     }
 
-    private static string GetFieldValue(FileInspectorDetailsViewModelBase sut, string category, string key)
+    private static string GetFieldValue(FileInspectorViewModel sut, string category, string key)
     {
         return sut.Fields
             .Single(f =>
-                string.Equals(f.Category, category, StringComparison.OrdinalIgnoreCase)
+                string.Equals(f.Category.GetDisplayName(), category, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase))
             .Value;
     }
 
-    private static List<FileInspectorCategoryViewModel> GetVisibleCategories(FileInspectorDetailsViewModelBase sut)
+    private static List<FileInspectorCategoryViewModel> GetVisibleCategories(FileInspectorViewModel sut)
     {
         return sut.Categories
-            .Where(static category => category.Visibility == Visibility.Visible)
+            .Where(static category => category.HasVisibleFields)
             .ToList();
     }
 
     private static List<FileInspectorFieldViewModel> GetVisibleFields(
-        FileInspectorDetailsViewModelBase sut,
+        FileInspectorViewModel sut,
         FileInspectorCategoryViewModel category)
     {
         return sut.Fields
-            .Where(field => field.IsVisible && string.Equals(field.Category, category.Name, StringComparison.OrdinalIgnoreCase))
+            .Where(field => field.IsVisible && field.Category == category.Category)
             .OrderBy(static field => field.SortOrder)
             .ToList();
     }
@@ -574,17 +573,4 @@ public sealed class FileInspectorViewModelTests
                 lockServices: []));
         }
     }
-
-    private sealed class TestFileInspectorDetailsViewModel(
-        IFileIdentityService fileIdentityService,
-        IClipboardService clipboardService,
-        IShellService shellService,
-        ISchedulerProvider schedulers,
-        ILogger<FileInspectorViewModel> logger)
-        : FileInspectorDetailsViewModelBase(
-            fileIdentityService,
-            clipboardService,
-            shellService,
-            schedulers,
-            logger);
 }

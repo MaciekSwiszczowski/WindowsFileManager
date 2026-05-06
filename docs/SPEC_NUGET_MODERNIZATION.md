@@ -11,11 +11,19 @@ Ordering is chronological: do the top of the list first, it unblocks later items
 
 ## 1. Expand CsWin32 to replace hand-rolled `DllImport`s
 
-> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-4.** The native-modernization spec is the authoritative source for the CsWin32 expansion; it also introduces the `ShellInterop` / `RestartManagerInterop` / `CloudFilesInterop` adapters and adds `RegNotifyChangeKeyValue` (for L-5). Content in this section is kept for reference.
+> **Absorbed by `SPEC_NATIVE_MODERNIZATION.md` M-4.** The native-modernization spec is the authoritative design write-up; this section tracks **acceptance for NuGet modernization**.
 
-CsWin32 is already referenced in `WinUiFileManager.Interop` but is under-used: `NtfsFileIdentityService` and `WindowsShellService` still contain manual `[DllImport]` blocks.
+### Status (landed)
 
-### 1.1. Add the missing Win32 APIs to `NativeMethods.txt`
+- `WinUiFileManager.Interop` drives all Win32 P/Invoke through **`NativeMethods.txt`** and **`Microsoft.Windows.CsWin32`** (`PInvoke.*` in generated output).
+- `WindowsShellService` delegates to **`IShellInterop` / `ShellInterop`** (no direct shell `DllImport`s).
+- Restart Manager and cloud placeholder probing use **`IRestartManagerInterop`**, **`ICloudFilesInterop`**.
+- **`NtfsFileIdentityService`** calls CsWin32-generated **`PInvoke`** for file-system APIs (still orchestration-heavy; types live in `Windows.Win32.*` from the Interop assembly).
+- **`grep -r "DllImport" src/`** (and `tests/`) finds **no** `[DllImport]` in authored sources — only mentions in analyzer/banned-symbol docs.
+
+`RegNotifyChangeKeyValue` is listed alongside **`REG_NOTIFY_FILTER`** (CsWin32 surfaces notify masks such as `REG_NOTIFY_CHANGE_LAST_SET` as members of that enum; do not add the raw constant name to `NativeMethods.txt` — the generator emits **PInvoke004** if you do).
+
+### 1.1. Add the missing Win32 APIs to `NativeMethods.txt` *(historical checklist — already present)*
 
 Append these lines to `src/WinUiFileManager.Interop/NativeMethods.txt`:
 
@@ -32,14 +40,14 @@ RM_PROCESS_INFO
 CoInitializeEx
 CoUninitialize
 RegNotifyChangeKeyValue
-REG_NOTIFY_CHANGE_LAST_SET
+REG_NOTIFY_FILTER
 ```
+
+Use `REG_NOTIFY_FILTER` (not the legacy `REG_NOTIFY_CHANGE_LAST_SET` line item): CsWin32 maps notify masks onto that enum.
 
 `RegNotifyChangeKeyValue` is required by `ILongPathsEnvironment` (see `SPEC_LONG_PATHS.md` §8.1) to react to external edits of the `LongPathsEnabled` registry value.
 
-CsWin32 generates `PInvoke.*` wrappers + strongly-typed `SafeHandle`s, constants, and typed enums. Remove the equivalent manual definitions from:
-- `src/WinUiFileManager.Infrastructure/Services/WindowsShellService.cs:101-157`
-- `src/WinUiFileManager.Infrastructure/FileSystem/NtfsFileIdentityService.cs:809-960`
+CsWin32 generates `PInvoke.*` wrappers + strongly-typed `SafeHandle`s, constants, and typed enums. Shell / Restart Manager / cloud calls were removed from Infrastructure in favor of the adapters listed in §1 **Status**.
 
 Do not add `SHCreateItemFromParsingName` / `IFileIsInUse` for inspector lock diagnostics. That shell COM probe was removed because it is STA-bound and provides only optional application-dependent information.
 
@@ -66,9 +74,9 @@ Replace raw `IntPtr` file handles with the generated safe wrappers. `NtfsFileIde
 
 ### 1.4. Acceptance
 
-- `grep "DllImport" src/` returns zero matches outside `NativeMethods.txt`-driven files.
-- All Win32 constants (`FILE_READ_ATTRIBUTES`, `FILE_FLAG_BACKUP_SEMANTICS`, `ERROR_SUCCESS`, etc.) come from `Windows.Win32.*` namespaces.
-- Existing tests continue to pass without modification (interfaces unchanged from the caller's perspective).
+- `grep -r "DllImport" src/` / `tests/` on authored `*.cs` files returns **zero** `[DllImport]` attributes (CsWin32-generated compilation units may contain `DllImport` internally).
+- Win32 constants and structs used at callsites come from **`Windows.Win32.*`** types supplied by the Interop project build.
+- Existing tests continue to pass (public service contracts preserved).
 
 ## 2. Upgrade CopyFile path to `CopyFile2` with a progress callback
 

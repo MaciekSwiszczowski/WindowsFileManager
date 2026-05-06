@@ -16,10 +16,9 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     private readonly IShellService _shellService;
     private readonly ISchedulerProvider _schedulers;
     private readonly ILogger<FileInspectorViewModel> _logger;
-    private readonly Dictionary<string, FileInspectorFieldViewModel> _fieldMap = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, FileInspectorCategoryViewModel> _categoryMap = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IReadOnlyDictionary<string, FileInspectorFieldViewModel> _fieldMap;
     private readonly List<InspectorBatchDefinition> _deferredBatches;
-    private readonly HashSet<string> _deferredFieldKeys = new(StringComparer.OrdinalIgnoreCase);
+    private readonly IReadOnlySet<string> _deferredFieldKeys;
     private static readonly FrozenDictionary<string, FileAttributes> ToggleableNtfsFlags =
         new Dictionary<string, FileAttributes>(StringComparer.OrdinalIgnoreCase)
         {
@@ -47,9 +46,9 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    public ObservableCollection<FileInspectorFieldViewModel> Fields { get; } = [];
+    public ObservableCollection<FileInspectorFieldViewModel> Fields { get; }
 
-    public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
+    public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; }
 
     protected FileInspectorDetailsViewModelBase(
         IFileIdentityService fileIdentityService,
@@ -64,7 +63,14 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _schedulers = schedulers;
         _logger = logger;
 
-        InitializeFieldDefinitions();
+        var inspectorModel = new FileInspectorModelBuilder(
+            static key => ToggleableNtfsFlags.ContainsKey(key),
+            ToggleNtfsFlagAsync).Build();
+        Fields = inspectorModel.Fields;
+        Categories = inspectorModel.Categories;
+        _fieldMap = inspectorModel.FieldMap;
+        _deferredFieldKeys = inspectorModel.DeferredFieldKeys;
+
         _deferredBatches =
         [
             new InspectorBatchDefinition(
@@ -141,7 +147,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         var builder = new StringBuilder();
         foreach (var grouping in Categories
             .Where(static category => category.HasVisibleFields)
-            .OrderBy(category => GetCategorySortOrder(category.Name)))
+            .OrderBy(category => FileInspectorCategorySort.GetSortOrder(category.Name)))
         {
             builder.AppendLine(grouping.Name);
             foreach (var field in Fields
@@ -203,75 +209,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
 
     partial void OnSearchTextChanged(string value)
     {
-        RefreshVisibleCategories();
-    }
-
-    private void InitializeFieldDefinitions()
-    {
-        RegisterField("Basic", "Name", "File or folder name", 0);
-        RegisterField("Basic", "Full Path", "Full selected item path", 1);
-        RegisterField("Basic", "Type", "Item type", 2);
-        RegisterField("Basic", "Extension", "File extension", 3);
-        RegisterField("Basic", "Size", "Size in a human-readable format", 4);
-        RegisterField("Basic", "Attributes", "File system attributes", 5);
-
-        RegisterField("NTFS", "Created", "NTFS creation time in UTC.", 0);
-        RegisterField("NTFS", "Accessed", "NTFS last access time in UTC.", 1);
-        RegisterField("NTFS", "Modified", "NTFS last write time in UTC.", 2);
-        RegisterField("NTFS", "MFT Changed", "NTFS metadata change time in UTC.", 3);
-        RegisterField("NTFS", "Read Only", "Whether the item is marked read-only.", 4);
-        RegisterField("NTFS", "Hidden", "Whether the item is hidden.", 5);
-        RegisterField("NTFS", "System", "Whether the item is marked as a system file.", 6);
-        RegisterField("NTFS", "Archive", "Whether the archive attribute is set.", 7);
-        RegisterField("NTFS", "Temporary", "Whether the item is marked temporary.", 8);
-        RegisterField("NTFS", "Offline", "Whether the item is offline or placeholder-backed.", 9);
-        RegisterField("NTFS", "Not Content Indexed", "Whether the item should be excluded from content indexing.", 10);
-        RegisterField("NTFS", "Encrypted", "Whether the item is encrypted with EFS.", 11);
-        RegisterField("NTFS", "Compressed", "Whether the item is compressed by NTFS.", 12);
-        RegisterField("NTFS", "Sparse", "Whether the item is stored as a sparse file.", 13);
-        RegisterField("NTFS", "Reparse Point", "Whether the item is a reparse point.", 14);
-
-        RegisterField("IDs", "File ID", "128-bit NTFS identifier for the selected file system entry.", 0);
-        RegisterField("IDs", "Volume Serial", "Volume serial number of the drive that contains the item.", 1);
-        RegisterField("IDs", "File Index (64-bit)", "Older 64-bit file index from the legacy Windows API. Diagnostic/compatibility value only.", 2);
-        RegisterField("IDs", "Hard Link Count", "How many hard links point to the same file record, when available.", 3);
-        RegisterField("IDs", "Final Path", "The resolved final path reported by Windows.", 4);
-
-        RegisterField("Links", "Link Target", "Target path of a symbolic link, junction, or shell shortcut.", 0);
-        RegisterField("Links", "Link Status", "What kind of link Windows reports for the item.", 1);
-        RegisterField("Links", "Reparse Tag", "Reparse point classification reported by Windows.", 2);
-        RegisterField("Links", "Reparse Data", "Additional reparse data, when Windows can provide it.", 3);
-        RegisterField("Links", "Object ID", "NTFS object identifier, when available.", 4);
-
-        RegisterField("Streams", "Alternate Stream Count", "How many alternate data streams the item has.", 0);
-        RegisterField("Streams", "Alternate Streams", "Names and sizes of alternate data streams.", 1);
-
-        RegisterField("Security", "Owner", "Owner of the file or folder.", 0);
-        RegisterField("Security", "Group", "Primary group of the file or folder.", 1);
-        RegisterField("Security", "DACL Summary", "Summary of access rules from the discretionary access control list.", 2);
-        RegisterField("Security", "SACL Summary", "Summary of audit rules from the system access control list.", 3);
-        RegisterField("Security", "Inherited", "Whether the permissions are inherited.", 4);
-        RegisterField("Security", "Protected", "Whether inherited permissions are blocked.", 5);
-
-        RegisterField("Thumbnails", "Thumbnail", "Thumbnail preview reported by Windows, when available.", 0);
-        RegisterField("Thumbnails", "Has Thumbnail", "Whether Windows could provide a thumbnail for the selected item.", 1);
-        RegisterField("Thumbnails", "Association", "Shell association or file type hint used for the thumbnail, when available.", 2);
-
-        RegisterField("Cloud", "Status", "Combined cloud-file state summary such as hydrated, dehydrated, pinned, synced, or uploading.", 0);
-        RegisterField("Cloud", "Provider", "Cloud provider display name.", 1);
-        RegisterField("Cloud", "Sync Root", "Owning sync-root path or display name.", 2);
-        RegisterField("Cloud", "Root ID", "Sync-root registration identifier.", 3);
-        RegisterField("Cloud", "Provider ID", "Provider identifier from the sync-root registration.", 4);
-        RegisterField("Cloud", "Available", "Whether the selected item is currently available locally.", 5);
-        RegisterField("Cloud", "Transfer", "Current transfer state such as upload, download, or paused, when Windows exposes it.", 6);
-        RegisterField("Cloud", "Custom", "Provider-defined custom cloud status text, when available.", 7);
-
-        RegisterField("Locks", "Is locked", "Whether the selected item appears to be locked based on the other lock diagnostics in this category.", 0);
-        RegisterField("Locks", "In Use", "Whether Windows currently reports the item as in use. Best-effort diagnostic.", 1);
-        RegisterField("Locks", "Locked By", "Applications or services that Windows reports as using this item.", 2);
-        RegisterField("Locks", "Lock PIDs", "Process IDs of applications using this item. Useful in Task Manager or Process Explorer.", 3);
-        RegisterField("Locks", "Lock Services", "Service names associated with the lock, when available.", 4);
-
         RefreshVisibleCategories();
     }
 
@@ -391,44 +328,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
         _deferredLoadCancellation.Cancel();
         _deferredLoadCancellation.Dispose();
         _deferredLoadCancellation = new CancellationTokenSource();
-    }
-
-    private void RegisterField(string category, string key, string tooltip, int sortOrder)
-    {
-        var field = new FileInspectorFieldViewModel(category, key, tooltip, string.Empty, sortOrder);
-        if (ToggleableNtfsFlags.ContainsKey(key))
-        {
-            field.ConfigureToggle(enabled => ToggleNtfsFlagAsync(key, enabled));
-        }
-
-        _fieldMap.Add(key, field);
-        Fields.Add(field);
-        GetOrCreateCategory(category).Fields.Add(field);
-        if (!string.Equals(category, "Basic", StringComparison.OrdinalIgnoreCase)
-            && !string.Equals(category, "NTFS", StringComparison.OrdinalIgnoreCase))
-        {
-            _deferredFieldKeys.Add(key);
-        }
-    }
-
-    private FileInspectorCategoryViewModel GetOrCreateCategory(string category)
-    {
-        if (_categoryMap.TryGetValue(category, out var existingCategory))
-        {
-            return existingCategory;
-        }
-
-        var createdCategory = new FileInspectorCategoryViewModel(category);
-        _categoryMap.Add(category, createdCategory);
-        var insertIndex = 0;
-        while (insertIndex < Categories.Count
-               && GetCategorySortOrder(Categories[insertIndex].Name) <= GetCategorySortOrder(category))
-        {
-            insertIndex++;
-        }
-
-        Categories.Insert(insertIndex, createdCategory);
-        return createdCategory;
     }
 
     private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
@@ -589,7 +488,7 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
             field.IsVisible = ShouldFieldBeVisible(field, search, hasSearch);
         }
 
-        foreach (var category in Categories.OrderBy(category => GetCategorySortOrder(category.Name)))
+        foreach (var category in Categories.OrderBy(category => FileInspectorCategorySort.GetSortOrder(category.Name)))
         {
             category.RefreshVisibility();
         }
@@ -598,20 +497,6 @@ public abstract partial class FileInspectorDetailsViewModelBase : ObservableObje
     }
 
     public bool HasVisibleFields => Categories.Any(static category => category.HasVisibleFields);
-
-    private int GetCategorySortOrder(string category) => category switch
-    {
-        "Basic" => 0,
-        "NTFS" => 1,
-        "IDs" => 2,
-        "Locks" => 3,
-        "Links" => 4,
-        "Streams" => 5,
-        "Security" => 6,
-        "Thumbnails" => 7,
-        "Cloud" => 8,
-        _ => int.MaxValue
-    };
 
     public async IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
         FileInspectorSelection selection,

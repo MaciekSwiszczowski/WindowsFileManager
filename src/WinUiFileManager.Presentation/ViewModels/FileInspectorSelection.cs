@@ -17,47 +17,6 @@ public sealed record FileInspectorSelection(
     FileAttributes AttributesFlags)
 {
     public static FileInspectorSelection FromSelection(
-        IReadOnlyList<FileEntryViewModel> selectedEntries,
-        bool isPaneLoading,
-        long refreshVersion)
-    {
-        if (isPaneLoading)
-        {
-            return Empty(refreshVersion);
-        }
-
-        if (selectedEntries.Count == 0)
-        {
-            return Empty(refreshVersion);
-        }
-
-        if (selectedEntries.Count != 1)
-        {
-            return Empty(refreshVersion);
-        }
-
-        var entry = selectedEntries[0];
-        if (entry.Model is not { } model)
-        {
-            return Empty(refreshVersion);
-        }
-
-        return new FileInspectorSelection(
-            HasItem: true,
-            CanLoadDeferred: true,
-            RefreshVersion: refreshVersion,
-            FullPath: model.FullPath.DisplayPath,
-            Name: entry.Name,
-            Extension: entry.Extension,
-            Kind: model.Kind,
-            SizeBytes: model.Size,
-            CreationTimeUtc: model.CreationTimeUtc,
-            LastWriteTimeUtc: model.LastWriteTimeUtc,
-            Attributes: entry.Attributes,
-            AttributesFlags: model.Attributes);
-    }
-
-    public static FileInspectorSelection FromSelection(
         IReadOnlyList<SpecFileEntryViewModel> selectedEntries,
         long refreshVersion)
     {

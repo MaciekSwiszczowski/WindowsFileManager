@@ -48,7 +48,6 @@ public static class ServiceConfiguration
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
         services.AddSingleton<FileTableFocusService>();
 
-        services.AddTransient<FilePaneViewModel>();
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();

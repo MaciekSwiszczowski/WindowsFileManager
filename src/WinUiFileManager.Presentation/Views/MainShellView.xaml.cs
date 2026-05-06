@@ -51,7 +51,8 @@ public sealed partial class MainShellView : UserControl
         Bindings.Update();
         InspectorView.ViewModel = viewModel.Inspector;
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
-        viewModel.FocusActivePaneRequested += OnFocusActivePaneRequested;
+
+        _activePaneId = viewModel.ActivePaneId;
 
         UpdateActivePaneBorders();
         UpdateInspectorLayout();
@@ -60,27 +61,37 @@ public sealed partial class MainShellView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        EnsureFileEntryDataSources();
+    }
+
+    private void EnsureFileEntryDataSources()
+    {
         if (_leftDataSource is not null)
         {
             return;
         }
 
         var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
-        _leftDataSource = new FileEntryTableDataSource(
+        var leftDs = new FileEntryTableDataSource(
             "Left",
             ResolveInitialPath(
                 @"C:\FileEntryTableTest\Left",
                 Environment.SpecialFolder.UserProfile),
             uiScheduler);
-        _rightDataSource = new FileEntryTableDataSource(
+        var rightDs = new FileEntryTableDataSource(
             "Right",
             ResolveInitialPath(
                 @"C:\FileEntryTableTest\Right",
                 Environment.SpecialFolder.DesktopDirectory),
             uiScheduler);
 
-        _dataSourceSubscriptions.Add(_leftDataSource.States.Subscribe(ApplyLeftState));
-        _dataSourceSubscriptions.Add(_rightDataSource.States.Subscribe(ApplyRightState));
+        _dataSourceSubscriptions.Add(leftDs.States.Subscribe(ApplyLeftState));
+        _dataSourceSubscriptions.Add(rightDs.States.Subscribe(ApplyRightState));
+
+        _leftDataSource?.Dispose();
+        _rightDataSource?.Dispose();
+        _leftDataSource = leftDs;
+        _rightDataSource = rightDs;
 
         var layout = ColumnLayout.Default;
         WeakReferenceMessenger.Default.Send(new FileTableColumnLayoutMessage("Left", layout));
@@ -197,13 +208,9 @@ public sealed partial class MainShellView : UserControl
     {
         _activePaneId = paneId;
 
-        if (ViewModel is not null)
+        if (ViewModel is not null && ViewModel.ActivePaneId != paneId)
         {
-            var desired = paneId == PaneId.Left ? ViewModel.LeftPane : ViewModel.RightPane;
-            if (ViewModel.ActivePane != desired)
-            {
-                ViewModel.ActivePane = desired;
-            }
+            ViewModel.ActivePaneId = paneId;
         }
 
         UpdateActivePaneBorders();
@@ -378,10 +385,10 @@ public sealed partial class MainShellView : UserControl
         {
             switch (e.PropertyName)
             {
-                case nameof(MainShellViewModel.ActivePane):
+                case nameof(MainShellViewModel.ActivePaneId):
                     if (ViewModel is not null)
                     {
-                        _activePaneId = ViewModel.ActivePane.PaneId;
+                        _activePaneId = ViewModel.ActivePaneId;
                     }
 
                     UpdateActivePaneBorders();
@@ -419,11 +426,6 @@ public sealed partial class MainShellView : UserControl
         PathText.Text = activePath;
         ItemCountText.Text = $"{activeItems?.Count ?? 0} items";
         SelectedText.Text = $"{activeSelectedCount} selected";
-    }
-
-    private void OnFocusActivePaneRequested(object? sender, EventArgs e)
-    {
-        DispatcherQueue.TryEnqueue(FocusActiveTable);
     }
 
     private void FocusActiveTable()

@@ -4,18 +4,17 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Presentation.Services;
-using WinUiFileManager.Presentation.ViewModels;
+using Domain.ValueObjects;
+using Presentation.Services;
+using Presentation.ViewModels;
 
 public sealed partial class MainShellWindow : Window
 {
     public MainShellWindow()
     {
-        this.InitializeComponent();
+        InitializeComponent();
 
-        var appWindow = this.AppWindow;
+        var appWindow = AppWindow;
         appWindow.Resize(new global::Windows.Graphics.SizeInt32(1400, 900));
         appWindow.SetIcon("Assets\\app-icon.ico");
         appWindow.Closing += OnAppWindowClosing;
@@ -45,8 +44,6 @@ public sealed partial class MainShellWindow : Window
         var services = App.Services;
 
         _viewModel = services.GetRequiredService<MainShellViewModel>();
-        _viewModel.LeftPane.PaneId = PaneId.Left;
-        _viewModel.RightPane.PaneId = PaneId.Right;
 
         var dialogService = services.GetRequiredService<WinUiDialogService>();
         dialogService.XamlRoot = ShellView.XamlRoot;

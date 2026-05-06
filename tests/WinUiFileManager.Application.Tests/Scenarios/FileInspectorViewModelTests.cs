@@ -13,13 +13,13 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_ApplySelection_ShowsBasicFieldsImmediately()
     {
         using var sut = CreateSubject(new RecordingFileIdentityService());
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "notes.txt",
             fullPath: @"C:\temp\notes.txt",
             kind: ItemKind.File,
             size: 4096);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         await Assert.That(sut.IsLoadingDetails).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("notes.txt");
@@ -35,13 +35,13 @@ public sealed class FileInspectorViewModelTests
     {
         var identityService = new RecordingFileIdentityService();
         using var sut = CreateSubject(identityService);
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "beta.txt",
             fullPath: @"C:\temp\beta.txt",
             kind: ItemKind.File,
             size: 2048);
 
-        var selection = FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0);
+        var selection = FileInspectorSelection.FromSelection([entry], refreshVersion: 0);
         sut.ApplySelection(selection);
 
         var batches = new List<FileInspectorDeferredBatchResult>();
@@ -75,13 +75,13 @@ public sealed class FileInspectorViewModelTests
     {
         var identityService = new RecordingFileIdentityService();
         using var sut = CreateSubject(identityService);
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "alpha.txt",
             fullPath: @"C:\temp\alpha.txt",
             kind: ItemKind.File,
             size: 128);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         var readOnlyField = sut.Fields.Single(static field => field.Key == "Read Only");
         await readOnlyField.ToggleCommand!.ExecuteAsync(null);
@@ -138,13 +138,13 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_SearchText_FiltersByKeyAndValue()
     {
         using var sut = CreateSubject(new RecordingFileIdentityService());
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "docs",
             fullPath: @"C:\temp\docs",
             kind: ItemKind.Directory,
             size: -1);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         sut.SearchText = "folder";
 
@@ -166,13 +166,13 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_LoadDeferredBatchesAsync_ShowsIsLockedFalse_WhenItemIsNotLocked()
     {
         using var sut = CreateSubject(new UnlockedFileIdentityService());
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "report.docx",
             fullPath: @"C:\temp\report.docx",
             kind: ItemKind.File,
             size: 1024);
 
-        var selection = FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0);
+        var selection = FileInspectorSelection.FromSelection([entry], refreshVersion: 0);
         sut.ApplySelection(selection);
 
         await foreach (var batch in sut.LoadDeferredBatchesAsync(selection, CancellationToken.None))
@@ -193,8 +193,7 @@ public sealed class FileInspectorViewModelTests
         using var fixture = new NtfsTempDirectoryFixture();
         var filePath = fixture.CreateFile("cloud.txt", 128);
         var selection = FileInspectorSelection.FromSelection(
-            [CreateEntry("cloud.txt", filePath, ItemKind.File, 128)],
-            isPaneLoading: false,
+            [CreateSpecEntry("cloud.txt", filePath, ItemKind.File, 128)],
             refreshVersion: 0);
         var cloudBatchEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var originalCloudPropertyValuesProvider = NtfsFileIdentityService.CloudPropertyValuesProvider;
@@ -251,13 +250,13 @@ public sealed class FileInspectorViewModelTests
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false);
-        var entry = CreateEntry(
+        var entry = CreateSpecEntry(
             name: "image.jpg",
             fullPath: @"C:\temp\image.jpg",
             kind: ItemKind.File,
             size: 128);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], isPaneLoading: false, refreshVersion: 0));
+        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         await sut.Commands.ShowPropertiesCommand.ExecuteAsync(null);
 
@@ -273,22 +272,6 @@ public sealed class FileInspectorViewModelTests
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false);
-    }
-
-    private static FileEntryViewModel CreateEntry(string name, string fullPath, ItemKind kind, long size)
-    {
-        var normalizedPath = NormalizedPath.FromUserInput(fullPath);
-        var model = new FileSystemEntryModel(
-            normalizedPath,
-            name,
-            Path.GetExtension(name),
-            kind,
-            size,
-            DateTime.UtcNow,
-            DateTime.UtcNow,
-            FileAttributes.Archive);
-
-        return new FileEntryViewModel(model);
     }
 
     private static SpecFileEntryViewModel CreateSpecEntry(string name, string fullPath, ItemKind kind, long size)

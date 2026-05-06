@@ -9,31 +9,18 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private const double MinVisibleInspectorWidth = 260d;
 
     private readonly ISettingsRepository _settingsRepository;
-    private readonly CopySelectionCommandHandler _copyHandler;
-    private readonly MoveSelectionCommandHandler _moveHandler;
-    private readonly DeleteSelectionCommandHandler _deleteHandler;
-    private readonly CreateFolderCommandHandler _createFolderHandler;
-    private readonly CopyFullPathCommandHandler _copyFullPathHandler;
-    private readonly AddFavouriteCommandHandler _addFavouriteHandler;
     private readonly RemoveFavouriteCommandHandler _removeFavouriteHandler;
     private readonly OpenFavouriteCommandHandler _openFavouriteHandler;
     private readonly SetParallelExecutionCommandHandler _setParallelExecutionHandler;
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
-    private readonly IDialogService _dialogService;
     private readonly IFavouritesRepository _favouritesRepository;
     private readonly ILogger<MainShellViewModel> _logger;
 
     private AppSettings _currentSettings = new();
 
     [ObservableProperty]
-    public partial FilePaneViewModel LeftPane { get; set; }
-
-    [ObservableProperty]
-    public partial FilePaneViewModel RightPane { get; set; }
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ActivePaneLabel))]
-    public partial FilePaneViewModel ActivePane { get; set; }
+    public partial PaneId ActivePaneId { get; set; } = PaneId.Left;
 
     [ObservableProperty]
     public partial FileInspectorViewModel Inspector { get; set; }
@@ -82,54 +69,27 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public MainShellViewModel(
         ISettingsRepository settingsRepository,
-        CopySelectionCommandHandler copyHandler,
-        MoveSelectionCommandHandler moveHandler,
-        DeleteSelectionCommandHandler deleteHandler,
-        CreateFolderCommandHandler createFolderHandler,
-        RenameEntryCommandHandler renameHandler,
-        CopyFullPathCommandHandler copyFullPathHandler,
-        AddFavouriteCommandHandler addFavouriteHandler,
         RemoveFavouriteCommandHandler removeFavouriteHandler,
         OpenFavouriteCommandHandler openFavouriteHandler,
         SetParallelExecutionCommandHandler setParallelExecutionHandler,
         PersistPaneStateCommandHandler persistPaneStateHandler,
-        IDialogService dialogService,
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
-        FileInspectorViewModel inspector,
-        FilePaneViewModel leftPane,
-        FilePaneViewModel rightPane)
+        FileInspectorViewModel inspector)
     {
         _settingsRepository = settingsRepository;
-        _copyHandler = copyHandler;
-        _moveHandler = moveHandler;
-        _deleteHandler = deleteHandler;
-        _createFolderHandler = createFolderHandler;
-        _copyFullPathHandler = copyFullPathHandler;
-        _addFavouriteHandler = addFavouriteHandler;
         _removeFavouriteHandler = removeFavouriteHandler;
         _openFavouriteHandler = openFavouriteHandler;
         _setParallelExecutionHandler = setParallelExecutionHandler;
         _persistPaneStateHandler = persistPaneStateHandler;
-        _dialogService = dialogService;
         _favouritesRepository = favouritesRepository;
         _logger = logger;
         Inspector = inspector;
-
-        LeftPane = leftPane;
-        RightPane = rightPane;
-        leftPane.PaneId = PaneId.Left;
-        rightPane.PaneId = PaneId.Right;
-        ActivePane = leftPane;
-        leftPane.IsActive = true;
-
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
 
-    public FilePaneViewModel InactivePane => ActivePane == LeftPane ? RightPane : LeftPane;
-
-    public string ActivePaneLabel => $"{ActivePane.PaneLabel} active";
+    public string ActivePaneLabel => $"{(ActivePaneId == PaneId.Left ? "Left" : "Right")} active";
 
     public double InspectorColumnWidth
     {
@@ -159,238 +119,32 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         InspectorWidth = Math.Max(width, MinVisibleInspectorWidth);
     }
 
-    partial void OnActivePaneChanged(FilePaneViewModel value)
-    {
-        LeftPane.IsActive = value == LeftPane;
-        RightPane.IsActive = value == RightPane;
-        OnPropertyChanged(nameof(InactivePane));
-    }
-
     [RelayCommand]
     private void SwitchActivePane()
     {
-        ActivePane = ActivePane == LeftPane ? RightPane : LeftPane;
+        ActivePaneId = ActivePaneId == PaneId.Left ? PaneId.Right : PaneId.Left;
     }
 
     [RelayCommand]
-    private async Task CopyAsync()
-    {
-        if (OperationProgress.IsRunning)
-        {
-            return;
-        }
-
-        var items = ActivePane.GetSelectedEntryModels();
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        var destination = InactivePane.CurrentNormalizedPath;
-        if (destination is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var parallelOptions = new ParallelExecutionOptions(
-                _currentSettings.ParallelExecutionEnabled,
-                _currentSettings.MaxDegreeOfParallelism);
-
-            await RunTrackedOperationAsync(
-                OperationType.Copy,
-                (progress, cancellationToken) => _copyHandler.ExecuteAsync(
-                    items,
-                    destination.Value,
-                    CollisionPolicy.Ask,
-                    parallelOptions,
-                    progress,
-                    cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Copy operation failed");
-        }
-    }
+    private Task CopyAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task MoveAsync()
-    {
-        if (OperationProgress.IsRunning)
-        {
-            return;
-        }
-
-        var items = ActivePane.GetSelectedEntryModels();
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        var destination = InactivePane.CurrentNormalizedPath;
-        if (destination is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var parallelOptions = new ParallelExecutionOptions(
-                _currentSettings.ParallelExecutionEnabled,
-                _currentSettings.MaxDegreeOfParallelism);
-
-            await RunTrackedOperationAsync(
-                OperationType.Move,
-                (progress, cancellationToken) => _moveHandler.ExecuteAsync(
-                    items,
-                    destination.Value,
-                    CollisionPolicy.Ask,
-                    parallelOptions,
-                    progress,
-                    cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Move operation failed");
-        }
-    }
+    private Task MoveAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task DeleteAsync()
-    {
-        if (OperationProgress.IsRunning)
-        {
-            return;
-        }
-
-        var items = ActivePane.GetSelectedEntryModels();
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        try
-        {
-            var hasDirectories = items.Any(static i => i.Kind == ItemKind.Directory);
-            var confirmed = await _dialogService.ShowDeleteConfirmationAsync(
-                items.Count, hasDirectories, CancellationToken.None);
-
-            if (!confirmed)
-            {
-                return;
-            }
-
-            await RunTrackedOperationAsync(
-                OperationType.Delete,
-                (progress, cancellationToken) => _deleteHandler.ExecuteAsync(
-                    items,
-                    progress,
-                    cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Delete operation failed");
-        }
-    }
+    private Task DeleteAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task CreateFolderAsync()
-    {
-        var currentPath = ActivePane.CurrentNormalizedPath;
-        if (currentPath is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var folderName = await _dialogService.ShowCreateFolderDialogAsync(CancellationToken.None);
-            if (string.IsNullOrWhiteSpace(folderName))
-            {
-                return;
-            }
-
-            var summary = await _createFolderHandler.ExecuteAsync(
-                currentPath.Value,
-                folderName,
-                new Progress<OperationProgressEvent>(),
-                CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-            await ActivePane.RefreshCommand.ExecuteAsync(null);
-            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Create folder operation failed");
-        }
-    }
+    private Task CreateFolderAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private Task RenameAsync()
-    {
-        var currentItem = ActivePane.CurrentItem;
-        if (currentItem?.Model is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        ActivePane.BeginRenameCurrent();
-        return Task.CompletedTask;
-    }
+    private Task RenameAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task CopyFullPathAsync()
-    {
-        var items = ActivePane.GetSelectedEntryModels();
-        if (items.Count == 0)
-        {
-            return;
-        }
-
-        try
-        {
-            await _copyFullPathHandler.ExecuteAsync(items, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Copy full path failed");
-        }
-    }
+    private Task CopyFullPathAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private async Task AddFavouriteAsync()
-    {
-        var currentPath = ActivePane.CurrentNormalizedPath;
-        if (currentPath is null)
-        {
-            return;
-        }
-
-        try
-        {
-            var displayName = Path.GetFileName(currentPath.Value.Value.TrimEnd(
-                Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-
-            if (string.IsNullOrEmpty(displayName))
-            {
-                displayName = currentPath.Value.DisplayPath;
-            }
-
-            var result = await _addFavouriteHandler.ExecuteAsync(
-                displayName, currentPath.Value, CancellationToken.None);
-
-            if (result.IsValid)
-            {
-                await LoadFavouritesAsync();
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Add favourite failed");
-        }
-    }
+    private Task AddFavouriteAsync() => Task.CompletedTask;
 
     [RelayCommand]
     private async Task RemoveFavouriteAsync(FavouriteFolderId id)
@@ -411,11 +165,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         try
         {
-            var result = await _openFavouriteHandler.ExecuteAsync(id, CancellationToken.None);
-            if (result is { Success: true, Path: not null })
-            {
-                await ActivePane.NavigateToCommand.ExecuteAsync(result.Path.Value.DisplayPath);
-            }
+            await _openFavouriteHandler.ExecuteAsync(id, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -424,7 +174,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand]
-    private Task RefreshActivePaneAsync() => ActivePane.RefreshCommand.ExecuteAsync(null);
+    private Task RefreshActivePaneAsync() => Task.CompletedTask;
 
     public async Task InitializeAsync()
     {
@@ -437,46 +187,13 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             LeftPaneWidth = _currentSettings.LeftPaneWidth;
             MainWindowPlacement = _currentSettings.MainWindowPlacement;
 
-            LeftPane.ColumnLayout = _currentSettings.LeftPaneColumns;
-            RightPane.ColumnLayout = _currentSettings.RightPaneColumns;
-            LeftPane.ApplySortState(_currentSettings.LeftPaneSort);
-            RightPane.ApplySortState(_currentSettings.RightPaneSort);
+            await LoadFavouritesAsync();
 
-            await Task.WhenAll(
-                LoadFavouritesAsync(),
-                LeftPane.LoadDrivesAsync(),
-                RightPane.LoadDrivesAsync());
-
-            var defaultPath = LeftPane.AvailableDrives.FirstOrDefault()?.RootPath.DisplayPath
-                ?? RightPane.AvailableDrives.FirstOrDefault()?.RootPath.DisplayPath
-                ?? @"C:\";
-
-            var leftPath = _currentSettings.LastLeftPanePath?.DisplayPath ?? defaultPath;
-            var rightPath = _currentSettings.LastRightPanePath?.DisplayPath ?? defaultPath;
-
-            await Task.WhenAll(
-                NavigateWithFallbackAsync(LeftPane, leftPath, defaultPath),
-                NavigateWithFallbackAsync(RightPane, rightPath, defaultPath));
-
-            ActivePane = _currentSettings.LastActivePane == PaneId.Right ? RightPane : LeftPane;
+            ActivePaneId = _currentSettings.LastActivePane == PaneId.Right ? PaneId.Right : PaneId.Left;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Initialization failed");
-        }
-    }
-
-    private static async Task NavigateWithFallbackAsync(
-        FilePaneViewModel pane,
-        string preferredPath,
-        string fallbackPath)
-    {
-        await pane.NavigateToCommand.ExecuteAsync(preferredPath);
-
-        if (pane.CurrentNormalizedPath is null
-            && !string.Equals(preferredPath, fallbackPath, StringComparison.OrdinalIgnoreCase))
-        {
-            await pane.NavigateToCommand.ExecuteAsync(fallbackPath);
         }
     }
 
@@ -485,16 +202,16 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             var request = new PersistPaneStateRequest(
-                LeftPanePath: LeftPane.CurrentNormalizedPath,
-                RightPanePath: RightPane.CurrentNormalizedPath,
-                ActivePane: ActivePane.PaneId,
+                LeftPanePath: _currentSettings.LastLeftPanePath,
+                RightPanePath: _currentSettings.LastRightPanePath,
+                ActivePane: ActivePaneId,
                 InspectorVisible: IsInspectorVisible,
                 InspectorWidth: InspectorWidth,
                 LeftPaneWidth: LeftPaneWidth,
-                LeftPaneColumns: LeftPane.ColumnLayout,
-                RightPaneColumns: RightPane.ColumnLayout,
-                LeftPaneSort: LeftPane.SortState,
-                RightPaneSort: RightPane.SortState,
+                LeftPaneColumns: _currentSettings.LeftPaneColumns,
+                RightPaneColumns: _currentSettings.RightPaneColumns,
+                LeftPaneSort: _currentSettings.LeftPaneSort,
+                RightPaneSort: _currentSettings.RightPaneSort,
                 MainWindowPlacement: MainWindowPlacement);
 
             await _persistPaneStateHandler.ExecuteAsync(request, cancellationToken);
@@ -504,8 +221,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             _logger.LogError(ex, "Persisting pane state failed");
         }
     }
-
-    public event EventHandler? FocusActivePaneRequested;
 
     private async Task LoadFavouritesAsync()
     {
@@ -526,43 +241,4 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
     }
-
-    private async Task RunTrackedOperationAsync(
-        OperationType operationType,
-        Func<IProgress<OperationProgressEvent>, CancellationToken, Task<OperationSummary>> executeAsync)
-    {
-        OperationProgress.Start(operationType);
-        var progressDialog = await _dialogService.ShowOperationProgressAsync(
-            operationType,
-            () => OperationProgress.CancelCommand.Execute(null),
-            CancellationToken.None);
-        var progress = new Progress<OperationProgressEvent>(
-            progressEvent =>
-            {
-                OperationProgress.ReportProgress(progressEvent);
-                progressDialog.ReportProgress(progressEvent);
-            });
-
-        try
-        {
-            var summary = await executeAsync(progress, OperationProgress.CancellationToken);
-            OperationProgress.Finish();
-            await progressDialog.CloseAsync(CancellationToken.None);
-
-            await _dialogService.ShowOperationResultAsync(summary, CancellationToken.None);
-
-            // Pane content is kept in sync by the active-folder directory change stream
-            // (WindowsDirectoryChangeStream + the pane's Rx pipeline). No explicit refresh
-            // is needed here: the self-inflicted watcher events coalesce into a few
-            // buffered batches on a background scheduler while we were showing the result
-            // dialog, and each batch commits a single SourceCache edit on the UI thread.
-            FocusActivePaneRequested?.Invoke(this, EventArgs.Empty);
-        }
-        finally
-        {
-            await progressDialog.CloseAsync(CancellationToken.None);
-            OperationProgress.Reset();
-        }
-    }
-
 }

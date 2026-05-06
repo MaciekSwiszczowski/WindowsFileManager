@@ -46,7 +46,6 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
-        services.AddTransient<FilePaneViewModel>();
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
@@ -60,7 +59,6 @@ public sealed class ServiceRegistrationValidationTests
         var shell = provider.GetRequiredService<MainShellViewModel>();
 
         await Assert.That(shell).IsNotNull();
-        await Assert.That(shell.LeftPane).IsNotNull();
-        await Assert.That(shell.RightPane).IsNotNull();
+        await Assert.That(shell.Inspector).IsNotNull();
     }
 }

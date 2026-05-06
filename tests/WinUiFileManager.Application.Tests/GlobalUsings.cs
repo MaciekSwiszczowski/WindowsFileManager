@@ -14,4 +14,5 @@ global using WinUiFileManager.Infrastructure.FileSystem;
 global using WinUiFileManager.Infrastructure.Planning;
 global using WinUiFileManager.Infrastructure.Services;
 global using WinUiFileManager.Interop.Adapters;
-
+global using WinUiFileManager.Presentation.FileEntryTable;
+global using WinUiFileManager.Presentation.ViewModels;

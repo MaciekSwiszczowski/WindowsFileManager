@@ -51,13 +51,9 @@ public sealed partial class SpecFileEntryTableView
             return;
         }
 
-        if (item.EntryKind == FileEntryKind.Folder)
+        if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            if (item.Model is { } model)
-            {
-                WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
-            }
-
+            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
             e.Handled = true;
         }
     }

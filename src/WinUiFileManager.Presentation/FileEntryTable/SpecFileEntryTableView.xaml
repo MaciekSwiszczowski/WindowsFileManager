@@ -42,10 +42,26 @@
                            x:Name="ActiveRowIndicator" 
                            Opacity="0"/>
                 
-                <TextBlock Grid.Column="2" Text="{x:Bind Name}" 
+                <TextBlock Grid.Column="2" Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetName(Model), Mode=OneWay}" 
                            Style="{StaticResource EllipsisTextCellStyle}" 
                            HorizontalAlignment="Left" />
             </Grid>
+        </DataTemplate>
+        <DataTemplate x:Key="ExtensionColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+            <TextBlock Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetExtension(Model), Mode=OneWay}"
+                       Style="{StaticResource MutedEllipsisCellStyle}" />
+        </DataTemplate>
+        <DataTemplate x:Key="SizeColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+            <TextBlock Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetSize(Model), Mode=OneWay}"
+                       Style="{StaticResource RightAlignEllipsisCellStyle}" />
+        </DataTemplate>
+        <DataTemplate x:Key="ModifiedColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+            <TextBlock Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetModified(Model), Mode=OneWay}"
+                       Style="{StaticResource EllipsisTextCellStyle}" />
+        </DataTemplate>
+        <DataTemplate x:Key="AttributesColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+            <TextBlock Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetAttributes(Model), Mode=OneWay}"
+                       Style="{StaticResource MutedEllipsisCellStyle}" />
         </DataTemplate>
     </UserControl.Resources>
 
@@ -92,10 +108,14 @@
         <tv:TableView.Columns>
             <tv:TableViewTemplateColumn Header="Name" SortMemberPath="Name" Width="320" MinWidth="100" CanSort="True"
                                         CellTemplate="{StaticResource NameColumnTemplate}" />
-            <tv:TableViewTextColumn Header="Ext" SortMemberPath="Extension" Binding="{Binding Extension}" Width="40" MinWidth="32" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
-            <tv:TableViewTextColumn Header="Size" SortMemberPath="Size" Binding="{Binding Size}" Width="70" MinWidth="56" ElementStyle="{StaticResource RightAlignEllipsisCellStyle}" CanSort="True" />
-            <tv:TableViewDateColumn Header="Modified" SortMemberPath="Modified" Binding="{Binding Modified}" DateFormat="yyyy-MM-dd HH:mm:ss" Width="120" MinWidth="100" ElementStyle="{StaticResource EllipsisTextCellStyle}" CanSort="True" />
-            <tv:TableViewTextColumn Header="Attr" SortMemberPath="Attributes" Binding="{Binding Attributes}" Width="50" MinWidth="40" ElementStyle="{StaticResource MutedEllipsisCellStyle}" CanSort="True" />
+            <tv:TableViewTemplateColumn Header="Ext" SortMemberPath="Extension" Width="40" MinWidth="32" CanSort="True"
+                                        CellTemplate="{StaticResource ExtensionColumnTemplate}" />
+            <tv:TableViewTemplateColumn Header="Size" SortMemberPath="Size" Width="70" MinWidth="56" CanSort="True"
+                                        CellTemplate="{StaticResource SizeColumnTemplate}" />
+            <tv:TableViewTemplateColumn Header="Modified" SortMemberPath="Modified" Width="120" MinWidth="100" CanSort="True"
+                                        CellTemplate="{StaticResource ModifiedColumnTemplate}" />
+            <tv:TableViewTemplateColumn Header="Attr" SortMemberPath="Attributes" Width="50" MinWidth="40" CanSort="True"
+                                        CellTemplate="{StaticResource AttributesColumnTemplate}" />
         </tv:TableView.Columns>
     </tv:TableView>
 </UserControl>

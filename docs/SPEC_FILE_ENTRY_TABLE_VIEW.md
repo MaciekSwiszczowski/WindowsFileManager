@@ -18,29 +18,15 @@ The target use case is a Windows Explorer replacement that behaves like Total Co
 
 ## 1. Data model
 
-### 1.1 `FileEntryKind`
+### 1.1 `SpecFileEntryViewModel`
 
-```
-enum FileEntryKind { File, Folder }
-```
-
-There is no `Parent` value. The `..` row is synthetic and represented by `SpecFileEntryViewModel.CreateParentEntry()` (§2.3), which has `Model == null`, `Name == ".."`, and `EntryKind == FileEntryKind.Folder`.
-
-### 1.2 `SpecFileEntryViewModel`
-
-A row's view-model. The control reads these properties; it does not mutate instances.
+A row's view-model. It is intentionally a thin wrapper around `FileSystemEntryModel` so large directories do not allocate cached display strings per row.
 
 | Property | Type | Description |
 |---|---|---|
 | `Model` | `FileSystemEntryModel?` | Real filesystem entry. `null` only for the synthetic `..` row. |
-| `Name` | `string` | File or folder name. Displayed in the Name column. |
-| `Extension` | `string` | File extension without leading dot, or empty string for extension-less items and folders. |
-| `Size` | `string` | Formatted size (e.g. `"4.21 MB"`, `"512 B"`). Empty for folders. |
-| `Modified` | `DateTime` | Last-write time in local time. Display formatting is owned by the Modified column. |
-| `Attributes` | `string` | Formatted attribute flags. Empty if none. |
-| `EntryKind` | `FileEntryKind` | Governs row styling and activation semantics. |
 
-The control stores `Modified` as a `DateTime`; `Size` and `Attributes` remain display values.
+The table reads `Model` directly for sorting and activation. Display-only values such as formatted size, local modified time, and attribute text are converted on demand for realized cells.
 
 ---
 
@@ -56,7 +42,7 @@ The set of real items the user has explicitly marked. This is internal control s
 
 ### 2.3 Parent row (`..`)
 
-A synthetic row supplied by the host collection when parent navigation is available. At a filesystem root, the host omits this row. The row may be inserted into the bound `ObservableCollection` at any position and at any time; table sorting keeps it visually pinned above real rows.
+A synthetic row supplied by the host collection when parent navigation is available. At a filesystem root, the host omits this row. The row has `Model == null`, may be inserted into the bound `ObservableCollection` at any position and at any time, and table sorting keeps it visually pinned above real rows.
 
 Rendering: Name shows `..`; Ext / Size / Modified / Attributes are blank; styled like a folder row.
 
@@ -173,11 +159,11 @@ All attached behaviors derive from `FileEntryTableBehavior`, which captures the 
 
 | # | Column | Bound to | Default width | Min width | Alignment |
 |---|---|---|---:|---:|---|
-| 1 | Name | `Name` | 320 | 100 | Left, character ellipsis |
-| 2 | Ext | `Extension` | 40 | 32 | Left, character ellipsis, muted |
-| 3 | Size | `Size` | 70 | 56 | Right, character ellipsis |
-| 4 | Modified | `Modified` | 120 | 100 | Left, `TableViewDateColumn` formatting |
-| 5 | Attr | `Attributes` | 50 | 40 | Left, character ellipsis, muted |
+| 1 | Name | `Model.Name`, or `..` for parent | 320 | 100 | Left, character ellipsis |
+| 2 | Ext | `Model.Extension` | 40 | 32 | Left, character ellipsis, muted |
+| 3 | Size | `Model.Size`, formatted on demand | 70 | 56 | Right, character ellipsis |
+| 4 | Modified | `Model.LastWriteTimeUtc`, formatted on demand as local time | 120 | 100 | Left, character ellipsis |
+| 5 | Attr | `Model.Attributes`, formatted on demand | 50 | 40 | Left, character ellipsis, muted |
 
 Reordering, per-column filtering, and show/hide are not supported by the table control.
 
@@ -581,7 +567,7 @@ Errors: failures from the file-operation service surface via a lightweight non-m
 ### 16.2 `RenameRequestedMessage` — rename popup
 
 1. Open a `ContentDialog` titled "Rename".
-2. Single text field pre-populated with `Item.Name`. The file stem (text before the last `.`) is pre-selected. Dotfiles select the whole name.
+2. Single text field pre-populated with `Item.Model.Name`. The file stem (text before the last `.`) is pre-selected. Dotfiles select the whole name.
 3. Buttons: **Rename** (primary, `Enter`), **Cancel** (secondary, `Esc`).
 4. **Rename**:
    - Trim input. Empty or unchanged → close, no operation.

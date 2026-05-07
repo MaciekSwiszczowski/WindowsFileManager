@@ -183,23 +183,23 @@ internal static class FileEntryTableBehaviorHelper
     public static FileEntryColumn? MapColumn(string? sortMemberPath) =>
         sortMemberPath switch
         {
-            nameof(SpecFileEntryViewModel.Name) => FileEntryColumn.Name,
-            nameof(SpecFileEntryViewModel.Extension) => FileEntryColumn.Extension,
-            nameof(SpecFileEntryViewModel.Size) => FileEntryColumn.Size,
-            nameof(SpecFileEntryViewModel.Modified) => FileEntryColumn.Modified,
-            nameof(SpecFileEntryViewModel.Attributes) => FileEntryColumn.Attributes,
+            nameof(FileSystemEntryModel.Name) => FileEntryColumn.Name,
+            nameof(FileSystemEntryModel.Extension) => FileEntryColumn.Extension,
+            nameof(FileSystemEntryModel.Size) => FileEntryColumn.Size,
+            nameof(FileSystemEntryModel.LastWriteTimeUtc) => FileEntryColumn.Modified,
+            nameof(FileSystemEntryModel.Attributes) => FileEntryColumn.Attributes,
             _ => null,
         };
 
     public static string MapSortMemberPath(FileEntryColumn column) =>
         column switch
         {
-            FileEntryColumn.Name => nameof(SpecFileEntryViewModel.Name),
-            FileEntryColumn.Extension => nameof(SpecFileEntryViewModel.Extension),
-            FileEntryColumn.Size => nameof(SpecFileEntryViewModel.Size),
-            FileEntryColumn.Modified => nameof(SpecFileEntryViewModel.Modified),
-            FileEntryColumn.Attributes => nameof(SpecFileEntryViewModel.Attributes),
-            _ => nameof(SpecFileEntryViewModel.Name),
+            FileEntryColumn.Name => nameof(FileSystemEntryModel.Name),
+            FileEntryColumn.Extension => nameof(FileSystemEntryModel.Extension),
+            FileEntryColumn.Size => nameof(FileSystemEntryModel.Size),
+            FileEntryColumn.Modified => nameof(FileSystemEntryModel.LastWriteTimeUtc),
+            FileEntryColumn.Attributes => nameof(FileSystemEntryModel.Attributes),
+            _ => nameof(FileSystemEntryModel.Name),
         };
 
     private static int GetPageTargetIndex(TableView table, int currentIndex, bool pageUp)

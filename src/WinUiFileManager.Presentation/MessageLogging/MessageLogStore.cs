@@ -159,15 +159,15 @@ public sealed class MessageLogStore
         value switch
         {
             null => "null",
-            SpecFileEntryViewModel item => item.Name,
+            SpecFileEntryViewModel item => SpecFileEntryDisplay.GetName(item.Model),
             FileSystemEntryModel item => item.Name,
             string text => text,
-            IEnumerable<SpecFileEntryViewModel> items => $"[{string.Join(", ", items.Select(static item => item.Name))}]",
+            IEnumerable<SpecFileEntryViewModel> items => $"[{string.Join(", ", items.Select(static item => SpecFileEntryDisplay.GetName(item.Model)))}]",
             IEnumerable<FileSystemEntryModel> items => $"[{string.Join(", ", items.Select(static item => item.Name))}]",
             IEnumerable values => $"[{string.Join(", ", values.Cast<object>())}]",
             _ => value.ToString() ?? string.Empty,
         };
 
     private static string FormatSelectedItems(IEnumerable<SpecFileEntryViewModel> items) =>
-        $"[{string.Join(", ", items.Select(static item => item.Name))}]";
+        $"[{string.Join(", ", items.Select(static item => SpecFileEntryDisplay.GetName(item.Model)))}]";
 }

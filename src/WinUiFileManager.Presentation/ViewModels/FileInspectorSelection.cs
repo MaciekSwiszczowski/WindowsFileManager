@@ -36,13 +36,13 @@ public sealed record FileInspectorSelection(
             CanLoadDeferred: true,
             RefreshVersion: refreshVersion,
             FullPath: model.FullPath.DisplayPath,
-            Name: entry.Name,
-            Extension: entry.Extension,
+            Name: model.Name,
+            Extension: model.Extension,
             Kind: model.Kind,
             SizeBytes: model.Size,
             CreationTimeUtc: model.CreationTimeUtc,
             LastWriteTimeUtc: model.LastWriteTimeUtc,
-            Attributes: entry.Attributes,
+            Attributes: model.Attributes.ToString(),
             AttributesFlags: model.Attributes);
     }
 

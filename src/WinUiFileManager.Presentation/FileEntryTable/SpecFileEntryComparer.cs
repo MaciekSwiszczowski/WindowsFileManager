@@ -49,7 +49,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
         var result = CompareByColumn(left, right);
         if (result == 0 && _column != FileEntryColumn.Name)
         {
-            result = TextComparer.Compare(left.Name, right.Name);
+            result = TextComparer.Compare(left.Model?.Name, right.Model?.Name);
         }
 
         return _ascending ? result : -result;
@@ -58,21 +58,23 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
     private int CompareByColumn(SpecFileEntryViewModel x, SpecFileEntryViewModel y) =>
         _column switch
         {
-            FileEntryColumn.Name => TextComparer.Compare(x.Name, y.Name),
-            FileEntryColumn.Extension => TextComparer.Compare(x.Extension, y.Extension),
+            FileEntryColumn.Name => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
+            FileEntryColumn.Extension => TextComparer.Compare(x.Model?.Extension, y.Model?.Extension),
             FileEntryColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
-            FileEntryColumn.Modified => x.Modified.CompareTo(y.Modified),
-            FileEntryColumn.Attributes => TextComparer.Compare(x.Attributes, y.Attributes),
-            _ => TextComparer.Compare(x.Name, y.Name),
+            FileEntryColumn.Modified => Nullable.Compare(x.Model?.LastWriteTimeUtc, y.Model?.LastWriteTimeUtc),
+            FileEntryColumn.Attributes => TextComparer.Compare(x.Model?.Attributes.ToString(), y.Model?.Attributes.ToString()),
+            _ => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
         };
 
     private static int CompareEntryKind(SpecFileEntryViewModel x, SpecFileEntryViewModel y)
     {
-        if (x.EntryKind == y.EntryKind)
+        var xKind = x.Model?.Kind;
+        var yKind = y.Model?.Kind;
+        if (xKind == yKind)
         {
             return 0;
         }
 
-        return x.EntryKind == FileEntryKind.Folder ? -1 : 1;
+        return xKind == ItemKind.Directory ? -1 : 1;
     }
 }

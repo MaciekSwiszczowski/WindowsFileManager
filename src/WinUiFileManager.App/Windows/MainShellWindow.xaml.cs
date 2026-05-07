@@ -45,8 +45,8 @@ public sealed partial class MainShellWindow : Window
 
         _viewModel = services.GetRequiredService<MainShellViewModel>();
 
-        var dialogService = services.GetRequiredService<WinUiDialogService>();
-        dialogService.XamlRoot = ShellView.XamlRoot;
+        var dialogService = services.GetRequiredService<DialogService>();
+        dialogService.Attach(ShellView.XamlRoot, DispatcherQueue);
 
         ShellView.Initialize(_viewModel);
         ShellView.ToggleThemeAction = ToggleTheme;

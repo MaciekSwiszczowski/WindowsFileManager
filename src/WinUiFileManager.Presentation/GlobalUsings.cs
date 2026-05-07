@@ -21,5 +21,6 @@ global using WinUiFileManager.Domain.Events;
 global using WinUiFileManager.Domain.Results;
 global using WinUiFileManager.Domain.ValueObjects;
 global using WinUiFileManager.Application.Messages;
+global using WinUiFileManager.Presentation.Dialogs;
 global using WinUiFileManager.Presentation.FileEntryTable.Messages;
 global using WinUiFileManager.Presentation.ViewModels;

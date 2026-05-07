@@ -20,7 +20,6 @@ public sealed class ServiceRegistrationValidationTests
         services.AddLogging();
         services.AddInfrastructureServices();
 
-        services.AddSingleton<IDialogService, Fakes.FakeDialogService>();
         services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
         services.AddSingleton<IShellService, Fakes.FakeShellService>();
         services.AddSingleton<FileTableFocusService>();

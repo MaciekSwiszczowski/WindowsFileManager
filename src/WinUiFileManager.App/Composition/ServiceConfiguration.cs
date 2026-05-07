@@ -43,8 +43,7 @@ public static class ServiceConfiguration
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
-        services.AddSingleton<WinUiDialogService>();
-        services.AddSingleton<IDialogService>(static sp => sp.GetRequiredService<WinUiDialogService>());
+        services.AddSingleton<DialogService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
         services.AddSingleton<FileTableFocusService>();
 

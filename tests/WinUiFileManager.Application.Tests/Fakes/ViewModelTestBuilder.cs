@@ -1,17 +1,11 @@
 using WinUiFileManager.Application.Favourites;
-using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure.Scheduling;
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Presentation.Services;
-using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
 public sealed class ViewModelTestBuilder
 {
-    public FakeDialogService DialogService { get; } = new();
     public FakeClipboardService ClipboardService { get; } = new();
     public FakeSettingsRepository SettingsRepository { get; } = new();
     public FakeFavouritesRepository FavouritesRepository { get; } = new();

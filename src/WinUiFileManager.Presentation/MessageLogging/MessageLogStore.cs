@@ -56,6 +56,7 @@ public sealed class MessageLogStore
         Register<DefaultActionRequestedMessage>();
         Register<DeleteKeyPressedMessage>();
         Register<DeleteRequestedMessage>();
+        Register<CloseDialogMessage>();
         Register<FileTableColumnLayoutMessage>();
         Register<FileTableFocusedMessage>();
         Register<FileTableNavigateDownRequestedMessage>();
@@ -70,6 +71,7 @@ public sealed class MessageLogStore
         Register<PropertiesRequestedMessage>();
         Register<RenameKeyPressedMessage>();
         Register<RenameRequestedMessage>();
+        Register<ShowDialogMessage>();
     }
 
     private void Register<T>()
@@ -132,6 +134,7 @@ public sealed class MessageLogStore
         var type = message.GetType();
         return ReadStringProperty(type, message, "Identity")
             ?? ReadStringProperty(type, message, "SourceIdentity")
+            ?? ReadStringProperty(type, message, "DialogId")
             ?? string.Empty;
     }
 

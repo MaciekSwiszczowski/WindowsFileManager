@@ -174,7 +174,7 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop
                     STREAM_INFO_LEVELS.FindStreamInfoStandard,
                     &data,
                     0);
-                using var handle = new SafeFindFilesHandle(findHandle, ownsHandle: true);
+                using var handle = new SafeFindFilesHandle(findHandle);
                 if (handle.IsInvalid)
                 {
                     return streams;

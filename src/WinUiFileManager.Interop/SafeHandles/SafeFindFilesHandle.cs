@@ -7,8 +7,8 @@ namespace WinUiFileManager.Interop.SafeHandles;
 
 internal sealed class SafeFindFilesHandle : SafeHandleZeroOrMinusOneIsInvalid
 {
-    internal unsafe SafeFindFilesHandle(HANDLE preexistingHandle, bool ownsHandle)
-        : base(ownsHandle)
+    internal unsafe SafeFindFilesHandle(HANDLE preexistingHandle)
+        : base(ownsHandle: true)
         => SetHandle((nint)preexistingHandle.Value);
 
     private HANDLE DangerousGetHandleForPInvoke() => new(DangerousGetHandle());

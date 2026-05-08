@@ -1,5 +1,7 @@
 # Spec: Agent Batching Plan
 
+> **Status: ARCHIVED — pre-rework.** The batch list below references specs (`SPEC_RENAME_BUGS.md`, `SPEC_BUG_FIXES.md`, `SPEC_PERF_LOW_HANGING_FRUIT.md`, `SPEC_FEATURE_LOW_HANGING_FRUIT.md`) that have themselves been archived after the table/inspector rework. The universal batching rules in §1, §2, §4 are still useful as agent etiquette and may be reused by future plans. Active work units now live directly in `SPEC_LOW_HANGING_IMPROVEMENTS.md`.
+
 Scope: a prescriptive recipe for slicing each spec in `SPEC_DELIVERY_ROADMAP.md` into agent-sized work units so that (a) no single agent run must hold the entire spec in context, (b) progress is resumable by a fresh agent with only the repo + this plan, and (c) each batch leaves `main` green.
 
 The target agent is Claude running in a context-limited harness. Assume a realistic budget of **~80 k tokens of useful spec + code per turn**. Most specs exceed this when combined with the files they touch. Batching is therefore a first-class correctness tool, not a nice-to-have.

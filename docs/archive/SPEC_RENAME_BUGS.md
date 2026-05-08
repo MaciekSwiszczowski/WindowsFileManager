@@ -1,5 +1,7 @@
 # Spec: Rename Bug Fixes
 
+> **Status: ARCHIVED — superseded.** This spec targets the in-cell rename feature shipped in `SPEC_UI_LAYOUT_AND_RESIZING.md` U-4. That feature has been removed. Rename now flows through `RenameService` + a `ContentDialog` driven by `ShowDialogMessage`. The defects described below (R1 selection restoration, R2 collision UX, R3 race hardening) do not apply to the new path. Rich error feedback for the new rename path is tracked in `SPEC_LOW_HANGING_IMPROVEMENTS.md`.
+
 Scope: three observed defects in the in-cell rename feature shipped in batch U-4 (`SPEC_UI_LAYOUT_AND_RESIZING.md` §6), plus the hardening needed so commits survive concurrent filesystem activity. The detailed `FileEntryTableView` contract now lives in `SPEC_FILE_ENTRY_TABLE_VIEW.md`; this spec only defines the rename-hardening work layered on top of that control contract. The spec is prescriptive — properties, method signatures, and test scenarios are named exactly. Agents do not invent alternatives.
 
 Landing order: **right after `SPEC_UI_LAYOUT_AND_RESIZING.md` closes**, before any keyboard-shortcut or native-modernization work.

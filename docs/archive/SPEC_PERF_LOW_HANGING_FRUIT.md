@@ -1,5 +1,7 @@
 # Spec: Performance & Memory Low-Hanging Fruit
 
+> **Status: ARCHIVED — partially superseded.** P-2 and P-3 target `FilePaneViewModel` and `FileEntryViewModel`, both removed in the table rework. P-1 (`NormalizedPath.DisplayPath` memoization) still applies and is now tracked in `SPEC_LOW_HANGING_IMPROVEMENTS.md` §Memory. Use this doc only as a reference for the P-1 callsite analysis.
+
 Scope: a small, prescriptive set of micro-optimizations in the existing code that (a) are each ≤ 50 LOC of diff, (b) target a named callsite with measurable allocation or CPU cost on a 100 000-file folder, and (c) are not covered by any of `SPEC_BUG_FIXES.md`, `SPEC_NUGET_MODERNIZATION.md`, `SPEC_NATIVE_MODERNIZATION.md`, or `SPEC_RENAME_BUGS.md`.
 
 This spec is **not** a general-purpose performance sweep. Items that would need benchmarks to justify (thumbnail pipeline, watcher throttling tuning, TableView virtualization hardening) are explicitly out of scope — they belong in their own specs after this batch lands.

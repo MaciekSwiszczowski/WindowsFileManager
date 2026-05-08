@@ -2,7 +2,7 @@
 
 Scope: make the app a first-class tool for working with Windows long paths (> 260 UTF-16 code units) while honestly representing the parts of Windows that cannot follow. No silent failures; every unsupported action is visibly disabled with a tooltip that names the limit.
 
-Assumes `SPEC_TOOLING_AND_ANALYZERS.md`, `SPEC_BUG_FIXES.md`, and `SPEC_NUGET_MODERNIZATION.md` are in flight. Specifically: this spec supersedes bug B2 (which in isolation said "use `DisplayPath` for ShellExecute") — under the capability model, ShellExecute still uses `DisplayPath`, but the command is also hidden or disabled when the selection is a long path.
+Assumes `SPEC_TOOLING_AND_ANALYZERS.md` is in place and `SPEC_NUGET_MODERNIZATION.md` is in flight. Specifically: this spec supersedes the historical "use `DisplayPath` for ShellExecute" guidance from the archived `archive/SPEC_BUG_FIXES.md` B2 — under the capability model, ShellExecute still uses `DisplayPath`, but the command is also hidden or disabled when the selection is a long path.
 
 ## 1. Goal and non-goals
 
@@ -651,8 +651,8 @@ This spec is complete when all of the following hold:
 
 ## 12. Interactions with other specs
 
-- **Supersedes `SPEC_BUG_FIXES.md` B2.** The prefixed-path ShellExecute bug is fixed both by switching to `DisplayPath` *and* by disabling the command for `Extended` paths. Close B2 with a reference to this spec.
-- **Extends `SPEC_FEATURE_LOW_HANGING_FRUIT.md` F4 (Reveal in Explorer), F5 (breadcrumb), F8 (drag-drop), F4 (Terminal).** Each of those features gains a capability guard.
+- **Supersedes `archive/SPEC_BUG_FIXES.md` B2.** The prefixed-path ShellExecute bug is fixed both by switching to `DisplayPath` *and* by disabling the command for `Extended` paths.
+- **Extends `SPEC_FEATURE_LOW_HANGING_FRUIT.md` (archived).** When those feature ideas are re-authored against the new architecture, each gains a capability guard.
 - **Builds on `SPEC_NUGET_MODERNIZATION.md` §1 (CsWin32 expansion).** The CopyFile2 migration already uses `NormalizedPath.Value`; no extra work required.
 - **Depends on `SPEC_TOOLING_AND_ANALYZERS.md` §1.3** for the banned-API wiring.
 

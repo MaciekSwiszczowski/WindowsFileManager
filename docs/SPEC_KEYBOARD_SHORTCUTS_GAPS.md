@@ -1,5 +1,7 @@
 # Spec: Keyboard Shortcut Gap Audit
 
+> **Status: ARCHIVED — folded into `winui-file-manager-keyboard-shortcuts-spec.md`.** The gap-table baseline references `MainShellView.OnPreviewKeyDown` and `FileEntryTableView.BodyTable_KeyDown` paths from the pre-rework code. After the rework, keyboard handling lives in `KeyboardManager` + `KeyboardInputBehavior` + the table behaviors (`FileEntryTableKeyboardNavigationBehavior`, `FileEntryTableKeyboardSelectionBehavior`). The "missing shortcuts" intent (Alt+Up, Alt+Enter, Shift+Delete, Alt+Left/Right, Ctrl+Home/End correction) is still valid and now lives in `winui-file-manager-keyboard-shortcuts-spec.md` together with the canonical shortcut table.
+
 Scope: a gap analysis of currently-implemented keyboard shortcuts versus what a Windows developer user expects from a dual-pane file manager. Produces (a) a prioritized list of missing shortcuts to add, (b) a smaller list of shortcuts that exist but behave subtly wrong, and (c) deferred items that depend on other specs.
 
 This spec is **complementary** to, not a replacement for, `winui-file-manager-keyboard-shortcuts-spec.md` (the existing source of truth). Where this spec updates an existing entry there, the update is called out explicitly.

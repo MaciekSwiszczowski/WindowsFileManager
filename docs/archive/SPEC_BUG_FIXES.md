@@ -1,5 +1,9 @@
 # Spec: Bug Fixes
 
+> **Status: ARCHIVED — pre-rework.** Most tickets in this spec target `FilePaneViewModel`, `FileEntryViewModel`, `FileEntryTableView.xaml.cs`, and the watcher pipeline that lived inside `FilePaneViewModel`. All four are gone after the table rework. Preserved here for history; do not act on tickets without first re-validating against the current code (see `SPEC_LOW_HANGING_IMPROVEMENTS.md` for the active stability list).
+>
+> Tickets that may still apply once Copy/Move/Delete is rewired: B6 (volume cache), B12 (DirectoryExists off UI thread). Re-evaluate when the new command path lands.
+
 Scope: correctness bugs identified during review. Each item has a cause, a fix, a file:line reference, and a verification step. Items are ordered by severity (crash/UX-breaking first).
 
 Assumes `SPEC_TOOLING_AND_ANALYZERS.md` has landed; some fixes are easier once the analyzers flag related issues.

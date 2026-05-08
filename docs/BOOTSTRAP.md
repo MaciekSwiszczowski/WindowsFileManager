@@ -554,14 +554,13 @@ Prefer clarity over novelty.
 - The pane keeps the progress bar visible until the full directory scan completes.
 - If the requested directory disappears during the load, the pane falls back to the nearest existing ancestor instead of staying stranded on a dead path.
 
-### Large Directory Performance (DynamicData)
+### Large Directory Performance
 
-- `FilePaneViewModel` uses a `SourceCache<FileEntryViewModel, string>` (from the DynamicData NuGet) as the authoritative data store.
-- A `BehaviorSubject<IComparer<FileEntryViewModel>>` drives reactive sorting; `.SortAndBind(out _sortedItems, comparer)` produces a `ReadOnlyObservableCollection<FileEntryViewModel>` that is assigned to `ListView.ItemsSource`.
-- On navigation, `SourceCache.Edit(updater => { updater.Clear(); ... })` replaces all items in a single batch, emitting one reset notification.
-- `SourceCache.Remove(keys)` and `SourceCache.AddOrUpdate(items)` provide surgical delta updates after file operations, preserving selection state.
-- Re-sorting happens reactively by pushing a new `FileEntryComparer` into the `BehaviorSubject`.
-- `ListView` handles UI virtualization natively — only visible items are rendered regardless of total count.
+- The pane's data layer is `FileEntryTableDataSource` in `Presentation/FileEntryTable/Data/`. It owns enumeration, the directory watcher, and the `BehaviorSubject<FileEntryTableDataState>` the view binds to.
+- Each row is a `SpecFileEntryViewModel` — a 19-line wrapper holding a single `FileSystemEntryModel?` reference plus a parent-row flag. No `ObservableObject`, no `PropertyChanged`. Display formatting happens on demand in cell templates via `SpecFileEntryDisplay` and converters.
+- `WinUI.TableView` handles row virtualization natively — only visible items are realized regardless of total count. `CacheLength="1.0"` on the items panel cuts realized-row count 3-4× versus the default.
+- Sort indicator + comparator live in `FileEntryTableSortingBehavior` + `SpecFileEntryComparer`; `..` always pins above real rows and folders sort before files within each group.
+- See `SPEC_FILE_ENTRY_TABLE_VIEW.md` for the full data-model + messaging contract.
 
 ### Inspector Reactive Loading
 
@@ -625,30 +624,16 @@ Prefer clarity over novelty.
 
 ### Column Sorting
 
-- Clickable column header buttons in `FilePaneView` invoke `FilePaneViewModel.SetSort(SortColumn)`.
-- Clicking the active sort column toggles ascending/descending; clicking a different column switches to ascending.
-- `FileEntryComparer` always sorts `..` (parent entry) first, then directories before files, then by the selected column.
-- Sort indicators (▲ / ▼) appear on the active sort column header.
-
-### Column Resizing
-
-- Use **`CommunityToolkit.WinUI.Controls.GridSplitter`** between header columns (Windows Community Toolkit for WinUI 3). It resizes the parent `Grid` column definitions correctly; do not hand-roll pointer splitters.
-- The `ListView` item template uses the **same column count and order** as the header (`*` Name column, splitter columns, fixed data columns). **Same root `Padding="8,4"`** on header grid and item row — no extra `ColumnSpacing` on the item row, or headers and values misalign.
-- After a splitter finishes a drag (`PointerReleased` / `PointerCaptureLost` / `ManipulationCompleted`), copy each header `ColumnDefinition.Width` and `MinWidth` onto the corresponding column in each **realized** `ListViewItem` content root (`ContainerContentChanging` tracks rows).
-- Toggle resizing globally with **`FilePaneDisplayOptions.EnableColumnResize`** (`true` = splitters visible; `false` = splitter columns collapsed to zero width and controls hidden). Apply on pane `Loaded` (restart or re-open pane after changing the flag unless you add your own refresh hook).
+Owned by `FileEntryTableSortingBehavior`. Header click sets / toggles the internal sort indicator; `SpecFileEntryComparer` keeps `..` pinned first and folders before files within each group. Sort state is internal to the table — hosts read it back through messages, not dependency properties. See `SPEC_FILE_ENTRY_TABLE_VIEW.md` §5.
 
 ### Selection Model
 
 - `TableView.SelectionMode="Extended"` enables native single-click, Ctrl+click, and Shift+click multi-selection.
-- The parent row `..` is not part of the child `ItemsSource`; it lives in `FilePaneViewModel.ParentEntry` and is rendered separately in `FileEntryTableView.HeaderTable`.
-- Selection state is owned by the control. Do not duplicate it with per-row `IsSelected` flags on `FileEntryViewModel`.
-- Do not rely on `TableView`'s white focus frame as the current-row signal. `FileEntryTableView` disables row/cell focus chrome and uses row selection backgrounds plus explicit focus routing instead.
-- Space/Insert toggle selection through `TableView.SelectedItems`, and command targeting is derived from the pane's current control selection.
-- `FileEntryTableView` is a composite of `HeaderTable` and `BodyTable`; `ParentEntry` lives in the header table while `Items` contains only real child entries. See `SPEC_FILE_ENTRY_TABLE_VIEW.md`.
-- On folder activation (`Enter` or double-click), the pane navigates immediately and the synthetic `..` row becomes the current item for non-root directories while the new folder is still loading.
-- `PageUp`, `PageDown`, `Home`, and `End` must work in the pane grid even if the third-party table control does not implement them correctly. Handle them explicitly in preview key routing so paging/navigation does not depend on undocumented control behavior.
-- The inspector refresh signal must include pane-load completion (`IsLoading` transitioning to `false`). Otherwise the inspector can get stuck after a pane clears itself during loading and never repopulates when loading finishes.
-- After file operations (copy, move, delete, rename, create folder), `FocusActivePaneRequested` re-focuses the active pane's file list.
+- The synthetic `..` row lives inside `ItemsSource` (built by the data source); the table renders it pinned above real rows and never lets it leak into `SelectedItems`. See `SPEC_FILE_ENTRY_TABLE_VIEW.md` §2.3.
+- Selection state is owned by the control. The row VM does not carry `IsSelected`.
+- `Space` / `Insert` / `Ctrl+Space` toggle through `TableView.SelectedItems`; command targets are derived from `FileTableSelectionChangedMessage` snapshots routed through the (yet-to-be-implemented) command Coordinator.
+- `PageUp`, `PageDown`, `Home`, and `End` are handled explicitly by `FileEntryTableKeyboardNavigationBehavior` so paging does not depend on undocumented `TableView` behavior.
+- Folder activation (`Enter` on the active row, double-click) publishes `FileTableNavigateDownRequestedMessage` for files and folders; the parent row publishes `FileTableNavigateUpRequestedMessage` instead.
 
 ### Command Bar
 

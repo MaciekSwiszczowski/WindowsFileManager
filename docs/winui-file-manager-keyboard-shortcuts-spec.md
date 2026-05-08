@@ -914,14 +914,15 @@ After success:
 | Action | Shortcuts |
 |---|---|
 | Switch pane | `Tab`, `Shift+Tab` |
-| Parent directory | `Backspace`, `Ctrl+PageUp` |
+| Parent directory | `Backspace`, `Ctrl+PageUp`, `Alt+Up` |
 | Path focus | `Ctrl+L` |
 | Open current item | `Enter` |
 | Copy | `F5` |
 | Move | `F6` |
-| Rename | `Shift+F6` |
+| Rename | `F2`, `Shift+F6` |
 | Create folder | `F7`, `Ctrl+Shift+N` |
-| Delete | `F8`, `Delete` |
+| Delete | `F8`, `Delete`, `Shift+Delete` |
+| Properties | `Alt+Enter` |
 | Toggle inspector | `Ctrl+I` |
 | Copy full path | `Ctrl+Shift+C` |
 | Favourites | `Ctrl+D` |
@@ -929,12 +930,84 @@ After success:
 | Toggle selection | `Insert`, `Ctrl+Space`, `Space` |
 | Select all | `Ctrl+A` |
 | Clear selection | `Ctrl+Shift+A` |
+| Back / Forward | `Alt+Left`, `Alt+Right` (deferred — see §18) |
 | Cancel/close | `Esc` |
 | Exit app | `Alt+F4` |
 
 ---
 
-## 18. Final rule
+## 18. Implementation status and gaps
+
+This section is the consolidated gap audit. Legend: **OK** = implemented and correct · **WRONG** = implemented but behaves unexpectedly · **MISS** = not implemented · **DEFERRED** = intentionally not in v1.
+
+### 18.1 Gap table (against the §17 summary)
+
+| Shortcut | Status | Routing today |
+|---|---|---|
+| `Tab` / `Shift+Tab` | OK | `MainShellView.OnPreviewKeyDown` |
+| `Backspace` | OK | `KeyboardManager` → `NavigateUpKeyPressedMessage` |
+| `Alt+Up` | OK | `KeyboardManager` |
+| `Ctrl+PageUp` | MISS | Not in `KeyboardManager`; add alongside `Alt+Up` |
+| `Alt+Left` / `Alt+Right` | DEFERRED | Per-pane back/forward stack — out of v1 |
+| `Enter` | OK | `KeyboardManager` → `ActivateInvokedMessage` |
+| `Alt+Enter` | OK | `KeyboardManager` → `PropertiesKeyPressedMessage` (consumer not yet wired — see `SPEC_LOW_HANGING_IMPROVEMENTS.md`) |
+| `Ctrl+L` | partial | Handled in `MainShellView.OnPreviewKeyDown` (event swallowed; path box focus not implemented) |
+| `F2`, `Shift+F6` | OK | `KeyboardManager` + `MainShellView.OnPreviewKeyDown` → `RenameKeyPressedMessage` → `RenameService` |
+| `F5` (Copy) | partial | `KeyboardManager` emits `CopyKeyPressedMessage` — no consumer (Coordinator missing) |
+| `F6` (Move) | partial | `KeyboardManager` emits `MoveKeyPressedMessage` — no consumer |
+| `F7`, `Ctrl+Shift+N` | partial | `KeyboardManager` emits `CreateFolderKeyPressedMessage` — no consumer |
+| `F8`, `Delete` | partial | `KeyboardManager` emits `DeleteKeyPressedMessage` — no consumer |
+| `Shift+Delete` | MISS | Add in `KeyboardManager` once delete consumer lands; the app never uses the recycle bin so all deletes are permanent |
+| `Ctrl+R` | MISS | No refresh consumer wired in the new architecture |
+| `Ctrl+I` | OK | `MainShellView.OnPreviewKeyDown` → `MainShellViewModel.ToggleInspectorCommand` |
+| `Ctrl+A` / `Ctrl+Shift+A` | partial | Event swallowed in `MainShellView`; the table behavior layer needs to handle SelectAll/ClearSelection |
+| `Ctrl+D` | OK | `MainShellView.OnPreviewKeyDown` opens favourites flyout |
+| `Ctrl+Shift+C` | OK | `KeyboardManager` emits `CopyPathKeyPressedMessage` — no consumer |
+| `Ctrl+Home` / `Ctrl+End` | WRONG | TableView default handler runs; should map to plain `Home`/`End` per §6.1 |
+| `Insert` / `Space` / `Ctrl+Space` | OK | Handled by table behaviors |
+| Letter typing | DEFERRED | Incremental prefix search not in scope post-rework |
+| `Esc` | partial | TableView handles, but no consistent "clear search" pathway since incremental search is gone |
+
+The "partial" rows above are the work surface for `SPEC_LOW_HANGING_IMPROVEMENTS.md` — wiring the Coordinator + the file-operation dialog service so `F5`, `F6`, `F7`, `F8`, `Shift+Delete`, `Alt+Enter`, `Ctrl+Shift+C`, `Ctrl+R` actually do something.
+
+### 18.2 ShortcutRegistry (proposal)
+
+Today the routing is split across three places: `KeyboardManager.Handle`, `MainShellView.OnPreviewKeyDown`, and the table behaviors. That is workable but tooltips on the CommandBar must restate the binding text manually, and there is no single place to read "what shortcut runs what command."
+
+When the command path is rewired (§18.1), introduce one registry:
+
+```csharp
+internal sealed record ShortcutDescriptor(
+    string CommandId,
+    IReadOnlyList<ShortcutBinding> Bindings,
+    string TooltipText);
+
+internal sealed record ShortcutBinding(
+    VirtualKey Key,
+    VirtualKeyModifiers Modifiers,
+    ShortcutContext Context);
+
+internal enum ShortcutContext
+{
+    Global,
+    PaneList,
+    PathBox,
+    Dialog,
+}
+```
+
+Use it from `KeyboardManager.Handle` (replace the giant `switch`), from `MainShellView.OnPreviewKeyDown` (for the few global-scope shortcuts that bypass the table), and from CommandBar tooltip generation.
+
+Keep this proposal scoped: do not introduce the registry until at least one of `F5`/`F6`/`F8` is actually wired end-to-end. Otherwise the registry abstracts a path nobody walks.
+
+### 18.3 Out-of-scope (permanent)
+
+- **Drag-and-drop**: this app will never support drag-and-drop. Any keyboard equivalents (Ctrl+C/X/V file-ops) are tracked separately and remain deferred until clipboard file-ops are designed.
+- `F3` viewer, `F4` external editor, command palette, tabs, treemap — see `SPEC_FEATURE_LOW_HANGING_FRUIT.md` for ideas, but those ideas all need re-validation after the table rework.
+
+---
+
+## 19. Final rule
 
 If there is a conflict between:
 - a visually simpler implementation

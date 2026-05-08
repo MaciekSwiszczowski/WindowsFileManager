@@ -1,5 +1,7 @@
 # Spec: Low-Hanging-Fruit Features
 
+> **Status: ARCHIVED — to be re-validated.** Most features in this spec were written against `FilePaneViewModel` / `FileEntryViewModel` / `FilePaneView.xaml`, all removed in the table rework. The feature ideas (quick filter, reveal-in-Explorer, hidden-files toggle, command palette, etc.) are still valid product directions but the implementation guidance is stale — re-author against `SpecFileEntryTableView` + `FileEntryTableDataSource` before picking up. Active near-term work: `SPEC_LOW_HANGING_IMPROVEMENTS.md`.
+
 Scope: small, self-contained feature additions that deliver disproportionate value for a dev-facing, keyboard-first, dual-pane file manager. Every feature respects the contract in `AGENT_BRIEF.md` (keyboard-first, NTFS-only, dual pane, no admin required unless noted).
 
 Each feature lists:

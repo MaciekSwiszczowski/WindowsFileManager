@@ -1,5 +1,7 @@
 # Spec: Native Code Modernization
 
+> **Status: ARCHIVED — does not reflect current code.** This spec was authored against the pre-rework codebase. Some items have shipped (CsWin32 expansion, adapter pattern in `WinUiFileManager.Interop`, Restart Manager via `IRestartManagerInterop`), some have been overtaken by other changes, and the file:line references in §2 no longer match the repo. The one piece of guidance still actively wanted — re-throwing `OperationCanceledException` at native `Async` boundaries (M-2) — is preserved in `SPEC_LOW_HANGING_IMPROVEMENTS.md` §St-4. Do not act on items in this spec without re-validating against the current code first.
+
 Scope: modernize the native / interop surface of the Windows File Manager with a **handle-safety first** posture. Every OS handle deterministically closed; every `[DllImport]` generated from `NativeMethods.txt`; shell COM kept out of inspector diagnostics; every native-boundary `Async` method honoring its cancellation token. Analyzer rules enforce each of these patterns at build time.
 
 This spec is the authoritative source for native modernization. It **absorbs** the following items that were previously tracked elsewhere:
@@ -160,7 +162,7 @@ Handoff note: `native-batch-2.md`.
 
 - Introduce (or accept CsWin32-generated) `SafeFindFilesHandle : SafeHandleZeroOrMinusOneIsInvalid` in `src/WinUiFileManager.Interop/SafeHandles/`. `ReleaseHandle` calls `FindClose`.
 - Rewrite `NtfsFileIdentityService.GetStreamDiagnosticsAsync` to use `using var handle = new SafeFindFilesHandle(FindFirstStreamW(…))`. Remove the manual `FindClose` call.
-- Extend `IDirectoryChangeStream` with `IDisposable` (or `IAsyncDisposable`). Wire every caller: `FilePaneViewModel`, tests, any DI-registered consumer.
+- Extend `IDirectoryChangeStream` with `IDisposable` (or `IAsyncDisposable`). Wire every caller: `FileEntryTableDataSource` (current consumer in `Presentation/FileEntryTable/Data/`), tests, any DI-registered consumer.
 - Tests:
   - Unit: `SafeFindFilesHandle.Dispose` calls `FindClose` exactly once; handle state tracked via a swapped-in release delegate.
   - Integration: two concurrent `GetStreamDiagnosticsAsync` calls on the same large NTFS file do not leak handles (verify via `Process.HandleCount` snapshot).

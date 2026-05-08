@@ -1,5 +1,7 @@
 # AGENT_IMPLEMENTATION_BRIEF.md
 
+> **Note (May 2026):** the bootstrap rules below were authored before the project was named. Today's actual layout uses `WinUiFileManager.*` project names (see `BOOTSTRAP.md` and `SPEC_DELIVERY_ROADMAP.md`); the placeholder names `FileManager.*` in §"Repository and Solution Structure" below are historical. Architecture / dependency-direction / coding-rule guidance still applies.
+
 ## Purpose
 This document is a strict implementation brief for an autonomous coding agent. It complements the main product specification and defines the required project defaults, coding standards, architecture constraints, repository layout, package choices, and implementation rules.
 

@@ -1,5 +1,7 @@
 # Spec: UI Layout, Resizing, and In-Place Rename
 
+> **Status: partially shipped, partially reverted.** §3-§5 (splitter performance, pane and inspector resizing, persistence of widths / column layout / sort / window placement) are shipped and intact. **§6 (in-cell rename) was reverted** in the table rework — rename is now dialog-driven via `RenameService` + `ShowDialogMessage`, see `SPEC_FILE_ENTRY_TABLE_VIEW.md` §16.2. Sections of this spec that reference `FilePaneViewModel`, `FileEntryViewModel`, `BeginRenameCurrent`, `CommitRenameAsync`, or in-cell editing are historical and refer to types that no longer exist.
+
 Scope: the main-shell layout, splitter behavior, in-place rename editing, and persistence of all resizable dimensions (pane widths, inspector width, per-pane column widths, sort, main-window placement). Landing order: **right after the analyzer spec**, before any other spec that changes the UI.
 
 Detailed `FileEntryTableView` behavior now lives in `SPEC_FILE_ENTRY_TABLE_VIEW.md`. This spec keeps only the shell/layout/rename policy that is specific to the UI-layout batch.

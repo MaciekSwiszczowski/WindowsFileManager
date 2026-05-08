@@ -184,9 +184,8 @@ Rule of thumb:
 ### `LoggerMessage` source-generated logging
 
 Files:
-- [FilePaneViewModelLog.cs](/C:/_github/WindowsFileManager/WindowsFileManager/src/WinUiFileManager.Presentation/ViewModels/FilePaneViewModelLog.cs)
-- [WindowsFileSystemServiceLog.cs](/C:/_github/WindowsFileManager/WindowsFileManager/src/WinUiFileManager.Infrastructure/FileSystem/WindowsFileSystemServiceLog.cs)
-- [WindowsFileOperationServiceLog.cs](/C:/_github/WindowsFileManager/WindowsFileManager/src/WinUiFileManager.Infrastructure/Execution/WindowsFileOperationServiceLog.cs)
+- [WindowsFileSystemServiceLog.cs](/C:/_work/WindowsFileManager/src/WinUiFileManager.Infrastructure/FileSystem/WindowsFileSystemServiceLog.cs)
+- [WindowsFileOperationServiceLog.cs](/C:/_work/WindowsFileManager/src/WinUiFileManager.Infrastructure/Execution/WindowsFileOperationServiceLog.cs)
 
 What it means:
 - Hot-path logs are defined as generated methods instead of inline `LogInformation` / `LogError` calls.

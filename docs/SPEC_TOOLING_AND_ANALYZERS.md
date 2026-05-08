@@ -257,7 +257,7 @@ internal static partial class PaneLog
 }
 ```
 
-Convert the hot-path logs in `FilePaneViewModel`, `WindowsDirectoryChangeStream`, `WindowsFileSystemService`, `WindowsFileOperationService`. Cold paths (one-offs) can stay interpolated.
+Convert the hot-path logs in `FileEntryTableDataSource`, `WindowsDirectoryChangeStream`, `WindowsFileSystemService`, `WindowsFileOperationService`. Cold paths (one-offs) can stay interpolated.
 
 Side benefit: structured properties are now typed, queryable, and allocation-free on disabled log levels.
 

@@ -9,7 +9,7 @@ public readonly record struct NormalizedPath
 
     private const string ExtendedPathPrefix = @"\\?\";
 
-    public string Value { get; init; }
+    public string Value { get; }
 
     public string DisplayPath =>
         Value.StartsWith(ExtendedPathPrefix, StringComparison.Ordinal)

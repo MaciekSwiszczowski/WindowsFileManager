@@ -80,7 +80,8 @@ internal sealed class WindowsFileSystemService : IFileSystemService
                 return;
             }
 
-            foreach (var entry in CreateDirectoryEnumerable(path.DisplayPath))
+            var directoryPath = DirectoryPath.FromNormalizedPath(path);
+            foreach (var entry in CreateDirectoryEnumerable(directoryPath))
             {
                 if (cancellationToken.IsCancellationRequested)
                 {
@@ -148,9 +149,11 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
         var size = fsi is FileInfo fi ? fi.Length : 0L;
         var extension = isDirectory ? string.Empty : fsi.Extension;
+        var parentPath = Path.GetDirectoryName(fsi.FullName);
 
         return new FileSystemEntryModel(
-            NormalizedPath.FromFullyQualifiedPath(fsi.FullName),
+            DirectoryPath.FromFullyQualifiedPath(
+                string.IsNullOrWhiteSpace(parentPath) ? fsi.FullName : parentPath),
             fsi.Name,
             InternExtension(extension),
             kind,
@@ -160,16 +163,17 @@ internal sealed class WindowsFileSystemService : IFileSystemService
             fsi.Attributes);
     }
 
-    private static FileSystemEntryModel BuildEntryModel(ref FileSystemEntry entry)
+    private static FileSystemEntryModel BuildEntryModel(
+        DirectoryPath directoryPath,
+        ref FileSystemEntry entry)
     {
-        var fullPath = entry.ToFullPath();
         var isDirectory = entry.IsDirectory;
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
         var name = entry.FileName.ToString();
         var extension = isDirectory ? string.Empty : Path.GetExtension(name);
 
         return new FileSystemEntryModel(
-            NormalizedPath.FromFullyQualifiedPath(fullPath),
+            directoryPath,
             name,
             InternExtension(extension),
             kind,
@@ -179,11 +183,12 @@ internal sealed class WindowsFileSystemService : IFileSystemService
             entry.Attributes);
     }
 
-    private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(string directoryPath)
+    private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(
+        DirectoryPath directoryPath)
     {
         return new FileSystemEnumerable<FileSystemEntryModel>(
-            directoryPath,
-            static (ref entry) => BuildEntryModel(ref entry),
+            directoryPath.DisplayPath,
+            (ref entry) => BuildEntryModel(directoryPath, ref entry),
             EnumerationOptions);
     }
 

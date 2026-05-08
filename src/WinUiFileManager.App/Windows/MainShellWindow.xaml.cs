@@ -6,6 +6,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Domain.ValueObjects;
 using Infrastructure.Services;
+using Presentation.FileEntryTable.Data;
 using Presentation.Services;
 using Presentation.ViewModels;
 
@@ -27,6 +28,7 @@ public sealed partial class MainShellWindow
 
         ApplyTitleBarTheme(isDark: true);
 
+        ShellView.DataSourceFactory = App.Services.GetRequiredService<FileEntryTableDataSourceFactory>();
         ShellView.Loaded += OnShellViewLoaded;
     }
 

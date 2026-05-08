@@ -1,11 +1,10 @@
-using System.Collections.Specialized;
 using System.Reactive.Disposables;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 
 namespace WinUiFileManager.Presentation.Views;
 
-public sealed partial class MainShellView : UserControl
+public sealed partial class MainShellView
 {
     private readonly CompositeDisposable _dataSourceSubscriptions = new();
     private FileEntryTableDataSource? _leftDataSource;
@@ -37,6 +36,8 @@ public sealed partial class MainShellView : UserControl
     }
 
     public Action? ToggleThemeAction { get; set; }
+
+    public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
 
     public void CapturePaneColumnLayouts()
     {
@@ -71,14 +72,16 @@ public sealed partial class MainShellView : UserControl
             return;
         }
 
+        var factory = DataSourceFactory
+            ?? throw new InvalidOperationException("File entry table data source factory is not configured.");
         var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
-        var leftDs = new FileEntryTableDataSource(
+        var leftDs = factory.Create(
             "Left",
             ResolveInitialPath(
                 @"C:\FileEntryTableTest\Left",
                 Environment.SpecialFolder.UserProfile),
             uiScheduler);
-        var rightDs = new FileEntryTableDataSource(
+        var rightDs = factory.Create(
             "Right",
             ResolveInitialPath(
                 @"C:\FileEntryTableTest\Right",

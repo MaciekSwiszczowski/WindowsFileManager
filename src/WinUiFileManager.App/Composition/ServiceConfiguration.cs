@@ -6,6 +6,7 @@ using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
+using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
@@ -34,6 +35,7 @@ public static class ServiceConfiguration
 
         services.AddSingleton<DialogService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
+        services.AddSingleton<FileEntryTableDataSourceFactory>();
 
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();

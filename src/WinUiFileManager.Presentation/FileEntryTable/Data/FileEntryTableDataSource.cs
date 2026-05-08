@@ -5,6 +5,7 @@ using System.Reactive.Subjects;
 using CommunityToolkit.Mvvm.Messaging;
 using DynamicData;
 using DynamicData.Binding;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.Events;
@@ -23,6 +24,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly SerialDisposable _activeDirectoryLoad = new();
     private readonly SerialDisposable _folderWatchingService = new();
     private readonly BehaviorSubject<FileEntryTableDataState> _states;
+    private readonly IFileSystemService _fileSystemService;
     private readonly IMessenger _messenger;
     private readonly IScheduler _backgroundScheduler;
     private readonly IScheduler _uiScheduler;
@@ -33,14 +35,17 @@ internal sealed class FileEntryTableDataSource : IDisposable
         string identity,
         string initialPath,
         IScheduler uiScheduler,
+        IFileSystemService fileSystemService,
         IMessenger? messenger = null,
         IScheduler? backgroundScheduler = null)
     {
         ArgumentNullException.ThrowIfNull(uiScheduler);
+        ArgumentNullException.ThrowIfNull(fileSystemService);
 
         Identity = identity;
         Items = new ObservableCollectionExtended<SpecFileEntryViewModel>();
         _uiScheduler = uiScheduler;
+        _fileSystemService = fileSystemService;
         _messenger = messenger ?? WeakReferenceMessenger.Default;
         _backgroundScheduler = backgroundScheduler ?? TaskPoolScheduler.Default;
         _states = new BehaviorSubject<FileEntryTableDataState>(
@@ -82,14 +87,13 @@ internal sealed class FileEntryTableDataSource : IDisposable
             return;
         }
 
-        var folderEnumerateLifetime = CreateFolderEnumerateLifetime(context);
-        var folderEnumerateService = GetFolderEnumerateService(folderEnumerateLifetime);
-        var entries = GetEntriesObservable(folderEnumerateService);
-        var directoryLoad = BuildDirectoryLoadQuery(context, folderEnumerateLifetime, entries);
+        var entries = _fileSystemService.ObserveDirectoryEntries(
+            context.Path,
+            _backgroundScheduler,
+            CancellationToken.None);
+        var directoryLoad = BuildDirectoryLoadQuery(context, entries);
 
         _activeDirectoryLoad.Disposable = directoryLoad;
-
-        StartFolderEnumerateService(folderEnumerateService);
     }
 
     private bool TryCreateLoadContext(string path, out DirectoryLoadContext context)
@@ -125,33 +129,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
         return new DirectoryLoadContext(path, loadVersion, hasParent, Items, oldItems);
     }
 
-    private SerialDisposable CreateFolderEnumerateLifetime(DirectoryLoadContext context)
-    {
-        return new SerialDisposable
-        {
-            Disposable = new FolderEnumerateService(context.Path, _backgroundScheduler)
-        };
-    }
-
-    private static FolderEnumerateService GetFolderEnumerateService(
-        SerialDisposable folderEnumerateLifetime)
-    {
-        return (FolderEnumerateService)folderEnumerateLifetime.Disposable!;
-    }
-
-    private static IObservable<FileSystemEntryModel> GetEntriesObservable(
-        FolderEnumerateService folderEnumerateService)
-    {
-        return folderEnumerateService.Entries;
-    }
-
     private IDisposable BuildDirectoryLoadQuery(
         DirectoryLoadContext context,
-        SerialDisposable folderEnumerateLifetime,
         IObservable<FileSystemEntryModel> entries)
     {
         var changes = ObservableChangeSet.Create<SpecFileEntryViewModel, string>(
-            cache => SubscribeToDirectoryCache(context, folderEnumerateLifetime, cache, entries),
+            cache => SubscribeToDirectoryCache(context, cache, entries),
             GetKey);
 
         var itemsBinding = changes
@@ -159,12 +142,11 @@ internal sealed class FileEntryTableDataSource : IDisposable
             .Bind(context.Items)
             .Subscribe(static _ => { }, OnFolderStreamError);
 
-        return new CompositeDisposable(folderEnumerateLifetime, itemsBinding);
+        return itemsBinding;
     }
 
     private IDisposable SubscribeToDirectoryCache(
         DirectoryLoadContext context,
-        SerialDisposable folderEnumerateLifetime,
         ISourceCache<SpecFileEntryViewModel, string> cache,
         IObservable<FileSystemEntryModel> entries)
     {
@@ -182,7 +164,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
             .Subscribe(
                 static _ => { },
                 OnFolderStreamError,
-                () => OnFolderEnumerationCompleted(context, folderEnumerateLifetime, cache, watchLifetime));
+                () => OnFolderEnumerationCompleted(context, cache, watchLifetime));
         var scanConnection = scanChanges.Connect();
 
         return new CompositeDisposable(scanPopulation, scanCompletion, scanConnection, watchLifetime);
@@ -218,25 +200,13 @@ internal sealed class FileEntryTableDataSource : IDisposable
                     .Select(static batch => (IEnumerable<SpecFileEntryViewModel>)batch)));
     }
 
-    private void StartFolderEnumerateService(FolderEnumerateService folderEnumerateService)
-    {
-        folderEnumerateService.Start();
-    }
-
     private void OnFolderEnumerationCompleted(
         DirectoryLoadContext context,
-        SerialDisposable folderEnumerateLifetime,
         ISourceCache<SpecFileEntryViewModel, string> cache,
         SerialDisposable watchLifetime)
     {
-        DisposeFolderEnumerateService(folderEnumerateLifetime);
         watchLifetime.Disposable = CreateAndStartFolderWatchingService(context, cache);
         DisposeOldItemsOnBackground(context.OldItems);
-    }
-
-    private static void DisposeFolderEnumerateService(SerialDisposable folderEnumerateLifetime)
-    {
-        folderEnumerateLifetime.Disposable = Disposable.Empty;
     }
 
     private IDisposable CreateAndStartFolderWatchingService(
@@ -291,7 +261,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         {
             case DirectoryChangeKind.Created:
             case DirectoryChangeKind.Changed:
-                AddOrRemoveChangedEntry(cache, change.Path);
+                _ = AddOrRemoveChangedEntryAsync(cache, loadVersion, change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
                 cache.RemoveKey(change.Path.Value);
@@ -302,7 +272,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
                     cache.RemoveKey(oldPath.Value);
                 }
 
-                AddOrRemoveChangedEntry(cache, change.Path);
+                _ = AddOrRemoveChangedEntryAsync(cache, loadVersion, change.Path);
                 break;
             case DirectoryChangeKind.Invalidated:
                 LoadNearestExistingDirectory(CurrentPath);
@@ -310,17 +280,45 @@ internal sealed class FileEntryTableDataSource : IDisposable
         }
     }
 
-    private static void AddOrRemoveChangedEntry(
+    private async Task AddOrRemoveChangedEntryAsync(
         ISourceCache<SpecFileEntryViewModel, string> cache,
+        int loadVersion,
         NormalizedPath path)
     {
-        if (FolderEnumerateService.GetEntry(path) is { } model)
+        FileSystemEntryModel? model;
+        try
         {
-            cache.AddOrUpdate(new SpecFileEntryViewModel(model));
-            return;
+            model = await _fileSystemService.GetEntryAsync(path, CancellationToken.None);
+        }
+        catch (IOException)
+        {
+            model = null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            model = null;
+        }
+        catch (Exception ex)
+        {
+            OnFolderStreamError(ex);
+            model = null;
         }
 
-        cache.RemoveKey(path.Value);
+        _ = _uiScheduler.Schedule(() =>
+        {
+            if (loadVersion != Volatile.Read(ref _loadVersion))
+            {
+                return;
+            }
+
+            if (model is { })
+            {
+                cache.AddOrUpdate(new SpecFileEntryViewModel(model));
+                return;
+            }
+
+            cache.RemoveKey(path.Value);
+        });
     }
 
     private void LoadNearestExistingDirectory(string path)

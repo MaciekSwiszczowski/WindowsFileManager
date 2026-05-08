@@ -4,6 +4,7 @@ using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
+using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
@@ -24,6 +25,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<DialogService>();
         services.AddSingleton<ActivePanelsService>();
         services.AddSingleton<RenameService>();
+        services.AddSingleton<FileEntryTableDataSourceFactory>();
         services.AddSingleton<IFavouritesRepository, Fakes.FakeFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();
 

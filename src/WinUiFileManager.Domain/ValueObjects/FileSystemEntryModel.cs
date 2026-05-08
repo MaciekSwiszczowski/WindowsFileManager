@@ -5,7 +5,7 @@ namespace WinUiFileManager.Domain.ValueObjects;
 public sealed record FileSystemEntryModel
 {
     public FileSystemEntryModel(
-        NormalizedPath fullPath,
+        DirectoryPath directoryPath,
         string name,
         string extension,
         ItemKind kind,
@@ -14,7 +14,7 @@ public sealed record FileSystemEntryModel
         DateTime creationTimeUtc,
         FileAttributes attributes)
     {
-        FullPath = fullPath;
+        DirectoryPath = directoryPath;
         Name = name;
         Extension = extension;
         Kind = kind;
@@ -24,19 +24,42 @@ public sealed record FileSystemEntryModel
         Attributes = attributes;
     }
 
-    public NormalizedPath FullPath { get; init; }
+    public FileSystemEntryModel(
+        NormalizedPath fullPath,
+        string name,
+        string extension,
+        ItemKind kind,
+        long size,
+        DateTime lastWriteTimeUtc,
+        DateTime creationTimeUtc,
+        FileAttributes attributes)
+        : this(
+            DirectoryPath.FromEntryPath(fullPath),
+            name,
+            extension,
+            kind,
+            size,
+            lastWriteTimeUtc,
+            creationTimeUtc,
+            attributes)
+    {
+    }
 
-    public string Name { get; init; }
+    public DirectoryPath DirectoryPath { get; }
 
-    public string Extension { get; init; }
+    public NormalizedPath FullPath => DirectoryPath.GetEntryPath(Name);
 
-    public ItemKind Kind { get; init; }
+    public string Name { get; }
 
-    public long Size { get; init; }
+    public string Extension { get; }
 
-    public DateTime LastWriteTimeUtc { get; init; }
+    public ItemKind Kind { get; }
 
-    public DateTime CreationTimeUtc { get; init; }
+    public long Size { get; }
 
-    public FileAttributes Attributes { get; init; }
+    public DateTime LastWriteTimeUtc { get; }
+
+    public DateTime CreationTimeUtc { get; }
+
+    public FileAttributes Attributes { get; }
 }

@@ -70,7 +70,6 @@ public sealed class MessageLogStore
         Register<PropertiesKeyPressedMessage>();
         Register<PropertiesRequestedMessage>();
         Register<RenameKeyPressedMessage>();
-        Register<RenameRequestedMessage>();
         Register<ShowDialogMessage>();
     }
 

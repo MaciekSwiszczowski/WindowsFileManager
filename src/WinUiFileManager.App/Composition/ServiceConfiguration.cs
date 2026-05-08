@@ -45,7 +45,8 @@ public static class ServiceConfiguration
 
         services.AddSingleton<DialogService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
-        services.AddSingleton<FileTableFocusService>();
+        services.AddSingleton<ActivePanelsService>();
+        services.AddSingleton<RenameService>();
 
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();

@@ -8,7 +8,7 @@ using Domain.ValueObjects;
 using Presentation.Services;
 using Presentation.ViewModels;
 
-public sealed partial class MainShellWindow : Window
+public sealed partial class MainShellWindow
 {
     public MainShellWindow()
     {
@@ -47,6 +47,7 @@ public sealed partial class MainShellWindow : Window
 
         var dialogService = services.GetRequiredService<DialogService>();
         dialogService.Attach(ShellView.XamlRoot, DispatcherQueue);
+        _ = services.GetRequiredService<RenameService>();
 
         ShellView.Initialize(_viewModel);
         ShellView.ToggleThemeAction = ToggleTheme;
@@ -107,7 +108,7 @@ public sealed partial class MainShellWindow : Window
     {
         var position = AppWindow.Position;
         var size = AppWindow.Size;
-        var isMaximized = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Maximized };
+        var isMaximized = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored };
 
         return new WindowPlacement(
             X: position.X,

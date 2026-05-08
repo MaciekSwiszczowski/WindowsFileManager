@@ -8,6 +8,7 @@ public sealed class ShowDialogMessage : AsyncRequestMessage<DialogResult>
         object viewModel,
         IReadOnlyList<DialogButtonConfiguration> buttons,
         string? title = null,
+        string? contentTemplateKey = null,
         string? dialogId = null,
         CancellationToken cancellationToken = default)
     {
@@ -20,6 +21,7 @@ public sealed class ShowDialogMessage : AsyncRequestMessage<DialogResult>
         ViewModel = viewModel;
         Buttons = buttons.ToArray();
         Title = title;
+        ContentTemplateKey = contentTemplateKey;
         CancellationToken = cancellationToken;
     }
 
@@ -30,6 +32,8 @@ public sealed class ShowDialogMessage : AsyncRequestMessage<DialogResult>
     public IReadOnlyList<DialogButtonConfiguration> Buttons { get; }
 
     public string? Title { get; }
+
+    public string? ContentTemplateKey { get; }
 
     public CancellationToken CancellationToken { get; }
 }

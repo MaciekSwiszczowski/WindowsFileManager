@@ -227,6 +227,7 @@ public sealed partial class MainShellView : UserControl
 
     private void OnRenameClick(object sender, RoutedEventArgs e)
     {
+        WeakReferenceMessenger.Default.Send(new RenameKeyPressedMessage());
     }
 
     private void OnDeleteClick(object sender, RoutedEventArgs e)
@@ -369,11 +370,15 @@ public sealed partial class MainShellView : UserControl
                 e.Handled = true;
                 break;
 
+            case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
+            case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
+                WeakReferenceMessenger.Default.Send(new RenameKeyPressedMessage());
+                e.Handled = true;
+                break;
+
             case VirtualKey.A when ctrl && !shift && !inTextInputContext:
             case VirtualKey.A when ctrl && shift && !inTextInputContext:
             case VirtualKey.L when ctrl:
-            case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
-            case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
                 e.Handled = true;
                 break;
         }

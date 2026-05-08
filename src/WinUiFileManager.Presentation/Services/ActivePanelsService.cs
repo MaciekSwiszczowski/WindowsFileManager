@@ -1,16 +1,16 @@
 namespace WinUiFileManager.Presentation.Services;
 
-public sealed class FileTableFocusService
+public sealed class ActivePanelsService
 {
-    private string _sourcePanelIdentity = string.Empty;
-    private string _targetPanelIdentity = string.Empty;
+    private string _activePanelIdentity = "Left";
+    private string _targetPanelIdentity = "Right";
 
-    public FileTableFocusService()
+    public ActivePanelsService()
     {
         WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
-    public string SourcePanelIdentity => _sourcePanelIdentity;
+    public string ActivePanelIdentity => _activePanelIdentity;
 
     public string TargetPanelIdentity => _targetPanelIdentity;
 
@@ -18,7 +18,7 @@ public sealed class FileTableFocusService
     {
         if (message.IsFocused)
         {
-            _sourcePanelIdentity = message.Identity;
+            _activePanelIdentity = message.Identity;
         }
         else
         {

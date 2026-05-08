@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Presentation.Dialogs;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.Services;
@@ -45,7 +43,7 @@ public sealed class DialogService : IDisposable
 
     private void OnShowDialog(object recipient, ShowDialogMessage message)
     {
-        message.Reply(ShowDialogAsync(message));
+        message.Reply(ShowAsync(message));
     }
 
     private void OnCloseDialog(object recipient, CloseDialogMessage message)
@@ -53,7 +51,7 @@ public sealed class DialogService : IDisposable
         RequestCloseDialog(message.DialogId);
     }
 
-    private Task<DialogResult> ShowDialogAsync(ShowDialogMessage message)
+    private Task<DialogResult> ShowAsync(ShowDialogMessage message)
     {
         if (_xamlRoot is null || _dispatcherQueue is null)
         {
@@ -128,9 +126,9 @@ public sealed class DialogService : IDisposable
             _activeDialogId = message.DialogId;
             _activeDialogClosedByMessage = false;
 
-            using var cancellationRegistration = message.CancellationToken.Register(
-                static state => ((DialogService)state!).RequestCloseDialog(null),
-                this);
+            using var cancellationRegistration = message
+                .CancellationToken
+                .Register(static state => ((DialogService)state!).RequestCloseDialog(null), this);
 
             _ = await dialog.ShowAsync();
 
@@ -158,10 +156,7 @@ public sealed class DialogService : IDisposable
         {
             XamlRoot = _xamlRoot,
             Title = message.Title,
-            Content = new ContentControl
-            {
-                Content = message.ViewModel,
-            },
+            Content = CreateContent(message),
             DefaultButton = GetDefaultButton(message.Buttons),
         };
 
@@ -182,6 +177,44 @@ public sealed class DialogService : IDisposable
         }
 
         return dialog;
+    }
+
+    private static object CreateContent(ShowDialogMessage message)
+    {
+        var template = ResolveContentTemplate(message.ContentTemplateKey);
+        if (template is null)
+        {
+            return new ContentControl
+            {
+                Content = message.ViewModel,
+                DataContext = message.ViewModel,
+            };
+        }
+
+        var content = template.LoadContent();
+        if (content is FrameworkElement element)
+        {
+            element.DataContext = message.ViewModel;
+            if (Microsoft.UI.Xaml.Markup.XamlBindingHelper.GetDataTemplateComponent(element) is { } component)
+            {
+                component.ProcessBindings(message.ViewModel, 0, 0, out _);
+            }
+        }
+
+        return content;
+    }
+
+    private static DataTemplate? ResolveContentTemplate(string? templateKey)
+    {
+        if (string.IsNullOrWhiteSpace(templateKey))
+        {
+            return null;
+        }
+
+        return Microsoft.UI.Xaml.Application.Current.Resources.TryGetValue(templateKey, out var resource)
+            && resource is DataTemplate template
+                ? template
+                : null;
     }
 
     private async void OnDialogButtonClick(

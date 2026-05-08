@@ -56,7 +56,6 @@ public sealed class MessageLogStore
         Register<DefaultActionRequestedMessage>();
         Register<DeleteKeyPressedMessage>();
         Register<DeleteRequestedMessage>();
-        Register<CloseDialogMessage>();
         Register<FileTableColumnLayoutMessage>();
         Register<FileTableFocusedMessage>();
         Register<FileTableNavigateDownRequestedMessage>();

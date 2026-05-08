@@ -33,11 +33,6 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<GoToPathCommandHandler>();
         services.AddSingleton<RefreshPaneCommandHandler>();
 
-        services.AddSingleton<CopySelectionCommandHandler>();
-        services.AddSingleton<MoveSelectionCommandHandler>();
-        services.AddSingleton<DeleteSelectionCommandHandler>();
-        services.AddSingleton<CreateFolderCommandHandler>();
-        services.AddSingleton<RenameEntryCommandHandler>();
         services.AddSingleton<CopyFullPathCommandHandler>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();

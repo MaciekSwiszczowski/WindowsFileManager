@@ -1,9 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Infrastructure.Execution;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Persistence;
-using WinUiFileManager.Infrastructure.Planning;
 using WinUiFileManager.Infrastructure.Scheduling;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
@@ -19,7 +17,6 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICloudFilesInterop, CloudFilesInterop>();
         services.AddSingleton<IFileSystemMetadataInterop, FileSystemMetadataInterop>();
         services.AddSingleton<IVolumeInterop, VolumeInterop>();
-        services.AddSingleton<IFileOperationInterop, FileOperationInterop>();
 
         services.AddSingleton<INtfsVolumePolicyService, NtfsVolumePolicyService>();
         services.AddSingleton<IPathNormalizationService, WindowsPathNormalizationService>();
@@ -27,14 +24,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IFileSystemService, WindowsFileSystemService>();
         services.AddSingleton<IDirectoryChangeStream, WindowsDirectoryChangeStream>();
         services.AddSingleton<IFileIdentityService, NtfsFileIdentityService>();
-        services.AddSingleton<IFileOperationService, WindowsFileOperationService>();
-        services.AddSingleton<IFileOperationPlanner, WindowsFileOperationPlanner>();
         services.AddSingleton<IShellService, WindowsShellService>();
 
         services.AddSingleton<IFavouritesRepository, JsonFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
 
         services.AddSingleton<ITimeProvider, SystemTimeProvider>();
+        services.AddSingleton<ActivePanelsService>();
+        services.AddSingleton<RenameService>();
 
         return services;
     }

@@ -1,6 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging.Messages;
 
-namespace WinUiFileManager.Presentation.Dialogs;
+namespace WinUiFileManager.Application.Dialogs;
 
 public sealed class ShowDialogMessage : AsyncRequestMessage<DialogResult>
 {

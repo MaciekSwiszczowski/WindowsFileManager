@@ -5,12 +5,6 @@ M:System.Threading.Tasks.Task.Wait;Use await.
 M:System.Threading.Tasks.Task.Wait(System.Int32);Use await.
 M:System.Threading.Tasks.Task.Wait(System.Threading.CancellationToken);Use await.
 
-# Force file operations through IFileOperationInterop (CopyFile2 path with cancellation).
-M:System.IO.File.Copy(System.String,System.String);Route through IFileOperationInterop.CopyFile.
-M:System.IO.File.Copy(System.String,System.String,System.Boolean);Route through IFileOperationInterop.CopyFile.
-M:System.IO.File.Move(System.String,System.String);Route through IFileOperationInterop.MoveFile.
-M:System.IO.File.Move(System.String,System.String,System.Boolean);Route through IFileOperationInterop.MoveFile.
-
 # Force volume queries through INtfsVolumePolicyService (cached) — see SPEC_BUG_FIXES.md B6.
 P:System.IO.DriveInfo.DriveFormat;Route through INtfsVolumePolicyService (cached).
 P:System.IO.DriveInfo.VolumeLabel;Route through INtfsVolumePolicyService (cached).

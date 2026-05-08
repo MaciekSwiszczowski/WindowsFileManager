@@ -29,11 +29,6 @@ public static class ServiceConfiguration
         services.AddSingleton<GoToPathCommandHandler>();
         services.AddSingleton<RefreshPaneCommandHandler>();
 
-        services.AddSingleton<CopySelectionCommandHandler>();
-        services.AddSingleton<MoveSelectionCommandHandler>();
-        services.AddSingleton<DeleteSelectionCommandHandler>();
-        services.AddSingleton<CreateFolderCommandHandler>();
-        services.AddSingleton<RenameEntryCommandHandler>();
         services.AddSingleton<CopyFullPathCommandHandler>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();
@@ -45,8 +40,6 @@ public static class ServiceConfiguration
 
         services.AddSingleton<DialogService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
-        services.AddSingleton<ActivePanelsService>();
-        services.AddSingleton<RenameService>();
 
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();

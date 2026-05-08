@@ -1,5 +1,4 @@
 using WinUiFileManager.Application.Favourites;
-using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Settings;
 
 namespace WinUiFileManager.Presentation.ViewModels;
@@ -38,8 +37,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public partial double InspectorWidth { get; set; } = 340d;
 
     public WindowPlacement MainWindowPlacement { get; set; } = WindowPlacement.Default;
-
-    public OperationProgressViewModel OperationProgress { get; } = new();
 
     public bool ParallelExecutionEnabled
     {

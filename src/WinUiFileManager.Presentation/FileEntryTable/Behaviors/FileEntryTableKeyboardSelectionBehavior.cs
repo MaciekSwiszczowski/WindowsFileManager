@@ -19,11 +19,13 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         base.OnAttached();
         TrackTableOnLoaded();
         WeakReferenceMessenger.Default.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
+        WeakReferenceMessenger.Default.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
     }
 
     protected override void OnDetaching()
     {
         WeakReferenceMessenger.Default.Unregister<FileTableSelectedItemsRequestMessage>(this);
+        WeakReferenceMessenger.Default.Unregister<FileTableSelectedEntriesRequestMessage>(this);
 
         base.OnDetaching();
     }
@@ -219,6 +221,19 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         }
 
         message.Reply(GetSelectedItemsSnapshot());
+    }
+
+    private void OnSelectedEntriesRequested(object recipient, FileTableSelectedEntriesRequestMessage message)
+    {
+        if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
+        {
+            return;
+        }
+
+        message.Reply(GetSelectedItemsSnapshot()
+            .Select(static item => item.Model)
+            .OfType<FileSystemEntryModel>()
+            .ToList());
     }
 
     private IReadOnlyList<SpecFileEntryViewModel> GetSelectedItemsSnapshot()

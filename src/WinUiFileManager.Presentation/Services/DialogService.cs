@@ -5,19 +5,15 @@ namespace WinUiFileManager.Presentation.Services;
 public sealed class DialogService : IDisposable
 {
     private readonly ILogger<DialogService> _logger;
-    private readonly SemaphoreSlim _dialogGate = new(1, 1);
-    private UiDispatcherQueue? _dispatcherQueue;
-    private XamlRoot? _xamlRoot;
     private ContentDialog? _activeDialog;
-    private string? _activeDialogId;
-    private bool _activeDialogClosedByMessage;
+    private UiDispatcherQueue? _dispatcherQueue;
+    private DialogMessageOrchestrator? _orchestrator;
+    private XamlRoot? _xamlRoot;
     private bool _disposed;
 
     public DialogService(ILogger<DialogService> logger)
     {
         _logger = logger;
-        WeakReferenceMessenger.Default.Register<ShowDialogMessage>(this, OnShowDialog);
-        WeakReferenceMessenger.Default.Register<CloseDialogMessage>(this, OnCloseDialog);
     }
 
     public void Attach(XamlRoot xamlRoot, UiDispatcherQueue dispatcherQueue)
@@ -27,6 +23,11 @@ public sealed class DialogService : IDisposable
 
         _xamlRoot = xamlRoot;
         _dispatcherQueue = dispatcherQueue;
+        _orchestrator?.Dispose();
+        _orchestrator = new DialogMessageOrchestrator(
+            dispatcherQueue,
+            ShowDialogOnUiThreadAsync,
+            _logger);
     }
 
     public void Dispose()
@@ -37,77 +38,17 @@ public sealed class DialogService : IDisposable
         }
 
         _disposed = true;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
-        _dialogGate.Dispose();
-    }
-
-    private void OnShowDialog(object recipient, ShowDialogMessage message)
-    {
-        message.Reply(ShowAsync(message));
-    }
-
-    private void OnCloseDialog(object recipient, CloseDialogMessage message)
-    {
-        RequestCloseDialog(message.DialogId);
-    }
-
-    private Task<DialogResult> ShowAsync(ShowDialogMessage message)
-    {
-        if (_xamlRoot is null || _dispatcherQueue is null)
-        {
-            return Task.FromResult(DialogResult.Unavailable);
-        }
-
-        if (_dispatcherQueue.HasThreadAccess)
-        {
-            return ShowDialogOnUiThreadAsync(message);
-        }
-
-        var taskSource = new TaskCompletionSource<DialogResult>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        if (!_dispatcherQueue.TryEnqueue(() => StartShowDialogOnUiThread(message, taskSource)))
-        {
-            taskSource.TrySetResult(DialogResult.Unavailable);
-        }
-
-        return taskSource.Task;
-    }
-
-    private void StartShowDialogOnUiThread(
-        ShowDialogMessage message,
-        TaskCompletionSource<DialogResult> taskSource)
-    {
-        _ = CompleteShowDialogOnUiThreadAsync(message, taskSource);
-    }
-
-    private async Task CompleteShowDialogOnUiThreadAsync(
-        ShowDialogMessage message,
-        TaskCompletionSource<DialogResult> taskSource)
-    {
-        try
-        {
-            taskSource.TrySetResult(await ShowDialogOnUiThreadAsync(message));
-        }
-        catch (OperationCanceledException)
-        {
-            taskSource.TrySetResult(DialogResult.Dismissed);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to show dialog {DialogId}", message.DialogId);
-            taskSource.TrySetException(ex);
-        }
+        _orchestrator?.Dispose();
+        _orchestrator = null;
     }
 
     private async Task<DialogResult> ShowDialogOnUiThreadAsync(ShowDialogMessage message)
     {
-        if (_xamlRoot is null)
+        if (_xamlRoot is null || _dispatcherQueue is null || !_dispatcherQueue.HasThreadAccess)
         {
             return DialogResult.Unavailable;
         }
 
-        await _dialogGate.WaitAsync(message.CancellationToken);
         try
         {
             message.CancellationToken.ThrowIfCancellationRequested();
@@ -123,19 +64,12 @@ public sealed class DialogService : IDisposable
                 OnDialogButtonClick(message, DialogButtonRole.Close, args, role => invokedButton = role);
 
             _activeDialog = dialog;
-            _activeDialogId = message.DialogId;
-            _activeDialogClosedByMessage = false;
 
             using var cancellationRegistration = message
                 .CancellationToken
-                .Register(static state => ((DialogService)state!).RequestCloseDialog(null), this);
+                .Register(static state => ((DialogService)state!).HideActiveDialog(), this);
 
             _ = await dialog.ShowAsync();
-
-            if (_activeDialogClosedByMessage)
-            {
-                return DialogResult.ClosedByViewModel;
-            }
 
             return invokedButton.HasValue
                 ? DialogResult.FromButton(invokedButton.Value)
@@ -144,9 +78,6 @@ public sealed class DialogService : IDisposable
         finally
         {
             _activeDialog = null;
-            _activeDialogId = null;
-            _activeDialogClosedByMessage = false;
-            _dialogGate.Release();
         }
     }
 
@@ -254,36 +185,9 @@ public sealed class DialogService : IDisposable
         }
     }
 
-    private void RequestCloseDialog(string? dialogId)
+    private void HideActiveDialog()
     {
-        if (_dispatcherQueue is null)
-        {
-            return;
-        }
-
-        if (_dispatcherQueue.HasThreadAccess)
-        {
-            CloseActiveDialog(dialogId);
-            return;
-        }
-
-        _ = _dispatcherQueue.TryEnqueue(() => CloseActiveDialog(dialogId));
-    }
-
-    private void CloseActiveDialog(string? dialogId)
-    {
-        if (_activeDialog is null)
-        {
-            return;
-        }
-
-        if (dialogId is not null && dialogId != _activeDialogId)
-        {
-            return;
-        }
-
-        _activeDialogClosedByMessage = true;
-        _activeDialog.Hide();
+        _ = _dispatcherQueue?.TryEnqueue(() => _activeDialog?.Hide());
     }
 
     private static ContentDialogButton GetDefaultButton(IReadOnlyList<DialogButtonConfiguration> buttons)

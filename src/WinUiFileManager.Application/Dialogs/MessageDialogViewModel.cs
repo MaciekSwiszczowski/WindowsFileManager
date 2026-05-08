@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Presentation.ViewModels;
+namespace WinUiFileManager.Application.Dialogs;
 
 public sealed class MessageDialogViewModel(string message)
 {

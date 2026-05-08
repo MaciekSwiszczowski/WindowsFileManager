@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Presentation.Dialogs;
+namespace WinUiFileManager.Application.Dialogs;
 
 public readonly record struct DialogButtonExecutionResult(bool ShouldClose)
 {

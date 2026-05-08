@@ -10,7 +10,6 @@ public sealed class ViewModelTestBuilder
     public FakeSettingsRepository SettingsRepository { get; } = new();
     public FakeFavouritesRepository FavouritesRepository { get; } = new();
     public FakeShellService ShellService { get; } = new();
-    public IFileOperationService? FileOperationServiceOverride { get; set; }
     public IFileIdentityService? FileIdentityServiceOverride { get; set; }
     public ISchedulerProvider? SchedulerProviderOverride { get; set; }
 

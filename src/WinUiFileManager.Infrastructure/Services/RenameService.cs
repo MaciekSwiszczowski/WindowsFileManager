@@ -1,21 +1,23 @@
-using WinUiFileManager.Application.FileOperations;
+using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Dialogs;
+using WinUiFileManager.Application.Messages;
+using WinUiFileManager.Domain.Enums;
+using WinUiFileManager.Domain.ValueObjects;
 
-namespace WinUiFileManager.Presentation.Services;
+namespace WinUiFileManager.Infrastructure.Services;
 
 public sealed class RenameService : IDisposable
 {
     private readonly ActivePanelsService _activePanels;
-    private readonly RenameEntryCommandHandler _renameHandler;
     private readonly ILogger<RenameService> _logger;
     private bool _disposed;
 
     public RenameService(
         ActivePanelsService activePanels,
-        RenameEntryCommandHandler renameHandler,
         ILogger<RenameService> logger)
     {
         _activePanels = activePanels;
-        _renameHandler = renameHandler;
         _logger = logger;
 
         WeakReferenceMessenger.Default.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
@@ -48,17 +50,13 @@ public sealed class RenameService : IDisposable
             }
 
             var request = WeakReferenceMessenger.Default.Send(
-                new FileTableSelectedItemsRequestMessage(activePanelIdentity));
+                new FileTableSelectedEntriesRequestMessage(activePanelIdentity));
             if (!request.HasReceivedResponse || request.Response.Count != 1)
             {
                 return;
             }
 
-            if (request.Response[0].Model is not { } item)
-            {
-                return;
-            }
-
+            var item = request.Response[0];
             var viewModel = new RenameDialogViewModel(item);
             var dialogRequest = WeakReferenceMessenger.Default.Send(
                 new ShowDialogMessage(
@@ -93,7 +91,32 @@ public sealed class RenameService : IDisposable
 
         try
         {
-            await _renameHandler.ExecuteAsync(item, newName, CancellationToken.None);
+            if (string.IsNullOrWhiteSpace(newName))
+            {
+                throw new ArgumentException("New name cannot be empty.", nameof(newName));
+            }
+
+            if (newName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                throw new ArgumentException("New name contains invalid characters.", nameof(newName));
+            }
+
+            var sourcePath = item.FullPath.DisplayPath;
+            var parentPath = Path.GetDirectoryName(sourcePath);
+            if (string.IsNullOrWhiteSpace(parentPath))
+            {
+                throw new InvalidOperationException("Cannot determine the parent folder.");
+            }
+
+            var destinationPath = Path.Combine(parentPath, newName);
+            if (item.Kind is ItemKind.Directory)
+            {
+                Directory.Move(sourcePath, destinationPath);
+            }
+            else
+            {
+                File.Move(sourcePath, destinationPath);
+            }
         }
         catch (Exception ex)
         {

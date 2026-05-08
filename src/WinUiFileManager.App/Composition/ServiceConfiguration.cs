@@ -3,7 +3,6 @@ using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Favourites;
-using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
@@ -24,12 +23,7 @@ public static class ServiceConfiguration
 
         services.AddInfrastructureServices();
 
-        services.AddSingleton<OpenEntryCommandHandler>();
-        services.AddSingleton<NavigateUpCommandHandler>();
         services.AddSingleton<GoToPathCommandHandler>();
-        services.AddSingleton<RefreshPaneCommandHandler>();
-
-        services.AddSingleton<CopyFullPathCommandHandler>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();
         services.AddSingleton<RemoveFavouriteCommandHandler>();

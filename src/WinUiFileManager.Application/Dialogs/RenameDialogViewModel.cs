@@ -7,7 +7,6 @@ namespace WinUiFileManager.Application.Dialogs;
 public sealed class RenameDialogViewModel : IDialogViewModel, INotifyPropertyChanged
 {
     private readonly FileSystemEntryModel _entry;
-    private string _errorMessage = string.Empty;
     private string _newName;
 
     public RenameDialogViewModel(FileSystemEntryModel entry)
@@ -22,19 +21,19 @@ public sealed class RenameDialogViewModel : IDialogViewModel, INotifyPropertyCha
 
     public string ErrorMessage
     {
-        get => _errorMessage;
+        get;
         private set
         {
-            if (_errorMessage == value)
+            if (field == value)
             {
                 return;
             }
 
-            _errorMessage = value;
+            field = value;
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasError));
         }
-    }
+    } = string.Empty;
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorMessage);
 

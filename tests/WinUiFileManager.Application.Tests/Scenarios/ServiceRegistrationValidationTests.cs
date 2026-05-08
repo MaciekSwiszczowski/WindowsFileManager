@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using TUnit.Core;
 using WinUiFileManager.Application.Favourites;
-using WinUiFileManager.Application.FileOperations;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
@@ -28,12 +27,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<IFavouritesRepository, Fakes.FakeFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();
 
-        services.AddSingleton<OpenEntryCommandHandler>();
-        services.AddSingleton<NavigateUpCommandHandler>();
         services.AddSingleton<GoToPathCommandHandler>();
-        services.AddSingleton<RefreshPaneCommandHandler>();
-
-        services.AddSingleton<CopyFullPathCommandHandler>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();
         services.AddSingleton<RemoveFavouriteCommandHandler>();

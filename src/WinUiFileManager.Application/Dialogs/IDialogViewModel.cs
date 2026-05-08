@@ -2,7 +2,7 @@ namespace WinUiFileManager.Application.Dialogs;
 
 public interface IDialogViewModel
 {
-    Task<DialogButtonExecutionResult> OnDialogButtonAsync(
+    public Task<DialogButtonExecutionResult> OnDialogButtonAsync(
         DialogButtonRole button,
         CancellationToken cancellationToken);
 }

@@ -22,7 +22,6 @@ public sealed class KeyboardManager
                 Send(new ActivateInvokedMessage());
                 input.Handled = true;
                 break;
-
             case { Key: VirtualKey.Back, Control: false, Shift: false, Alt: false }:
                 Send(new NavigateUpKeyPressedMessage());
                 input.Handled = true;
@@ -65,6 +64,14 @@ public sealed class KeyboardManager
                 break;
             case { Key: VirtualKey.C, Control: true, Shift: true, Alt: false }:
                 Send(new CopyPathKeyPressedMessage());
+                input.Handled = true;
+                break;
+            case { Key: VirtualKey.D, Control: true, Shift: false, Alt: false }:
+                Send(new OpenFavouritesRequestedMessage());
+                input.Handled = true;
+                break;
+            case { Key: VirtualKey.I, Control: true, Shift: false, Alt: false }:
+                Send(new ToggleInspectorRequestedMessage());
                 input.Handled = true;
                 break;
             case { Key: VirtualKey.Enter, Control: false, Shift: false, Alt: true }:

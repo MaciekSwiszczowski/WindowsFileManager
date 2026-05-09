@@ -24,6 +24,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<IShellService, Fakes.FakeShellService>();
         services.AddSingleton<DialogService>();
         services.AddSingleton<ActivePanelsService>();
+        services.AddSingleton<IActivePanelsService>(static provider => provider.GetRequiredService<ActivePanelsService>());
         services.AddSingleton<RenameService>();
         services.AddSingleton<FileEntryTableDataSourceFactory>();
         services.AddSingleton<IFavouritesRepository, Fakes.FakeFavouritesRepository>();
@@ -38,6 +39,9 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
+        services.AddTransient<AppInitializationViewModel>();
+        services.AddTransient<PanelsViewModel>();
+        services.AddTransient<CommandButtonsViewModel>();
         services.AddTransient<FileInspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();

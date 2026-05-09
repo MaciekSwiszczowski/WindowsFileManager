@@ -52,12 +52,11 @@ public sealed partial class MainShellWindow
         dialogService.Attach(ShellView.XamlRoot, DispatcherQueue);
         _ = services.GetRequiredService<RenameService>();
 
-        ShellView.Initialize(_viewModel);
-        ShellView.ToggleThemeAction = ToggleTheme;
-
         if (_viewModel is not null)
         {
             await _viewModel.InitializeAsync();
+            ShellView.ToggleThemeAction = ToggleTheme;
+            ShellView.Initialize(_viewModel);
             ApplyPlacement(_viewModel.MainWindowPlacement);
         }
     }

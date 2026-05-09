@@ -47,7 +47,10 @@ public sealed class ViewModelTestBuilder
                 fileIdentityService,
                 ClipboardService,
                 ShellService,
-                schedulers));
+                schedulers),
+            new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
+            new PanelsViewModel(new FakeActivePanelsService()),
+            new CommandButtonsViewModel());
 #pragma warning restore IDISP004
     }
 

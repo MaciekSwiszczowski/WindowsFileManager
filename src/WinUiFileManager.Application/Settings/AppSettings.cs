@@ -1,4 +1,3 @@
-using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Settings;
@@ -10,7 +9,7 @@ public sealed record AppSettings
         int maxDegreeOfParallelism = 4,
         NormalizedPath? lastLeftPanePath = null,
         NormalizedPath? lastRightPanePath = null,
-        PaneId lastActivePane = PaneId.Left,
+        string lastActivePane = "Left",
         bool inspectorVisible = true,
         double inspectorWidth = 340d,
         double leftPaneWidth = 600d,
@@ -43,7 +42,7 @@ public sealed record AppSettings
 
     public NormalizedPath? LastRightPanePath { get; init; }
 
-    public PaneId LastActivePane { get; init; }
+    public string LastActivePane { get; init; }
 
     public bool InspectorVisible { get; init; }
 

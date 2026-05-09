@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Dialogs;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Domain.Enums;
@@ -9,12 +10,12 @@ namespace WinUiFileManager.Infrastructure.Services;
 
 public sealed class RenameService : IDisposable
 {
-    private readonly ActivePanelsService _activePanels;
+    private readonly IActivePanelsService _activePanels;
     private readonly ILogger<RenameService> _logger;
     private bool _disposed;
 
     public RenameService(
-        ActivePanelsService activePanels,
+        IActivePanelsService activePanels,
         ILogger<RenameService> logger)
     {
         _activePanels = activePanels;

@@ -4,191 +4,42 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:WinUiFileManager.Presentation.Converters"
     xmlns:controls="using:WinUiFileManager.Presentation.Controls"
-    xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
-    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls">
+    xmlns:keyboard="using:WinUiFileManager.Presentation.Keyboard"
+    xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:views="using:WinUiFileManager.Presentation.Views">
 
     <UserControl.Resources>
         <converters:PixelGridLengthConverter x:Key="PixelGridLengthConverter" />
     </UserControl.Resources>
 
-    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
+          keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardManager.KeyPressedCommand}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <CommandBar Grid.Row="0" DefaultLabelPosition="Collapsed" IsOpen="False"
-                    HorizontalAlignment="Left" OverflowButtonVisibility="Collapsed">
-            <AppBarButton Icon="Copy" Click="OnCopyClick" ToolTipService.ToolTip="Copy (F5)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="F5" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton Icon="MoveToFolder" Click="OnMoveClick" ToolTipService.ToolTip="Move (F6)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="F6" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton Icon="Rename" Click="OnRenameClick" ToolTipService.ToolTip="Rename (F2, Shift+F6)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="F2" />
-                    <KeyboardAccelerator Key="F6" Modifiers="Shift" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton Icon="Delete" Click="OnDeleteClick" ToolTipService.ToolTip="Delete (F8, Delete)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="F8" />
-                    <KeyboardAccelerator Key="Delete" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton Icon="NewFolder" Click="OnCreateFolderClick" ToolTipService.ToolTip="Create Folder (F7, Ctrl+Shift+N)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="F7" />
-                    <KeyboardAccelerator Key="N" Modifiers="Control,Shift" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarSeparator />
-            <AppBarToggleButton Icon="Sync" IsChecked="{x:Bind ViewModel.ParallelExecutionEnabled, Mode=TwoWay}" ToolTipService.ToolTip="Parallel Operations" />
-            <AppBarButton Icon="Refresh" Click="OnRefreshClick" ToolTipService.ToolTip="Refresh (Ctrl+R)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="R" Modifiers="Control" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarButton x:Name="FavouritesAppBarButton" Icon="Favorite" ToolTipService.ToolTip="Favourites (Ctrl+D)">
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="D" Modifiers="Control" />
-                </AppBarButton.KeyboardAccelerators>
-                <AppBarButton.Flyout>
-                    <MenuFlyout x:Name="FavouritesFlyout" Opening="OnFavouritesFlyoutOpening">
-                        <MenuFlyoutItem Text="Add current folder" Click="OnAddFavouriteClick">
-                            <MenuFlyoutItem.Icon>
-                                <SymbolIcon Symbol="Add" />
-                            </MenuFlyoutItem.Icon>
-                        </MenuFlyoutItem>
-                        <MenuFlyoutSeparator />
-                    </MenuFlyout>
-                </AppBarButton.Flyout>
-            </AppBarButton>
-            <AppBarButton Click="OnCopyPathClick" ToolTipService.ToolTip="Copy Full Path (Ctrl+Shift+C)">
-                <AppBarButton.Icon>
-                    <SymbolIcon Symbol="Link" />
-                </AppBarButton.Icon>
-                <AppBarButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="C" Modifiers="Control,Shift" />
-                </AppBarButton.KeyboardAccelerators>
-            </AppBarButton>
-            <AppBarToggleButton x:Name="InspectorToggleButton"
-                                IsChecked="{x:Bind ViewModel.IsInspectorVisible, Mode=TwoWay}"
-                                ToolTipService.ToolTip="Toggle Inspector (Ctrl+I)">
-                <AppBarToggleButton.Icon>
-                    <SymbolIcon Symbol="Preview" />
-                </AppBarToggleButton.Icon>
-                <AppBarToggleButton.KeyboardAccelerators>
-                    <KeyboardAccelerator Key="I" Modifiers="Control" />
-                </AppBarToggleButton.KeyboardAccelerators>
-            </AppBarToggleButton>
-            <AppBarSeparator />
-            <AppBarButton x:Name="ThemeToggleButton" Click="OnToggleThemeClick" ToolTipService.ToolTip="Toggle Theme">
-                <AppBarButton.Icon>
-                    <SymbolIcon Symbol="Setting" />
-                </AppBarButton.Icon>
-            </AppBarButton>
-        </CommandBar>
+        <views:CommandButtonsView x:Name="CommandButtons" Grid.Row="0" />
 
         <Grid Grid.Row="1" ColumnSpacing="2">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition x:Name="LeftPaneColumn"
-                                  Width="{x:Bind ViewModel.LeftPaneWidth, Mode=TwoWay, Converter={StaticResource PixelGridLengthConverter}}"
-                                  MinWidth="320" />
-                <ColumnDefinition x:Name="LeftRightSplitterColumn" Width="6" />
-                <ColumnDefinition x:Name="RightPaneColumn" Width="*" MinWidth="320" />
+                <ColumnDefinition Width="*" MinWidth="640" />
                 <ColumnDefinition x:Name="InspectorSplitterColumn" Width="6" />
                 <ColumnDefinition x:Name="InspectorColumn"
                                   Width="{x:Bind ViewModel.InspectorColumnWidth, Mode=TwoWay, Converter={StaticResource PixelGridLengthConverter}}"
                                   MinWidth="{x:Bind ViewModel.InspectorMinWidth, Mode=OneWay}" />
             </Grid.ColumnDefinitions>
 
-            <Border x:Name="LeftPaneBorder"
-                    Grid.Column="0"
-                    BorderBrush="{ThemeResource SystemControlForegroundAccentBrush}"
-                    BorderThickness="2"
-                    Padding="4">
-                <Grid RowSpacing="4">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <TextBlock x:Name="LeftPathText"
-                               Grid.Row="0"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
-                    <fileEntryTable:SpecFileEntryTableView x:Name="LeftEntryTable"
-                                                           Grid.Row="1" />
-                </Grid>
-            </Border>
-            <toolkit:GridSplitter x:Name="PaneGridSplitter"
+            <views:PanelsView x:Name="Panels" Grid.Column="0" />
+            <toolkit:GridSplitter x:Name="InspectorGridSplitter"
                                   Grid.Column="1"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
                                   DragIncrement="8"
                                   KeyboardIncrement="8"
                                   ResizeBehavior="PreviousAndNext"
                                   ResizeDirection="Columns" />
-            <Border x:Name="RightPaneBorder"
-                    Grid.Column="2"
-                    BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}"
-                    BorderThickness="1"
-                    Padding="4">
-                <Grid RowSpacing="4">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <TextBlock x:Name="RightPathText"
-                               Grid.Row="0"
-                               VerticalAlignment="Center"
-                               TextTrimming="CharacterEllipsis" />
-                    <fileEntryTable:SpecFileEntryTableView x:Name="RightEntryTable"
-                                                           Grid.Row="1" />
-                </Grid>
-            </Border>
-            <toolkit:GridSplitter x:Name="InspectorGridSplitter"
-                                  Grid.Column="3"
-                                  Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"
-                                  DragIncrement="8"
-                                  KeyboardIncrement="8"
-                                  ResizeBehavior="PreviousAndNext"
-                                  ResizeDirection="Columns" />
-            <controls:FileInspectorView x:Name="InspectorView" Grid.Column="4" />
-        </Grid>
-
-        <Grid Grid.Row="2" Padding="8,4" Background="{ThemeResource SystemControlBackgroundChromeMediumBrush}">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="ActivePaneText"
-                       Grid.Column="0"
-                       VerticalAlignment="Center"
-                       FontWeight="SemiBold"
-                       Text="Left" />
-            <TextBlock x:Name="PathText"
-                       Grid.Column="1"
-                       Margin="16,0,0,0"
-                       VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis" />
-            <TextBlock x:Name="ItemCountText"
-                       Grid.Column="2"
-                       Margin="16,0,0,0"
-                       VerticalAlignment="Center"
-                       Text="0 items" />
-            <TextBlock x:Name="SelectedText"
-                       Grid.Column="3"
-                       Margin="16,0,0,0"
-                       VerticalAlignment="Center"
-                       Text="0 selected" />
+            <controls:FileInspectorView x:Name="InspectorView" Grid.Column="2" />
         </Grid>
     </Grid>
 </UserControl>

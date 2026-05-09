@@ -1,9 +1,10 @@
 using CommunityToolkit.Mvvm.Messaging;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Messages;
 
 namespace WinUiFileManager.Infrastructure.Services;
 
-public sealed class ActivePanelsService : IDisposable
+public sealed class ActivePanelsService : IActivePanelsService, IDisposable
 {
     private string _activePanelIdentity = "Left";
     private bool _disposed;
@@ -17,6 +18,17 @@ public sealed class ActivePanelsService : IDisposable
     public string ActivePanelIdentity => _activePanelIdentity;
 
     public string TargetPanelIdentity => _targetPanelIdentity;
+
+    public void SetActivePanel(string identity)
+    {
+        if (string.IsNullOrWhiteSpace(identity) || string.Equals(identity, _activePanelIdentity, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        _targetPanelIdentity = _activePanelIdentity;
+        _activePanelIdentity = identity;
+    }
 
     public void Dispose()
     {

@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using WinUiFileManager.Domain.Enums;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Settings;
@@ -8,7 +7,7 @@ namespace WinUiFileManager.Application.Settings;
 public readonly record struct PersistPaneStateRequest(
     NormalizedPath? LeftPanePath,
     NormalizedPath? RightPanePath,
-    PaneId ActivePane,
+    string ActivePane,
     bool InspectorVisible,
     double InspectorWidth,
     double LeftPaneWidth,

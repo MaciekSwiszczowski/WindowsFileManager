@@ -11,7 +11,6 @@ public sealed class MessageLogStore
 
     private readonly List<MessageLogEntry> _allEntries = [];
     private readonly IMessenger _messenger;
-    private string _idFilter = string.Empty;
 
     public MessageLogStore(IMessenger? messenger = null)
     {
@@ -25,13 +24,13 @@ public sealed class MessageLogStore
 
     public string IdFilter
     {
-        get => _idFilter;
+        get;
         set
         {
-            _idFilter = value.Trim();
+            field = value.Trim();
             RefreshDisplayedEntries();
         }
-    }
+    } = string.Empty;
 
     public void Clear()
     {
@@ -66,10 +65,12 @@ public sealed class MessageLogStore
         Register<MoveRequestedMessage>();
         Register<NavigateUpKeyPressedMessage>();
         Register<NavigateUpRequestedMessage>();
+        Register<OpenFavouritesRequestedMessage>();
         Register<PropertiesKeyPressedMessage>();
         Register<PropertiesRequestedMessage>();
         Register<RenameKeyPressedMessage>();
         Register<ShowDialogMessage>();
+        Register<ToggleInspectorRequestedMessage>();
     }
 
     private void Register<T>()

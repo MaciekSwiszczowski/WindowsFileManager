@@ -31,6 +31,7 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton<ITimeProvider, SystemTimeProvider>();
         services.AddSingleton<ActivePanelsService>();
+        services.AddSingleton<IActivePanelsService>(static provider => provider.GetRequiredService<ActivePanelsService>());
         services.AddSingleton<RenameService>();
 
         return services;

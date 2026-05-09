@@ -11,28 +11,6 @@ internal static class FileEntryTableBehaviorHelper
     public static bool HasAnyModifier(params VirtualKey[] keys) =>
         keys.Any(IsModifierDown);
 
-    public static bool EnsureTable(
-        SpecFileEntryTableView? view,
-        ref TableView? currentTable,
-        Action detachEvents,
-        Action attachEvents)
-    {
-        if (view is null)
-        {
-            return false;
-        }
-
-        var table = view.Table;
-        if (!ReferenceEquals(currentTable, table))
-        {
-            detachEvents();
-            currentTable = table;
-        }
-
-        attachEvents();
-        return true;
-    }
-
     public static int? ClampIndex(TableView table, int? index)
     {
         if (table.Items.Count == 0 || index is null)

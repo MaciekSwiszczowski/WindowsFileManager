@@ -91,9 +91,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             lastRightPanePath: string.IsNullOrEmpty(dto.LastRightPanePath)
                 ? (NormalizedPath?)null
                 : NormalizedPath.FromUserInput(dto.LastRightPanePath),
-            lastActivePane: Enum.TryParse<PaneId>(dto.LastActivePane, ignoreCase: true, out var pane)
-                ? pane
-                : PaneId.Left,
+            lastActivePane: string.IsNullOrWhiteSpace(dto.LastActivePane) ? "Left" : dto.LastActivePane,
             inspectorVisible: dto.InspectorVisible,
             inspectorWidth: dto.InspectorWidth > 0 ? dto.InspectorWidth : 340d,
             leftPaneWidth: dto.LeftPaneWidth is > 0 ? dto.LeftPaneWidth.Value : 600d,
@@ -139,7 +137,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             MaxDegreeOfParallelism = settings.MaxDegreeOfParallelism,
             LastLeftPanePath = settings.LastLeftPanePath?.DisplayPath,
             LastRightPanePath = settings.LastRightPanePath?.DisplayPath,
-            LastActivePane = settings.LastActivePane.ToString(),
+            LastActivePane = settings.LastActivePane,
             InspectorVisible = settings.InspectorVisible,
             InspectorWidth = settings.InspectorWidth,
             LeftPaneWidth = settings.LeftPaneWidth,

@@ -1,43 +1,26 @@
-using System.Reactive.Disposables;
-using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.Keyboard;
 
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView
 {
-    private readonly CompositeDisposable _dataSourceSubscriptions = new();
-    private FileEntryTableDataSource? _leftDataSource;
-    private FileEntryTableDataSource? _rightDataSource;
-    private ObservableCollection<SpecFileEntryViewModel>? _leftItems;
-    private ObservableCollection<SpecFileEntryViewModel>? _rightItems;
-    private PaneId _activePaneId = PaneId.Left;
-    private int _leftSelectedCount;
-    private int _rightSelectedCount;
     private bool _fileTablesFrozenForSplitterDrag;
 
     public MainShellView()
     {
         InitializeComponent();
 
-        LeftEntryTable.Identity = "Left";
-        RightEntryTable.Identity = "Right";
-
-        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
-        PreviewKeyDown += OnPreviewKeyDown;
-
-        RegisterSplitterHandlers(PaneGridSplitter);
         RegisterSplitterHandlers(InspectorGridSplitter);
         RegisterGlobalPointerReleaseHandlers();
-
-        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
-        WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
     }
 
     public Action? ToggleThemeAction { get; set; }
 
     public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
+
+    public KeyboardManager KeyboardManager { get; } = new();
 
     public void CapturePaneColumnLayouts()
     {
@@ -50,244 +33,33 @@ public sealed partial class MainShellView
     {
         DataContext = viewModel;
         Bindings.Update();
+
+        Panels.DataSourceFactory = DataSourceFactory;
+        Panels.Initialization = viewModel.Initialization;
+        Panels.Initialize(viewModel.Panels);
+        Panels.PaneSplitterPressed += OnPanelSplitterPressed;
+
         InspectorView.ViewModel = viewModel.Inspector;
+        viewModel.Commands.ToggleThemeAction = ToggleThemeAction;
+        CommandButtons.Initialize(viewModel.Commands);
+
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.Commands.PropertyChanged += OnCommandButtonsPropertyChanged;
 
-        _activePaneId = viewModel.ActivePaneId;
-
-        UpdateActivePaneBorders();
         UpdateInspectorLayout();
-        UpdateStatusBar();
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        EnsureFileEntryDataSources();
-    }
-
-    private void EnsureFileEntryDataSources()
-    {
-        if (_leftDataSource is not null)
-        {
-            return;
-        }
-
-        var factory = DataSourceFactory
-            ?? throw new InvalidOperationException("File entry table data source factory is not configured.");
-        var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
-        var leftDs = factory.Create(
-            "Left",
-            ResolveInitialPath(
-                @"C:\FileEntryTableTest\Left",
-                Environment.SpecialFolder.UserProfile),
-            uiScheduler);
-        var rightDs = factory.Create(
-            "Right",
-            ResolveInitialPath(
-                @"C:\FileEntryTableTest\Right",
-                Environment.SpecialFolder.DesktopDirectory),
-            uiScheduler);
-
-        _dataSourceSubscriptions.Add(leftDs.States.Subscribe(ApplyLeftState));
-        _dataSourceSubscriptions.Add(rightDs.States.Subscribe(ApplyRightState));
-
-        _leftDataSource?.Dispose();
-        _rightDataSource?.Dispose();
-        _leftDataSource = leftDs;
-        _rightDataSource = rightDs;
-
-        var layout = ColumnLayout.Default;
-        WeakReferenceMessenger.Default.Send(new FileTableColumnLayoutMessage("Left", layout));
-        WeakReferenceMessenger.Default.Send(new FileTableColumnLayoutMessage("Right", layout));
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        WeakReferenceMessenger.Default.UnregisterAll(this);
-        _dataSourceSubscriptions.Dispose();
-        _leftDataSource?.Dispose();
-        _rightDataSource?.Dispose();
-        _leftDataSource = null;
-        _rightDataSource = null;
-        SetLeftItems(null);
-        SetRightItems(null);
-    }
+        Panels.PaneSplitterPressed -= OnPanelSplitterPressed;
 
-    private void ApplyLeftState(FileEntryTableDataState state)
-    {
-        SetLeftItems(state.Items);
-        LeftEntryTable.ItemsSource = state.Items;
-        LeftPathText.Text = state.CurrentPath;
-        UpdateStatusBar();
-    }
-
-    private void ApplyRightState(FileEntryTableDataState state)
-    {
-        SetRightItems(state.Items);
-        RightEntryTable.ItemsSource = state.Items;
-        RightPathText.Text = state.CurrentPath;
-        UpdateStatusBar();
-    }
-
-    private void SetLeftItems(ObservableCollection<SpecFileEntryViewModel>? items)
-    {
-        if (ReferenceEquals(_leftItems, items))
+        if (ViewModel is not { } viewModel)
         {
             return;
         }
 
-        if (_leftItems is not null)
-        {
-            _leftItems.CollectionChanged -= OnItemsCollectionChanged;
-        }
-
-        _leftItems = items;
-
-        if (_leftItems is not null)
-        {
-            _leftItems.CollectionChanged += OnItemsCollectionChanged;
-        }
-    }
-
-    private void SetRightItems(ObservableCollection<SpecFileEntryViewModel>? items)
-    {
-        if (ReferenceEquals(_rightItems, items))
-        {
-            return;
-        }
-
-        if (_rightItems is not null)
-        {
-            _rightItems.CollectionChanged -= OnItemsCollectionChanged;
-        }
-
-        _rightItems = items;
-
-        if (_rightItems is not null)
-        {
-            _rightItems.CollectionChanged += OnItemsCollectionChanged;
-        }
-    }
-
-    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        UpdateStatusBar();
-    }
-
-    private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
-    {
-        if (!message.IsFocused)
-        {
-            return;
-        }
-
-        if (message.Identity == "Left")
-        {
-            ActivatePane(PaneId.Left);
-            return;
-        }
-
-        if (message.Identity == "Right")
-        {
-            ActivatePane(PaneId.Right);
-        }
-    }
-
-    private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
-    {
-        if (message.Identity == "Left")
-        {
-            _leftSelectedCount = message.SelectedItems.Count;
-        }
-        else if (message.Identity == "Right")
-        {
-            _rightSelectedCount = message.SelectedItems.Count;
-        }
-
-        UpdateStatusBar();
-    }
-
-    private void ActivatePane(PaneId paneId)
-    {
-        _activePaneId = paneId;
-
-        if (ViewModel is not null && ViewModel.ActivePaneId != paneId)
-        {
-            ViewModel.ActivePaneId = paneId;
-        }
-
-        UpdateActivePaneBorders();
-        UpdateStatusBar();
-    }
-
-    private void OnCopyClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnMoveClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnRenameClick(object sender, RoutedEventArgs e)
-    {
-        WeakReferenceMessenger.Default.Send(new RenameKeyPressedMessage());
-    }
-
-    private void OnDeleteClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnCreateFolderClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnRefreshClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnFavouritesFlyoutOpening(object sender, object e)
-    {
-        if (ViewModel is null || sender is not MenuFlyout flyout)
-        {
-            return;
-        }
-
-        while (flyout.Items.Count > 2)
-        {
-            flyout.Items.RemoveAt(flyout.Items.Count - 1);
-        }
-
-        foreach (var fav in ViewModel.Favourites)
-        {
-            var item = new MenuFlyoutItem
-            {
-                Text = $"{fav.DisplayName} - {fav.Path.DisplayPath}",
-                Tag = fav.Id,
-            };
-            item.Click += OnFavouriteItemClick;
-            flyout.Items.Add(item);
-        }
-
-        if (ViewModel.Favourites.Count == 0)
-        {
-            flyout.Items.Add(new MenuFlyoutItem
-            {
-                Text = "(no favourites)",
-                IsEnabled = false,
-            });
-        }
-    }
-
-    private void OnAddFavouriteClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnFavouriteItemClick(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void OnCopyPathClick(object sender, RoutedEventArgs e)
-    {
+        viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        viewModel.Commands.PropertyChanged -= OnCommandButtonsPropertyChanged;
     }
 
     private void RegisterSplitterHandlers(UIElement splitter)
@@ -315,6 +87,11 @@ public sealed partial class MainShellView
     }
 
     private void OnSplitterPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        FreezeFileTablesForSplitterDrag();
+    }
+
+    private void OnPanelSplitterPressed(object? sender, EventArgs e)
     {
         FreezeFileTablesForSplitterDrag();
     }
@@ -349,104 +126,48 @@ public sealed partial class MainShellView
         _fileTablesFrozenForSplitterDrag = false;
     }
 
-    private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        var ctrl = IsModifierDown(VirtualKey.Control);
-        var shift = IsModifierDown(VirtualKey.Shift);
-        var inTextInputContext = IsTextInputFocused();
-
-        switch (e.Key)
-        {
-            case VirtualKey.Tab when !ctrl:
-                ActivatePane(_activePaneId == PaneId.Left ? PaneId.Right : PaneId.Left);
-                FocusActiveTable();
-                e.Handled = true;
-                break;
-
-            case VirtualKey.D when ctrl:
-                FavouritesFlyout.ShowAt(FavouritesAppBarButton);
-                e.Handled = true;
-                break;
-
-            case VirtualKey.I when ctrl:
-                ViewModel?.ToggleInspectorCommand.Execute(null);
-                e.Handled = true;
-                break;
-
-            case VirtualKey.F2 when !ctrl && !shift && !inTextInputContext:
-            case VirtualKey.F6 when shift && !ctrl && !inTextInputContext:
-                WeakReferenceMessenger.Default.Send(new RenameKeyPressedMessage());
-                e.Handled = true;
-                break;
-
-            case VirtualKey.A when ctrl && !shift && !inTextInputContext:
-            case VirtualKey.A when ctrl && shift && !inTextInputContext:
-            case VirtualKey.L when ctrl:
-                e.Handled = true;
-                break;
-        }
-    }
-
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         DispatcherQueue.TryEnqueue(() =>
         {
             switch (e.PropertyName)
             {
-                case nameof(MainShellViewModel.ActivePaneId):
-                    if (ViewModel is not null)
+                case nameof(MainShellViewModel.IsInspectorVisible):
+                    if (ViewModel is not null && ViewModel.Commands.IsInspectorVisible != ViewModel.IsInspectorVisible)
                     {
-                        _activePaneId = ViewModel.ActivePaneId;
+                        ViewModel.Commands.IsInspectorVisible = ViewModel.IsInspectorVisible;
                     }
 
-                    UpdateActivePaneBorders();
-                    UpdateStatusBar();
-                    break;
-                case nameof(MainShellViewModel.IsInspectorVisible):
-                    Bindings.Update();
                     UpdateInspectorLayout();
                     break;
             }
         });
     }
 
-    private void UpdateActivePaneBorders()
+    private void OnCommandButtonsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        SetPaneBorder(LeftPaneBorder, _activePaneId == PaneId.Left);
-        SetPaneBorder(RightPaneBorder, _activePaneId == PaneId.Right);
-    }
+        if (e.PropertyName == nameof(CommandButtonsViewModel.IsInspectorVisible))
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (ViewModel is not null && ViewModel.IsInspectorVisible != ViewModel.Commands.IsInspectorVisible)
+                {
+                    ViewModel.IsInspectorVisible = ViewModel.Commands.IsInspectorVisible;
+                }
 
-    private static void SetPaneBorder(Border border, bool active)
-    {
-        border.BorderThickness = active ? new Thickness(2) : new Thickness(1);
-        border.BorderBrush = active
-            ? (Brush)Microsoft.UI.Xaml.Application.Current.Resources["SystemControlForegroundAccentBrush"]
-            : (Brush)Microsoft.UI.Xaml.Application.Current.Resources["SystemControlForegroundBaseLowBrush"];
-    }
-
-    private void UpdateStatusBar()
-    {
-        var activeItems = _activePaneId == PaneId.Left ? _leftItems : _rightItems;
-        var activeSelectedCount = _activePaneId == PaneId.Left ? _leftSelectedCount : _rightSelectedCount;
-        var activePath = _activePaneId == PaneId.Left ? LeftPathText.Text : RightPathText.Text;
-
-        ActivePaneText.Text = _activePaneId == PaneId.Left ? "Left" : "Right";
-        PathText.Text = activePath;
-        ItemCountText.Text = $"{activeItems?.Count ?? 0} items";
-        SelectedText.Text = $"{activeSelectedCount} selected";
-    }
-
-    private void FocusActiveTable()
-    {
-        GetActiveTable().Focus(FocusState.Programmatic);
-    }
-
-    private TableView GetActiveTable() =>
-        _activePaneId == PaneId.Left ? LeftEntryTable.Table : RightEntryTable.Table;
-
-    private void OnToggleThemeClick(object sender, RoutedEventArgs e)
-    {
-        ToggleThemeAction?.Invoke();
+                UpdateInspectorLayout();
+            });
+        }
+        else if (e.PropertyName == nameof(CommandButtonsViewModel.ParallelExecutionEnabled))
+        {
+            DispatcherQueue.TryEnqueue(() =>
+            {
+                if (ViewModel is not null && ViewModel.ParallelExecutionEnabled != ViewModel.Commands.ParallelExecutionEnabled)
+                {
+                    ViewModel.ParallelExecutionEnabled = ViewModel.Commands.ParallelExecutionEnabled;
+                }
+            });
+        }
     }
 
     private void UpdateInspectorLayout()
@@ -457,48 +178,10 @@ public sealed partial class MainShellView
         }
 
         var isVisible = ViewModel.IsInspectorVisible;
-        InspectorToggleButton.IsChecked = isVisible;
         InspectorSplitterColumn.Width = isVisible
             ? new GridLength(6, GridUnitType.Pixel)
             : new GridLength(0, GridUnitType.Pixel);
         InspectorView.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
         InspectorGridSplitter.Visibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private static bool IsModifierDown(VirtualKey key) =>
-        InputKeyboardSource.GetKeyStateForCurrentThread(key)
-            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
-
-    private bool IsTextInputFocused()
-    {
-        var focused = FocusManager.GetFocusedElement(XamlRoot);
-        return focused is TextBox
-            or PasswordBox
-            or RichEditBox
-            or AutoSuggestBox;
-    }
-
-    private static string ResolveInitialPath(
-        string preferredPath,
-        Environment.SpecialFolder fallbackFolder)
-    {
-        if (Directory.Exists(preferredPath))
-        {
-            return preferredPath;
-        }
-
-        var fallbackPath = Environment.GetFolderPath(fallbackFolder);
-        if (Directory.Exists(fallbackPath))
-        {
-            return fallbackPath;
-        }
-
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (Directory.Exists(userProfile))
-        {
-            return userProfile;
-        }
-
-        return Path.GetPathRoot(Environment.SystemDirectory) ?? @"C:\";
     }
 }

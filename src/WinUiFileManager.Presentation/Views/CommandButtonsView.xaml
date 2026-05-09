@@ -1,0 +1,53 @@
+<UserControl
+    x:Class="WinUiFileManager.Presentation.Views.CommandButtonsView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <CommandBar DefaultLabelPosition="Collapsed"
+                HorizontalAlignment="Left"
+                IsOpen="False"
+                OverflowButtonVisibility="Collapsed">
+        <AppBarButton Icon="Copy" Command="{x:Bind ViewModel.CopyCommand}" ToolTipService.ToolTip="Copy (F5)" />
+        <AppBarButton Icon="MoveToFolder" Command="{x:Bind ViewModel.MoveCommand}" ToolTipService.ToolTip="Move (F6)" />
+        <AppBarButton Icon="Rename" Command="{x:Bind ViewModel.RenameCommand}" ToolTipService.ToolTip="Rename (F2, Shift+F6)" />
+        <AppBarButton Icon="Delete" Command="{x:Bind ViewModel.DeleteCommand}" ToolTipService.ToolTip="Delete (F8, Delete)" />
+        <AppBarButton Icon="NewFolder" Command="{x:Bind ViewModel.CreateFolderCommand}" ToolTipService.ToolTip="Create Folder (F7, Ctrl+Shift+N)" />
+        <AppBarSeparator />
+        <AppBarToggleButton Icon="Sync"
+                            IsChecked="{x:Bind ViewModel.ParallelExecutionEnabled, Mode=TwoWay}"
+                            ToolTipService.ToolTip="Parallel Operations" />
+        <AppBarButton Icon="Refresh" ToolTipService.ToolTip="Refresh (Ctrl+R)" />
+        <AppBarButton x:Name="FavouritesAppBarButton"
+                      Icon="Favorite"
+                      ToolTipService.ToolTip="Favourites (Ctrl+D)">
+            <AppBarButton.Flyout>
+                <MenuFlyout x:Name="FavouritesFlyout" Opening="OnFavouritesFlyoutOpening">
+                    <MenuFlyoutItem Text="Add current folder" Click="OnAddFavouriteClick">
+                        <MenuFlyoutItem.Icon>
+                            <SymbolIcon Symbol="Add" />
+                        </MenuFlyoutItem.Icon>
+                    </MenuFlyoutItem>
+                    <MenuFlyoutSeparator />
+                </MenuFlyout>
+            </AppBarButton.Flyout>
+        </AppBarButton>
+        <AppBarButton Command="{x:Bind ViewModel.CopyPathCommand}" ToolTipService.ToolTip="Copy Full Path (Ctrl+Shift+C)">
+            <AppBarButton.Icon>
+                <SymbolIcon Symbol="Link" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+        <AppBarToggleButton x:Name="InspectorToggleButton"
+                            IsChecked="{x:Bind ViewModel.IsInspectorVisible, Mode=TwoWay}"
+                            ToolTipService.ToolTip="Toggle Inspector (Ctrl+I)">
+            <AppBarToggleButton.Icon>
+                <SymbolIcon Symbol="Preview" />
+            </AppBarToggleButton.Icon>
+        </AppBarToggleButton>
+        <AppBarSeparator />
+        <AppBarButton Command="{x:Bind ViewModel.ToggleThemeCommand}" ToolTipService.ToolTip="Toggle Theme">
+            <AppBarButton.Icon>
+                <SymbolIcon Symbol="Setting" />
+            </AppBarButton.Icon>
+        </AppBarButton>
+    </CommandBar>
+</UserControl>

@@ -18,19 +18,18 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private AppSettings _currentSettings = new();
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ActivePaneLabel))]
-    public partial PaneId ActivePaneId { get; set; } = PaneId.Left;
-
-    [ObservableProperty]
     public partial FileInspectorViewModel Inspector { get; set; }
+
+    public AppInitializationViewModel Initialization { get; }
+
+    public PanelsViewModel Panels { get; }
+
+    public CommandButtonsViewModel Commands { get; }
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
     [NotifyPropertyChangedFor(nameof(InspectorMinWidth))]
     public partial bool IsInspectorVisible { get; set; } = true;
-
-    [ObservableProperty]
-    public partial double LeftPaneWidth { get; set; } = 600d;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
@@ -72,7 +71,10 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         PersistPaneStateCommandHandler persistPaneStateHandler,
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
-        FileInspectorViewModel inspector)
+        FileInspectorViewModel inspector,
+        AppInitializationViewModel initialization,
+        PanelsViewModel panels,
+        CommandButtonsViewModel commands)
     {
         _settingsRepository = settingsRepository;
         _removeFavouriteHandler = removeFavouriteHandler;
@@ -82,11 +84,12 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         _favouritesRepository = favouritesRepository;
         _logger = logger;
         Inspector = inspector;
+        Initialization = initialization;
+        Panels = panels;
+        Commands = commands;
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
-
-    public string ActivePaneLabel => $"{(ActivePaneId == PaneId.Left ? "Left" : "Right")} active";
 
     public double InspectorColumnWidth
     {
@@ -114,12 +117,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
 
         InspectorWidth = Math.Max(width, MinVisibleInspectorWidth);
-    }
-
-    [RelayCommand]
-    private void SwitchActivePane()
-    {
-        ActivePaneId = ActivePaneId == PaneId.Left ? PaneId.Right : PaneId.Left;
     }
 
     [RelayCommand]
@@ -178,15 +175,20 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
+            await Initialization.InitializeAsync();
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
             IsInspectorVisible = _currentSettings.InspectorVisible;
+            Commands.IsInspectorVisible = IsInspectorVisible;
+            Commands.ParallelExecutionEnabled = _currentSettings.ParallelExecutionEnabled;
             InspectorWidth = _currentSettings.InspectorWidth;
-            LeftPaneWidth = _currentSettings.LeftPaneWidth;
+            Panels.LeftPanelWidth = _currentSettings.LeftPaneWidth;
             MainWindowPlacement = _currentSettings.MainWindowPlacement;
 
             await LoadFavouritesAsync();
 
-            ActivePaneId = _currentSettings.LastActivePane == PaneId.Right ? PaneId.Right : PaneId.Left;
+            Panels.SetActivePanel(string.IsNullOrWhiteSpace(_currentSettings.LastActivePane)
+                ? "Left"
+                : _currentSettings.LastActivePane);
         }
         catch (Exception ex)
         {
@@ -201,10 +203,10 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             var request = new PersistPaneStateRequest(
                 LeftPanePath: _currentSettings.LastLeftPanePath,
                 RightPanePath: _currentSettings.LastRightPanePath,
-                ActivePane: ActivePaneId,
+                ActivePane: Panels.ActivePanelIdentity,
                 InspectorVisible: IsInspectorVisible,
                 InspectorWidth: InspectorWidth,
-                LeftPaneWidth: LeftPaneWidth,
+                LeftPaneWidth: Panels.LeftPanelWidth,
                 LeftPaneColumns: _currentSettings.LeftPaneColumns,
                 RightPaneColumns: _currentSettings.RightPaneColumns,
                 LeftPaneSort: _currentSettings.LeftPaneSort,
@@ -227,6 +229,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         {
             Favourites.Add(item);
         }
+
+        Commands.SetFavourites(Favourites);
     }
 
     [RelayCommand]

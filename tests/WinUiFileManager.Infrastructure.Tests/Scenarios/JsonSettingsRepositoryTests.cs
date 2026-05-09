@@ -59,7 +59,7 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
             8,
             NormalizedPath.FromUserInput(@"C:\Left"),
             NormalizedPath.FromUserInput(@"C:\Right"),
-            PaneId.Right);
+            "Right");
 
         // Act
         await sut.SaveAsync(settings, CancellationToken.None);
@@ -68,7 +68,7 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         // Assert
         await Assert.That(loaded.ParallelExecutionEnabled).IsTrue();
         await Assert.That(loaded.MaxDegreeOfParallelism).IsEqualTo(8);
-        await Assert.That(loaded.LastActivePane).IsEqualTo(PaneId.Right);
+        await Assert.That(loaded.LastActivePane).IsEqualTo("Right");
     }
 
     [Test]
@@ -81,7 +81,7 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
             16,
             NormalizedPath.FromUserInput(@"C:\Users"),
             NormalizedPath.FromUserInput(@"C:\Temp"),
-            PaneId.Left);
+            "Left");
 
         // Act
         await sut.SaveAsync(settings, CancellationToken.None);

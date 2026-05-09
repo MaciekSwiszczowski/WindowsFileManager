@@ -1,3 +1,5 @@
+using WinUiFileManager.Application.Messaging;
+
 namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 /// <summary>
@@ -7,4 +9,4 @@ public sealed record FileTableSelectionChangedMessage(
     string Identity,
     IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
     bool IsParentRowSelected,
-    SpecFileEntryViewModel? ActiveItem = null);
+    SpecFileEntryViewModel? ActiveItem = null) : IFileManagerMessengerMessage;

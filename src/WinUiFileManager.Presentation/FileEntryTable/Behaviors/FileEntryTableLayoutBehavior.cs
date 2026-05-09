@@ -23,7 +23,7 @@ public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehavior
 
         foreach (var column in AssociatedObject.Table.Columns)
         {
-            if (FileEntryTableBehaviorHelper.MapColumn(column.SortMemberPath) is { } fileEntryColumn)
+            if (FileEntryTableColumnMapping.MapColumn(column.SortMemberPath) is { } fileEntryColumn)
             {
                 column.Width = new GridLength(MapWidth(fileEntryColumn, message.Layout));
             }

@@ -29,7 +29,7 @@ public sealed partial class MainShellView
 
     private MainShellViewModel? ViewModel => DataContext as MainShellViewModel;
 
-    public void Initialize(MainShellViewModel viewModel)
+    public void Initialize(MainShellViewModel viewModel, Action? openMessageLogWindow = null)
     {
         DataContext = viewModel;
         Bindings.Update();
@@ -41,7 +41,7 @@ public sealed partial class MainShellView
 
         InspectorView.ViewModel = viewModel.Inspector;
         viewModel.Commands.ToggleThemeAction = ToggleThemeAction;
-        CommandButtons.Initialize(viewModel.Commands);
+        CommandButtons.Initialize(viewModel.Commands, openMessageLogWindow);
 
         viewModel.PropertyChanged += OnViewModelPropertyChanged;
         viewModel.Commands.PropertyChanged += OnCommandButtonsPropertyChanged;

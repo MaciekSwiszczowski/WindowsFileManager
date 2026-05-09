@@ -1,17 +1,15 @@
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-
 namespace WinUiFileManager.Presentation.MessageLogging;
 
-public sealed partial class MessageLogView : UserControl
+public sealed partial class MessageLogView
 {
-    public MessageLogView()
+    public MessageLogView(MessageLogStore store)
     {
+        Store = store;
         InitializeComponent();
         UpdatePauseButton();
     }
 
-    public MessageLogStore Store { get; } = new();
+    public MessageLogStore Store { get; }
 
     private void IdFilterBox_TextChanged(object sender, TextChangedEventArgs e)
     {

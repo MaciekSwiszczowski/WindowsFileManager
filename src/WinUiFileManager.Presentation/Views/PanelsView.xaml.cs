@@ -123,7 +123,7 @@ public sealed partial class PanelsView
 
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key != VirtualKey.Tab || FileEntryTableBehaviorHelper.IsModifierDown(VirtualKey.Control))
+        if (e.Key != VirtualKey.Tab || WinUiViewHelper.IsModifierDown(VirtualKey.Control))
         {
             return;
         }

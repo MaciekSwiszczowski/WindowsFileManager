@@ -1,6 +1,6 @@
 using System.Collections;
 using System.Reflection;
-using CommunityToolkit.Mvvm.Messaging;
+using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.MessageLogging;
@@ -45,39 +45,48 @@ public sealed class MessageLogStore
 
     private void RegisterMessages()
     {
-        Register<ActivateInvokedMessage>();
-        Register<CopyKeyPressedMessage>();
-        Register<CopyPathKeyPressedMessage>();
-        Register<CopyPathRequestedMessage>();
-        Register<CopyRequestedMessage>();
-        Register<CreateFolderKeyPressedMessage>();
-        Register<CreateFolderRequestedMessage>();
-        Register<DefaultActionRequestedMessage>();
-        Register<DeleteKeyPressedMessage>();
-        Register<DeleteRequestedMessage>();
-        Register<FileTableColumnLayoutMessage>();
-        Register<FileTableFocusedMessage>();
-        Register<FileTableNavigateDownRequestedMessage>();
-        Register<FileTableNavigateUpRequestedMessage>();
-        Register<FileTableParentEntryVisibilityMessage>();
-        Register<FileTableSelectionChangedMessage>();
-        Register<MoveKeyPressedMessage>();
-        Register<MoveRequestedMessage>();
-        Register<NavigateUpKeyPressedMessage>();
-        Register<NavigateUpRequestedMessage>();
-        Register<OpenFavouritesRequestedMessage>();
-        Register<PropertiesKeyPressedMessage>();
-        Register<PropertiesRequestedMessage>();
-        Register<RenameKeyPressedMessage>();
-        Register<ShowDialogMessage>();
-        Register<ToggleInspectorRequestedMessage>();
+        foreach (var type in DiscoverConcreteMessengerMessageTypes())
+        {
+            RegisterListenerForType(type);
+        }
     }
 
-    private void Register<T>()
-        where T : class
+    private static IEnumerable<Type> DiscoverConcreteMessengerMessageTypes() =>
+        AppDomain.CurrentDomain
+            .GetAssemblies()
+            .SelectMany(GetLoadableTypes)
+            .Where(static t =>
+                t is { IsClass: true, IsAbstract: false } &&
+                typeof(IFileManagerMessengerMessage).IsAssignableFrom(t))
+            .OrderBy(static t => t.FullName, StringComparer.Ordinal);
+
+    private static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
     {
-        _messenger.Register<T>(this, (_, message) => Append(message));
+        try
+        {
+            return assembly.GetTypes();
+        }
+        catch (ReflectionTypeLoadException ex)
+        {
+            return ex.Types.Where(static t => t is not null).Cast<Type>();
+        }
+        catch
+        {
+            return [];
+        }
     }
+
+    private void RegisterListenerForType(Type messageType)
+    {
+        var register = typeof(MessageLogStore).GetMethod(
+            nameof(RegisterListener),
+            BindingFlags.NonPublic | BindingFlags.Instance);
+        register!.MakeGenericMethod(messageType).Invoke(this, null);
+    }
+
+    private void RegisterListener<T>()
+        where T : class, IFileManagerMessengerMessage =>
+        _messenger.Register<T>(this, (_, message) => Append(message));
 
     private void Append<T>(T message)
         where T : class

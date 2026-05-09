@@ -1,3 +1,4 @@
+using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Messages;
@@ -7,4 +8,4 @@ namespace WinUiFileManager.Application.Messages;
 /// </summary>
 public sealed record FileTableNavigateDownRequestedMessage(
     string Identity,
-    FileSystemEntryModel Item);
+    FileSystemEntryModel Item) : IFileManagerMessengerMessage;

@@ -1,3 +1,5 @@
+using WinUiFileManager.Application.Messaging;
+
 namespace WinUiFileManager.Application.Messages;
 
-public sealed record OpenFavouritesRequestedMessage;
+public sealed record OpenFavouritesRequestedMessage : IFileManagerMessengerMessage;

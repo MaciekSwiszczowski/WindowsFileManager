@@ -1,6 +1,8 @@
+using WinUiFileManager.Application.Messaging;
+
 namespace WinUiFileManager.Application.Messages;
 
 /// <summary>
 /// Published when navigation up is requested.
 /// </summary>
-public sealed record FileTableNavigateUpRequestedMessage(string Identity);
+public sealed record FileTableNavigateUpRequestedMessage(string Identity) : IFileManagerMessengerMessage;

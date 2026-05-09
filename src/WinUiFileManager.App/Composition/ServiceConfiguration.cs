@@ -7,6 +7,7 @@ using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 
@@ -32,6 +33,8 @@ public static class ServiceConfiguration
 
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
+
+        services.AddSingleton<MessageLogStore>();
 
         services.AddSingleton<DialogService>();
         services.AddSingleton<IClipboardService, WinUiClipboardService>();

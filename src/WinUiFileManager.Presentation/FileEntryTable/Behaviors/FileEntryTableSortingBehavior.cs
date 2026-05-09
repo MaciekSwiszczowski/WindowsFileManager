@@ -1,5 +1,3 @@
-using WinUiFileManager.Presentation.FileEntryTable;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
@@ -32,7 +30,7 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
         }
 
         e.Handled = true;
-        if (FileEntryTableBehaviorHelper.MapColumn(e.Column.SortMemberPath) is not { } column)
+        if (FileEntryTableColumnMapping.MapColumn(e.Column.SortMemberPath) is not { } column)
         {
             return;
         }
@@ -60,14 +58,14 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
         foreach (var column in EntryTable.Columns)
         {
-            column.SortDirection = FileEntryTableBehaviorHelper.MapColumn(column.SortMemberPath) == _sortColumn
+            column.SortDirection = FileEntryTableColumnMapping.MapColumn(column.SortMemberPath) == _sortColumn
                 ? direction
                 : null;
         }
 
         EntryTable.SortDescriptions.Clear();
         EntryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
-            FileEntryTableBehaviorHelper.MapSortMemberPath(_sortColumn),
+            FileEntryTableColumnMapping.MapSortMemberPath(_sortColumn),
             SortDirection.Ascending,
             new SpecFileEntryComparer(_sortColumn, _sortAscending),
             static item => item));

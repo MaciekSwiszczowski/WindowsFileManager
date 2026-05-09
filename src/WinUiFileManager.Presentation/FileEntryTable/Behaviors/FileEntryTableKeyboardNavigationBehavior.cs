@@ -20,23 +20,17 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
         TrackTableOnLoaded();
     }
 
-    protected override void OnDetaching()
-    {
-        base.OnDetaching();
-    }
-
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Handled
-            || FileEntryTableBehaviorHelper.HasAnyModifier(
+            || WinUiViewHelper.HasAnyModifier(
                 VirtualKey.Shift,
                 VirtualKey.Control,
                 VirtualKey.Menu)
             || !EnsureTable()
             || NavigationState is null
             || EntryTable!.Items.Count == 0
-            || !FileEntryTableBehaviorHelper.TryGetNavigationTargetIndex(
-                EntryTable,
+            || !EntryTable.TryGetNavigationTargetIndex(
                 e.Key,
                 GetCurrentIndex(),
                 out var targetIndex))
@@ -44,7 +38,7 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
             return;
         }
 
-        FileEntryTableBehaviorHelper.SelectSingleRow(EntryTable, NavigationState, targetIndex);
+        EntryTable.SelectSingleRow(NavigationState, targetIndex);
         e.Handled = true;
     }
 
@@ -56,16 +50,12 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
         }
 
         return NavigationState?.GetCurrentIndex(EntryTable)
-            ?? FileEntryTableBehaviorHelper.GetCurrentSelectedIndex(EntryTable);
+            ?? EntryTable.GetCurrentSelectedIndex();
     }
 
     protected override void OnTableAttached(TableView table)
-    {
-        table.PreviewKeyDown += EntryTable_PreviewKeyDown;
-    }
+        => table.PreviewKeyDown += EntryTable_PreviewKeyDown;
 
     protected override void OnTableDetaching(TableView table)
-    {
-        table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
-    }
+        => table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
 }

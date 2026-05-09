@@ -1,6 +1,8 @@
+using WinUiFileManager.Application.Messaging;
+
 namespace WinUiFileManager.Application.Messages;
 
 /// <summary>
 /// Resolved request to create a folder in a pane.
 /// </summary>
-public sealed record CreateFolderRequestedMessage(string SourceIdentity);
+public sealed record CreateFolderRequestedMessage(string SourceIdentity) : IFileManagerMessengerMessage;

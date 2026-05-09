@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml;
 using Domain.ValueObjects;
 using Infrastructure.Services;
 using Presentation.FileEntryTable.Data;
+using Presentation.MessageLogging;
 using Presentation.Services;
 using Presentation.ViewModels;
 
@@ -56,7 +57,11 @@ public sealed partial class MainShellWindow
         {
             await _viewModel.InitializeAsync();
             ShellView.ToggleThemeAction = ToggleTheme;
+#if DEBUG
+            ShellView.Initialize(_viewModel, OpenMessageLogWindow);
+#else
             ShellView.Initialize(_viewModel);
+#endif
             ApplyPlacement(_viewModel.MainWindowPlacement);
         }
     }
@@ -203,4 +208,13 @@ public sealed partial class MainShellWindow
             titleBar.ButtonInactiveForegroundColor = inactiveFg;
         }
     }
+
+#if DEBUG
+    private void OpenMessageLogWindow()
+    {
+        var store = App.Services.GetRequiredService<MessageLogStore>();
+        var window = new MessageLogWindow(store);
+        window.Activate();
+    }
+#endif
 }

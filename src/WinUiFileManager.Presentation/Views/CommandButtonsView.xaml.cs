@@ -4,6 +4,10 @@ public sealed partial class CommandButtonsView
 {
     private bool _isListeningForShortcuts;
 
+#if DEBUG
+    private bool _debugMessageLogButtonInjected;
+#endif
+
     public CommandButtonsView()
     {
         InitializeComponent();
@@ -14,14 +18,20 @@ public sealed partial class CommandButtonsView
 
     public CommandButtonsViewModel ViewModel { get; private set; } = null!;
 
-    public void Initialize(CommandButtonsViewModel viewModel)
+    public Action? OpenMessageLogWindow { get; set; }
+
+    public void Initialize(CommandButtonsViewModel viewModel, Action? openMessageLogWindow = null)
     {
+        OpenMessageLogWindow = openMessageLogWindow;
         ViewModel = viewModel;
         Bindings.Update();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+#if DEBUG
+        TryInjectDebugMessageLogButton();
+#endif
         if (_isListeningForShortcuts)
         {
             return;
@@ -30,6 +40,26 @@ public sealed partial class CommandButtonsView
         _isListeningForShortcuts = true;
         WeakReferenceMessenger.Default.Register<OpenFavouritesRequestedMessage>(this, OnOpenFavouritesShortcutRequested);
     }
+
+#if DEBUG
+    private void TryInjectDebugMessageLogButton()
+    {
+        if (_debugMessageLogButtonInjected || Content is not CommandBar bar)
+        {
+            return;
+        }
+
+        _debugMessageLogButtonInjected = true;
+        var dbg = new AppBarButton
+        {
+            Icon = new SymbolIcon(Symbol.Message),
+            Label = "Msgs",
+        };
+        ToolTipService.SetToolTip(dbg, "Message log (debug build)");
+        dbg.Click += (_, _) => OpenMessageLogWindow?.Invoke();
+        bar.PrimaryCommands.Add(dbg);
+    }
+#endif
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
@@ -80,7 +110,6 @@ public sealed partial class CommandButtonsView
 
     private void OnOpenFavouritesShortcutRequested(object recipient, OpenFavouritesRequestedMessage message)
     {
-        // MenuFlyout has no bindable open state; Ctrl+D must open it against its placement target.
         DispatcherQueue.TryEnqueue(() => FavouritesFlyout.ShowAt(FavouritesAppBarButton));
     }
 }

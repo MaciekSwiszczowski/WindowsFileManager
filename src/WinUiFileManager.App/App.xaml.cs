@@ -3,17 +3,17 @@ namespace WinUiFileManager.App;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
-using WinUiFileManager.App.Composition;
+using Composition;
 
-public sealed partial class App : Application
+public sealed partial class App
 {
     private readonly ServiceProvider _serviceProvider;
 
     public App()
     {
-        this.InitializeComponent();
+        InitializeComponent();
         _serviceProvider = ServiceConfiguration.ConfigureServices();
-        this.UnhandledException += OnUnhandledException;
+        UnhandledException += OnUnhandledException;
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)

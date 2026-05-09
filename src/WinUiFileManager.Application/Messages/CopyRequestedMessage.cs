@@ -1,3 +1,4 @@
+using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Application.Messages;
@@ -8,4 +9,4 @@ namespace WinUiFileManager.Application.Messages;
 public sealed record CopyRequestedMessage(
     string SourceIdentity,
     string TargetIdentity,
-    IReadOnlyList<FileSystemEntryModel> Items);
+    IReadOnlyList<FileSystemEntryModel> Items) : IFileManagerMessengerMessage;

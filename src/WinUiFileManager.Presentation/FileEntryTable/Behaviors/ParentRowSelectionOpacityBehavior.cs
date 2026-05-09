@@ -1,5 +1,3 @@
-using WinUiFileManager.Presentation.FileEntryTable;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
@@ -51,7 +49,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
             return;
         }
 
-        if (FileEntryTableBehaviorHelper.GetParentItem(table) is not { } parentItem
+        if (table.GetParentItem() is not { } parentItem
             || !SpecFileEntryViewModel.IsParentEntry(parentItem))
         {
             ResetParentSelectionOpacity(table);

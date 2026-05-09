@@ -1,6 +1,5 @@
 using System.Reactive.Disposables;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 
 namespace WinUiFileManager.Presentation.Views;
@@ -18,20 +17,20 @@ public sealed partial class PanelsView
         LeftEntryTable.Identity = "Left";
         RightEntryTable.Identity = "Right";
 
-        PaneGridSplitter.AddHandler(UIElement.PointerPressedEvent, new PointerEventHandler(OnPaneSplitterPointerPressed), handledEventsToo: true);
+        PaneGridSplitter.AddHandler(PointerPressedEvent, new PointerEventHandler(OnPaneSplitterPointerPressed), handledEventsToo: true);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
-    public PanelsViewModel ViewModel { get; private set; } = null!;
+    public PanelsViewModel? ViewModel { get; private set; }
 
     public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
 
     public AppInitializationViewModel? Initialization { get; set; }
 
-    public string LeftStatusText => FormatStatus(ViewModel.LeftPanel);
+    public string LeftStatusText => FormatStatus(ViewModel?.LeftPanel);
 
-    public string RightStatusText => FormatStatus(ViewModel.RightPanel);
+    public string RightStatusText => FormatStatus(ViewModel?.RightPanel);
 
     public event EventHandler? PaneSplitterPressed;
 
@@ -92,6 +91,11 @@ public sealed partial class PanelsView
             ?? throw new InvalidOperationException("File entry table data source factory is not configured.");
         var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
 
+        if (ViewModel == null)
+        {
+            return;
+        }
+
         CreateDataSource(ViewModel.LeftPanel.Identity, Initialization.LeftInitialPath, factory, uiScheduler);
         CreateDataSource(ViewModel.RightPanel.Identity, Initialization.RightInitialPath, factory, uiScheduler);
 
@@ -134,13 +138,18 @@ public sealed partial class PanelsView
 
     private void FocusOtherPanel()
     {
+        if (ViewModel == null)
+        {
+            return;
+        }
+
         ViewModel.SetActivePanel(ViewModel.GetOtherPanel().Identity);
         FocusActiveTable();
     }
 
     private void FocusActiveTable() => GetActiveTable().Focus(FocusState.Programmatic);
 
-    private TableView GetActiveTable() => _panelStates[ViewModel.ActivePanelIdentity].Table.Table;
+    private TableView GetActiveTable() => _panelStates[ViewModel!.ActivePanelIdentity].Table.Table;
 
     private void OnPanelsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -166,8 +175,8 @@ public sealed partial class PanelsView
         PaneSplitterPressed?.Invoke(this, EventArgs.Empty);
     }
 
-    private static string FormatStatus(PanelViewModel panel) =>
-        $"{panel.ItemCount} items    {panel.SelectedCount} selected";
+    private static string FormatStatus(PanelViewModel? panel) =>
+        $"{panel?.ItemCount} items    {panel?.SelectedCount} selected";
 
     private sealed class PanelRuntimeState : IDisposable
     {

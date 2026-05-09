@@ -84,7 +84,8 @@ public sealed partial class MainShellWindow
         }
         finally
         {
-            this.Close();
+            MessageLogWindow.CloseAll();
+            Close();
         }
     }
 
@@ -213,6 +214,7 @@ public sealed partial class MainShellWindow
     private void OpenMessageLogWindow()
     {
         var store = App.Services.GetRequiredService<MessageLogStore>();
+        MessageLogWindow.CloseAll();
         var window = new MessageLogWindow(store);
         window.Activate();
     }

@@ -9,7 +9,7 @@ public sealed class ViewModelInspectorLayoutTests
         using var vm = builder.Build();
         vm.InspectorWidth = 412d;
 
-        vm.IsInspectorVisible = false;
+        vm.Commands.IsInspectorVisible = false;
 
         await Assert.That(vm.InspectorColumnWidth).IsEqualTo(0d);
         await Assert.That(vm.InspectorMinWidth).IsEqualTo(0d);
@@ -21,7 +21,7 @@ public sealed class ViewModelInspectorLayoutTests
         var builder = new ViewModelTestBuilder();
         using var vm = builder.Build();
         vm.InspectorWidth = 100d;
-        vm.IsInspectorVisible = true;
+        vm.Commands.IsInspectorVisible = true;
 
         await Assert.That(vm.InspectorColumnWidth).IsEqualTo(260d);
         await Assert.That(vm.InspectorMinWidth).IsEqualTo(260d);

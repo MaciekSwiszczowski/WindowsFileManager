@@ -1,3 +1,5 @@
+using WinUiFileManager.Application.Settings;
+
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class AppInitializationViewModel : ObservableObject
@@ -13,12 +15,15 @@ public sealed partial class AppInitializationViewModel : ObservableObject
     public ObservableCollection<VolumeInfo> AvailableVolumes { get; } = [];
 
     [ObservableProperty]
+    public partial bool InspectorVisible { get; private set; } = true;
+
+    [ObservableProperty]
     public partial string LeftInitialPath { get; private set; } = string.Empty;
 
     [ObservableProperty]
     public partial string RightInitialPath { get; private set; } = string.Empty;
 
-    public async Task InitializeAsync(CancellationToken cancellationToken = default)
+    public async Task InitializeAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
         if (_initialized)
         {
@@ -26,6 +31,8 @@ public sealed partial class AppInitializationViewModel : ObservableObject
         }
 
         _initialized = true;
+
+        InspectorVisible = settings.InspectorVisible;
 
         AvailableVolumes.Clear();
         var volumes = await _volumePolicyService.GetNtfsVolumesAsync(cancellationToken);

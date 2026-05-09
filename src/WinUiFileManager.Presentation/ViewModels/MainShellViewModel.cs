@@ -15,6 +15,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly IFavouritesRepository _favouritesRepository;
     private readonly ILogger<MainShellViewModel> _logger;
 
+    private bool _isInspectorVisible = true;
+
     private AppSettings _currentSettings = new();
 
     [ObservableProperty]
@@ -26,10 +28,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public CommandButtonsViewModel Commands { get; }
 
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
-    [NotifyPropertyChangedFor(nameof(InspectorMinWidth))]
-    public partial bool IsInspectorVisible { get; set; } = true;
+    public bool IsInspectorVisible => _isInspectorVisible;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
@@ -87,13 +86,14 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Initialization = initialization;
         Panels = panels;
         Commands = commands;
+        WeakReferenceMessenger.Default.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorLayoutMessage);
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
 
     public double InspectorColumnWidth
     {
-        get => IsInspectorVisible
+        get => _isInspectorVisible
             ? Math.Max(InspectorWidth, MinVisibleInspectorWidth)
             : 0d;
         set
@@ -107,7 +107,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         }
     }
 
-    public double InspectorMinWidth => IsInspectorVisible ? MinVisibleInspectorWidth : 0d;
+    public double InspectorMinWidth => _isInspectorVisible ? MinVisibleInspectorWidth : 0d;
 
     public void UpdateInspectorWidthFromLayout(double width)
     {
@@ -175,10 +175,9 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
-            await Initialization.InitializeAsync();
+            await Initialization.InitializeAsync(_currentSettings, CancellationToken.None);
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
-            IsInspectorVisible = _currentSettings.InspectorVisible;
-            Commands.IsInspectorVisible = IsInspectorVisible;
+            Commands.IsInspectorVisible = Initialization.InspectorVisible;
             Commands.ParallelExecutionEnabled = _currentSettings.ParallelExecutionEnabled;
             InspectorWidth = _currentSettings.InspectorWidth;
             Panels.LeftPanelWidth = _currentSettings.LeftPaneWidth;
@@ -233,13 +232,21 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Commands.SetFavourites(Favourites);
     }
 
-    [RelayCommand]
-    private void ToggleInspector()
+    private void OnToggleInspectorLayoutMessage(object recipient, ToggleInspectorRequestedMessage message)
     {
-        IsInspectorVisible = !IsInspectorVisible;
+        _isInspectorVisible = message.IsVisible;
+        NotifyLayoutOnInspectorToggled();
+    }
+
+    private void NotifyLayoutOnInspectorToggled()
+    {
+        OnPropertyChanged(nameof(IsInspectorVisible));
+        OnPropertyChanged(nameof(InspectorColumnWidth));
+        OnPropertyChanged(nameof(InspectorMinWidth));
     }
 
     public void Dispose()
     {
+        WeakReferenceMessenger.Default.UnregisterAll(this);
     }
 }

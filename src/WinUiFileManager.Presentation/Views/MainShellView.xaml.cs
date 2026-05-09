@@ -43,7 +43,7 @@ public sealed partial class MainShellView
         viewModel.Commands.ToggleThemeAction = ToggleThemeAction;
         CommandButtons.Initialize(viewModel.Commands, openMessageLogWindow);
 
-        viewModel.PropertyChanged += OnViewModelPropertyChanged;
+        viewModel.PropertyChanged += OnMainShellViewModelPropertyChanged;
         viewModel.Commands.PropertyChanged += OnCommandButtonsPropertyChanged;
 
         UpdateInspectorLayout();
@@ -58,7 +58,7 @@ public sealed partial class MainShellView
             return;
         }
 
-        viewModel.PropertyChanged -= OnViewModelPropertyChanged;
+        viewModel.PropertyChanged -= OnMainShellViewModelPropertyChanged;
         viewModel.Commands.PropertyChanged -= OnCommandButtonsPropertyChanged;
     }
 
@@ -126,39 +126,17 @@ public sealed partial class MainShellView
         _fileTablesFrozenForSplitterDrag = false;
     }
 
-    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnMainShellViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        DispatcherQueue.TryEnqueue(() =>
+        if (e.PropertyName == nameof(MainShellViewModel.IsInspectorVisible))
         {
-            switch (e.PropertyName)
-            {
-                case nameof(MainShellViewModel.IsInspectorVisible):
-                    if (ViewModel is not null && ViewModel.Commands.IsInspectorVisible != ViewModel.IsInspectorVisible)
-                    {
-                        ViewModel.Commands.IsInspectorVisible = ViewModel.IsInspectorVisible;
-                    }
-
-                    UpdateInspectorLayout();
-                    break;
-            }
-        });
+            DispatcherQueue.TryEnqueue(UpdateInspectorLayout);
+        }
     }
 
     private void OnCommandButtonsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName == nameof(CommandButtonsViewModel.IsInspectorVisible))
-        {
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                if (ViewModel is not null && ViewModel.IsInspectorVisible != ViewModel.Commands.IsInspectorVisible)
-                {
-                    ViewModel.IsInspectorVisible = ViewModel.Commands.IsInspectorVisible;
-                }
-
-                UpdateInspectorLayout();
-            });
-        }
-        else if (e.PropertyName == nameof(CommandButtonsViewModel.ParallelExecutionEnabled))
+        if (e.PropertyName == nameof(CommandButtonsViewModel.ParallelExecutionEnabled))
         {
             DispatcherQueue.TryEnqueue(() =>
             {

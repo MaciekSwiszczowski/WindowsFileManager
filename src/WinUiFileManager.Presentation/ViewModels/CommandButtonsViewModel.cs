@@ -8,6 +8,7 @@ public sealed partial class CommandButtonsViewModel : ObservableObject, IDisposa
     public CommandButtonsViewModel(IMessenger? messenger = null)
     {
         _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger.Register<ToggleInspectorKeyPressedMessage>(this, OnToggleInspectorKeyPressed);
         _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorRequested);
     }
 
@@ -41,9 +42,19 @@ public sealed partial class CommandButtonsViewModel : ObservableObject, IDisposa
         _messenger.UnregisterAll(this);
     }
 
-    private void OnToggleInspectorRequested(object recipient, ToggleInspectorRequestedMessage message)
+    private void OnToggleInspectorKeyPressed(object recipient, ToggleInspectorKeyPressedMessage _)
     {
         IsInspectorVisible = !IsInspectorVisible;
+    }
+
+    private void OnToggleInspectorRequested(object recipient, ToggleInspectorRequestedMessage message)
+    {
+        IsInspectorVisible = message.IsVisible;
+    }
+
+    partial void OnIsInspectorVisibleChanged(bool value)
+    {
+        _messenger.Send(new ToggleInspectorRequestedMessage(value));
     }
 
     [RelayCommand]

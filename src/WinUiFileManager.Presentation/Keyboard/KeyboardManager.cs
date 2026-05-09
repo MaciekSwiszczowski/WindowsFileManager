@@ -71,7 +71,7 @@ public sealed class KeyboardManager
                 input.Handled = true;
                 break;
             case { Key: VirtualKey.I, Control: true, Shift: false, Alt: false }:
-                Send(new ToggleInspectorRequestedMessage());
+                Send(new ToggleInspectorKeyPressedMessage());
                 input.Handled = true;
                 break;
             case { Key: VirtualKey.Enter, Control: false, Shift: false, Alt: true }:

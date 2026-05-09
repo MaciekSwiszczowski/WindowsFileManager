@@ -23,9 +23,6 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
         services.AddSingleton<IShellService, Fakes.FakeShellService>();
         services.AddSingleton<DialogService>();
-        services.AddSingleton<ActivePanelsService>();
-        services.AddSingleton<IActivePanelsService>(static provider => provider.GetRequiredService<ActivePanelsService>());
-        services.AddSingleton<RenameService>();
         services.AddSingleton<FileEntryTableDataSourceFactory>();
         services.AddSingleton<IFavouritesRepository, Fakes.FakeFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();

@@ -1,33 +1,57 @@
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Keyboard;
+using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView
 {
+    private KeyboardManager? _keyboardManager;
+
     private bool _fileTablesFrozenForSplitterDrag;
 
     public MainShellView()
     {
         InitializeComponent();
 
+        RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnShellMessengerChanged);
         Unloaded += OnUnloaded;
         RegisterSplitterHandlers(InspectorGridSplitter);
         RegisterGlobalPointerReleaseHandlers();
+    }
+
+    private void OnShellMessengerChanged(DependencyObject sender, DependencyProperty dp)
+    {
+        if (sender is not MainShellView view)
+        {
+            return;
+        }
+
+        if (MessengerProperties.GetMessenger(view) is not IMessenger value)
+        {
+            view._keyboardManager = null;
+            return;
+        }
+
+        if (view._keyboardManager is null)
+        {
+            view._keyboardManager = new KeyboardManager(value);
+        }
     }
 
     public Action? ToggleThemeAction { get; set; }
 
     public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
 
-    public KeyboardManager KeyboardManager { get; } = new();
+    public KeyboardManager KeyboardManager =>
+        _keyboardManager ?? throw new InvalidOperationException("Messenger attached property is not set on MainShellView.");
 
     public void CapturePaneColumnLayouts()
     {
         // SpecFileEntryTableView owns column layout through messages; persistence will be restored in the next table phase.
     }
 
-    private MainShellViewModel? ViewModel => DataContext as MainShellViewModel;
+    public MainShellViewModel? ViewModel => DataContext as MainShellViewModel;
 
     public void Initialize(MainShellViewModel viewModel, Action? openMessageLogWindow = null)
     {

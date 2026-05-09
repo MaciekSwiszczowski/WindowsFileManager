@@ -5,10 +5,12 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 public sealed class FileEntryTableDataSourceFactory
 {
     private readonly IFileSystemService _fileSystemService;
+    private readonly IMessenger _messenger;
 
-    public FileEntryTableDataSourceFactory(IFileSystemService fileSystemService)
+    public FileEntryTableDataSourceFactory(IFileSystemService fileSystemService, IMessenger messenger)
     {
         _fileSystemService = fileSystemService;
+        _messenger = messenger;
     }
 
     internal FileEntryTableDataSource Create(string identity, string initialPath, IScheduler uiScheduler)
@@ -17,6 +19,7 @@ public sealed class FileEntryTableDataSourceFactory
             identity,
             initialPath,
             uiScheduler,
-            _fileSystemService);
+            _fileSystemService,
+            _messenger);
     }
 }

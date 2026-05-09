@@ -5,9 +5,9 @@ public sealed partial class CommandButtonsViewModel : ObservableObject, IDisposa
     private readonly IMessenger _messenger;
     private bool _disposed;
 
-    public CommandButtonsViewModel(IMessenger? messenger = null)
+    public CommandButtonsViewModel(IMessenger messenger)
     {
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger = messenger;
         _messenger.Register<ToggleInspectorKeyPressedMessage>(this, OnToggleInspectorKeyPressed);
         _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorRequested);
     }
@@ -30,6 +30,8 @@ public sealed partial class CommandButtonsViewModel : ObservableObject, IDisposa
             Favourites.Add(favourite);
         }
     }
+
+    public IMessenger Messenger => _messenger;
 
     public void Dispose()
     {

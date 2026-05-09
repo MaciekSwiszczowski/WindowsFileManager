@@ -18,6 +18,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private readonly FileInspectorDeferredBatchPlan _deferredBatchPlan;
     private readonly FileInspectorDeferredLoader _deferredLoader;
     private readonly FileInspectorThumbnailMaterializer _thumbnailMaterializer;
+    private readonly IMessenger _messenger;
     private readonly CompositeDisposable _subscriptions = new();
     private readonly SourceList<SpecFileEntryViewModel> _selectedItemsSource = new();
     private long _currentSelectionVersion;
@@ -39,14 +40,16 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         IClipboardService clipboardService,
         IShellService shellService,
         ISchedulerProvider schedulers,
-        ILogger<FileInspectorViewModel> logger)
+        ILogger<FileInspectorViewModel> logger,
+        IMessenger messenger)
         : this(
             fileIdentityService,
             clipboardService,
             shellService,
             schedulers,
             logger,
-            subscribeToMessages: true)
+            subscribeToMessages: true,
+            messenger)
     {
     }
 
@@ -56,10 +59,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         IShellService shellService,
         ISchedulerProvider schedulers,
         ILogger<FileInspectorViewModel> logger,
-        bool subscribeToMessages)
+        bool subscribeToMessages,
+        IMessenger messenger)
     {
         _fileIdentityService = fileIdentityService;
         _logger = logger;
+        _messenger = messenger;
 
         var inspectorModel = new FileInspectorModelBuilder(
             NtfsFileInspectorCategory.CanToggleField,
@@ -94,7 +99,8 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             () => _currentFullPath,
             () => Categories,
             () => Fields,
-            CreateRefreshSelectionMessage);
+            CreateRefreshSelectionMessage,
+            messenger);
 
         if (!subscribeToMessages)
         {
@@ -106,7 +112,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             .Bind(SelectedItems)
             .Subscribe(_ => OnPropertyChanged(nameof(SelectedItems))));
 
-        var observable = WeakReferenceMessenger.Default
+        var observable = _messenger
             .CreateObservable<FileTableSelectionChangedMessage>()
             .Where(message => IsSelectionFromActivePanel(message.Identity))
             .ObserveOn(schedulers.Background);
@@ -140,7 +146,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message => LoadDeferredTableSelection(message.SelectedItems)));
 
-        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
+        _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
     public void Dispose()
@@ -153,7 +159,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _disposed = true;
         _subscriptions.Dispose();
         _selectedItemsSource.Dispose();
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
         _deferredLoader.Dispose();
     }
 
@@ -322,14 +328,14 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         return _deferredBatchPlan.LoadAsync(selection, cancellationToken);
     }
 
-    private static IReadOnlyList<SpecFileEntryViewModel> RequestSelectedItems(string identity)
+    private IReadOnlyList<SpecFileEntryViewModel> RequestSelectedItems(string identity)
     {
         if (string.IsNullOrWhiteSpace(identity))
         {
             return [];
         }
 
-        var request = WeakReferenceMessenger.Default.Send(new FileTableSelectedItemsRequestMessage(identity));
+        var request = _messenger.Send(new FileTableSelectedItemsRequestMessage(identity));
         return request.HasReceivedResponse ? request.Response : [];
     }
 

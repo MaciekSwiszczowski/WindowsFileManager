@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
+public sealed class ParentRowSelectionOpacityBehaviorBase : FileEntryTableBehaviorBase
 {
     private const double ParentSelectionOpacity = 0.5d;
     private const double DefaultSelectionOpacity = 1d;
@@ -11,7 +11,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
     protected override void OnAttached()
     {
         base.OnAttached();
-        WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+        ObserveMessenger(m => m.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged));
     }
 
     protected override void OnDetaching()
@@ -19,7 +19,6 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehavior
         ResetParentSelectionOpacity();
         _dimmedParentItem = null;
         _isParentRowSelected = false;
-        WeakReferenceMessenger.Default.Unregister<FileTableSelectionChangedMessage>(this);
 
         base.OnDetaching();
     }

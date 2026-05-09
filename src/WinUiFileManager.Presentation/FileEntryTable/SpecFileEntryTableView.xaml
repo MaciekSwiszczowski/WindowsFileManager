@@ -7,12 +7,12 @@
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:tv="using:WinUI.TableView">
     <interactivity:Interaction.Behaviors>
-        <behaviors:FileEntryTableLayoutBehavior />
-        <behaviors:FileEntryTableSortingBehavior />
-        <behaviors:FileEntryTableKeyboardNavigationBehavior />
-        <behaviors:FileEntryTableKeyboardSelectionBehavior />
-        <behaviors:ParentRowSelectionOpacityBehavior />
-        <behaviors:ActiveRowIndicatorBehavior />
+        <behaviors:FileEntryTableLayoutBehaviorBase />
+        <behaviors:FileEntryTableSortingBehaviorBase />
+        <behaviors:FileEntryTableKeyboardNavigationBehaviorBase />
+        <behaviors:FileEntryTableKeyboardSelectionBehaviorBase />
+        <behaviors:ParentRowSelectionOpacityBehaviorBase />
+        <behaviors:ActiveRowIndicatorBehaviorBase />
     </interactivity:Interaction.Behaviors>
 
     <UserControl.Resources>

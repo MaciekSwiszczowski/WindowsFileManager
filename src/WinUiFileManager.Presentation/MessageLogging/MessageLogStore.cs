@@ -12,9 +12,10 @@ public sealed class MessageLogStore
     private readonly List<MessageLogEntry> _allEntries = [];
     private readonly IMessenger _messenger;
 
-    public MessageLogStore(IMessenger? messenger = null)
+    public MessageLogStore(IMessenger messenger)
     {
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        ArgumentNullException.ThrowIfNull(messenger);
+        _messenger = messenger;
         RegisterMessages();
     }
 

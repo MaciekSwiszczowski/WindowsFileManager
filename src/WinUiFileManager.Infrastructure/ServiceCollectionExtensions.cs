@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Infrastructure.FileSystem;
@@ -12,6 +13,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
+        services.AddSingleton<IMessenger>(_ => WeakReferenceMessenger.Default);
+
         services.AddSingleton<IShellInterop, ShellInterop>();
         services.AddSingleton<IRestartManagerInterop, RestartManagerInterop>();
         services.AddSingleton<ICloudFilesInterop, CloudFilesInterop>();

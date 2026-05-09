@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Messaging;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure.Scheduling;
@@ -35,6 +36,7 @@ public sealed class ViewModelTestBuilder
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
 #pragma warning disable IDISP004
+        var messenger = new WeakReferenceMessenger();
         return new MainShellViewModel(
             SettingsRepository,
             removeFavourite,
@@ -43,14 +45,16 @@ public sealed class ViewModelTestBuilder
             persistPaneState,
             FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,
+            messenger,
             CreateInspectorViewModel(
                 fileIdentityService,
                 ClipboardService,
                 ShellService,
-                schedulers),
+                schedulers,
+                messenger),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(new FakeActivePanelsService()),
-            new CommandButtonsViewModel());
+            new PanelsViewModel(new FakeActivePanelsService(), messenger),
+            new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }
 
@@ -58,13 +62,15 @@ public sealed class ViewModelTestBuilder
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
         IShellService shellService,
-        ISchedulerProvider schedulers)
+        ISchedulerProvider schedulers,
+        IMessenger messenger)
     {
         return new FileInspectorViewModel(
             fileIdentityService,
             clipboardService,
             shellService,
             schedulers,
-            NullLogger<FileInspectorViewModel>.Instance);
+            NullLogger<FileInspectorViewModel>.Instance,
+            messenger);
     }
 }

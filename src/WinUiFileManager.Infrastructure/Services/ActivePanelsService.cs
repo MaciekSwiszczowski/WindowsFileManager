@@ -6,13 +6,16 @@ namespace WinUiFileManager.Infrastructure.Services;
 
 public sealed class ActivePanelsService : IActivePanelsService, IDisposable
 {
+    private readonly IMessenger _messenger;
     private string _activePanelIdentity = "Left";
     private bool _disposed;
     private string _targetPanelIdentity = "Right";
 
-    public ActivePanelsService()
+    public ActivePanelsService(IMessenger messenger)
     {
-        WeakReferenceMessenger.Default.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
+        ArgumentNullException.ThrowIfNull(messenger);
+        _messenger = messenger;
+        _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 
     public string ActivePanelIdentity => _activePanelIdentity;
@@ -38,7 +41,7 @@ public sealed class ActivePanelsService : IActivePanelsService, IDisposable
         }
 
         _disposed = true;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
     }
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)

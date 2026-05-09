@@ -8,6 +8,7 @@ public sealed class FileInspectorCommandsViewModel
     private readonly Func<IReadOnlyList<FileInspectorCategoryViewModel>> _categories;
     private readonly Func<IReadOnlyList<FileInspectorFieldViewModel>> _fields;
     private readonly Func<FileTableSelectionChangedMessage?> _createRefreshMessage;
+    private readonly IMessenger _messenger;
 
     public FileInspectorCommandsViewModel(
         IClipboardService clipboardService,
@@ -15,7 +16,8 @@ public sealed class FileInspectorCommandsViewModel
         Func<string> currentFullPath,
         Func<IReadOnlyList<FileInspectorCategoryViewModel>> categories,
         Func<IReadOnlyList<FileInspectorFieldViewModel>> fields,
-        Func<FileTableSelectionChangedMessage?> createRefreshMessage)
+        Func<FileTableSelectionChangedMessage?> createRefreshMessage,
+        IMessenger messenger)
     {
         _clipboardService = clipboardService;
         _shellService = shellService;
@@ -23,6 +25,7 @@ public sealed class FileInspectorCommandsViewModel
         _categories = categories;
         _fields = fields;
         _createRefreshMessage = createRefreshMessage;
+        _messenger = messenger;
 
         CopyAllCommand = new AsyncRelayCommand(CopyAllAsync);
         RefreshCommand = new RelayCommand(Refresh);
@@ -66,7 +69,7 @@ public sealed class FileInspectorCommandsViewModel
         var message = _createRefreshMessage();
         if (message is not null)
         {
-            WeakReferenceMessenger.Default.Send(message);
+            _messenger.Send(message);
         }
     }
 

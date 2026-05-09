@@ -11,14 +11,16 @@ internal sealed class DialogMessageOrchestrator : IDisposable
     public DialogMessageOrchestrator(
         UiDispatcherQueue dispatcherQueue,
         Func<ShowDialogMessage, Task<DialogResult>> showDialogAsync,
-        ILogger logger)
+        ILogger logger,
+        IMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(dispatcherQueue);
         ArgumentNullException.ThrowIfNull(showDialogAsync);
         ArgumentNullException.ThrowIfNull(logger);
+        ArgumentNullException.ThrowIfNull(messenger);
 
         var scheduler = new DispatcherQueueScheduler(dispatcherQueue);
-        _subscription = WeakReferenceMessenger.Default
+        _subscription = messenger
             .CreateObservable<ShowDialogMessage>()
             .Select(QueuedDialogMessage.Create)
             .ObserveOn(scheduler)

@@ -1,11 +1,13 @@
 <UserControl
     x:Class="WinUiFileManager.Presentation.Views.MainShellView"
+    x:Name="ShellRoot"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:WinUiFileManager.Presentation.Converters"
     xmlns:controls="using:WinUiFileManager.Presentation.Controls"
     xmlns:keyboard="using:WinUiFileManager.Presentation.Keyboard"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
+    xmlns:messaging="using:WinUiFileManager.Presentation.Messaging"
     xmlns:views="using:WinUiFileManager.Presentation.Views">
 
     <UserControl.Resources>
@@ -20,7 +22,9 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <views:CommandButtonsView x:Name="CommandButtons" Grid.Row="0" />
+        <views:CommandButtonsView x:Name="CommandButtons"
+                                  Grid.Row="0"
+                                  messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=ShellRoot, Mode=OneWay}" />
 
         <Grid Grid.Row="1" ColumnSpacing="2">
             <Grid.ColumnDefinitions>
@@ -31,7 +35,9 @@
                                   MinWidth="{x:Bind ViewModel.InspectorMinWidth, Mode=OneWay}" />
             </Grid.ColumnDefinitions>
 
-            <views:PanelsView x:Name="Panels" Grid.Column="0" />
+            <views:PanelsView x:Name="Panels"
+                              Grid.Column="0"
+                              messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=ShellRoot, Mode=OneWay}" />
             <toolkit:GridSplitter x:Name="InspectorGridSplitter"
                                   Grid.Column="1"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"

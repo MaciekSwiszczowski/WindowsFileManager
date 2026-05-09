@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class FileEntryTableSortingBehavior : FileEntryTableBehavior
+public sealed class FileEntryTableSortingBehaviorBase : FileEntryTableBehaviorBase
 {
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;

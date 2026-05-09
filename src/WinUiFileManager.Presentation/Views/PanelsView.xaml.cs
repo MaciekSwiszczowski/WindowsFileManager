@@ -1,6 +1,7 @@
 using System.Reactive.Disposables;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.Views;
 
@@ -14,6 +15,7 @@ public sealed partial class PanelsView
     {
         InitializeComponent();
 
+        RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnPanelsMessengerChanged);
         LeftEntryTable.Identity = "Left";
         RightEntryTable.Identity = "Right";
 
@@ -21,6 +23,8 @@ public sealed partial class PanelsView
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
+
+    private void OnPanelsMessengerChanged(DependencyObject sender, DependencyProperty dp) => TrySendInitialColumnLayout();
 
     public PanelsViewModel? ViewModel { get; private set; }
 
@@ -82,26 +86,45 @@ public sealed partial class PanelsView
 
     private void EnsureFileEntryDataSources()
     {
-        if (!_loaded || Initialization is null || _panelStates.Count == 0 || _panelStates.Values.Any(static state => state.DataSource is not null))
+        if (!_loaded || Initialization is null || _panelStates.Count == 0)
         {
             return;
         }
 
-        var factory = DataSourceFactory
-            ?? throw new InvalidOperationException("File entry table data source factory is not configured.");
-        var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
+        var hasAnyDataSource = _panelStates.Values.Any(static state => state.DataSource is not null);
+        if (!hasAnyDataSource)
+        {
+            var factory = DataSourceFactory
+                ?? throw new InvalidOperationException("File entry table data source factory is not configured.");
+            var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
 
-        if (ViewModel == null)
+            if (ViewModel == null)
+            {
+                return;
+            }
+
+            CreateDataSource(ViewModel.LeftPanel.Identity, Initialization.LeftInitialPath, factory, uiScheduler);
+            CreateDataSource(ViewModel.RightPanel.Identity, Initialization.RightInitialPath, factory, uiScheduler);
+        }
+
+        TrySendInitialColumnLayout();
+    }
+
+    private void TrySendInitialColumnLayout()
+    {
+        if (MessengerProperties.GetMessenger(this) is not { } messenger || ViewModel is null)
         {
             return;
         }
 
-        CreateDataSource(ViewModel.LeftPanel.Identity, Initialization.LeftInitialPath, factory, uiScheduler);
-        CreateDataSource(ViewModel.RightPanel.Identity, Initialization.RightInitialPath, factory, uiScheduler);
+        if (_panelStates.Values.Any(static state => state.DataSource is null))
+        {
+            return;
+        }
 
         var layout = ColumnLayout.Default;
-        WeakReferenceMessenger.Default.Send(new FileTableColumnLayoutMessage(ViewModel.LeftPanel.Identity, layout));
-        WeakReferenceMessenger.Default.Send(new FileTableColumnLayoutMessage(ViewModel.RightPanel.Identity, layout));
+        messenger.Send(new FileTableColumnLayoutMessage(ViewModel.LeftPanel.Identity, layout));
+        messenger.Send(new FileTableColumnLayoutMessage(ViewModel.RightPanel.Identity, layout));
     }
 
     private void CreateDataSource(

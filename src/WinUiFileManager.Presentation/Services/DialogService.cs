@@ -5,15 +5,18 @@ namespace WinUiFileManager.Presentation.Services;
 public sealed class DialogService : IDisposable
 {
     private readonly ILogger<DialogService> _logger;
+    private readonly IMessenger _messenger;
     private ContentDialog? _activeDialog;
     private UiDispatcherQueue? _dispatcherQueue;
     private DialogMessageOrchestrator? _orchestrator;
     private XamlRoot? _xamlRoot;
     private bool _disposed;
 
-    public DialogService(ILogger<DialogService> logger)
+    public DialogService(ILogger<DialogService> logger, IMessenger messenger)
     {
+        ArgumentNullException.ThrowIfNull(messenger);
         _logger = logger;
+        _messenger = messenger;
     }
 
     public void Attach(XamlRoot xamlRoot, UiDispatcherQueue dispatcherQueue)
@@ -27,7 +30,8 @@ public sealed class DialogService : IDisposable
         _orchestrator = new DialogMessageOrchestrator(
             dispatcherQueue,
             ShowDialogOnUiThreadAsync,
-            _logger);
+            _logger,
+            _messenger);
     }
 
     public void Dispose()

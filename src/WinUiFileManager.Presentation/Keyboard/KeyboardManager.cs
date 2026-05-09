@@ -6,9 +6,10 @@ public sealed class KeyboardManager
 {
     private readonly IMessenger _messenger;
 
-    public KeyboardManager(IMessenger? messenger = null)
+    public KeyboardManager(IMessenger messenger)
     {
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        ArgumentNullException.ThrowIfNull(messenger);
+        _messenger = messenger;
         KeyPressedCommand = new KeyboardInputCommand(this);
     }
 

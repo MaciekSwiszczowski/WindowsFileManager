@@ -12,16 +12,20 @@ public sealed class RenameService : IDisposable
 {
     private readonly IActivePanelsService _activePanels;
     private readonly ILogger<RenameService> _logger;
+    private readonly IMessenger _messenger;
     private bool _disposed;
 
     public RenameService(
         IActivePanelsService activePanels,
-        ILogger<RenameService> logger)
+        ILogger<RenameService> logger,
+        IMessenger messenger)
     {
+        ArgumentNullException.ThrowIfNull(messenger);
         _activePanels = activePanels;
         _logger = logger;
+        _messenger = messenger;
 
-        WeakReferenceMessenger.Default.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
+        _messenger.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
     }
 
     public void Dispose()
@@ -32,7 +36,7 @@ public sealed class RenameService : IDisposable
         }
 
         _disposed = true;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
     }
 
     private void OnRenameKeyPressed(object recipient, RenameKeyPressedMessage message)
@@ -50,7 +54,7 @@ public sealed class RenameService : IDisposable
                 return;
             }
 
-            var request = WeakReferenceMessenger.Default.Send(
+            var request = _messenger.Send(
                 new FileTableSelectedEntriesRequestMessage(activePanelIdentity));
             if (!request.HasReceivedResponse || request.Response.Count != 1)
             {
@@ -59,7 +63,7 @@ public sealed class RenameService : IDisposable
 
             var item = request.Response[0];
             var viewModel = new RenameDialogViewModel(item);
-            var dialogRequest = WeakReferenceMessenger.Default.Send(
+            var dialogRequest = _messenger.Send(
                 new ShowDialogMessage(
                     viewModel,
                     [
@@ -126,9 +130,9 @@ public sealed class RenameService : IDisposable
         }
     }
 
-    private static async Task ShowRenameErrorAsync(string message)
+    private async Task ShowRenameErrorAsync(string message)
     {
-        var dialogRequest = WeakReferenceMessenger.Default.Send(
+        var dialogRequest = _messenger.Send(
             new ShowDialogMessage(
                 new MessageDialogViewModel(message),
                 [

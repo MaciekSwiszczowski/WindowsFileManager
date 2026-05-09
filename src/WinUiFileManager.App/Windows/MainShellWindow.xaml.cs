@@ -4,11 +4,13 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
+using CommunityToolkit.Mvvm.Messaging;
 using Domain.ValueObjects;
 using Infrastructure.Services;
 using Presentation.FileEntryTable.Data;
 using Presentation.MessageLogging;
 using Presentation.Services;
+using Presentation.Messaging;
 using Presentation.ViewModels;
 
 public sealed partial class MainShellWindow
@@ -29,6 +31,7 @@ public sealed partial class MainShellWindow
 
         ApplyTitleBarTheme(isDark: true);
 
+        MessengerProperties.SetMessenger(ShellView, App.Services.GetRequiredService<IMessenger>());
         ShellView.DataSourceFactory = App.Services.GetRequiredService<FileEntryTableDataSourceFactory>();
         ShellView.Loaded += OnShellViewLoaded;
     }

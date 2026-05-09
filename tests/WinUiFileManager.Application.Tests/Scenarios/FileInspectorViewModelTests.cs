@@ -99,7 +99,8 @@ public sealed class FileInspectorViewModelTests
             new FakeClipboardService(),
             new FakeShellService(),
             new TestSchedulerProvider(scheduler),
-            NullLogger<FileInspectorViewModel>.Instance);
+            NullLogger<FileInspectorViewModel>.Instance,
+            WeakReferenceMessenger.Default);
         var entry = CreateSpecEntry(
             name: "delayed.txt",
             fullPath: @"C:\temp\delayed.txt",
@@ -249,7 +250,8 @@ public sealed class FileInspectorViewModelTests
             shellService,
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
-            subscribeToMessages: false);
+            subscribeToMessages: false,
+            WeakReferenceMessenger.Default);
         var entry = CreateSpecEntry(
             name: "image.jpg",
             fullPath: @"C:\temp\image.jpg",
@@ -271,7 +273,8 @@ public sealed class FileInspectorViewModelTests
             new FakeShellService(),
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
-            subscribeToMessages: false);
+            subscribeToMessages: false,
+            WeakReferenceMessenger.Default);
     }
 
     private static SpecFileEntryViewModel CreateSpecEntry(string name, string fullPath, ItemKind kind, long size)

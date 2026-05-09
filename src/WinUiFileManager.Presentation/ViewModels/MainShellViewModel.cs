@@ -14,6 +14,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly IFavouritesRepository _favouritesRepository;
     private readonly ILogger<MainShellViewModel> _logger;
+    private readonly IMessenger _messenger;
 
     private bool _isInspectorVisible = true;
 
@@ -27,6 +28,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     public PanelsViewModel Panels { get; }
 
     public CommandButtonsViewModel Commands { get; }
+
+    public IMessenger Messenger => _messenger;
 
     public bool IsInspectorVisible => _isInspectorVisible;
 
@@ -70,11 +73,13 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         PersistPaneStateCommandHandler persistPaneStateHandler,
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
+        IMessenger messenger,
         FileInspectorViewModel inspector,
         AppInitializationViewModel initialization,
         PanelsViewModel panels,
         CommandButtonsViewModel commands)
     {
+        _messenger = messenger;
         _settingsRepository = settingsRepository;
         _removeFavouriteHandler = removeFavouriteHandler;
         _openFavouriteHandler = openFavouriteHandler;
@@ -86,7 +91,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Initialization = initialization;
         Panels = panels;
         Commands = commands;
-        WeakReferenceMessenger.Default.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorLayoutMessage);
+        _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorLayoutMessage);
     }
 
     public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
@@ -247,6 +252,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _messenger.UnregisterAll(this);
     }
 }

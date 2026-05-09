@@ -1,7 +1,10 @@
+using WinUiFileManager.Presentation.Messaging;
+
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class CommandButtonsView
 {
+    private IMessenger? _favouritesMessengerRegistration;
     private bool _isListeningForShortcuts;
 
 #if DEBUG
@@ -12,8 +15,22 @@ public sealed partial class CommandButtonsView
     {
         InitializeComponent();
 
+        RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnMessengerChanged);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
+    }
+
+    private void OnMessengerChanged(DependencyObject sender, DependencyProperty dp)
+    {
+        if (sender is not CommandButtonsView view)
+        {
+            return;
+        }
+
+        view._favouritesMessengerRegistration?.UnregisterAll(view);
+        view._favouritesMessengerRegistration = null;
+        view._isListeningForShortcuts = false;
+        view.TryRegisterFavouritesShortcutListener();
     }
 
     public CommandButtonsViewModel ViewModel { get; private set; } = null!;
@@ -27,18 +44,30 @@ public sealed partial class CommandButtonsView
         Bindings.Update();
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e)
+    private void OnLoaded(object _, RoutedEventArgs e)
     {
 #if DEBUG
         TryInjectDebugMessageLogButton();
 #endif
-        if (_isListeningForShortcuts)
+        TryRegisterFavouritesShortcutListener();
+    }
+
+    private void TryRegisterFavouritesShortcutListener()
+    {
+        if (_isListeningForShortcuts || !IsLoaded)
+        {
+            return;
+        }
+
+        var messenger = MessengerProperties.GetMessenger(this);
+        if (messenger is null)
         {
             return;
         }
 
         _isListeningForShortcuts = true;
-        WeakReferenceMessenger.Default.Register<OpenFavouritesRequestedMessage>(this, OnOpenFavouritesShortcutRequested);
+        _favouritesMessengerRegistration = messenger;
+        messenger.Register<OpenFavouritesRequestedMessage>(this, OnOpenFavouritesShortcutRequested);
     }
 
 #if DEBUG
@@ -64,7 +93,8 @@ public sealed partial class CommandButtonsView
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         _isListeningForShortcuts = false;
-        WeakReferenceMessenger.Default.UnregisterAll(this);
+        _favouritesMessengerRegistration?.UnregisterAll(this);
+        _favouritesMessengerRegistration = null;
     }
 
     private void OnFavouritesFlyoutOpening(object sender, object e)

@@ -1,6 +1,8 @@
+using WinUiFileManager.Presentation.Messaging;
+
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
+public sealed class ActiveRowIndicatorBehaviorBase : FileEntryTableBehaviorBase
 {
     private const string DefaultIndicatorName = "ActiveRowIndicator";
 
@@ -17,7 +19,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
         AssociatedObject.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
         AssociatedObject.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
-        WeakReferenceMessenger.Default.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+        ObserveMessenger(m => m.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged));
     }
 
     protected override void OnDetaching()
@@ -34,7 +36,6 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
 
         _pointerPressedHandler = null;
         _activeItem = null;
-        WeakReferenceMessenger.Default.Unregister<FileTableSelectionChangedMessage>(this);
 
         base.OnDetaching();
     }
@@ -105,15 +106,20 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehavior
             return false;
         }
 
+        if (MessengerProperties.GetMessenger(AssociatedObject) is not { } messenger)
+        {
+            return false;
+        }
+
         if (SpecFileEntryViewModel.IsParentEntry(item))
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
+            messenger.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
             return true;
         }
 
         if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model));
+            messenger.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model));
             return true;
         }
 

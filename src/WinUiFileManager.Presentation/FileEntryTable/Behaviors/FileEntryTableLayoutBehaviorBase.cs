@@ -1,16 +1,15 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehavior
+public sealed class FileEntryTableLayoutBehaviorBase : FileEntryTableBehaviorBase
 {
     protected override void OnAttached()
     {
         base.OnAttached();
-        WeakReferenceMessenger.Default.Register<FileTableColumnLayoutMessage>(this, OnColumnLayoutMessage);
+        ObserveMessenger(m => m.Register<FileTableColumnLayoutMessage>(this, OnColumnLayoutMessage));
     }
 
     protected override void OnDetaching()
     {
-        WeakReferenceMessenger.Default.Unregister<FileTableColumnLayoutMessage>(this);
         base.OnDetaching();
     }
 

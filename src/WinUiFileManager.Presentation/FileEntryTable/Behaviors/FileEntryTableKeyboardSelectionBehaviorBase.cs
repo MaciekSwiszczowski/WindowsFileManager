@@ -1,3 +1,5 @@
+using WinUiFileManager.Presentation.Messaging;
+
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 /// <summary>
@@ -9,7 +11,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// Shift+PageDown extends it to the last visible row when the cursor is inside the viewport
 /// and not already last; otherwise it extends down by the current visible row count.
 /// </summary>
-public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBehavior
+public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTableBehaviorBase
 {
     private bool _syncingSelection;
     private bool _shiftRangeActive;
@@ -18,15 +20,15 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     {
         base.OnAttached();
         TrackTableOnLoaded();
-        WeakReferenceMessenger.Default.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
-        WeakReferenceMessenger.Default.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
+        ObserveMessenger(m =>
+        {
+            m.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
+            m.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
+        });
     }
 
     protected override void OnDetaching()
     {
-        WeakReferenceMessenger.Default.Unregister<FileTableSelectedItemsRequestMessage>(this);
-        WeakReferenceMessenger.Default.Unregister<FileTableSelectedEntriesRequestMessage>(this);
-
         base.OnDetaching();
     }
 
@@ -156,7 +158,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             ? EntryTable.Items[cursorIndex] as SpecFileEntryViewModel
             : NavigationState?.GetCurrentItem(EntryTable) ?? EntryTable.SelectedItem as SpecFileEntryViewModel;
 
-        WeakReferenceMessenger.Default.Send(
+        if (MessengerProperties.GetMessenger(AssociatedObject) is not { } messenger)
+        {
+            return;
+        }
+
+        messenger.Send(
             new FileTableSelectionChangedMessage(
                 AssociatedObject.Identity,
                 selectedItems,

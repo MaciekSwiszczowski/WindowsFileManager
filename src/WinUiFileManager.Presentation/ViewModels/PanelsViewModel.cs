@@ -8,10 +8,10 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 
     public PanelsViewModel(
         IActivePanelsService activePanelsService,
-        IMessenger? messenger = null)
+        IMessenger messenger)
     {
         _activePanelsService = activePanelsService;
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger = messenger;
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);
@@ -27,6 +27,8 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
     public string ActivePanelIdentity => _activePanelsService.ActivePanelIdentity;
 
     public PanelViewModel ActivePanel => GetPanel(ActivePanelIdentity);
+
+    public IMessenger Messenger => _messenger;
 
     public void SetActivePanel(string identity)
     {

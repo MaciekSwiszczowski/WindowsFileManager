@@ -1,3 +1,5 @@
+using WinUiFileManager.Presentation.Messaging;
+
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed partial class SpecFileEntryTableView
@@ -44,27 +46,33 @@ public sealed partial class SpecFileEntryTableView
             return;
         }
 
+        var messenger = MessengerProperties.GetMessenger(this);
+        if (messenger is null)
+        {
+            return;
+        }
+
         if (SpecFileEntryViewModel.IsParentEntry(item))
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateUpRequestedMessage(Identity));
+            messenger.Send(new FileTableNavigateUpRequestedMessage(Identity));
             e.Handled = true;
             return;
         }
 
         if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            WeakReferenceMessenger.Default.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
+            messenger.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
             e.Handled = true;
         }
     }
 
     private void EntryTable_GotFocus(object sender, RoutedEventArgs e)
     {
-        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity, IsFocused: true));
+        MessengerProperties.GetMessenger(this)?.Send(new FileTableFocusedMessage(Identity, IsFocused: true));
     }
 
     private void EntryTable_LostFocus(object sender, RoutedEventArgs e)
     {
-        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage(Identity, IsFocused: false));
+        MessengerProperties.GetMessenger(this)?.Send(new FileTableFocusedMessage(Identity, IsFocused: false));
     }
 }

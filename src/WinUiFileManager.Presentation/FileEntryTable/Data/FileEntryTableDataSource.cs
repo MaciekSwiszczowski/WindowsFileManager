@@ -2,7 +2,6 @@ using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using CommunityToolkit.Mvvm.Messaging;
 using DynamicData;
 using DynamicData.Binding;
 using WinUiFileManager.Application.Abstractions;
@@ -36,17 +35,18 @@ internal sealed class FileEntryTableDataSource : IDisposable
         string initialPath,
         IScheduler uiScheduler,
         IFileSystemService fileSystemService,
-        IMessenger? messenger = null,
+        IMessenger messenger,
         IScheduler? backgroundScheduler = null)
     {
         ArgumentNullException.ThrowIfNull(uiScheduler);
         ArgumentNullException.ThrowIfNull(fileSystemService);
+        ArgumentNullException.ThrowIfNull(messenger);
 
         Identity = identity;
         Items = new ObservableCollectionExtended<SpecFileEntryViewModel>();
         _uiScheduler = uiScheduler;
         _fileSystemService = fileSystemService;
-        _messenger = messenger ?? WeakReferenceMessenger.Default;
+        _messenger = messenger;
         _backgroundScheduler = backgroundScheduler ?? TaskPoolScheduler.Default;
         _states = new BehaviorSubject<FileEntryTableDataState>(
             new FileEntryTableDataState(string.Empty, Items));

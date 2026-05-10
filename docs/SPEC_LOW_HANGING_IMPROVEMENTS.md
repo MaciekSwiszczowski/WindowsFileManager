@@ -32,7 +32,7 @@ The contract for the Coordinator is already specified in `SPEC_FILE_ENTRY_TABLE_
 - Coordinator is registered and constructed at app start.
 - F5 / F6 / F8 / F7 / Alt+Enter / Ctrl+Shift+C / Backspace / Alt+Up emit the matching `*RequestedMessage` with the active selection.
 - Empty-selection cases match the §14.5 "no-op" rules.
-- One unit test per resolution rule, using `WeakReferenceMessenger.Default` and a fake `SpecFileEntryViewModel`.
+- One unit test per resolution rule, using a dedicated `StrongReferenceMessenger` instance (inject `new StrongReferenceMessenger()`, not the process default) and a fake `SpecFileEntryViewModel`.
 
 ### I-2. FileOperationDialogService (consumer for the resolved messages)
 
@@ -255,9 +255,9 @@ Sits on the borderline. Audit during the next table touch; if it grows past 300L
 
 ## 4. Stability
 
-### St-1. Disposal audit — `WeakReferenceMessenger.Default` lifetimes
+### St-1. Disposal audit — `StrongReferenceMessenger` registration lifetimes
 
-**Where.** Every type that calls `WeakReferenceMessenger.Default.Register<T>(this, ...)` and isn't `IDisposable`-aware is at risk of leaving subscriptions live when the recipient is collected. Today: `RenameService` (handled), `DialogService` (handled), `MainShellView` (handled — `Unloaded` calls `UnregisterAll`), `MessageLogStore` (registers but never unregisters — process-lifetime singleton, OK), `FileEntryTableDataSource` (no messenger registration today, OK).
+**Where.** `StrongReferenceMessenger` keeps registered recipients alive until they unregister. Any type that calls `IMessenger.Register<T>(this, ...)` without a matching `UnregisterAll` (or `Unregister`) in teardown will keep handlers and objects alive for the messenger’s lifetime. Recipients should be `IDisposable` and call `UnregisterAll` in `Dispose` wherever practical. Today: `RenameService` (handled), `DialogService` (handled), `MainShellView` (handled — `Unloaded` calls `UnregisterAll`), `MessageLogStore` (registers but never unregisters — process-lifetime singleton, OK), `FileEntryTableDataSource` (no messenger registration today, OK).
 
 **Action.** Add an analyzer or a lightweight test that lists every `Register<` call and asserts the recipient is also `IDisposable` *and* that `Dispose` calls `UnregisterAll`. This is mechanical; do it once and the rule survives future additions.
 
@@ -265,7 +265,7 @@ Sits on the borderline. Audit during the next table touch; if it grows past 300L
 
 Every `IDisposable` should have an idempotent `Dispose`. Today `MainShellViewModel.Dispose()` is empty — confirm by audit that nothing it owns leaks (favourites collection is safe; the inspector view-model is a transient resolved per-shell, must dispose). Today `Inspector` is owned but never disposed.
 
-**Done when.** A small test resolves and disposes `MainShellViewModel` 100×; `WeakReferenceMessenger.Default.IsRegistered` reports zero residual recipients of any type.
+**Done when.** A small test resolves and disposes `MainShellViewModel` 100×; `StrongReferenceMessenger.Default.IsRegistered` reports zero residual recipients of any type.
 
 ### St-3. App-window closing order
 

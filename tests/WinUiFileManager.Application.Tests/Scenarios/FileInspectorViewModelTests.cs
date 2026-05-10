@@ -1,9 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Reactive.Testing;
 using WinUiFileManager.Application.Messages;
-using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Messages;
-using WinUiFileManager.Presentation.ViewModels;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
@@ -94,21 +92,22 @@ public sealed class FileInspectorViewModelTests
     public async Task Test_SelectionChangedMessage_ShowsBasicFieldsThenThrottlesDeferredLoad()
     {
         var scheduler = new TestScheduler();
+        var messenger = new StrongReferenceMessenger();
         using var sut = new FileInspectorViewModel(
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             new FakeShellService(),
             new TestSchedulerProvider(scheduler),
             NullLogger<FileInspectorViewModel>.Instance,
-            WeakReferenceMessenger.Default);
+            messenger);
         var entry = CreateSpecEntry(
             name: "delayed.txt",
             fullPath: @"C:\temp\delayed.txt",
             kind: ItemKind.File,
             size: 512);
 
-        WeakReferenceMessenger.Default.Send(new FileTableFocusedMessage("Left", IsFocused: true));
-        WeakReferenceMessenger.Default.Send(
+        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
+        messenger.Send(
             new FileTableSelectionChangedMessage(
                 "Left",
                 [entry],
@@ -124,7 +123,7 @@ public sealed class FileInspectorViewModelTests
 
         await Assert.That(GetFieldValue(sut, "IDs", "File ID")).IsEqualTo(string.Empty);
 
-        WeakReferenceMessenger.Default.Send(
+        messenger.Send(
             new FileTableSelectionChangedMessage(
                 "Left",
                 [],
@@ -133,6 +132,54 @@ public sealed class FileInspectorViewModelTests
         scheduler.AdvanceBy(10);
 
         await Assert.That(sut.SelectedItems).IsEmpty();
+    }
+
+    [Test]
+    public async Task Test_SelectionChangedMessage_IgnoredWhileInspectorHidden()
+    {
+        var scheduler = new TestScheduler();
+        var messenger = new StrongReferenceMessenger();
+        using var sut = new FileInspectorViewModel(
+            new RecordingFileIdentityService(),
+            new FakeClipboardService(),
+            new FakeShellService(),
+            new TestSchedulerProvider(scheduler),
+            NullLogger<FileInspectorViewModel>.Instance,
+            messenger);
+        var entryA = CreateSpecEntry(
+            name: "a.txt",
+            fullPath: @"C:\temp\a.txt",
+            kind: ItemKind.File,
+            size: 128);
+        var entryB = CreateSpecEntry(
+            name: "b.txt",
+            fullPath: @"C:\temp\b.txt",
+            kind: ItemKind.File,
+            size: 256);
+
+        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
+        messenger.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [entryA],
+                IsParentRowSelected: false,
+                ActiveItem: entryA));
+
+        scheduler.AdvanceBy(10);
+
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("a.txt");
+
+        messenger.Send(new ToggleInspectorRequestedMessage(IsVisible: false));
+        messenger.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [entryB],
+                IsParentRowSelected: false,
+                ActiveItem: entryB));
+
+        scheduler.AdvanceBy(TimeSpan.FromMilliseconds(400).Ticks);
+
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("a.txt");
     }
 
     [Test]
@@ -251,7 +298,7 @@ public sealed class FileInspectorViewModelTests
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false,
-            WeakReferenceMessenger.Default);
+            new StrongReferenceMessenger());
         var entry = CreateSpecEntry(
             name: "image.jpg",
             fullPath: @"C:\temp\image.jpg",
@@ -274,7 +321,7 @@ public sealed class FileInspectorViewModelTests
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false,
-            WeakReferenceMessenger.Default);
+            new StrongReferenceMessenger());
     }
 
     private static SpecFileEntryViewModel CreateSpecEntry(string name, string fullPath, ItemKind kind, long size)

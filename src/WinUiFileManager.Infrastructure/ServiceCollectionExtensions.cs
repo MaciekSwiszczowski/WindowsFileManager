@@ -13,7 +13,7 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddInfrastructureServices(this IServiceCollection services)
     {
-        services.AddSingleton<IMessenger>(_ => WeakReferenceMessenger.Default);
+        services.AddSingleton<IMessenger>(static _ => StrongReferenceMessenger.Default);
 
         services.AddSingleton<IShellInterop, ShellInterop>();
         services.AddSingleton<IRestartManagerInterop, RestartManagerInterop>();

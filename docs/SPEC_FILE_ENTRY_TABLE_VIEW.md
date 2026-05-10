@@ -101,7 +101,7 @@ record ColumnLayout(
 
 ### 3.4 Message contracts
 
-Unless noted, messages use `WeakReferenceMessenger.Default` / `IMessenger` and carry the target table’s `Identity` so multi-pane hosts can route per instance.
+Unless noted, messages use `IMessenger` backed by `StrongReferenceMessenger` (the app registers `StrongReferenceMessenger.Default` as the singleton messenger) and carry the target table’s `Identity` so multi-pane hosts can route per instance.
 
 #### 3.4.1 Outgoing (control or behavior → messenger)
 

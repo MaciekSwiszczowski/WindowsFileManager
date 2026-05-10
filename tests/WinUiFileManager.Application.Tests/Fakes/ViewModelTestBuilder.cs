@@ -36,7 +36,7 @@ public sealed class ViewModelTestBuilder
             SettingsRepository, NullLogger<PersistPaneStateCommandHandler>.Instance);
 
 #pragma warning disable IDISP004
-        var messenger = new WeakReferenceMessenger();
+        var messenger = new StrongReferenceMessenger();
         return new MainShellViewModel(
             SettingsRepository,
             removeFavourite,

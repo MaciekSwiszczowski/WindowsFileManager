@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Domain.ValueObjects;
+namespace WinUiFileManager.Application.Favourites;
 
 public readonly record struct FavouriteFolderId
 {

@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace WinUiFileManager.Domain.ValueObjects;
+namespace WinUiFileManager.Application.Settings;
 
 [StructLayout(LayoutKind.Auto)]
 public readonly record struct PaneColumnLayout(

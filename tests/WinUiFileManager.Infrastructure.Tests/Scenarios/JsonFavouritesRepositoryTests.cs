@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using TUnit.Core;
+using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Domain.ValueObjects;
 using WinUiFileManager.Infrastructure.Persistence;
 

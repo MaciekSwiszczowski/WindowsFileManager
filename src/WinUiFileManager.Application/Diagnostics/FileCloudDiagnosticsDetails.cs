@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Domain.ValueObjects;
+namespace WinUiFileManager.Application.Diagnostics;
 
 public sealed record FileCloudDiagnosticsDetails(
     bool IsCloudControlled,

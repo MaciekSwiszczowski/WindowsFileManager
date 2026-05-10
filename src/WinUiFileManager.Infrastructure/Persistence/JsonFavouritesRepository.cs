@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Infrastructure.Persistence;

@@ -1,9 +1,10 @@
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Interop.Adapters;
 using WinUiFileManager.Interop.Types;
 
-namespace WinUiFileManager.Interop.Adapters;
+namespace WinUiFileManager.App.Windows;
 
-public static class WindowPlacementResolver
+internal static class WindowPlacementResolver
 {
     public static WindowPlacement ResolveVisible(WindowPlacement placement)
     {

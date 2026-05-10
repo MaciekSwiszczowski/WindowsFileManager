@@ -4,7 +4,7 @@ namespace WinUiFileManager.App.Windows;
 
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Domain.ValueObjects;
+using Application.Settings;
 using Interop.Adapters;
 using Presentation.ViewModels;
 using WinRT.Interop;

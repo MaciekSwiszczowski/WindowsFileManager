@@ -41,35 +41,59 @@ public sealed partial class AppInitializationViewModel : ObservableObject
             AvailableVolumes.Add(volume);
         }
 
-        LeftInitialPath = ResolveInitialPath(
-            @"C:\FileEntryTableTest\Left",
-            Environment.SpecialFolder.UserProfile);
-        RightInitialPath = ResolveInitialPath(
-            @"C:\FileEntryTableTest\Right",
-            Environment.SpecialFolder.DesktopDirectory);
+        LeftInitialPath = ResolveInitialPath(settings.LastLeftPanePath);
+        RightInitialPath = ResolveInitialPath(settings.LastRightPanePath);
     }
 
-    private static string ResolveInitialPath(
-        string preferredPath,
-        Environment.SpecialFolder fallbackFolder)
+    private string ResolveInitialPath(NormalizedPath? savedPath)
     {
-        if (Directory.Exists(preferredPath))
+        if (savedPath is { } path)
         {
-            return preferredPath;
+            return ResolveExistingFolderOrDrive(path.DisplayPath);
         }
 
-        var fallbackPath = Environment.GetFolderPath(fallbackFolder);
-        if (Directory.Exists(fallbackPath))
+        return GetFirstAvailableRoot();
+    }
+
+    private string ResolveExistingFolderOrDrive(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
-            return fallbackPath;
+            return GetFirstAvailableRoot();
         }
 
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (Directory.Exists(userProfile))
+        var current = path;
+        while (!string.IsNullOrWhiteSpace(current))
         {
-            return userProfile;
+            if (Directory.Exists(current))
+            {
+                return current;
+            }
+
+            var parent = Directory.GetParent(current);
+            if (parent is null)
+            {
+                break;
+            }
+
+            current = parent.FullName;
         }
 
-        return Path.GetPathRoot(Environment.SystemDirectory) ?? @"C:\";
+        return GetFirstAvailableRoot();
+    }
+
+    private string GetFirstAvailableRoot()
+    {
+        foreach (var volume in AvailableVolumes)
+        {
+            if (Directory.Exists(volume.RootPath.DisplayPath))
+            {
+                return volume.RootPath.DisplayPath;
+            }
+        }
+
+        return Directory.GetLogicalDrives().FirstOrDefault(Directory.Exists)
+            ?? Path.GetPathRoot(Environment.SystemDirectory)
+            ?? @"C:\";
     }
 }

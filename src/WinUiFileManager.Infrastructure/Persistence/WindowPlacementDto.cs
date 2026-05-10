@@ -11,4 +11,6 @@ internal sealed record WindowPlacementDto
     public int Height { get; init; }
 
     public bool IsMaximized { get; init; }
+
+    public string? DisplayDeviceName { get; init; }
 }

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Composition;
+using WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class App
 {
@@ -16,9 +17,15 @@ public sealed partial class App
         UnhandledException += OnUnhandledException;
     }
 
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
+        var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
+        await viewModel.InitializeAsync();
+
+        var mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
+        mainWindow.Initialize(viewModel);
+
+        _mainWindow = mainWindow;
         _mainWindow.Activate();
     }
 

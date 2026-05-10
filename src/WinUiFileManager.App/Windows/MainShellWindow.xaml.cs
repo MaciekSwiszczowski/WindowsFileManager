@@ -5,7 +5,6 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using CommunityToolkit.Mvvm.Messaging;
-using Domain.ValueObjects;
 using Infrastructure.Services;
 using Presentation.FileEntryTable.Data;
 using Presentation.MessageLogging;
@@ -20,9 +19,9 @@ public sealed partial class MainShellWindow
         InitializeComponent();
 
         var appWindow = AppWindow;
-        appWindow.Resize(new global::Windows.Graphics.SizeInt32(1400, 900));
         appWindow.SetIcon("Assets\\app-icon.ico");
         appWindow.Closing += OnAppWindowClosing;
+        _windowManager = new WindowManager(this, appWindow);
 
         if (Content is FrameworkElement root)
         {
@@ -36,37 +35,43 @@ public sealed partial class MainShellWindow
         ShellView.Loaded += OnShellViewLoaded;
     }
 
+    private bool _loaded;
     private bool _initialized;
     private MainShellViewModel? _viewModel;
     private bool _statePersisted;
+    private readonly WindowManager _windowManager;
 
-    private async void OnShellViewLoaded(object sender, RoutedEventArgs e)
+    public void Initialize(MainShellViewModel viewModel)
     {
         if (_initialized)
         {
             return;
         }
+
         _initialized = true;
+        _viewModel = viewModel;
 
+        _windowManager.Initialize(viewModel);
+        ShellView.ToggleThemeAction = ToggleTheme;
+#if DEBUG
+        ShellView.Initialize(viewModel, OpenMessageLogWindow);
+#else
+        ShellView.Initialize(viewModel);
+#endif
+    }
+
+    private void OnShellViewLoaded(object sender, RoutedEventArgs e)
+    {
+        if (_loaded)
+        {
+            return;
+        }
+
+        _loaded = true;
         var services = App.Services;
-
-        _viewModel = services.GetRequiredService<MainShellViewModel>();
-
         var dialogService = services.GetRequiredService<DialogService>();
         dialogService.Attach(ShellView.XamlRoot, DispatcherQueue);
         _ = services.GetRequiredService<RenameService>();
-
-        if (_viewModel is not null)
-        {
-            await _viewModel.InitializeAsync();
-            ShellView.ToggleThemeAction = ToggleTheme;
-#if DEBUG
-            ShellView.Initialize(_viewModel, OpenMessageLogWindow);
-#else
-            ShellView.Initialize(_viewModel);
-#endif
-            ApplyPlacement(_viewModel.MainWindowPlacement);
-        }
     }
 
     private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
@@ -82,7 +87,7 @@ public sealed partial class MainShellWindow
         try
         {
             ShellView.CapturePaneColumnLayouts();
-            _viewModel.MainWindowPlacement = CaptureCurrentPlacement();
+            _viewModel.MainWindowPlacement = _windowManager.Capture();
             await _viewModel.PersistStateAsync();
         }
         finally
@@ -92,65 +97,7 @@ public sealed partial class MainShellWindow
         }
     }
 
-    private void ApplyPlacement(WindowPlacement placement)
-    {
-        var clamped = ClampToPrimaryDisplay(placement);
-
-        if (clamped.HasRestoredPosition)
-        {
-            AppWindow.MoveAndResize(new global::Windows.Graphics.RectInt32(
-                clamped.X,
-                clamped.Y,
-                clamped.Width,
-                clamped.Height));
-        }
-        else
-        {
-            AppWindow.Resize(new global::Windows.Graphics.SizeInt32(clamped.Width, clamped.Height));
-        }
-
-        if (clamped.IsMaximized && AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            presenter.Maximize();
-        }
-    }
-
-    private WindowPlacement CaptureCurrentPlacement()
-    {
-        var position = AppWindow.Position;
-        var size = AppWindow.Size;
-        var isMaximized = AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Restored };
-
-        return new WindowPlacement(
-            X: position.X,
-            Y: position.Y,
-            Width: size.Width,
-            Height: size.Height,
-            IsMaximized: isMaximized);
-    }
-
-    private static WindowPlacement ClampToPrimaryDisplay(WindowPlacement placement)
-    {
-        if (!placement.HasRestoredPosition)
-        {
-            return placement;
-        }
-
-        var probePoint = new global::Windows.Graphics.PointInt32(placement.X, placement.Y);
-        var display = DisplayArea.GetFromPoint(probePoint, DisplayAreaFallback.None);
-        if (display is null)
-        {
-            var primary = DisplayArea.Primary;
-            var work = primary.WorkArea;
-            var centeredX = work.X + Math.Max(0, (work.Width - placement.Width) / 2);
-            var centeredY = work.Y + Math.Max(0, (work.Height - placement.Height) / 2);
-            return placement with { X = centeredX, Y = centeredY };
-        }
-
-        return placement;
-    }
-
-    public void ToggleTheme()
+    private void ToggleTheme()
     {
         if (Content is not FrameworkElement root)
         {

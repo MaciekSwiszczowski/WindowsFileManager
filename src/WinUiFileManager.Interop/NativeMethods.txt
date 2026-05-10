@@ -41,3 +41,12 @@ RM_PROCESS_INFO
 CfGetPlaceholderStateFromAttributeTag
 RegNotifyChangeKeyValue
 REG_NOTIFY_FILTER
+EnumDisplayMonitors
+GetMonitorInfoW
+GetWindowPlacement
+MonitorFromRect
+HMONITOR
+MONITORINFOEXW
+MONITORENUMPROC
+MONITOR_FROM_FLAGS
+WINDOWPLACEMENT

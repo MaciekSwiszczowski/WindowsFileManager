@@ -118,7 +118,8 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
                 Y: 80,
                 Width: 1600,
                 Height: 1000,
-                IsMaximized: false));
+                IsMaximized: false,
+                DisplayDeviceName: @"\\.\DISPLAY1"));
 
         // Act
         await sut.SaveAsync(settings, CancellationToken.None);
@@ -135,6 +136,7 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         await Assert.That(loaded.MainWindowPlacement.X).IsEqualTo(120);
         await Assert.That(loaded.MainWindowPlacement.Width).IsEqualTo(1600);
         await Assert.That(loaded.MainWindowPlacement.IsMaximized).IsFalse();
+        await Assert.That(loaded.MainWindowPlacement.DisplayDeviceName).IsEqualTo(@"\\.\DISPLAY1");
     }
 
     [Test]

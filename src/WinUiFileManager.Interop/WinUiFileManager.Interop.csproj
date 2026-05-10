@@ -9,6 +9,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WinUiFileManager.Domain\WinUiFileManager.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AdditionalFiles Remove="$(MSBuildProjectDirectory)\..\..\BannedSymbols.txt" />
     <AdditionalFiles Include="BannedSymbols.Interop.txt" />
   </ItemGroup>

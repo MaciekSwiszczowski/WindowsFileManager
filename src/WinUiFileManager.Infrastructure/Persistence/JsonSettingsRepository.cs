@@ -128,7 +128,8 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
                 Y: dto.Y,
                 Width: dto.Width > 0 ? dto.Width : WindowPlacement.Default.Width,
                 Height: dto.Height > 0 ? dto.Height : WindowPlacement.Default.Height,
-                IsMaximized: dto.IsMaximized);
+                IsMaximized: dto.IsMaximized,
+                DisplayDeviceName: dto.DisplayDeviceName);
 
     private static SettingsDto ToDto(AppSettings settings) =>
         new()
@@ -172,6 +173,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             Y = placement.Y,
             Width = placement.Width,
             Height = placement.Height,
-            IsMaximized = placement.IsMaximized
+            IsMaximized = placement.IsMaximized,
+            DisplayDeviceName = placement.DisplayDeviceName
         };
 }

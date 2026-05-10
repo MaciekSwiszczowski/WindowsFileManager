@@ -205,8 +205,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             var request = new PersistPaneStateRequest(
-                LeftPanePath: _currentSettings.LastLeftPanePath,
-                RightPanePath: _currentSettings.LastRightPanePath,
+                LeftPanePath: GetPanePathOrFallback(Panels.LeftPanel.CurrentPath, _currentSettings.LastLeftPanePath),
+                RightPanePath: GetPanePathOrFallback(Panels.RightPanel.CurrentPath, _currentSettings.LastRightPanePath),
                 ActivePane: Panels.ActivePanelIdentity,
                 InspectorVisible: IsInspectorVisible,
                 InspectorWidth: InspectorWidth,
@@ -222,6 +222,23 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             _logger.LogError(ex, "Persisting pane state failed");
+        }
+    }
+
+    private static NormalizedPath? GetPanePathOrFallback(string currentPath, NormalizedPath? fallback)
+    {
+        if (string.IsNullOrWhiteSpace(currentPath))
+        {
+            return fallback;
+        }
+
+        try
+        {
+            return NormalizedPath.FromUserInput(currentPath);
+        }
+        catch (ArgumentException)
+        {
+            return fallback;
         }
     }
 

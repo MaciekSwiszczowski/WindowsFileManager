@@ -8,14 +8,16 @@ public readonly record struct WindowPlacement(
     int Y,
     int Width,
     int Height,
-    bool IsMaximized)
+    bool IsMaximized,
+    string? DisplayDeviceName = null)
 {
     public static WindowPlacement Default { get; } = new(
         X: int.MinValue,
         Y: int.MinValue,
         Width: 1400,
         Height: 900,
-        IsMaximized: false);
+        IsMaximized: false,
+        DisplayDeviceName: null);
 
     public bool HasRestoredPosition => X != int.MinValue && Y != int.MinValue;
 }

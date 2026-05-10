@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
@@ -49,14 +50,15 @@ public static class ServiceConfiguration
 
         services.AddTransient<MainShellWindow>();
 
-#if DEBUG
-        return services.BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = true,
-            ValidateScopes = true,
-        });
-#else
-        return services.BuildServiceProvider();
-#endif
+        var options = new ServiceProviderOptions();
+        ApplyDevelopmentServiceProviderValidation(options);
+        return services.BuildServiceProvider(options);
+    }
+
+    [Conditional("DEBUG")]
+    private static void ApplyDevelopmentServiceProviderValidation(ServiceProviderOptions options)
+    {
+        options.ValidateOnBuild = true;
+        options.ValidateScopes = true;
     }
 }

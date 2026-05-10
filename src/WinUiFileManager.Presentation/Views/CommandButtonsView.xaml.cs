@@ -6,10 +6,7 @@ public sealed partial class CommandButtonsView
 {
     private IMessenger? _favouritesMessengerRegistration;
     private bool _isListeningForShortcuts;
-
-#if DEBUG
-    private bool _debugMessageLogButtonInjected;
-#endif
+    private bool _messageLogButtonInjected;
 
     public CommandButtonsView()
     {
@@ -46,9 +43,7 @@ public sealed partial class CommandButtonsView
 
     private void OnLoaded(object _, RoutedEventArgs e)
     {
-#if DEBUG
-        TryInjectDebugMessageLogButton();
-#endif
+        TryInjectMessageLogButtonIfConfigured();
         TryRegisterFavouritesShortcutListener();
     }
 
@@ -70,25 +65,23 @@ public sealed partial class CommandButtonsView
         messenger.Register<OpenFavouritesRequestedMessage>(this, OnOpenFavouritesShortcutRequested);
     }
 
-#if DEBUG
-    private void TryInjectDebugMessageLogButton()
+    private void TryInjectMessageLogButtonIfConfigured()
     {
-        if (_debugMessageLogButtonInjected || Content is not CommandBar bar)
+        if (_messageLogButtonInjected || OpenMessageLogWindow is null || Content is not CommandBar bar)
         {
             return;
         }
 
-        _debugMessageLogButtonInjected = true;
+        _messageLogButtonInjected = true;
         var dbg = new AppBarButton
         {
             Icon = new SymbolIcon(Symbol.Message),
             Label = "Msgs",
         };
-        ToolTipService.SetToolTip(dbg, "Message log (debug build)");
+        ToolTipService.SetToolTip(dbg, "Message log");
         dbg.Click += (_, _) => OpenMessageLogWindow?.Invoke();
         bar.PrimaryCommands.Add(dbg);
     }
-#endif
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {

@@ -7,8 +7,6 @@ public sealed class FileInspectorCommandsViewModel
     private readonly Func<string> _currentFullPath;
     private readonly Func<IReadOnlyList<FileInspectorCategoryViewModel>> _categories;
     private readonly Func<IReadOnlyList<FileInspectorFieldViewModel>> _fields;
-    private readonly Func<FileTableSelectionChangedMessage?> _createRefreshMessage;
-    private readonly IMessenger _messenger;
 
     public FileInspectorCommandsViewModel(
         IClipboardService clipboardService,
@@ -16,19 +14,16 @@ public sealed class FileInspectorCommandsViewModel
         Func<string> currentFullPath,
         Func<IReadOnlyList<FileInspectorCategoryViewModel>> categories,
         Func<IReadOnlyList<FileInspectorFieldViewModel>> fields,
-        Func<FileTableSelectionChangedMessage?> createRefreshMessage,
-        IMessenger messenger)
+        Action refresh)
     {
         _clipboardService = clipboardService;
         _shellService = shellService;
         _currentFullPath = currentFullPath;
         _categories = categories;
         _fields = fields;
-        _createRefreshMessage = createRefreshMessage;
-        _messenger = messenger;
 
         CopyAllCommand = new AsyncRelayCommand(CopyAllAsync);
-        RefreshCommand = new RelayCommand(Refresh);
+        RefreshCommand = new RelayCommand(refresh);
         ShowPropertiesCommand = new AsyncRelayCommand(ShowPropertiesAsync);
     }
 
@@ -62,15 +57,6 @@ public sealed class FileInspectorCommandsViewModel
         }
 
         await _clipboardService.SetTextAsync(builder.ToString().TrimEnd(), CancellationToken.None);
-    }
-
-    private void Refresh()
-    {
-        var message = _createRefreshMessage();
-        if (message is not null)
-        {
-            _messenger.Send(message);
-        }
     }
 
     private async Task ShowPropertiesAsync()

@@ -139,8 +139,9 @@ public sealed class FileInspectorViewModelTests
     {
         var scheduler = new TestScheduler();
         var messenger = new StrongReferenceMessenger();
+        var identityService = new RecordingFileIdentityService();
         using var sut = new FileInspectorViewModel(
-            new RecordingFileIdentityService(),
+            identityService,
             new FakeClipboardService(),
             new FakeShellService(),
             new TestSchedulerProvider(scheduler),
@@ -180,6 +181,70 @@ public sealed class FileInspectorViewModelTests
         scheduler.AdvanceBy(TimeSpan.FromMilliseconds(400).Ticks);
 
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("a.txt");
+        await Assert.That(identityService.FileIdRequests).IsEmpty();
+    }
+
+    [Test]
+    public async Task Test_ToggleInspectorVisible_RefreshesFromCurrentSelection()
+    {
+        var scheduler = new TestScheduler();
+        var messenger = new StrongReferenceMessenger();
+        var identityService = new RecordingFileIdentityService();
+        using var sut = new FileInspectorViewModel(
+            identityService,
+            new FakeClipboardService(),
+            new FakeShellService(),
+            new TestSchedulerProvider(scheduler),
+            NullLogger<FileInspectorViewModel>.Instance,
+            messenger);
+        var entryA = CreateSpecEntry(
+            name: "a.txt",
+            fullPath: @"C:\temp\a.txt",
+            kind: ItemKind.File,
+            size: 128);
+        var entryB = CreateSpecEntry(
+            name: "b.txt",
+            fullPath: @"C:\temp\b.txt",
+            kind: ItemKind.File,
+            size: 256);
+        IReadOnlyList<SpecFileEntryViewModel> currentSelection = [entryA];
+        var selectedItemsRecipient = new object();
+        messenger.Register<FileTableSelectedItemsRequestMessage>(
+            selectedItemsRecipient,
+            (_, message) =>
+            {
+                if (message.Identity == "Left")
+                {
+                    message.Reply(currentSelection);
+                }
+            });
+
+        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
+        messenger.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [entryA],
+                IsParentRowSelected: false,
+                ActiveItem: entryA));
+        scheduler.AdvanceBy(10);
+
+        messenger.Send(new ToggleInspectorRequestedMessage(IsVisible: false));
+        currentSelection = [entryB];
+        messenger.Send(
+            new FileTableSelectionChangedMessage(
+                "Left",
+                [entryB],
+                IsParentRowSelected: false,
+                ActiveItem: entryB));
+        scheduler.AdvanceBy(TimeSpan.FromMilliseconds(400).Ticks);
+
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("a.txt");
+        await Assert.That(identityService.FileIdRequests).IsEmpty();
+
+        messenger.Send(new ToggleInspectorRequestedMessage(IsVisible: true));
+        scheduler.AdvanceBy(10);
+
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("b.txt");
     }
 
     [Test]

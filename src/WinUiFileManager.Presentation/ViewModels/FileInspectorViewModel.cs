@@ -27,12 +27,8 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
     private FileInspectorSelection? _currentTableSelection;
     private string _activePanelIdentity = string.Empty;
-    private string _lastSelectionIdentity = string.Empty;
-    private bool _lastIsParentRowSelected;
-    private SpecFileEntryViewModel? _lastActiveItem;
     private bool _preserveDeferredVisibilityUntilFinalBatch;
-    private bool _isLoadingDetails;
-    private string _searchText = string.Empty;
+    private bool _inspectorPanelVisible = true;
     private bool _disposed;
 
     public FileInspectorViewModel(
@@ -42,14 +38,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         ISchedulerProvider schedulers,
         ILogger<FileInspectorViewModel> logger,
         IMessenger messenger)
-        : this(
-            fileIdentityService,
-            clipboardService,
-            shellService,
-            schedulers,
-            logger,
-            subscribeToMessages: true,
-            messenger)
+        : this(fileIdentityService, clipboardService, shellService, schedulers, logger, subscribeToMessages: true, messenger)
     {
     }
 
@@ -89,7 +78,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             _fieldState,
             logger,
             () => _disposed,
-            () => _hasCurrentSelection,
+            () => HasCurrentSelection,
             () => _currentSelectionVersion,
             () => RefreshVisibleCategories());
 
@@ -99,8 +88,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             () => _currentFullPath,
             () => Categories,
             () => Fields,
-            CreateRefreshSelectionMessage,
-            messenger);
+            RefreshFromCurrentTableSelection);
 
         if (!subscribeToMessages)
         {
@@ -119,34 +107,38 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
         _subscriptions.Add(
             observable
+                .Where(_ => _inspectorPanelVisible)
                 .Where(static message => message.SelectedItems.Count == 0)
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message =>
                 {
-                    CaptureSelectionMessage(message);
                     UpdateSelectedItems([]);
                     ShowNoSelection();
                 }));
 
+        // immediate subscription to show cheap changes and update selection
         _subscriptions.Add(
             observable
+                .Where(_ => _inspectorPanelVisible)
                 .Where(static message => message.SelectedItems.Count == 1)
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message =>
                 {
-                    CaptureSelectionMessage(message);
                     UpdateSelectedItems(message.SelectedItems);
                     ApplyBasicTableSelection(message.SelectedItems);
                 }));
 
+        // throttled subscription to load deferred details
         _subscriptions.Add(
             observable
+                .Where(_ => _inspectorPanelVisible)
                 .Where(static message => message.SelectedItems.Count == 1)
                 .Throttle(SelectionThrottle, schedulers.Background)
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message => LoadDeferredTableSelection(message.SelectedItems)));
 
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
+        _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorRequested);
     }
 
     public void Dispose()
@@ -165,19 +157,38 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)
     {
-        if (message.IsFocused)
+        if (!message.IsFocused)
         {
-            _activePanelIdentity = message.Identity;
-            var selectedItems = RequestSelectedItems(message.Identity);
-            CaptureSelectionMessage(
-                new FileTableSelectionChangedMessage(
-                    message.Identity,
-                    selectedItems,
-                    IsParentRowSelected: false,
-                    ActiveItem: selectedItems.Count == 1 ? selectedItems[0] : null));
-            UpdateSelectedItems(selectedItems);
-            ApplyTableSelection(selectedItems);
+            return;
         }
+
+        _activePanelIdentity = message.Identity;
+        if (!_inspectorPanelVisible)
+        {
+            return;
+        }
+
+        var selectedItems = RequestSelectedItems(message.Identity);
+        UpdateSelectedItems(selectedItems);
+        ApplyTableSelection(selectedItems);
+    }
+
+    private void OnToggleInspectorRequested(object recipient, ToggleInspectorRequestedMessage message)
+    {
+        if (_inspectorPanelVisible == message.IsVisible)
+        {
+            return;
+        }
+
+        _inspectorPanelVisible = message.IsVisible;
+        if (!_inspectorPanelVisible)
+        {
+            _deferredLoader.Cancel();
+            IsLoadingDetails = false;
+            return;
+        }
+
+        RefreshFromCurrentTableSelection();
     }
 
     public FileInspectorCommandsViewModel Commands { get; }
@@ -190,23 +201,19 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public bool HasVisibleFields => _fieldState.HasVisibleFields;
 
-    public bool IsLoadingDetails
-    {
-        get => _isLoadingDetails;
-        set => SetProperty(ref _isLoadingDetails, value);
-    }
+    public bool IsLoadingDetails { get; set => SetProperty(ref field, value); }
 
     public string SearchText
     {
-        get => _searchText;
+        get;
         set
         {
-            if (SetProperty(ref _searchText, value))
+            if (SetProperty(ref field, value))
             {
                 RefreshVisibleCategories();
             }
         }
-    }
+    } = string.Empty;
 
     public void ApplySelection(FileInspectorSelection selection)
     {
@@ -232,13 +239,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var preserveDeferredVisibility = hadSelection;
-        ApplyBasicSelection(selection, preserveDeferredVisibility);
+        ApplyBasicSelection(selection, hadSelection);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
     }
 
-    public void Clear()
+    private void Clear()
     {
         IsLoadingDetails = false;
         _currentFullPath = string.Empty;
@@ -249,7 +255,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
     {
-        if (_disposed || !_hasCurrentSelection)
+        if (_disposed || !HasCurrentSelection)
         {
             return;
         }
@@ -301,6 +307,11 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     internal void LoadDeferredTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
+        if (!_inspectorPanelVisible)
+        {
+            return;
+        }
+
         if (selectedEntries.Count != 1)
         {
             return;
@@ -354,31 +365,29 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         LoadDeferredTableSelection(selectedEntries);
     }
 
-    private void CaptureSelectionMessage(FileTableSelectionChangedMessage message)
+    private void RefreshFromCurrentTableSelection()
     {
-        _lastSelectionIdentity = message.Identity;
-        _lastIsParentRowSelected = message.IsParentRowSelected;
-        _lastActiveItem = message.ActiveItem;
+        if (string.IsNullOrWhiteSpace(_activePanelIdentity))
+        {
+            return;
+        }
+
+        var selectedItems = RequestSelectedItems(_activePanelIdentity);
+        UpdateSelectedItems(selectedItems);
+
+        if (selectedItems.Count == 0)
+        {
+            ShowNoSelection();
+            return;
+        }
+
+        ApplyTableSelection(selectedItems);
     }
 
     private bool IsSelectionFromActivePanel(string identity)
     {
         return !string.IsNullOrWhiteSpace(_activePanelIdentity)
             && string.Equals(_activePanelIdentity, identity, StringComparison.Ordinal);
-    }
-
-    private FileTableSelectionChangedMessage? CreateRefreshSelectionMessage()
-    {
-        if (string.IsNullOrWhiteSpace(_lastSelectionIdentity))
-        {
-            return null;
-        }
-
-        return new FileTableSelectionChangedMessage(
-            _lastSelectionIdentity,
-            _lastTableSelection,
-            _lastIsParentRowSelected,
-            _lastActiveItem);
     }
 
     private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
@@ -444,5 +453,5 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 
-    private bool _hasCurrentSelection => !string.IsNullOrWhiteSpace(_currentFullPath);
+    private bool HasCurrentSelection => !string.IsNullOrWhiteSpace(_currentFullPath);
 }

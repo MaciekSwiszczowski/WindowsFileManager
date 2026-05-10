@@ -1,3 +1,5 @@
+using Windows.Graphics;
+
 namespace WinUiFileManager.App.Windows;
 
 using Microsoft.UI.Windowing;
@@ -25,8 +27,8 @@ internal sealed class WindowManager
         _viewModel = viewModel;
         Apply(viewModel.MainWindowPlacement);
         _trackingEnabled = true;
-        //_window.SizeChanged += OnWindowSizeChanged;
-        //_appWindow.Changed += OnAppWindowChanged;
+        _window.SizeChanged += OnWindowSizeChanged;
+        _appWindow.Changed += OnAppWindowChanged;
     }
 
     public WindowPlacement Capture()
@@ -55,14 +57,11 @@ internal sealed class WindowManager
 
         if (resolved.HasRestoredPosition)
         {
-            var rect = new global::Windows.Graphics.RectInt32(resolved.X, resolved.Y, resolved.Width, resolved.Height);
-            _appWindow.MoveAndResize(rect);
+            _appWindow.Move(new PointInt32(resolved.X, resolved.Y));
         }
-        else
-        {
-            var size = new global::Windows.Graphics.SizeInt32(resolved.Width, resolved.Height);
-            _appWindow.Resize(size);
-        }
+
+        var size = new SizeInt32(resolved.Width, resolved.Height);
+        _appWindow.Resize(size);
 
         if (resolved.IsMaximized && _appWindow.Presenter is OverlappedPresenter presenter)
         {

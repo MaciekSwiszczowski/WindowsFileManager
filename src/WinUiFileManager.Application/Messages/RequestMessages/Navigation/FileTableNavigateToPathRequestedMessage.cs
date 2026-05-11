@@ -1,6 +1,6 @@
 using WinUiFileManager.Application.Messaging;
 
-namespace WinUiFileManager.Application.NavigationMessages.Navigation;
+namespace WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 
 /// <summary>
 /// Navigation request to move a panel to a specific normalized path.

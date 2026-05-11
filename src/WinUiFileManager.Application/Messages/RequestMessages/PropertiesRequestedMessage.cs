@@ -1,7 +1,6 @@
 using WinUiFileManager.Application.Messaging;
-using WinUiFileManager.Domain.ValueObjects;
 
-namespace WinUiFileManager.Application.Messages;
+namespace WinUiFileManager.Application.Messages.RequestMessages;
 
 public sealed record PropertiesRequestedMessage(
     string SourceIdentity,

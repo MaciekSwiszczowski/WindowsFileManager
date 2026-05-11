@@ -1,5 +1,5 @@
 using System.Reactive.Disposables;
-using WinUiFileManager.Application.NavigationMessages.Navigation;
+using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Messaging;

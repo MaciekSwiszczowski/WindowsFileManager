@@ -1,6 +1,6 @@
 using WinUiFileManager.Application.Messaging;
 
-namespace WinUiFileManager.Application.Messages;
+namespace WinUiFileManager.Application.Messages.RequestMessages;
 
 /// <summary>
 /// Resolved request to create a folder in a pane.

@@ -1,8 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging.Messages;
 using WinUiFileManager.Application.Messaging;
-using WinUiFileManager.Domain.ValueObjects;
 
-namespace WinUiFileManager.Application.Messages;
+namespace WinUiFileManager.Application.Messages.RequestMessages;
 
 /// <summary>
 /// Request-response message used to query the current real selected entries for one table.

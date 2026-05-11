@@ -1,4 +1,4 @@
-using WinUiFileManager.Application.NavigationMessages.Navigation;
+using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;

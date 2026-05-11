@@ -1,5 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
-using WinUiFileManager.Application.NavigationMessages.Navigation;
+using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 

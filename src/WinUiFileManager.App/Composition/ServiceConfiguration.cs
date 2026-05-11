@@ -27,6 +27,7 @@ public static class ServiceConfiguration
         services.AddInfrastructureServices();
 
         services.AddSingleton<GoToPathCommandHandler>();
+        services.AddSingleton<PanelNavigationService>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();
         services.AddSingleton<RemoveFavouriteCommandHandler>();

@@ -1,3 +1,4 @@
+using WinUiFileManager.Application.NavigationMessages.Navigation;
 using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
@@ -119,7 +120,7 @@ public sealed class ActiveRowIndicatorBehaviorBase : FileEntryTableBehaviorBase
 
         if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            messenger.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model));
+            messenger.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model.Name));
             return true;
         }
 

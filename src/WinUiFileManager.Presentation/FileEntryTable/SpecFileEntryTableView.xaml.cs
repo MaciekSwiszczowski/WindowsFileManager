@@ -1,3 +1,4 @@
+using WinUiFileManager.Application.NavigationMessages.Navigation;
 using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
@@ -61,7 +62,7 @@ public sealed partial class SpecFileEntryTableView
 
         if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            messenger.Send(new FileTableNavigateDownRequestedMessage(Identity, model));
+            messenger.Send(new FileTableNavigateDownRequestedMessage(Identity, model.Name));
             e.Handled = true;
         }
     }

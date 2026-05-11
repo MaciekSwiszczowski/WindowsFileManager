@@ -118,10 +118,22 @@ record FileTableNavigateUpRequestedMessage(string Identity);
 
 record FileTableNavigateDownRequestedMessage(
     string Identity,
-    SpecFileEntryViewModel Item);
+    string FolderName);
 ```
 
-Folder activation publishes `FileTableNavigateDownRequestedMessage`; parent-row activation publishes `FileTableNavigateUpRequestedMessage`. File activation is not handled by `SpecFileEntryTableView` yet.
+Folder activation publishes `FileTableNavigateDownRequestedMessage` with the selected folder name. Parent-row activation publishes `FileTableNavigateUpRequestedMessage`. File activation is not handled by `SpecFileEntryTableView` yet.
+
+Panel navigation outside direct table activation uses two additional messages:
+
+```
+record FileTableNavigateToPathRequestedMessage(string Identity, NormalizedPath Path);
+
+record FileTableNavigateToPathMessage(string Identity, NormalizedPath Path);
+```
+
+`FileTableNavigateToPathRequestedMessage` is consumed by `PanelNavigationService`, which validates and stores the requested path before publishing `FileTableNavigateToPathMessage`. `FileTableNavigateToPathMessage` is the accepted navigation command and is the only navigation message panels / table data sources should consume.
+
+The three navigation request messages live under `Application.Messages.RequestMessages`. `FileTableNavigateToPathMessage` lives with `PanelNavigationService` under `Application.Navigation` because it is a narrow service-published command, not an external request.
 
 Trigger conditions are specified in §13.
 
@@ -131,6 +143,7 @@ Trigger conditions are specified in §13.
 |---|---|
 | `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
 | `FileTableSelectedItemsRequestMessage(string Identity)` | Request-response message. Replies with the current real selected rows for the matching table. |
+| `FileTableNavigateToPathMessage(string Identity, NormalizedPath Path)` | Accepted navigation command. The table data source applies this validated path for the matching table identity. |
 
 Hosts should send layout once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The application shell sends defaults after wiring `ItemsSource`.
 
@@ -416,7 +429,7 @@ Fires when:
 
 Does not fire when the active row is a real row.
 
-### 13.4 `FileTableNavigateDownRequestedMessage(Identity, Item)`
+### 13.4 `FileTableNavigateDownRequestedMessage(Identity, FolderName)`
 
 Fires when:
 - One of:
@@ -424,6 +437,12 @@ Fires when:
   - The user double-clicked a folder row.
 
 Does not fire for files.
+
+### 13.5 Navigation service messages
+
+`PanelNavigationService` owns the current path per panel identity. It consumes `FileTableNavigateUpRequestedMessage`, `FileTableNavigateDownRequestedMessage`, and `FileTableNavigateToPathRequestedMessage`; after validation it publishes `FileTableNavigateToPathMessage`.
+
+`FileTableNavigateToPathMessage` is the only navigation message consumed by table data sources.
 
 ---
 
@@ -450,8 +469,6 @@ The coordinator does **not** track cursor. The two activation paths handle their
 From the file table:
 - `FileTableFocusedMessage(IsFocused: true)` → set `_activeIdentity = msg.Identity`.
 - `FileTableSelectionChangedMessage` → `_selectionByIdentity[msg.Identity] = msg.SelectedItems`.
-- `FileTableNavigateUpRequestedMessage` → §14.5.
-- `FileTableNavigateDownRequestedMessage` → §14.5.
 
 From the keyboard manager (or, for `ActivateInvokedMessage`, also from the file table on mouse double-click):
 - `ActivateInvokedMessage` → §14.5.
@@ -502,8 +519,6 @@ In each rule, "active selection" means `_selectionByIdentity[_activeIdentity]` (
 
 | Trigger | Resolution |
 |---|---|
-| `FileTableNavigateUpRequestedMessage` | Publish `NavigateUpRequestedMessage(msg.Identity)`. |
-| `FileTableNavigateDownRequestedMessage` | Publish `DefaultActionRequestedMessage(msg.Identity, msg.Item)`. |
 | `ActivateInvokedMessage` | Active selection has exactly one item → publish `DefaultActionRequestedMessage(_activeIdentity, items[0])`. Zero or multiple → no-op. |
 | `NavigateUpKeyPressedMessage` | If `_activeIdentity` is null → no-op. Otherwise publish `NavigateUpRequestedMessage(_activeIdentity)`. |
 | `RenameKeyPressedMessage` | If active selection has exactly one item → publish `RenameRequestedMessage(_activeIdentity, items[0])`. Zero or multiple → no-op. |
@@ -520,8 +535,8 @@ The coordinator never publishes a domain message with empty `Items`. The "no sel
 
 Two cases that might seem to need cursor knowledge are handled by the file table directly:
 
-- **Navigate up via `..` activation** — the file table inspects its own active row, then publishes `FileTableNavigateUpRequestedMessage` when conditions match (§13.3).
-- **Navigate down via folder activation** — the file table inspects its own active row or double-click target, then publishes `FileTableNavigateDownRequestedMessage` when conditions match (§13.4).
+- **Navigate up via `..` activation** — the file table inspects its own active row, then publishes `FileTableNavigateUpRequestedMessage` when conditions match (§13.3). `PanelNavigationService` resolves the current panel path to its parent.
+- **Navigate down via folder activation** — the file table inspects its own active row or double-click target, then publishes `FileTableNavigateDownRequestedMessage` with the folder name when conditions match (§13.4). `PanelNavigationService` combines it with the current panel path.
 
 Every other command (Rename, Copy, Move, Delete, CopyPath, Properties, CreateFolder, NavigateUp by keystroke) operates on selection or on the active pane as a whole — selection is enough.
 
@@ -543,6 +558,10 @@ Each domain message has at least one consumer. The dialog service (§16) handles
 | `CopyPathRequestedMessage` | Clipboard adapter | Joins paths, writes to clipboard. No dialog. |
 | `PropertiesRequestedMessage` | Shell integrator | Invokes the native Windows Properties dialog. |
 | `FileTableSelectionChangedMessage` | Status-bar presenter, inspector pane | Update "N selected (M bytes)", show item details, etc. |
+| `FileTableNavigateUpRequestedMessage` | `PanelNavigationService` | Resolves parent path from the service's current path for the panel identity. |
+| `FileTableNavigateDownRequestedMessage` | `PanelNavigationService` | Resolves child path by combining the service's current path with `FolderName`. |
+| `FileTableNavigateToPathRequestedMessage` | `PanelNavigationService` | Validates and stores a requested normalized path before publishing `FileTableNavigateToPathMessage`. |
+| `FileTableNavigateToPathMessage` | File table data source | Applies the accepted path. This is the only navigation message panels / table data sources should consume. |
 
 Other consumers may subscribe (e.g. logging, telemetry).
 
@@ -607,7 +626,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 
 ### 16.7 Messages the dialog service does not handle
 
-`FileTableSelectionChangedMessage`, `NavigateUpRequestedMessage`, `DefaultActionRequestedMessage`, `CopyPathRequestedMessage`, `PropertiesRequestedMessage`, `FileTableFocusedMessage`, `FileTableNavigateUpRequestedMessage`, `FileTableNavigateDownRequestedMessage` — see §15 for owners.
+`FileTableSelectionChangedMessage`, `NavigateUpRequestedMessage`, `DefaultActionRequestedMessage`, `CopyPathRequestedMessage`, `PropertiesRequestedMessage`, `FileTableFocusedMessage`, `FileTableNavigateUpRequestedMessage`, `FileTableNavigateDownRequestedMessage`, `FileTableNavigateToPathRequestedMessage`, `FileTableNavigateToPathMessage` — see §15 for owners.
 
 ---
 
@@ -683,7 +702,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `Shift+Click` → range from previous cursor to clicked row; cursor moves.
 - [ ] Double-click on a folder row publishes `FileTableNavigateDownRequestedMessage`.
 - [ ] Double-click on a file row publishes no table navigation message.
-- [ ] Double-click on `..` → after the click clears `SelectedItems` and visually marks `..`, the double-click publishes `FileTableNavigateUpRequestedMessage`; coordinator publishes `NavigateUpRequestedMessage`.
+- [ ] Double-click on `..` → after the click clears `SelectedItems` and visually marks `..`, the double-click publishes `FileTableNavigateUpRequestedMessage`; `PanelNavigationService` publishes `FileTableNavigateToPathMessage` when a parent exists.
 - [ ] Click on header sorts; drag header right edge resizes a column.
 
 ### 17.8 Activation
@@ -717,11 +736,17 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] `RenameKeyPressedMessage` with active selection of size 1 → `RenameRequestedMessage` with that item.
 - [ ] `PropertiesKeyPressedMessage` follows the same size-1 rule.
 - [ ] `CreateFolderKeyPressedMessage` always publishes `CreateFolderRequestedMessage` with the active identity.
-- [ ] `FileTableNavigateUpRequestedMessage` publishes `NavigateUpRequestedMessage` with the same `Identity`.
-- [ ] `FileTableNavigateDownRequestedMessage` publishes `DefaultActionRequestedMessage` with the same `Identity` and item.
 - [ ] `ActivateInvokedMessage` with active selection of size 1 publishes `DefaultActionRequestedMessage(items[0])`. Size 0 or 2+ → no domain message.
 
-### 17.12 File operation dialog service
+### 17.12 Panel navigation
+
+- [ ] `FileTableNavigateToPathRequestedMessage` for an existing directory stores the path and publishes `FileTableNavigateToPathMessage`.
+- [ ] `FileTableNavigateToPathRequestedMessage` for a missing directory fails silently for now.
+- [ ] `FileTableNavigateUpRequestedMessage` uses the stored current path for the identity and publishes `FileTableNavigateToPathMessage` for the parent.
+- [ ] `FileTableNavigateDownRequestedMessage` combines the stored current path with `FolderName` and publishes `FileTableNavigateToPathMessage` for the child directory.
+- [ ] Table data sources consume only `FileTableNavigateToPathMessage` for navigation.
+
+### 17.13 File operation dialog service
 
 - [ ] `RenameRequestedMessage` opens the rename popup with the name pre-filled and stem pre-selected; dotfiles select whole name.
 - [ ] Empty / unchanged input closes silently; invalid characters / collision / permission / source-gone keep dialog open with typed name preserved.
@@ -731,7 +756,7 @@ Identical to §16.4 but titled "Move", invokes move, and expects the source pane
 - [ ] Two messages arriving while a dialog is open queue FIFO.
 - [ ] Operation failures surface non-modally on the source pane.
 
-### 17.13 Stress
+### 17.14 Stress
 
 - [ ] 100 000-item directory scrolls smoothly at 60 fps.
 - [ ] Cursor / page / Home / End respond in under 100 ms.

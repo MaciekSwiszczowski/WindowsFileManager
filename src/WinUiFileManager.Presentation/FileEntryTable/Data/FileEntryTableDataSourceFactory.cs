@@ -13,11 +13,10 @@ public sealed class FileEntryTableDataSourceFactory
         _messenger = messenger;
     }
 
-    internal FileEntryTableDataSource Create(string identity, string initialPath, IScheduler uiScheduler)
+    internal FileEntryTableDataSource Create(string identity, IScheduler uiScheduler)
     {
         return new FileEntryTableDataSource(
             identity,
-            initialPath,
             uiScheduler,
             _fileSystemService,
             _messenger);

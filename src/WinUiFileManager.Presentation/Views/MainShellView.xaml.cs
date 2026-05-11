@@ -43,6 +43,8 @@ public sealed partial class MainShellView
 
     public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
 
+    public GoToPathCommandHandler? GoToPathCommandHandler { get; set; }
+
     public KeyboardManager KeyboardManager =>
         _keyboardManager ?? throw new InvalidOperationException("Messenger attached property is not set on MainShellView.");
 
@@ -59,6 +61,7 @@ public sealed partial class MainShellView
         Bindings.Update();
 
         Panels.DataSourceFactory = DataSourceFactory;
+        Panels.GoToPathCommandHandler = GoToPathCommandHandler;
         Panels.Initialization = viewModel.Initialization;
         Panels.Initialize(viewModel.Panels);
         Panels.PaneSplitterPressed += OnPanelSplitterPressed;

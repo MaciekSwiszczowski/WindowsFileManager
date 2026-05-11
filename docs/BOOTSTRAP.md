@@ -633,7 +633,7 @@ Owned by `FileEntryTableSortingBehavior`. Header click sets / toggles the intern
 - Selection state is owned by the control. The row VM does not carry `IsSelected`.
 - `Space` / `Insert` / `Ctrl+Space` toggle through `TableView.SelectedItems`; command targets are derived from `FileTableSelectionChangedMessage` snapshots routed through the (yet-to-be-implemented) command Coordinator.
 - `PageUp`, `PageDown`, `Home`, and `End` are handled explicitly by `FileEntryTableKeyboardNavigationBehavior` so paging does not depend on undocumented `TableView` behavior.
-- Folder activation (`Enter` on the active row, double-click) publishes `FileTableNavigateDownRequestedMessage` for files and folders; the parent row publishes `FileTableNavigateUpRequestedMessage` instead.
+- Folder activation (`Enter` on the active row, double-click) publishes `FileTableNavigateDownRequestedMessage` for folders; the parent row publishes `FileTableNavigateUpRequestedMessage` instead.
 
 ### Command Bar
 

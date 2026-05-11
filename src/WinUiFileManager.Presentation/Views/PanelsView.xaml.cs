@@ -1,4 +1,5 @@
 using System.Reactive.Disposables;
+using WinUiFileManager.Application.NavigationMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Messaging;
@@ -9,6 +10,7 @@ public sealed partial class PanelsView
 {
     private CompositeDisposable _dataSourceSubscriptions = new();
     private readonly Dictionary<string, PanelRuntimeState> _panelStates = new(StringComparer.Ordinal);
+    private bool _updatingDriveSelection;
     private bool _loaded;
 
     public PanelsView()
@@ -32,9 +34,7 @@ public sealed partial class PanelsView
 
     public AppInitializationViewModel? Initialization { get; set; }
 
-    public string LeftStatusText => FormatStatus(ViewModel?.LeftPanel);
-
-    public string RightStatusText => FormatStatus(ViewModel?.RightPanel);
+    public GoToPathCommandHandler? GoToPathCommandHandler { get; set; }
 
     public event EventHandler? PaneSplitterPressed;
 
@@ -56,6 +56,7 @@ public sealed partial class PanelsView
         ViewModel.LeftPanel.PropertyChanged += OnPanelPropertyChanged;
         ViewModel.RightPanel.PropertyChanged += OnPanelPropertyChanged;
 
+        SetDrivePickerItemsSources();
         Bindings.Update();
         EnsureFileEntryDataSources();
     }
@@ -110,6 +111,12 @@ public sealed partial class PanelsView
         TrySendInitialColumnLayout();
     }
 
+    private void SetDrivePickerItemsSources()
+    {
+        LeftDrivePicker.ItemsSource = Initialization?.AvailableVolumes;
+        RightDrivePicker.ItemsSource = Initialization?.AvailableVolumes;
+    }
+
     private void TrySendInitialColumnLayout()
     {
         if (MessengerProperties.GetMessenger(this) is not { } messenger || ViewModel is null)
@@ -134,10 +141,11 @@ public sealed partial class PanelsView
         DispatcherQueueScheduler uiScheduler)
     {
         var panel = _panelStates[panelIdentity];
-        var dataSource = factory.Create(panelIdentity, initialPath.DisplayPath, uiScheduler);
+        var dataSource = factory.Create(panelIdentity, uiScheduler);
         panel.DataSource = dataSource;
 
         _dataSourceSubscriptions.Add(dataSource.States.Subscribe(state => ApplyState(panel, state)));
+        ViewModel?.Messenger.Send(new FileTableNavigateToPathRequestedMessage(panelIdentity, initialPath));
     }
 
     private void ApplyState(PanelRuntimeState panel, FileEntryTableDataState state)
@@ -146,6 +154,7 @@ public sealed partial class PanelsView
         panel.Table.ItemsSource = state.Items;
         panel.ViewModel.CurrentPath = state.CurrentPath;
         panel.ViewModel.ItemCount = state.Items.Count;
+        SyncDriveSelection(panel, state.CurrentPath);
     }
 
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -187,7 +196,8 @@ public sealed partial class PanelsView
         if (e.PropertyName is nameof(PanelViewModel.IsActive)
             or nameof(PanelViewModel.CurrentPath)
             or nameof(PanelViewModel.ItemCount)
-            or nameof(PanelViewModel.SelectedCount))
+            or nameof(PanelViewModel.SelectedCount)
+            or nameof(PanelViewModel.PathValidationMessage))
         {
             DispatcherQueue.TryEnqueue(Bindings.Update);
         }
@@ -198,8 +208,120 @@ public sealed partial class PanelsView
         PaneSplitterPressed?.Invoke(this, EventArgs.Empty);
     }
 
-    private static string FormatStatus(PanelViewModel? panel) =>
-        $"{panel?.ItemCount} items    {panel?.SelectedCount} selected";
+    private async void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingDriveSelection
+            || sender is not ComboBox { SelectedItem: VolumeInfo volume }
+            || !TryGetPanel(sender, out var panel))
+        {
+            return;
+        }
+
+        panel.ViewModel.EditablePath = volume.RootPath.DisplayPath;
+        await CommitPathAsync(panel, volume.RootPath.DisplayPath);
+    }
+
+    private async void OnPathTextBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!TryGetPanel(sender, out var panel))
+        {
+            return;
+        }
+
+        if (e.Key == VirtualKey.Escape)
+        {
+            panel.ViewModel.EditablePath = panel.ViewModel.CurrentPath;
+            panel.ViewModel.PathValidationMessage = string.Empty;
+            e.Handled = true;
+            return;
+        }
+
+        if (e.Key != VirtualKey.Enter)
+        {
+            return;
+        }
+
+        e.Handled = true;
+        await CommitPathAsync(panel, panel.ViewModel.EditablePath);
+    }
+
+    private async Task CommitPathAsync(PanelRuntimeState panel, string rawPath)
+    {
+        if (GoToPathCommandHandler is null || ViewModel is null)
+        {
+            return;
+        }
+
+        var result = await GoToPathCommandHandler.ValidateDirectoryAsync(rawPath, CancellationToken.None);
+        if (!result.Success || result.Path is not { } normalizedPath)
+        {
+            panel.ViewModel.PathValidationMessage = result.ErrorMessage ?? "Invalid path.";
+            return;
+        }
+
+        ViewModel.Messenger.Send(new FileTableNavigateToPathRequestedMessage(panel.ViewModel.Identity, normalizedPath));
+        panel.ViewModel.PathValidationMessage = string.Empty;
+    }
+
+    private bool TryGetPanel(object sender, out PanelRuntimeState panel)
+    {
+        if (ViewModel is null)
+        {
+            panel = default!;
+            return false;
+        }
+
+        if (ReferenceEquals(sender, LeftDrivePicker) || ReferenceEquals(sender, LeftPathBox))
+        {
+            panel = _panelStates[ViewModel.LeftPanel.Identity];
+            return true;
+        }
+
+        if (ReferenceEquals(sender, RightDrivePicker) || ReferenceEquals(sender, RightPathBox))
+        {
+            panel = _panelStates[ViewModel.RightPanel.Identity];
+            return true;
+        }
+
+        panel = default!;
+        return false;
+    }
+
+    private void SyncDriveSelection(PanelRuntimeState panel, string currentPath)
+    {
+        var drivePicker = ReferenceEquals(panel.ViewModel, ViewModel?.LeftPanel)
+            ? LeftDrivePicker
+            : RightDrivePicker;
+
+        var volume = FindVolume(currentPath);
+        if (ReferenceEquals(drivePicker.SelectedItem, volume))
+        {
+            return;
+        }
+
+        _updatingDriveSelection = true;
+        drivePicker.SelectedItem = volume;
+        _updatingDriveSelection = false;
+    }
+
+    private VolumeInfo? FindVolume(string path)
+    {
+        if (Initialization is null || string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        foreach (var volume in Initialization.AvailableVolumes)
+        {
+            var root = volume.RootPath.DisplayPath;
+            if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+            {
+                return volume;
+            }
+        }
+
+        return null;
+    }
 
     private sealed class PanelRuntimeState : IDisposable
     {

@@ -28,6 +28,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();
 
         services.AddSingleton<GoToPathCommandHandler>();
+        services.AddSingleton<PanelNavigationService>();
 
         services.AddSingleton<AddFavouriteCommandHandler>();
         services.AddSingleton<RemoveFavouriteCommandHandler>();

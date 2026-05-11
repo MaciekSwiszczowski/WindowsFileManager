@@ -23,6 +23,7 @@ global using WinUiFileManager.Domain.Enums;
 global using WinUiFileManager.Domain.Events;
 global using WinUiFileManager.Domain.ValueObjects;
 global using WinUiFileManager.Application.Messages;
+global using WinUiFileManager.Application.Navigation;
 global using WinUiFileManager.Application.Settings;
 global using WinUiFileManager.Presentation.FileEntryTable.Messages;
 global using WinUiFileManager.Presentation.ViewModels;

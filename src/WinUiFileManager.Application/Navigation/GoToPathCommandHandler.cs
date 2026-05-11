@@ -25,6 +25,19 @@ public sealed class GoToPathCommandHandler
 
     public async Task<GoToPathResult> ExecuteAsync(string rawPath, CancellationToken ct)
     {
+        var validation = await ValidateDirectoryAsync(rawPath, ct);
+        if (!validation.Success || validation.Path is not { } normalizedPath)
+        {
+            return validation;
+        }
+
+        _logger.LogDebug("Navigating to path: {Path}", normalizedPath);
+        var entries = await _fileSystemService.EnumerateDirectoryAsync(normalizedPath, ct);
+        return new GoToPathResult(true, normalizedPath, entries, null);
+    }
+
+    public async Task<GoToPathResult> ValidateDirectoryAsync(string rawPath, CancellationToken ct)
+    {
         var pathValidation = _pathNormalizationService.Validate(rawPath);
         if (!pathValidation.IsValid)
         {
@@ -46,8 +59,6 @@ public sealed class GoToPathCommandHandler
             return new GoToPathResult(false, normalizedPath, null, $"Directory not found: {normalizedPath.DisplayPath}");
         }
 
-        _logger.LogDebug("Navigating to path: {Path}", normalizedPath);
-        var entries = await _fileSystemService.EnumerateDirectoryAsync(normalizedPath, ct);
-        return new GoToPathResult(true, normalizedPath, entries, null);
+        return new GoToPathResult(true, normalizedPath, null, null);
     }
 }

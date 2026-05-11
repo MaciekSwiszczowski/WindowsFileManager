@@ -4,12 +4,6 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
-using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Application.Messages;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
-using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
@@ -32,7 +26,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     public FileEntryTableDataSource(
         string identity,
-        string initialPath,
         IScheduler uiScheduler,
         IFileSystemService fileSystemService,
         IMessenger messenger,
@@ -53,19 +46,32 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
         _disposables.Add(_activeDirectoryLoad);
         _disposables.Add(_folderWatchingService);
-        _messenger.Register<FileTableNavigateUpRequestedMessage>(this, OnNavigateUpRequested);
-        _messenger.Register<FileTableNavigateDownRequestedMessage>(this, OnNavigateDownRequested);
-
-        LoadDirectory(initialPath);
+        _messenger.Register<FileTableNavigateToPathMessage>(this, OnNavigateToPath);
     }
 
-    public string Identity { get; }
+    private string Identity { get; }
 
     public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; private set; }
 
     public string CurrentPath { get; private set; } = string.Empty;
 
     public IObservable<FileEntryTableDataState> States => _states.AsObservable();
+
+    private void NavigateToDirectory(NormalizedPath path)
+    {
+        if (_disposed || !TryCreateLoadContext(path, out var context))
+        {
+            return;
+        }
+
+        var entries = _fileSystemService.ObserveDirectoryEntries(
+            context.Path,
+            _backgroundScheduler,
+            CancellationToken.None);
+        var directoryLoad = BuildDirectoryLoadQuery(context, entries);
+
+        _activeDirectoryLoad.Disposable = directoryLoad;
+    }
 
     public void Dispose()
     {
@@ -80,35 +86,18 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _states.Dispose();
     }
 
-    private void LoadDirectory(string path)
+    private bool TryCreateLoadContext(NormalizedPath path, out DirectoryLoadContext context)
     {
-        if (!TryCreateLoadContext(path, out var context))
-        {
-            return;
-        }
-
-        var entries = _fileSystemService.ObserveDirectoryEntries(
-            context.Path,
-            _backgroundScheduler,
-            CancellationToken.None);
-        var directoryLoad = BuildDirectoryLoadQuery(context, entries);
-
-        _activeDirectoryLoad.Disposable = directoryLoad;
-    }
-
-    private bool TryCreateLoadContext(string path, out DirectoryLoadContext context)
-    {
-        var normalized = NormalizedPath.FromUserInput(Path.GetFullPath(path));
-        if (!Directory.Exists(normalized.DisplayPath))
+        if (!Directory.Exists(path.DisplayPath))
         {
             context = default!;
             return false;
         }
 
         var loadVersion = Interlocked.Increment(ref _loadVersion);
-        var hasParent = Directory.GetParent(normalized.DisplayPath) is not null;
+        var hasParent = Directory.GetParent(path.DisplayPath) is not null;
 
-        context = CreateNewItemsCollection(normalized, loadVersion, hasParent);
+        context = CreateNewItemsCollection(path, loadVersion, hasParent);
         return true;
     }
 
@@ -331,7 +320,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
         if (candidate is not null)
         {
-            LoadDirectory(candidate.FullName);
+            NavigateToDirectory(NormalizedPath.FromUserInput(candidate.FullName));
         }
     }
 
@@ -340,29 +329,14 @@ internal sealed class FileEntryTableDataSource : IDisposable
         System.Diagnostics.Debug.WriteLine(error);
     }
 
-    private void OnNavigateUpRequested(object recipient, FileTableNavigateUpRequestedMessage message)
+    private void OnNavigateToPath(object recipient, FileTableNavigateToPathMessage message)
     {
         if (message.Identity != Identity)
         {
             return;
         }
 
-        var parent = Directory.GetParent(CurrentPath);
-        if (parent is not null)
-        {
-            LoadDirectory(parent.FullName);
-        }
-    }
-
-    private void OnNavigateDownRequested(object recipient, FileTableNavigateDownRequestedMessage message)
-    {
-        if (message.Identity != Identity
-            || message.Item.Kind != ItemKind.Directory)
-        {
-            return;
-        }
-
-        LoadDirectory(message.Item.FullPath.DisplayPath);
+        NavigateToDirectory(message.Path);
     }
 
     private static string GetKey(SpecFileEntryViewModel item)

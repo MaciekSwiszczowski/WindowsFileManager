@@ -51,15 +51,35 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0"
-                           VerticalAlignment="Center"
-                           Text="{x:Bind ViewModel.LeftPanel.CurrentPath, Mode=OneWay}"
-                           TextTrimming="CharacterEllipsis" />
+                <Grid Grid.Row="0" ColumnSpacing="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="104" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="LeftDrivePicker"
+                              Grid.Column="0"
+                              HorizontalAlignment="Stretch"
+                              DisplayMemberPath="DriveLetter"
+                              SelectionChanged="OnDriveSelectionChanged" />
+                    <TextBox x:Name="LeftPathBox"
+                             Grid.Column="1"
+                             Text="{x:Bind ViewModel.LeftPanel.EditablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTipService.ToolTip="{x:Bind ViewModel.LeftPanel.PathValidationMessage, Mode=OneWay}"
+                             KeyDown="OnPathTextBoxKeyDown" />
+                </Grid>
                 <fileEntryTable:SpecFileEntryTableView x:Name="LeftEntryTable"
                                                        Grid.Row="1"
                                                        messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=Self, Mode=OneWay}" />
-                <TextBlock Grid.Row="2"
-                           Text="{x:Bind LeftStatusText, Mode=OneWay}" />
+                <Border Grid.Row="2"
+                        Height="24"
+                        Padding="8,0"
+                        VerticalAlignment="Stretch"
+                        Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                               Text="{x:Bind ViewModel.LeftPanel.SummaryText, Mode=OneWay}" />
+                </Border>
             </Grid>
         </Border>
 
@@ -100,15 +120,35 @@
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Grid.Row="0"
-                           VerticalAlignment="Center"
-                           Text="{x:Bind ViewModel.RightPanel.CurrentPath, Mode=OneWay}"
-                           TextTrimming="CharacterEllipsis" />
+                <Grid Grid.Row="0" ColumnSpacing="4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="104" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="RightDrivePicker"
+                              Grid.Column="0"
+                              HorizontalAlignment="Stretch"
+                              DisplayMemberPath="DriveLetter"
+                              SelectionChanged="OnDriveSelectionChanged" />
+                    <TextBox x:Name="RightPathBox"
+                             Grid.Column="1"
+                             Text="{x:Bind ViewModel.RightPanel.EditablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTipService.ToolTip="{x:Bind ViewModel.RightPanel.PathValidationMessage, Mode=OneWay}"
+                             KeyDown="OnPathTextBoxKeyDown" />
+                </Grid>
                 <fileEntryTable:SpecFileEntryTableView x:Name="RightEntryTable"
                                                        Grid.Row="1"
                                                        messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=Self, Mode=OneWay}" />
-                <TextBlock Grid.Row="2"
-                           Text="{x:Bind RightStatusText, Mode=OneWay}" />
+                <Border Grid.Row="2"
+                        Height="24"
+                        Padding="8,0"
+                        VerticalAlignment="Stretch"
+                        Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
+                    <TextBlock VerticalAlignment="Center"
+                               FontSize="12"
+                               Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+                               Text="{x:Bind ViewModel.RightPanel.SummaryText, Mode=OneWay}" />
+                </Border>
             </Grid>
         </Border>
     </Grid>

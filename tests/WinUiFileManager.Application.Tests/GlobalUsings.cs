@@ -5,6 +5,7 @@ global using TUnit.Core;
 global using WinUiFileManager.Application.Abstractions;
 global using WinUiFileManager.Application.Diagnostics;
 global using WinUiFileManager.Application.Favourites;
+global using WinUiFileManager.Application.Navigation;
 global using WinUiFileManager.Application.Settings;
 global using WinUiFileManager.Application.Tests.Fakes;
 global using WinUiFileManager.Application.Tests.Fixtures;

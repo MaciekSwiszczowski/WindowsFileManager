@@ -28,11 +28,6 @@ public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTable
         });
     }
 
-    protected override void OnDetaching()
-    {
-        base.OnDetaching();
-    }
-
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Handled

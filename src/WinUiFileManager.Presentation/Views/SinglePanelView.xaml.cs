@@ -1,4 +1,4 @@
-﻿using System.Reactive.Disposables;
+using System.Reactive.Disposables;
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
@@ -7,12 +7,14 @@ namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class SinglePanelView : IDisposable
 {
+    private readonly PointerEventHandler _panelPointerPressedHandler;
     private CompositeDisposable _dataSourceSubscriptions = new();
     private bool _updatingDriveSelection;
     private bool _loaded;
     private FileEntryTableDataSource? _dataSource;
     private ObservableCollection<SpecFileEntryViewModel>? _items;
     private string? _identity;
+    private bool _panelFocused;
     private bool _disposed;
 
     public SinglePanelView()
@@ -21,8 +23,10 @@ public sealed partial class SinglePanelView : IDisposable
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
 
-        EntryTable.Table.GotFocus += OnEntryTableGotFocus;
-        EntryTable.Table.LostFocus += OnEntryTableLostFocus;
+        _panelPointerPressedHandler = OnPanelPointerPressed;
+        PanelBorder.AddHandler(PointerPressedEvent, _panelPointerPressedHandler, handledEventsToo: true);
+        GettingFocus += OnPanelGettingFocus;
+        LosingFocus += OnPanelLosingFocus;
     }
 
     private string Identity => _identity ?? throw new InvalidOperationException("SinglePanel must be initialized with Identity.");
@@ -94,8 +98,9 @@ public sealed partial class SinglePanelView : IDisposable
 
         SetItems(null);
 
-        EntryTable.Table.GotFocus -= OnEntryTableGotFocus;
-        EntryTable.Table.LostFocus -= OnEntryTableLostFocus;
+        PanelBorder.RemoveHandler(PointerPressedEvent, _panelPointerPressedHandler);
+        GettingFocus -= OnPanelGettingFocus;
+        LosingFocus -= OnPanelLosingFocus;
     }
 
     private void EnsureFileEntryDataSource()
@@ -244,13 +249,51 @@ public sealed partial class SinglePanelView : IDisposable
         return null;
     }
 
-    private void OnEntryTableGotFocus(object sender, RoutedEventArgs e)
+    private void OnPanelPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        Messenger?.Send(new FileTableFocusedMessage(Identity, IsFocused: true));
+        PublishPanelFocusChanged(isFocused: true);
     }
 
-    private void OnEntryTableLostFocus(object sender, RoutedEventArgs e)
+    private void OnPanelGettingFocus(UIElement sender, GettingFocusEventArgs args)
     {
-        Messenger?.Send(new FileTableFocusedMessage(Identity, IsFocused: false));
+        if (ContainsFocusedElement(args.NewFocusedElement))
+        {
+            PublishPanelFocusChanged(isFocused: true);
+        }
+    }
+
+    private void OnPanelLosingFocus(UIElement sender, LosingFocusEventArgs args)
+    {
+        if (!ContainsFocusedElement(args.NewFocusedElement))
+        {
+            PublishPanelFocusChanged(isFocused: false);
+        }
+    }
+
+    private bool ContainsFocusedElement(object? focusedElement)
+    {
+        var current = focusedElement as DependencyObject;
+        while (current is not null)
+        {
+            if (ReferenceEquals(current, this))
+            {
+                return true;
+            }
+
+            current = VisualTreeHelper.GetParent(current);
+        }
+
+        return false;
+    }
+
+    private void PublishPanelFocusChanged(bool isFocused)
+    {
+        if (_panelFocused == isFocused && (!isFocused || ViewModel?.IsActive == true))
+        {
+            return;
+        }
+
+        _panelFocused = isFocused;
+        Messenger?.Send(new FileTableFocusedMessage(Identity, isFocused));
     }
 }

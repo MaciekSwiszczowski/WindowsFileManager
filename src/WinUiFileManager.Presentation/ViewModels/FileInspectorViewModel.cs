@@ -27,7 +27,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
     private FileInspectorSelection? _currentTableSelection;
     private string _activePanelIdentity = string.Empty;
-    private bool _preserveDeferredVisibilityUntilFinalBatch;
+    private FileInspectorSelectionMode _selectionMode;
     private bool _inspectorPanelVisible = true;
     private bool _disposed;
 
@@ -116,6 +116,17 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
                     ShowNoSelection();
                 }));
 
+        _subscriptions.Add(
+            observable
+                .Where(_ => _inspectorPanelVisible)
+                .Where(static message => message.SelectedItems.Count > 1)
+                .ObserveOn(schedulers.MainThread)
+                .Subscribe(message =>
+                {
+                    UpdateSelectedItems(message.SelectedItems);
+                    ShowMultiSelection(message.SelectedItems);
+                }));
+
         // immediate subscription to show cheap changes and update selection
         _subscriptions.Add(
             observable
@@ -195,6 +206,34 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public ObservableCollectionExtended<SpecFileEntryViewModel> SelectedItems { get; } = [];
 
+    public FileInspectorSelectionMode SelectionMode
+    {
+        get => _selectionMode;
+        set
+        {
+            if (SetProperty(ref _selectionMode, value))
+            {
+                OnPropertyChanged(nameof(SelectionStatusText));
+                OnPropertyChanged(nameof(IsNoSelectionMode));
+                OnPropertyChanged(nameof(IsSingleSelectionMode));
+                OnPropertyChanged(nameof(IsMultiSelectionMode));
+            }
+        }
+    }
+
+    public bool IsNoSelectionMode => SelectionMode == FileInspectorSelectionMode.NoSelection;
+
+    public bool IsSingleSelectionMode => SelectionMode == FileInspectorSelectionMode.SingleSelection;
+
+    public bool IsMultiSelectionMode => SelectionMode == FileInspectorSelectionMode.MultiSelection;
+
+    public string SelectionStatusText => SelectionMode switch
+    {
+        FileInspectorSelectionMode.MultiSelection => $"{SelectedItems.Count} items selected",
+        FileInspectorSelectionMode.NoSelection => "No files selected",
+        _ => string.Empty,
+    };
+
     public ObservableCollection<FileInspectorFieldViewModel> Fields { get; }
 
     public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; }
@@ -225,10 +264,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         var hadSelection = !string.IsNullOrWhiteSpace(_currentFullPath);
         if (!selection.HasItem)
         {
+            SelectionMode = FileInspectorSelectionMode.NoSelection;
             Clear();
             return;
         }
 
+        SelectionMode = FileInspectorSelectionMode.SingleSelection;
         var isSameItem = hadSelection
             && string.Equals(_currentFullPath, selection.FullPath, StringComparison.OrdinalIgnoreCase);
         var isSameVersion = selection.RefreshVersion == _currentSelectionVersion;
@@ -239,7 +280,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        ApplyBasicSelection(selection, hadSelection);
+        ApplyBasicSelection(selection);
         _currentSelectionVersion = selection.RefreshVersion;
         IsLoadingDetails = selection.CanLoadDeferred;
     }
@@ -248,7 +289,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     {
         IsLoadingDetails = false;
         _currentFullPath = string.Empty;
-        _preserveDeferredVisibilityUntilFinalBatch = false;
         _fieldState.ClearValues();
         RefreshVisibleCategories();
     }
@@ -276,15 +316,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             _ = _thumbnailMaterializer.ApplyAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
 
-        if (batchResult.IsFinalBatch)
-        {
-            _preserveDeferredVisibilityUntilFinalBatch = false;
-            RefreshVisibleCategories();
-        }
-        else
-        {
-            RefreshVisibleCategories(_preserveDeferredVisibilityUntilFinalBatch);
-        }
+        RefreshVisibleCategories();
 
         if (batchResult.IsFinalBatch)
         {
@@ -328,8 +360,20 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _lastTableSelection = [];
         _currentTableSelection = null;
         _deferredLoader.Cancel();
+        SelectionMode = FileInspectorSelectionMode.NoSelection;
         var refreshVersion = Interlocked.Increment(ref _tableSelectionRefreshVersion);
         ApplySelection(FileInspectorSelection.NoSelection(refreshVersion));
+    }
+
+    internal void ShowMultiSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
+    {
+        _lastTableSelection = selectedEntries;
+        _currentTableSelection = null;
+        _deferredLoader.Cancel();
+        IsLoadingDetails = false;
+        _currentFullPath = string.Empty;
+        SelectionMode = FileInspectorSelectionMode.MultiSelection;
+        _fieldState.ClearValues();
     }
 
     internal IAsyncEnumerable<FileInspectorDeferredBatchResult> LoadDeferredBatchesAsync(
@@ -381,6 +425,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
+        if (selectedItems.Count > 1)
+        {
+            ShowMultiSelection(selectedItems);
+            return;
+        }
+
         ApplyTableSelection(selectedItems);
     }
 
@@ -390,23 +440,15 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             && string.Equals(_activePanelIdentity, identity, StringComparison.Ordinal);
     }
 
-    private void ApplyBasicSelection(FileInspectorSelection selection, bool preserveDeferredVisibility)
+    private void ApplyBasicSelection(FileInspectorSelection selection)
     {
         BasicFileInspectorCategory.ApplySelection(selection, _fieldState);
         _currentFullPath = selection.FullPath;
 
-        if (preserveDeferredVisibility)
-        {
-            _fieldState.BeginDeferredRefresh();
-        }
-        else
-        {
-            NtfsFileInspectorCategory.ApplyAttributes(selection.AttributesFlags, _fieldState);
-            _fieldState.ClearDeferredFields();
-        }
+        NtfsFileInspectorCategory.ApplyAttributes(selection.AttributesFlags, _fieldState);
+        _fieldState.BeginDeferredRefresh();
 
-        _preserveDeferredVisibilityUntilFinalBatch = preserveDeferredVisibility;
-        RefreshVisibleCategories(preserveDeferredVisibility);
+        RefreshVisibleCategories();
     }
 
     private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
@@ -439,7 +481,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         }
     }
 
-    private void RefreshVisibleCategories(bool preserveDeferredVisibility = false)
+    private void RefreshVisibleCategories()
     {
         if (_disposed)
         {
@@ -448,8 +490,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
         _fieldState.RefreshVisibleCategories(
             _currentFullPath,
-            SearchText,
-            preserveDeferredVisibility);
+            SearchText);
         OnPropertyChanged(nameof(HasVisibleFields));
     }
 

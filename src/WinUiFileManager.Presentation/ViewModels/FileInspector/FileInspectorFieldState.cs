@@ -76,17 +76,16 @@ internal sealed class FileInspectorFieldState
                 continue;
             }
 
-            if (field.IsVisible)
-            {
-                field.IsLoading = true;
-            }
+            field.Value = string.Empty;
+            field.ThumbnailSource = null;
+            field.IsLoading = true;
+            field.IsVisible = true;
         }
     }
 
     public void RefreshVisibleCategories(
         string currentFullPath,
-        string searchText,
-        bool preserveDeferredVisibility = false)
+        string searchText)
     {
         if (string.IsNullOrWhiteSpace(currentFullPath))
         {
@@ -98,13 +97,6 @@ internal sealed class FileInspectorFieldState
         var hasSearch = !string.IsNullOrWhiteSpace(search);
         foreach (var field in Fields)
         {
-            if (preserveDeferredVisibility
-                && IsDeferredField(field)
-                && field.IsVisible)
-            {
-                continue;
-            }
-
             field.IsVisible = ShouldFieldBeVisible(field, search, hasSearch);
         }
 
@@ -119,22 +111,8 @@ internal sealed class FileInspectorFieldState
         }
     }
 
-    private bool IsDeferredField(FileInspectorFieldViewModel field) =>
-        _deferredFieldKeys.Contains(field.Key);
-
     private static bool ShouldFieldBeVisible(FileInspectorFieldViewModel field, string search, bool hasSearch)
     {
-        if (field.IsLoading)
-        {
-            return true;
-        }
-
-        var hasValue = field.ThumbnailSource is not null || !string.IsNullOrWhiteSpace(field.Value);
-        if (!hasValue)
-        {
-            return false;
-        }
-
         return !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
     }
 }

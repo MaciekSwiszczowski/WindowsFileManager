@@ -42,13 +42,19 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     public IAsyncRelayCommand? ToggleCommand { get; private set; }
 
-    public string DisplayValue => Value;
+    public string DisplayValue => IsUnavailable ? "Not available" : Value;
 
     public bool ShowsValue => !IsLoading && ThumbnailSource is null;
 
     public bool ShowsThumbnail => !IsLoading && ThumbnailSource is not null;
 
-    public bool ShowsToggle => CanToggle && !IsLoading;
+    public bool ShowsToggle => CanToggle;
+
+    public bool CanInteract => CanToggle && !IsLoading && !IsUnavailable;
+
+    public bool IsUnavailable => !IsLoading && ThumbnailSource is null && string.IsNullOrWhiteSpace(Value);
+
+    public bool IsFieldEnabled => !IsUnavailable;
 
     public string SearchText => string.Concat(_searchPrefix, Value);
 
@@ -63,6 +69,10 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(ShowsValue));
         OnPropertyChanged(nameof(ShowsThumbnail));
+        OnPropertyChanged(nameof(IsUnavailable));
+        OnPropertyChanged(nameof(IsFieldEnabled));
+        OnPropertyChanged(nameof(CanInteract));
+        OnPropertyChanged(nameof(DisplayValue));
     }
 
     partial void OnIsLoadingChanged(bool value)
@@ -70,18 +80,29 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
         OnPropertyChanged(nameof(ShowsValue));
         OnPropertyChanged(nameof(ShowsThumbnail));
         OnPropertyChanged(nameof(ShowsToggle));
+        OnPropertyChanged(nameof(IsUnavailable));
+        OnPropertyChanged(nameof(IsFieldEnabled));
+        OnPropertyChanged(nameof(CanInteract));
+        OnPropertyChanged(nameof(DisplayValue));
     }
 
     partial void OnValueChanged(string value)
     {
         OnPropertyChanged(nameof(DisplayValue));
+        OnPropertyChanged(nameof(IsUnavailable));
+        OnPropertyChanged(nameof(IsFieldEnabled));
+        OnPropertyChanged(nameof(CanInteract));
         if (CanToggle)
         {
             IsToggleOn = string.Equals(value, "Yes", StringComparison.OrdinalIgnoreCase);
         }
     }
 
-    partial void OnCanToggleChanged(bool value) => OnPropertyChanged(nameof(ShowsToggle));
+    partial void OnCanToggleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ShowsToggle));
+        OnPropertyChanged(nameof(CanInteract));
+    }
 
     private async Task ToggleAsync(Func<bool, Task<bool>> toggleAsync)
     {

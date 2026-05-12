@@ -72,7 +72,7 @@
                 <ScrollViewer Grid.Row="2"
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
-                    <Grid MinWidth="520">
+                    <Grid MinWidth="250">
                         <ItemsRepeater ItemsSource="{Binding Categories}">
                             <ItemsRepeater.Layout>
                                 <StackLayout Spacing="4" />
@@ -90,30 +90,44 @@
                                             </ItemsRepeater.Layout>
                                             <ItemsRepeater.ItemTemplate>
                                                 <DataTemplate>
-                                                    <StackPanel Orientation="Horizontal"
-                                                                Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
-                                                        <TextBlock Width="128"
-                                                                   Padding="8,4"
-                                                                   Text="{Binding Key}"
-                                                                   FontSize="12" />
-                                                        <ProgressRing Width="14"
-                                                                      Height="14"
-                                                                      Margin="8,4"
-                                                                      IsActive="True"
-                                                                      Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                        <TextBlock Width="330"
-                                                                   Padding="8,4"
-                                                                   Text="{Binding DisplayValue}"
-                                                                   FontSize="12"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   TextWrapping="Wrap"
-                                                                   Visibility="{Binding ShowsValue, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                        <CheckBox VerticalAlignment="Center"
-                                                                  IsChecked="{Binding IsToggleOn}"
-                                                                  IsEnabled="{Binding CanInteract}"
-                                                                  Command="{Binding ToggleCommand}"
-                                                                  Visibility="{Binding ShowsToggle, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                                    </StackPanel>
+                                                    <Border Background="Transparent"
+                                                            PointerEntered="OnInspectorRowPointerEntered"
+                                                            PointerExited="OnInspectorRowPointerExited"
+                                                            ToolTipService.ToolTip="{Binding Tooltip}"
+                                                            Visibility="{Binding IsVisible, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <TextBlock Width="88"
+                                                                       Padding="6,3"
+                                                                       Text="{Binding Key}"
+                                                                       FontSize="12"
+                                                                       TextWrapping="Wrap" />
+                                                            <ProgressRing Width="14"
+                                                                          Height="14"
+                                                                          Margin="6,3"
+                                                                          IsActive="True"
+                                                                          Visibility="{Binding IsLoading, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                            <Image Width="30"
+                                                                   Height="30"
+                                                                   Margin="6,3"
+                                                                   Source="{Binding ThumbnailSource}"
+                                                                   Stretch="UniformToFill"
+                                                                   Visibility="{Binding ShowsThumbnail, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                            <TextBlock Width="118"
+                                                                       Padding="6,3"
+                                                                       Text="{Binding DisplayValue}"
+                                                                       FontSize="12"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       TextWrapping="Wrap"
+                                                                       Visibility="{Binding ShowsValue, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                            <CheckBox MinWidth="32"
+                                                                      Padding="0"
+                                                                      VerticalAlignment="Center"
+                                                                      IsChecked="{Binding IsToggleOn}"
+                                                                      IsEnabled="{Binding CanInteract}"
+                                                                      Command="{Binding ToggleCommand}"
+                                                                      Visibility="{Binding ShowsToggle, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                        </StackPanel>
+                                                    </Border>
                                                 </DataTemplate>
                                             </ItemsRepeater.ItemTemplate>
                                         </ItemsRepeater>

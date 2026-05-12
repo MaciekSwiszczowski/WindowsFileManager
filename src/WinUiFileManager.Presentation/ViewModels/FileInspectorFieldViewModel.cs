@@ -44,7 +44,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     public string DisplayValue => IsUnavailable ? "Not available" : Value;
 
-    public bool ShowsValue => !IsLoading && ThumbnailSource is null;
+    public bool ShowsValue => !IsLoading && ThumbnailSource is null && !CanToggle;
 
     public bool ShowsThumbnail => !IsLoading && ThumbnailSource is not null;
 
@@ -100,6 +100,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     partial void OnCanToggleChanged(bool value)
     {
+        OnPropertyChanged(nameof(ShowsValue));
         OnPropertyChanged(nameof(ShowsToggle));
         OnPropertyChanged(nameof(CanInteract));
     }

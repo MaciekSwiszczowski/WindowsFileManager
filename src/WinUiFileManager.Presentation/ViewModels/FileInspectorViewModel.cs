@@ -316,7 +316,10 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             _ = _thumbnailMaterializer.ApplyAsync(batchResult.SelectionVersion, batchResult.ThumbnailBytes);
         }
 
-        RefreshVisibleCategories();
+        if (!string.IsNullOrWhiteSpace(SearchText))
+        {
+            RefreshVisibleCategories();
+        }
 
         if (batchResult.IsFinalBatch)
         {

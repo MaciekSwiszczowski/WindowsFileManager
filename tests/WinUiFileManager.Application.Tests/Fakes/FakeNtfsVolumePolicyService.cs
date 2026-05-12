@@ -1,4 +1,5 @@
-using WinUiFileManager.Domain.Errors;
+using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.Application.Validation;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 

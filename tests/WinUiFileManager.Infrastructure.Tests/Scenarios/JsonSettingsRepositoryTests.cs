@@ -1,8 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using TUnit.Core;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Infrastructure.Persistence;
 
 namespace WinUiFileManager.Infrastructure.Tests.Scenarios;

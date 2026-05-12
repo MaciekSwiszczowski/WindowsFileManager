@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Application.Diagnostics;
 
-using Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 public sealed record FileIdentityDetails(
     NtfsFileId FileId,

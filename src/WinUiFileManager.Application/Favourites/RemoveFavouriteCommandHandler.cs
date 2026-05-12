@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Favourites;
 

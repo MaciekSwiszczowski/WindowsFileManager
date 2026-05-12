@@ -8,7 +8,7 @@ using Windows.Storage.FileProperties;
 using Windows.Storage.Provider;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;

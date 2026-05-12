@@ -1,4 +1,3 @@
-using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
 

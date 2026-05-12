@@ -2,8 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.Persistence;
 

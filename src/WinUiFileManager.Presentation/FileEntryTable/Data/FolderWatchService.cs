@@ -1,8 +1,5 @@
 using System.Reactive.Disposables;
 using System.Reactive.Subjects;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 

@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.Services;

@@ -1,7 +1,4 @@
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
-
-namespace WinUiFileManager.Domain.Events;
+﻿namespace WinUiFileManager.Application.FileEntries;
 
 public sealed record DirectoryChange(
     DirectoryChangeKind Kind,

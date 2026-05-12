@@ -2,8 +2,7 @@ using System.Collections.Concurrent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 

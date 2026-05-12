@@ -4,8 +4,7 @@ using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Dialogs;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Application.Messages.RequestMessages;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.Services;
 

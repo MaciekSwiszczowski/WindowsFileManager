@@ -2,9 +2,7 @@ using System.Reactive.Linq;
 using System.Reactive.Disposables;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 

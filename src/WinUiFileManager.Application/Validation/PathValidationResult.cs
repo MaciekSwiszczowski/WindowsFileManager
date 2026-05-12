@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Domain.Errors;
+﻿namespace WinUiFileManager.Application.Validation;
 
 public sealed record PathValidationResult
 {

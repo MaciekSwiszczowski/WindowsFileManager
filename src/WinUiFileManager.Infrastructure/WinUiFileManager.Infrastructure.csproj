@@ -5,7 +5,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WinUiFileManager.Application\WinUiFileManager.Application.csproj" />
-    <ProjectReference Include="..\WinUiFileManager.Domain\WinUiFileManager.Domain.csproj" />
     <ProjectReference Include="..\WinUiFileManager.Interop\WinUiFileManager.Interop.csproj" />
   </ItemGroup>
 

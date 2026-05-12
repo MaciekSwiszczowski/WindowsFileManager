@@ -1,5 +1,5 @@
-using WinUiFileManager.Domain.Errors;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.Validation;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Abstractions;
 

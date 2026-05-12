@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Application.Favourites;
 
-using Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 public sealed record FavouriteFolder
 {

@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Domain.ValueObjects;
+﻿namespace WinUiFileManager.Application.FileEntries;
 
 public sealed record DirectoryPath
 {

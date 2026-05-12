@@ -1,5 +1,5 @@
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 

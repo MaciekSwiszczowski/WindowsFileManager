@@ -4,7 +4,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WinUiFileManager.Domain\WinUiFileManager.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>

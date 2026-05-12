@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using WinUiFileManager.Domain.Enums;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Settings;
 

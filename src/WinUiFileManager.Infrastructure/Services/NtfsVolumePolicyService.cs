@@ -1,6 +1,6 @@
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Domain.Errors;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.Validation;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure.Services;

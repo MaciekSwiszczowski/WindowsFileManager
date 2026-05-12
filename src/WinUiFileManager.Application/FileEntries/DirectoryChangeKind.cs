@@ -1,4 +1,4 @@
-namespace WinUiFileManager.Domain.Enums;
+﻿namespace WinUiFileManager.Application.FileEntries;
 
 public enum DirectoryChangeKind
 {

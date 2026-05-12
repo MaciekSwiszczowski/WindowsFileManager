@@ -1,5 +1,4 @@
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Abstractions;
 

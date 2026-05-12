@@ -1,9 +1,7 @@
 using System.Reactive.Linq;
 using Microsoft.Extensions.Logging.Abstractions;
 using TUnit.Core;
-using WinUiFileManager.Domain.Enums;
-using WinUiFileManager.Domain.Events;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Tests.Fixtures;
 

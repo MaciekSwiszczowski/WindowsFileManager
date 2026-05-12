@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using WinUiFileManager.Application.Favourites;
-using WinUiFileManager.Domain.ValueObjects;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Infrastructure.Persistence;
 
 namespace WinUiFileManager.Infrastructure.Tests.Scenarios;

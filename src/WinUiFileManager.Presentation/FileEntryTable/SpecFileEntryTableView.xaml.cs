@@ -15,8 +15,6 @@ public sealed partial class SpecFileEntryTableView
     {
         InitializeComponent();
         Loaded += SpecFileEntryTableView_Loaded;
-        EntryTable.GotFocus += EntryTable_GotFocus;
-        EntryTable.LostFocus += EntryTable_LostFocus;
         AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(EntryTable_DoubleTapped), handledEventsToo: true);
     }
 
@@ -67,13 +65,4 @@ public sealed partial class SpecFileEntryTableView
         }
     }
 
-    private void EntryTable_GotFocus(object sender, RoutedEventArgs e)
-    {
-        MessengerProperties.GetMessenger(this)?.Send(new FileTableFocusedMessage(Identity, IsFocused: true));
-    }
-
-    private void EntryTable_LostFocus(object sender, RoutedEventArgs e)
-    {
-        MessengerProperties.GetMessenger(this)?.Send(new FileTableFocusedMessage(Identity, IsFocused: false));
-    }
 }

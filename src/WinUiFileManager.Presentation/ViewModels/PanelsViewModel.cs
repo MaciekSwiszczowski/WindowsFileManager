@@ -8,18 +8,21 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 
     public PanelsViewModel(
         IActivePanelsService activePanelsService,
-        IMessenger messenger)
+        IMessenger messenger,
+        IFileSystemService fileSystemService)
     {
         _activePanelsService = activePanelsService;
         _messenger = messenger;
+        LeftPanel = new PanelViewModel("Left", fileSystemService, messenger);
+        RightPanel = new PanelViewModel("Right", fileSystemService, messenger);
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);
     }
 
-    public PanelViewModel LeftPanel { get; } = new("Left");
+    public PanelViewModel LeftPanel { get; }
 
-    public PanelViewModel RightPanel { get; } = new("Right");
+    public PanelViewModel RightPanel { get; }
 
     [ObservableProperty]
     public partial double LeftPanelWidth { get; set; } = 600d;

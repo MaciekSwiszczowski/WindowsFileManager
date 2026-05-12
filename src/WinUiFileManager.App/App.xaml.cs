@@ -39,4 +39,5 @@ public sealed partial class App
     private Window? _mainWindow;
 
     public static ServiceProvider Services => ((App)Current)._serviceProvider;
+    public ServiceProvider ServiceProvider => _serviceProvider;
 }

@@ -7,7 +7,6 @@ using Microsoft.UI.Xaml;
 using CommunityToolkit.Mvvm.Messaging;
 using Infrastructure.Services;
 using WinUiFileManager.Application.Navigation;
-using Presentation.FileEntryTable.Data;
 using Presentation.MessageLogging;
 using Presentation.Services;
 using Presentation.Messaging;
@@ -33,7 +32,6 @@ public sealed partial class MainShellWindow
 
         MessengerProperties.SetMessenger(ShellView, App.Services.GetRequiredService<IMessenger>());
         _ = App.Services.GetRequiredService<PanelNavigationService>();
-        ShellView.DataSourceFactory = App.Services.GetRequiredService<FileEntryTableDataSourceFactory>();
         ShellView.GoToPathCommandHandler = App.Services.GetRequiredService<GoToPathCommandHandler>();
         ShellView.Loaded += OnShellViewLoaded;
     }

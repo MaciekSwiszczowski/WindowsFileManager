@@ -1,4 +1,3 @@
-using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Keyboard;
 using WinUiFileManager.Presentation.Messaging;
 
@@ -27,21 +26,16 @@ public sealed partial class MainShellView
             return;
         }
 
-        if (MessengerProperties.GetMessenger(view) is not IMessenger value)
+        if (MessengerProperties.GetMessenger(view) is not { } value)
         {
             view._keyboardManager = null;
             return;
         }
 
-        if (view._keyboardManager is null)
-        {
-            view._keyboardManager = new KeyboardManager(value);
-        }
+        view._keyboardManager ??= new KeyboardManager(value);
     }
 
     public Action? ToggleThemeAction { get; set; }
-
-    public FileEntryTableDataSourceFactory? DataSourceFactory { get; set; }
 
     public GoToPathCommandHandler? GoToPathCommandHandler { get; set; }
 
@@ -60,8 +54,6 @@ public sealed partial class MainShellView
         DataContext = viewModel;
         Bindings.Update();
 
-        Panels.DataSourceFactory = DataSourceFactory;
-        Panels.GoToPathCommandHandler = GoToPathCommandHandler;
         Panels.Initialization = viewModel.Initialization;
         Panels.Initialize(viewModel.Panels);
         Panels.PaneSplitterPressed += OnPanelSplitterPressed;
@@ -91,37 +83,19 @@ public sealed partial class MainShellView
 
     private void RegisterSplitterHandlers(UIElement splitter)
     {
-        splitter.AddHandler(
-            UIElement.PointerPressedEvent,
-            new PointerEventHandler(OnSplitterPointerPressed),
-            handledEventsToo: true);
+        splitter.AddHandler(PointerPressedEvent, new PointerEventHandler(OnSplitterPointerPressed), handledEventsToo: true);
     }
 
     private void RegisterGlobalPointerReleaseHandlers()
     {
-        AddHandler(
-            UIElement.PointerReleasedEvent,
-            new PointerEventHandler(OnGlobalPointerReleased),
-            handledEventsToo: true);
-        AddHandler(
-            UIElement.PointerCanceledEvent,
-            new PointerEventHandler(OnGlobalPointerReleased),
-            handledEventsToo: true);
-        AddHandler(
-            UIElement.PointerCaptureLostEvent,
-            new PointerEventHandler(OnGlobalPointerReleased),
-            handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, new PointerEventHandler(OnGlobalPointerReleased), handledEventsToo: true);
+        AddHandler(PointerCanceledEvent, new PointerEventHandler(OnGlobalPointerReleased), handledEventsToo: true);
+        AddHandler(PointerCaptureLostEvent, new PointerEventHandler(OnGlobalPointerReleased), handledEventsToo: true);
     }
 
-    private void OnSplitterPointerPressed(object sender, PointerRoutedEventArgs e)
-    {
-        FreezeFileTablesForSplitterDrag();
-    }
+    private void OnSplitterPointerPressed(object sender, PointerRoutedEventArgs e) => FreezeFileTablesForSplitterDrag();
 
-    private void OnPanelSplitterPressed(object? sender, EventArgs e)
-    {
-        FreezeFileTablesForSplitterDrag();
-    }
+    private void OnPanelSplitterPressed(object? sender, EventArgs e) => FreezeFileTablesForSplitterDrag();
 
     private void OnGlobalPointerReleased(object sender, PointerRoutedEventArgs e)
     {

@@ -53,7 +53,7 @@ public sealed class ViewModelTestBuilder
                 schedulers,
                 messenger),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(new FakeActivePanelsService(), messenger),
+            new PanelsViewModel(new FakeActivePanelsService(), messenger, fsService),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }

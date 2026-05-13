@@ -37,6 +37,7 @@ public sealed class ViewModelTestBuilder
 
 #pragma warning disable IDISP004
         var messenger = new StrongReferenceMessenger();
+        var activePanels = new FakeActivePanelsService();
         return new MainShellViewModel(
             SettingsRepository,
             removeFavourite,
@@ -50,10 +51,11 @@ public sealed class ViewModelTestBuilder
                 fileIdentityService,
                 ClipboardService,
                 ShellService,
+                activePanels,
                 schedulers,
                 messenger),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(new FakeActivePanelsService(), messenger, fsService),
+            new PanelsViewModel(activePanels, messenger, fsService),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }
@@ -62,6 +64,7 @@ public sealed class ViewModelTestBuilder
         IFileIdentityService fileIdentityService,
         IClipboardService clipboardService,
         IShellService shellService,
+        IActivePanelsService activePanelsService,
         ISchedulerProvider schedulers,
         IMessenger messenger)
     {
@@ -69,6 +72,7 @@ public sealed class ViewModelTestBuilder
             fileIdentityService,
             clipboardService,
             shellService,
+            activePanelsService,
             schedulers,
             NullLogger<FileInspectorViewModel>.Instance,
             messenger);

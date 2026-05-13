@@ -8,7 +8,7 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 public sealed class FileInspectorViewModelTests
 {
     [Test]
-    public async Task Test_ApplySelection_ShowsBasicFieldsImmediately()
+    public async Task Test_ShowSelection_ShowsBasicFieldsImmediately()
     {
         using var sut = CreateSubject(new RecordingFileIdentityService());
         var entry = CreateSpecEntry(
@@ -17,7 +17,7 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 4096);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
+        sut.ShowSelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         await Assert.That(sut.IsLoadingDetails).IsTrue();
         await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("notes.txt");
@@ -41,7 +41,7 @@ public sealed class FileInspectorViewModelTests
             size: 2048);
 
         var selection = FileInspectorSelection.FromSelection([entry], refreshVersion: 0);
-        sut.ApplySelection(selection);
+        sut.ShowSelection(selection);
 
         var batches = new List<FileInspectorDeferredBatchResult>();
         await foreach (var batch in sut.LoadDeferredBatchesAsync(selection, CancellationToken.None))
@@ -80,7 +80,7 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 128);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
+        sut.ShowSelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         var readOnlyField = sut.Fields.Single(static field => field.Key == "Read Only");
         await readOnlyField.ToggleCommand!.ExecuteAsync(null);
@@ -98,6 +98,7 @@ public sealed class FileInspectorViewModelTests
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             new FakeShellService(),
+            new FakeActivePanelsService(),
             new TestSchedulerProvider(scheduler),
             NullLogger<FileInspectorViewModel>.Instance,
             messenger);
@@ -107,7 +108,6 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 512);
 
-        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
         messenger.Send(
             new FileTableSelectionChangedMessage(
                 "Left",
@@ -145,6 +145,7 @@ public sealed class FileInspectorViewModelTests
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
+            new FakeActivePanelsService(),
             new TestSchedulerProvider(scheduler),
             NullLogger<FileInspectorViewModel>.Instance,
             messenger);
@@ -159,7 +160,6 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 256);
 
-        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
         messenger.Send(
             new FileTableSelectionChangedMessage(
                 "Left",
@@ -186,6 +186,41 @@ public sealed class FileInspectorViewModelTests
     }
 
     [Test]
+    public async Task Test_FocusedMessage_ShowsCurrentSelectionFromFocusedTable()
+    {
+        var scheduler = new TestScheduler();
+        var messenger = new StrongReferenceMessenger();
+        using var sut = new FileInspectorViewModel(
+            new RecordingFileIdentityService(),
+            new FakeClipboardService(),
+            new FakeShellService(),
+            new FakeActivePanelsService(),
+            new TestSchedulerProvider(scheduler),
+            NullLogger<FileInspectorViewModel>.Instance,
+            messenger);
+        var entry = CreateSpecEntry(
+            name: "right.txt",
+            fullPath: @"C:\temp\right.txt",
+            kind: ItemKind.File,
+            size: 128);
+        var selectedItemsRecipient = new object();
+        messenger.Register<FileTableSelectedItemsRequestMessage>(
+            selectedItemsRecipient,
+            (_, message) =>
+            {
+                if (message.Identity == "Right")
+                {
+                    message.Reply(new[] { entry });
+                }
+            });
+
+        messenger.Send(new FileTableFocusedMessage("Right", IsFocused: true));
+        scheduler.AdvanceBy(10);
+
+        await Assert.That(GetFieldValue(sut, "Basic", "Name")).IsEqualTo("right.txt");
+    }
+
+    [Test]
     public async Task Test_ToggleInspectorVisible_RefreshesFromCurrentSelection()
     {
         var scheduler = new TestScheduler();
@@ -195,6 +230,7 @@ public sealed class FileInspectorViewModelTests
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
+            new FakeActivePanelsService(),
             new TestSchedulerProvider(scheduler),
             NullLogger<FileInspectorViewModel>.Instance,
             messenger);
@@ -220,7 +256,6 @@ public sealed class FileInspectorViewModelTests
                 }
             });
 
-        messenger.Send(new FileTableFocusedMessage("Left", IsFocused: true));
         messenger.Send(
             new FileTableSelectionChangedMessage(
                 "Left",
@@ -258,7 +293,7 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.Directory,
             size: -1);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
+        sut.ShowSelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         sut.SearchText = "folder";
 
@@ -288,7 +323,7 @@ public sealed class FileInspectorViewModelTests
             size: 1024);
 
         var selection = FileInspectorSelection.FromSelection([entry], refreshVersion: 0);
-        sut.ApplySelection(selection);
+        sut.ShowSelection(selection);
 
         await foreach (var batch in sut.LoadDeferredBatchesAsync(selection, CancellationToken.None))
         {
@@ -362,6 +397,7 @@ public sealed class FileInspectorViewModelTests
             new RecordingFileIdentityService(),
             new FakeClipboardService(),
             shellService,
+            new FakeActivePanelsService(),
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false,
@@ -372,7 +408,7 @@ public sealed class FileInspectorViewModelTests
             kind: ItemKind.File,
             size: 128);
 
-        sut.ApplySelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
+        sut.ShowSelection(FileInspectorSelection.FromSelection([entry], refreshVersion: 0));
 
         await sut.Commands.ShowPropertiesCommand.ExecuteAsync(null);
 
@@ -385,6 +421,7 @@ public sealed class FileInspectorViewModelTests
             identityService,
             new FakeClipboardService(),
             new FakeShellService(),
+            new FakeActivePanelsService(),
             new TestSchedulerProvider(new TestScheduler()),
             NullLogger<FileInspectorViewModel>.Instance,
             subscribeToMessages: false,

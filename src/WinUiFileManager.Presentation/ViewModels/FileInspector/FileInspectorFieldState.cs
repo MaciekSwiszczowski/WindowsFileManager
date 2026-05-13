@@ -43,7 +43,7 @@ internal sealed class FileInspectorFieldState
         }
     }
 
-    public void ClearValues()
+    public void HideAllFields()
     {
         foreach (var field in Fields)
         {
@@ -54,20 +54,7 @@ internal sealed class FileInspectorFieldState
         }
     }
 
-    public void ClearDeferredFields()
-    {
-        foreach (var key in _deferredFieldKeys)
-        {
-            SetValue(key, string.Empty);
-            SetLoading(key, false);
-            if (string.Equals(key, "Thumbnail", StringComparison.OrdinalIgnoreCase))
-            {
-                SetThumbnailSource(key, null);
-            }
-        }
-    }
-
-    public void BeginDeferredRefresh()
+    public void ShowDeferredFieldsAsLoading()
     {
         foreach (var key in _deferredFieldKeys)
         {

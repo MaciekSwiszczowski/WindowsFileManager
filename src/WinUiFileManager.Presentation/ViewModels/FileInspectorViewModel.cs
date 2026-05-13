@@ -1,5 +1,3 @@
-using DynamicData;
-using DynamicData.Binding;
 using System.Reactive.Linq;
 using System.Reactive.Disposables;
 using WinUiFileManager.Presentation.FileEntryTable;
@@ -22,13 +20,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private readonly FileInspectorThumbnailMaterializer _thumbnailMaterializer;
     private readonly IMessenger _messenger;
     private readonly CompositeDisposable _subscriptions = new();
-    private readonly SourceList<SpecFileEntryViewModel> _selectedItemsSource = new();
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
     private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
     private FileInspectorSelection? _currentTableSelection;
-    private FileInspectorSelectionMode _selectionMode;
+    private int _selectedItemCount;
     private bool _inspectorPanelVisible = true;
     private bool _disposed;
 
@@ -80,6 +77,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             () => _disposed);
 
         _thumbnailMaterializer = new FileInspectorThumbnailMaterializer(
+            schedulers,
             _fieldState,
             logger,
             () => _disposed,
@@ -100,11 +98,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        _subscriptions.Add(_selectedItemsSource
-            .Connect()
-            .Bind(SelectedItems)
-            .Subscribe(_ => OnPropertyChanged(nameof(SelectedItems))));
-
         var tableSelectionObservable = _messenger
             .CreateObservable<FileTableSelectionChangedMessage>()
             .Where(message => IsSelectionFromActivePanel(message.Identity));
@@ -112,6 +105,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         var focusSelectionObservable = _messenger
             .CreateObservable<FileTableFocusedMessage>()
             .Where(static message => message.IsFocused)
+            .ObserveOn(schedulers.MainThread)
             .Select(message => CreateSelectionChangedMessage(message.Identity));
 
         var observable = tableSelectionObservable
@@ -125,7 +119,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(_ =>
                 {
-                    UpdateSelectedItems([]);
                     ShowNoSelection();
                 }));
 
@@ -136,7 +129,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message =>
                 {
-                    UpdateSelectedItems(message.SelectedItems);
                     ShowMultiSelection(message.SelectedItems);
                 }));
 
@@ -148,7 +140,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
                 .ObserveOn(schedulers.MainThread)
                 .Subscribe(message =>
                 {
-                    UpdateSelectedItems(message.SelectedItems);
                     ShowImmediateTableSelection(message.SelectedItems);
                 }));
 
@@ -173,7 +164,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         _subscriptions.Dispose();
-        _selectedItemsSource.Dispose();
         _messenger.UnregisterAll(this);
         _deferredLoader.Dispose();
     }
@@ -198,14 +188,12 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public FileInspectorCommandsViewModel Commands { get; }
 
-    public ObservableCollectionExtended<SpecFileEntryViewModel> SelectedItems { get; } = [];
-
     private FileInspectorSelectionMode SelectionMode
     {
-        get => _selectionMode;
+        get;
         set
         {
-            if (SetProperty(ref _selectionMode, value))
+            if (SetProperty(ref field, value))
             {
                 OnPropertyChanged(nameof(SelectionStatusText));
                 OnPropertyChanged(nameof(IsNoSelectionMode));
@@ -223,7 +211,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public string SelectionStatusText => SelectionMode switch
     {
-        FileInspectorSelectionMode.MultiSelection => $"{SelectedItems.Count} items selected",
+        FileInspectorSelectionMode.MultiSelection => $"{_selectedItemCount} items selected",
         FileInspectorSelectionMode.NoSelection => "No files selected",
         _ => string.Empty,
     };
@@ -317,6 +305,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private void ShowImmediateTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
         _lastTableSelection = selectedEntries;
+        SetSelectedItemCount(selectedEntries.Count);
         _ = Interlocked.Increment(ref _tableSelectionRefreshVersion);
 
         var selection = FileInspectorSelection.FromSelection(
@@ -350,6 +339,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _lastTableSelection = [];
         _currentTableSelection = null;
         _deferredLoader.Cancel();
+        SetSelectedItemCount(0);
         var refreshVersion = Interlocked.Increment(ref _tableSelectionRefreshVersion);
         ShowSelection(FileInspectorSelection.NoSelection(refreshVersion));
     }
@@ -359,6 +349,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _lastTableSelection = selectedEntries;
         _currentTableSelection = null;
         _deferredLoader.Cancel();
+        SetSelectedItemCount(selectedEntries.Count);
         IsLoadingDetails = false;
         _currentFullPath = string.Empty;
         SelectionMode = FileInspectorSelectionMode.MultiSelection;
@@ -393,15 +384,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             ActiveItem: selectedItems.Count == 1 ? selectedItems[0] : null);
     }
 
-    private void UpdateSelectedItems(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
-    {
-        _selectedItemsSource.Edit(items =>
-        {
-            items.Clear();
-            items.AddRange(selectedEntries);
-        });
-    }
-
     private void ShowAndLoadTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
         ShowImmediateTableSelection(selectedEntries);
@@ -417,7 +399,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         }
 
         var selectedItems = RequestSelectedItems(activePanelIdentity);
-        UpdateSelectedItems(selectedItems);
 
         if (selectedItems.Count == 0)
         {
@@ -457,6 +438,17 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         IsLoadingDetails = selection.CanLoadDeferred;
 
         RefreshVisibleCategories();
+    }
+
+    private void SetSelectedItemCount(int value)
+    {
+        if (_selectedItemCount == value)
+        {
+            return;
+        }
+
+        _selectedItemCount = value;
+        OnPropertyChanged(nameof(SelectionStatusText));
     }
 
     private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)

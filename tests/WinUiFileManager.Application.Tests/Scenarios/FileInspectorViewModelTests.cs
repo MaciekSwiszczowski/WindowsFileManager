@@ -132,7 +132,7 @@ public sealed class FileInspectorViewModelTests
 
         scheduler.AdvanceBy(10);
 
-        await Assert.That(sut.SelectedItems).IsEmpty();
+        await Assert.That(sut.IsNoSelectionMode).IsTrue();
     }
 
     [Test]

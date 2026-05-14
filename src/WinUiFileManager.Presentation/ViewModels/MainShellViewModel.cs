@@ -1,5 +1,6 @@
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Presentation.ViewModels.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -21,7 +22,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private AppSettings _currentSettings = new();
 
     [ObservableProperty]
-    public partial FileInspectorViewModel Inspector { get; set; }
+    public partial InspectorViewModel Inspector { get; set; }
 
     public AppInitializationViewModel Initialization { get; }
 
@@ -74,7 +75,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
         IMessenger messenger,
-        FileInspectorViewModel inspector,
+        InspectorViewModel inspector,
         AppInitializationViewModel initialization,
         PanelsViewModel panels,
         CommandButtonsViewModel commands)

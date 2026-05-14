@@ -10,6 +10,7 @@ using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
+using WinUiFileManager.Presentation.ViewModels.Inspector;
 
 namespace WinUiFileManager.App.Composition;
 
@@ -43,7 +44,7 @@ public static class ServiceConfiguration
         services.AddTransient<AppInitializationViewModel>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
-        services.AddTransient<FileInspectorViewModel>();
+        services.AddTransient<InspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
 

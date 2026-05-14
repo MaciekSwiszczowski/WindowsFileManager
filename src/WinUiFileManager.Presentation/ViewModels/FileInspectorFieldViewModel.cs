@@ -2,7 +2,6 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileInspectorFieldViewModel : ObservableObject
 {
-    private readonly string _searchPrefix;
 
     public FileInspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "", int sortOrder = 0)
     {
@@ -11,7 +10,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
         Tooltip = tooltip;
         Value = value;
         SortOrder = sortOrder;
-        _searchPrefix = string.Concat(Category.GetDisplayName(), " ", Key, " ");
+        SearchText = string.Concat(Category.GetDisplayName(), " ", Key, " ");
     }
 
     public FileInspectorCategory Category { get; }
@@ -56,7 +55,7 @@ public sealed partial class FileInspectorFieldViewModel : ObservableObject
 
     public bool IsFieldEnabled => !IsUnavailable;
 
-    public string SearchText => string.Concat(_searchPrefix, Value);
+    public string SearchText => string.Concat(field, Value);
 
     public void ConfigureToggle(Func<bool, Task<bool>> toggleAsync)
     {

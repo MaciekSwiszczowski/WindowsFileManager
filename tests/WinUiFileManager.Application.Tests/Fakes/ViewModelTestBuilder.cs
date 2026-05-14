@@ -1,7 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Infrastructure.Scheduling;
+using WinUiFileManager.Presentation.ViewModels.Inspector;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
@@ -11,17 +11,9 @@ public sealed class ViewModelTestBuilder
     public FakeSettingsRepository SettingsRepository { get; } = new();
     public FakeFavouritesRepository FavouritesRepository { get; } = new();
     public FakeShellService ShellService { get; } = new();
-    public IFileIdentityService? FileIdentityServiceOverride { get; set; }
-    public ISchedulerProvider? SchedulerProviderOverride { get; set; }
 
     public MainShellViewModel Build()
     {
-        var fileIdentityService = FileIdentityServiceOverride
-            ?? new NtfsFileIdentityService(
-                new RestartManagerInterop(),
-                new CloudFilesInterop(),
-                new FileSystemMetadataInterop());
-        var schedulers = SchedulerProviderOverride ?? new RxSchedulerProvider();
         var pathService = new WindowsPathNormalizationService();
         var fsService = new WindowsFileSystemService(
             pathService, NullLogger<WindowsFileSystemService>.Instance);
@@ -47,34 +39,10 @@ public sealed class ViewModelTestBuilder
             FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,
             messenger,
-            CreateInspectorViewModel(
-                fileIdentityService,
-                ClipboardService,
-                ShellService,
-                activePanels,
-                schedulers,
-                messenger),
+            new InspectorViewModel(),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
             new PanelsViewModel(activePanels, messenger, fsService),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
-    }
-
-    private static FileInspectorViewModel CreateInspectorViewModel(
-        IFileIdentityService fileIdentityService,
-        IClipboardService clipboardService,
-        IShellService shellService,
-        IActivePanelsService activePanelsService,
-        ISchedulerProvider schedulers,
-        IMessenger messenger)
-    {
-        return new FileInspectorViewModel(
-            fileIdentityService,
-            clipboardService,
-            shellService,
-            activePanelsService,
-            schedulers,
-            NullLogger<FileInspectorViewModel>.Instance,
-            messenger);
     }
 }

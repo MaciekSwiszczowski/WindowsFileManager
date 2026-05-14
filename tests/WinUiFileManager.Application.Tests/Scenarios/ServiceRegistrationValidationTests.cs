@@ -6,6 +6,7 @@ using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
+using WinUiFileManager.Presentation.ViewModels.Inspector;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
@@ -38,7 +39,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddTransient<AppInitializationViewModel>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
-        services.AddTransient<FileInspectorViewModel>();
+        services.AddTransient<InspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();
 

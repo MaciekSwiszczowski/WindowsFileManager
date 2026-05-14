@@ -1,3 +1,5 @@
+using WinUiFileManager.Presentation.ViewModels.Inspector;
+
 namespace WinUiFileManager.Presentation.Controls;
 
 public sealed partial class FileInspectorView
@@ -10,15 +12,16 @@ public sealed partial class FileInspectorView
         InitializeComponent();
     }
 
-    public FileInspectorViewModel? ViewModel
+    public InspectorViewModel ViewModel
     {
-        get;
+        get => field;
         set
         {
             field = value;
             DataContext = value;
+            Bindings.Update();
         }
-    }
+    } = new();
 
     private void OnInspectorRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

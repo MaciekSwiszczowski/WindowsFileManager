@@ -18,5 +18,5 @@ public sealed partial class InspectorViewModel : ObservableObject
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; } = [];
+    public ObservableCollection<InspectorCategoryViewModel> Categories { get; } = [];
 }

@@ -212,6 +212,9 @@ public sealed class InspectorInitializationViewModel
     private FileTableSelectionChangedMessage CreateSelectionChangedMessage(string identity)
     {
         var selectedItems = RequestSelectedItems(identity);
+
+        // The inspector only consumes SelectedItems from this focus-refresh adapter.
+        // Parent-row visual state and active-row state remain owned by the table behaviors, we can safely do any defaults here.
         return new FileTableSelectionChangedMessage(
             identity,
             selectedItems,

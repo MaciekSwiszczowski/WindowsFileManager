@@ -1,0 +1,11 @@
+<UserControl
+    x:Class="WinUiFileManager.Presentation.Controls.FileInspector.InspectorNoSelectionView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <TextBlock HorizontalAlignment="Center"
+               VerticalAlignment="Center"
+               Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
+               Text="No files selected"
+               TextAlignment="Center" />
+</UserControl>

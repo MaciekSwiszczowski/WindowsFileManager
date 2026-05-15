@@ -1,0 +1,29 @@
+<UserControl
+    x:Class="WinUiFileManager.Presentation.Controls.FileInspector.InspectorCategoryView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+    xmlns:fields="using:WinUiFileManager.Presentation.ViewModels.Inspector.Fields"
+    xmlns:fileInspector="using:WinUiFileManager.Presentation.Controls.FileInspector">
+
+    <UserControl.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </UserControl.Resources>
+
+    <Expander Header="{x:Bind Category.Name, Mode=OneWay}"
+              Visibility="{x:Bind Category.HasVisibleFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+              IsExpanded="{x:Bind Category.IsExpanded, Mode=TwoWay}"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch">
+        <ItemsRepeater ItemsSource="{x:Bind Category.Fields, Mode=OneWay}">
+            <ItemsRepeater.Layout>
+                <StackLayout />
+            </ItemsRepeater.Layout>
+            <ItemsRepeater.ItemTemplate>
+                <DataTemplate x:DataType="fields:InspectorFieldViewModel">
+                    <fileInspector:InspectorFieldPresenterView Field="{x:Bind}" />
+                </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+    </Expander>
+</UserControl>

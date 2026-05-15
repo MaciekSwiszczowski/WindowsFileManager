@@ -1,21 +1,20 @@
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 
-namespace WinUiFileManager.Presentation.Controls;
+namespace WinUiFileManager.Presentation.Controls.FileInspector;
 
-public sealed partial class FileInspectorView
+public sealed partial class InspectorSingleSelectionView
 {
-    public FileInspectorView()
+    public InspectorSingleSelectionView()
     {
         InitializeComponent();
     }
 
     public InspectorViewModel ViewModel
     {
-        get;
+        get => field;
         set
         {
             field = value;
-            DataContext = value;
             Bindings.Update();
         }
     } = new();

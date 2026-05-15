@@ -44,6 +44,7 @@ public static class ServiceConfiguration
         services.AddTransient<AppInitializationViewModel>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
+        services.AddTransient<InspectorInitializationViewModel>();
         services.AddTransient<InspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();

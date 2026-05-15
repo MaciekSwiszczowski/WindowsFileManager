@@ -14,12 +14,11 @@ public sealed partial class FileInspectorView
 
     public InspectorViewModel ViewModel
     {
-        get => field;
+        get;
         set
         {
             field = value;
             DataContext = value;
-            Bindings.Update();
         }
     } = new();
 

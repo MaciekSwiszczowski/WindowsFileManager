@@ -4,8 +4,9 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:converters="using:CommunityToolkit.WinUI.Converters"
     xmlns:fields="using:WinUiFileManager.Presentation.ViewModels.Inspector.Fields"
-    xmlns:i="using:Microsoft.Xaml.Interactivity"
-    xmlns:inspector="using:WinUiFileManager.Presentation.ViewModels.Inspector">
+    xmlns:inspector="using:WinUiFileManager.Presentation.ViewModels.Inspector"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+    xmlns:viewModels="using:WinUiFileManager.Presentation.ViewModels">
 
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
@@ -177,27 +178,28 @@
                                             </ItemsRepeater.Layout>
                                             <ItemsRepeater.ItemTemplate>
                                                 <DataTemplate x:DataType="fields:InspectorFieldViewModel">
-                                                    <ContentControl x:Name="FieldContent"
-                                                                    Content="{x:Bind}"
-                                                                    ContentTemplate="{StaticResource TextFieldTemplate}">
-                                                        <i:Interaction.Behaviors>
-                                                            <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Text">
-                                                                <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                                                                        TargetObject="{Binding ElementName=FieldContent}"
-                                                                                        Value="{StaticResource TextFieldTemplate}" />
-                                                            </i:DataTriggerBehavior>
-                                                            <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Thumbnail">
-                                                                <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                                                                        TargetObject="{Binding ElementName=FieldContent}"
-                                                                                        Value="{StaticResource ThumbnailFieldTemplate}" />
-                                                            </i:DataTriggerBehavior>
-                                                            <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Toggle">
-                                                                <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                                                                        TargetObject="{Binding ElementName=FieldContent}"
-                                                                                        Value="{StaticResource ToggleFieldTemplate}" />
-                                                            </i:DataTriggerBehavior>
-                                                        </i:Interaction.Behaviors>
-                                                    </ContentControl>
+                                                    <TextBlock Text="{x:Bind Category}" />
+                                                    <!-- <ContentControl x:Name="FieldContent" -->
+                                                    <!--                 Content="{x:Bind}" -->
+                                                    <!--                 ContentTemplate="{StaticResource TextFieldTemplate}"> -->
+                                                    <!--     <i:Interaction.Behaviors> -->
+                                                    <!--         <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Text"> -->
+                                                    <!--             <i:ChangePropertyAction PropertyName="ContentTemplate" -->
+                                                    <!--                                     TargetObject="{Binding ElementName=FieldContent}" -->
+                                                    <!--                                     Value="{StaticResource TextFieldTemplate}" /> -->
+                                                    <!--         </i:DataTriggerBehavior> -->
+                                                    <!--         <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Thumbnail"> -->
+                                                    <!--             <i:ChangePropertyAction PropertyName="ContentTemplate" -->
+                                                    <!--                                     TargetObject="{Binding ElementName=FieldContent}" -->
+                                                    <!--                                     Value="{StaticResource ThumbnailFieldTemplate}" /> -->
+                                                    <!--         </i:DataTriggerBehavior> -->
+                                                    <!--         <i:DataTriggerBehavior Binding="{x:Bind FieldTemplate, Mode=OneWay}" Value="Toggle"> -->
+                                                    <!--             <i:ChangePropertyAction PropertyName="ContentTemplate" -->
+                                                    <!--                                     TargetObject="{Binding ElementName=FieldContent}" -->
+                                                    <!--                                     Value="{StaticResource ToggleFieldTemplate}" /> -->
+                                                    <!--         </i:DataTriggerBehavior> -->
+                                                    <!--     </i:Interaction.Behaviors> -->
+                                                    <!-- </ContentControl> -->
                                                 </DataTemplate>
                                             </ItemsRepeater.ItemTemplate>
                                         </ItemsRepeater>
@@ -215,26 +217,23 @@
             BorderBrush="{ThemeResource SystemControlBackgroundBaseLowBrush}"
             BorderThickness="1"
             Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
-        <ContentControl x:Name="SelectionContent"
-                        Content="{x:Bind ViewModel, Mode=OneWay}"
-                        ContentTemplate="{StaticResource NoSelectionTemplate}">
-            <i:Interaction.Behaviors>
-                <i:DataTriggerBehavior Binding="{x:Bind ViewModel.SelectionMode, Mode=OneWay}" Value="NoSelection">
-                    <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                            TargetObject="{x:Bind SelectionContent}"
-                                            Value="{StaticResource NoSelectionTemplate}" />
-                </i:DataTriggerBehavior>
-                <i:DataTriggerBehavior Binding="{x:Bind ViewModel.SelectionMode, Mode=OneWay}" Value="SingleSelection">
-                    <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                            TargetObject="{x:Bind SelectionContent}"
-                                            Value="{StaticResource SingleSelectionTemplate}" />
-                </i:DataTriggerBehavior>
-                <i:DataTriggerBehavior Binding="{x:Bind ViewModel.SelectionMode, Mode=OneWay}" Value="MultiSelection">
-                    <i:ChangePropertyAction PropertyName="ContentTemplate"
-                                            TargetObject="{x:Bind SelectionContent}"
-                                            Value="{StaticResource MultiSelectionTemplate}" />
-                </i:DataTriggerBehavior>
-            </i:Interaction.Behaviors>
-        </ContentControl>
+        <controls:SwitchPresenter TargetType="viewModels:FileInspectorSelectionMode"
+                                  Value="{x:Bind ViewModel.SelectionMode, Mode=OneWay}">
+            <controls:Case Value="NoSelection">
+                <!-- <ContentControl Content="{x:Bind ViewModel, Mode=OneWay}" -->
+                <!--                 ContentTemplate="{StaticResource NoSelectionTemplate}" /> -->
+                <TextBlock Text="No selection" />
+            </controls:Case>
+            <controls:Case Value="SingleSelection">
+                <!-- <ContentControl Content="{x:Bind ViewModel, Mode=OneWay}" -->
+                <!--                 ContentTemplate="{StaticResource SingleSelectionTemplate}" /> -->
+                <TextBlock Text="Single selection" />
+            </controls:Case>
+            <controls:Case Value="MultiSelection">
+                <!-- <ContentControl Content="{x:Bind ViewModel, Mode=OneWay}" -->
+                <!--                 ContentTemplate="{StaticResource MultiSelectionTemplate}" /> -->
+                <TextBlock Text="Multi selection" />
+            </controls:Case>
+        </controls:SwitchPresenter>    
     </Border>
 </UserControl>

@@ -21,9 +21,9 @@ public sealed partial class InspectorFieldPresenterView
 
     public InspectorThumbnailFieldViewModel ThumbnailField =>
         Field as InspectorThumbnailFieldViewModel
-        ?? new InspectorThumbnailFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value, Field.SortOrder);
+        ?? new InspectorThumbnailFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value);
 
     public InspectorToggleFieldViewModel ToggleField =>
         Field as InspectorToggleFieldViewModel
-        ?? new InspectorToggleFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value, Field.SortOrder);
+        ?? new InspectorToggleFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value);
 }

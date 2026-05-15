@@ -2,15 +2,12 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 public partial class InspectorFieldViewModel : ObservableObject
 {
-
-    public InspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "", int sortOrder = 0)
+    public InspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "")
     {
         Category = category;
         Key = key;
         Tooltip = tooltip;
         Value = value;
-        SortOrder = sortOrder;
-        SearchText = $"{Category.GetDisplayName()} {Key}";
     }
 
     public virtual InspectorFieldTemplate FieldTemplate => InspectorFieldTemplate.Text;
@@ -20,8 +17,6 @@ public partial class InspectorFieldViewModel : ObservableObject
     public string Key { get; }
 
     public string Tooltip { get; }
-
-    public int SortOrder { get; }
 
     [ObservableProperty]
     public partial string Value { get; set; }
@@ -36,7 +31,7 @@ public partial class InspectorFieldViewModel : ObservableObject
 
     public virtual bool IsUnavailable => !IsLoading && string.IsNullOrWhiteSpace(Value);
 
-    public string SearchText => string.Concat(field, Value);
+    public string SearchText => $"{Category.GetDisplayName()} {Key} {Value}";
 
     partial void OnIsLoadingChanged(bool value)
     {

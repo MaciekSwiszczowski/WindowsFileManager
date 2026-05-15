@@ -12,7 +12,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     public InspectorCommandsViewModel Commands { get; } = new();
 
     [ObservableProperty]
-    public partial FileInspectorSelectionMode SelectionMode { get; set; }
+    public partial FileInspectorSelectionMode SelectionMode { get; private set; }
 
     public string MultiSelectionStatusText => _selectedItemCount == 1
         ? "1 item selected"
@@ -21,19 +21,28 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    public ObservableCollection<InspectorCategoryViewModel> Categories { get; } = [];
+    public ObservableCollection<InspectorCategoryViewModel> Categories { get; }
 
     public InspectorViewModel()
     {
+        Categories = [];
     }
 
     public InspectorViewModel(InspectorInitializationViewModel initialization)
     {
         ArgumentNullException.ThrowIfNull(initialization);
 
-        _subscriptions.Add(initialization.NonSingleSelectionObservable.Subscribe(ShowNonSingleSelection));
-        _subscriptions.Add(initialization.ImmediateSelectionObservable.Subscribe(ShowImmediateSelection));
-        _subscriptions.Add(initialization.DeferredSelectionObservable.Subscribe(LoadDeferredSelection));
+        Categories = initialization.Categories;
+
+        _subscriptions.Add(initialization
+            .NonSingleSelectionObservable
+            .Subscribe(ShowNonSingleSelection));
+        _subscriptions.Add(initialization
+            .ImmediateSelectionObservable
+            .Subscribe(ShowImmediateSelection));
+        _subscriptions.Add(initialization
+            .DeferredSelectionObservable
+            .Subscribe(LoadDeferredSelection));
     }
 
     public void Dispose()

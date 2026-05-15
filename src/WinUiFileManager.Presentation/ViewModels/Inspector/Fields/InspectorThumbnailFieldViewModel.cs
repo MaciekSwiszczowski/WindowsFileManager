@@ -6,9 +6,8 @@ public sealed partial class InspectorThumbnailFieldViewModel : InspectorFieldVie
         FileInspectorCategory category,
         string key,
         string tooltip,
-        string value = "",
-        int sortOrder = 0)
-        : base(category, key, tooltip, value, sortOrder)
+        string value = "")
+        : base(category, key, tooltip, value)
     {
     }
 

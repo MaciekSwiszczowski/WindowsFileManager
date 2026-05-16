@@ -24,9 +24,6 @@ public sealed partial class PanelsView
     {
         ViewModel = viewModel;
 
-        // var messenger = MessengerProperties.GetMessenger(this)
-        //     ?? throw new InvalidOperationException("Messenger must be available.");
-
         LeftPanel.Initialize(
             ViewModel.LeftPanel.Identity,
             ViewModel.LeftPanel,

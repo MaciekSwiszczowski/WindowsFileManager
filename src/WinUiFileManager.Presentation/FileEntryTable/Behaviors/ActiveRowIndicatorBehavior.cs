@@ -1,5 +1,4 @@
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
-using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
@@ -20,8 +19,10 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         AssociatedObject.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
         AssociatedObject.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
-        ObserveMessenger(m => m.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged));
     }
+
+    protected override void OnMessengerAvailable(IMessenger messenger) =>
+        messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
 
     protected override void OnDetaching()
     {
@@ -107,10 +108,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
             return false;
         }
 
-        if (MessengerProperties.GetMessenger(AssociatedObject) is not { } messenger)
-        {
-            return false;
-        }
+        var messenger = GetRequiredMessenger();
 
         if (SpecFileEntryViewModel.IsParentEntry(item))
         {

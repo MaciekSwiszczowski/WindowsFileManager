@@ -7,7 +7,6 @@
     xmlns:controls="using:WinUiFileManager.Presentation.Controls"
     xmlns:keyboard="using:WinUiFileManager.Presentation.Keyboard"
     xmlns:toolkit="using:CommunityToolkit.WinUI.Controls"
-    xmlns:messaging="using:WinUiFileManager.Presentation.Messaging"
     xmlns:views="using:WinUiFileManager.Presentation.Views">
 
     <UserControl.Resources>
@@ -15,16 +14,14 @@
     </UserControl.Resources>
 
     <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}"
-          keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardManager.KeyPressedCommand}">
+          keyboard:KeyboardInputBehavior.Command="{x:Bind KeyboardCommand, Mode=OneWay}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <views:CommandButtonsView x:Name="CommandButtons"
-                                  Grid.Row="0"
-                                  messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=ShellRoot, Mode=OneWay}" />
+        <views:CommandButtonsView x:Name="CommandButtons" Grid.Row="0" />
 
         <Grid Grid.Row="1" ColumnSpacing="2">
             <Grid.ColumnDefinitions>
@@ -35,9 +32,7 @@
                                   MinWidth="{x:Bind ViewModel.InspectorMinWidth, Mode=OneWay}" />
             </Grid.ColumnDefinitions>
 
-            <views:PanelsView x:Name="Panels"
-                              Grid.Column="0"
-                              messaging:MessengerProperties.Messenger="{Binding Path=(messaging:MessengerProperties.Messenger), ElementName=ShellRoot, Mode=OneWay}" />
+            <views:PanelsView x:Name="Panels" Grid.Column="0" />
             <toolkit:GridSplitter x:Name="InspectorGridSplitter"
                                   Grid.Column="1"
                                   Background="{ThemeResource SystemControlBackgroundBaseLowBrush}"

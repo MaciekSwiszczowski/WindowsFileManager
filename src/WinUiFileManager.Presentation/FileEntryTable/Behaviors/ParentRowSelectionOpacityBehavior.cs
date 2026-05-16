@@ -8,11 +8,8 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private SpecFileEntryViewModel? _dimmedParentItem;
     private bool _isParentRowSelected;
 
-    protected override void OnAttached()
-    {
-        base.OnAttached();
-        ObserveMessenger(m => m.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged));
-    }
+    protected override void OnMessengerAvailable(IMessenger messenger) =>
+        messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
 
     protected override void OnDetaching()
     {

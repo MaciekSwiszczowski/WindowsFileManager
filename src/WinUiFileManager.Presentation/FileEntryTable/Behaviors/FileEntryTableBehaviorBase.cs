@@ -1,12 +1,8 @@
-using WinUiFileManager.Presentation.Messaging;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableView>
 {
-    private Action<IMessenger>? _messengerSubscribe;
     private IMessenger? _boundMessenger;
-    private long _messengerPropertyToken;
 
     protected FileEntryTableNavigationState? NavigationState { get; private set; }
 
@@ -16,56 +12,43 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
     {
         base.OnAttached();
         NavigationState = AssociatedObject.NavigationState;
+        AssociatedObject.Loaded += OnLoaded;
+        EnsureTable();
     }
 
     protected override void OnDetaching()
     {
-        DetachMessengerObservation();
+        ClearMessengerRegistration();
         StopTrackingTable();
         NavigationState = null;
         base.OnDetaching();
     }
 
-    protected void ObserveMessenger(Action<IMessenger> subscribe)
+    protected virtual void OnMessengerAvailable(IMessenger messenger)
     {
-        _messengerSubscribe = subscribe;
-        if (AssociatedObject is null)
+    }
+
+    protected IMessenger GetRequiredMessenger()
+    {
+        if (AssociatedObject?.Messenger is { } messenger)
+        {
+            return messenger;
+        }
+
+        throw new InvalidOperationException(
+            $"{nameof(SpecFileEntryTableView)}.{nameof(SpecFileEntryTableView.Messenger)} must be set.");
+    }
+
+    private void RegisterMessenger()
+    {
+        if (_boundMessenger is not null)
         {
             return;
         }
 
-        ApplyMessengerSubscription();
-        _messengerPropertyToken = AssociatedObject
-            .RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnMessengerPropertyChanged);
-    }
-
-    private void OnMessengerPropertyChanged(DependencyObject sender, DependencyProperty dp) => ApplyMessengerSubscription();
-
-    private void ApplyMessengerSubscription()
-    {
-        ClearMessengerRegistration();
-        if (AssociatedObject is null ||
-            MessengerProperties.GetMessenger(AssociatedObject) is not { } m ||
-            _messengerSubscribe is null)
-        {
-            return;
-        }
-
-        _messengerSubscribe(m);
-        _boundMessenger = m;
-    }
-
-    private void DetachMessengerObservation()
-    {
-        if (AssociatedObject is not null && _messengerPropertyToken != 0)
-        {
-            AssociatedObject.UnregisterPropertyChangedCallback(
-                MessengerProperties.MessengerProperty, _messengerPropertyToken);
-            _messengerPropertyToken = 0;
-        }
-
-        ClearMessengerRegistration();
-        _messengerSubscribe = null;
+        var messenger = GetRequiredMessenger();
+        OnMessengerAvailable(messenger);
+        _boundMessenger = messenger;
     }
 
     private void ClearMessengerRegistration()
@@ -75,12 +58,6 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
             _boundMessenger.UnregisterAll(this);
             _boundMessenger = null;
         }
-    }
-
-    protected void TrackTableOnLoaded()
-    {
-        AssociatedObject.Loaded += OnLoaded;
-        EnsureTable();
     }
 
     protected bool EnsureTable()
@@ -114,7 +91,11 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
     {
     }
 
-    private void OnLoaded(object sender, RoutedEventArgs e) => EnsureTable();
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        EnsureTable();
+        RegisterMessenger();
+    }
 
     private void StopTrackingTable()
     {

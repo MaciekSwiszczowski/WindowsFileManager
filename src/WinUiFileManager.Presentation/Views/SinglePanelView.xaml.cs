@@ -62,6 +62,7 @@ public sealed partial class SinglePanelView : IDisposable
         Initialization = initialization;
 
         EntryTable.Identity = Identity;
+        EntryTable.Messenger = messenger;
         ViewModel.PropertyChanged += OnPanelPropertyChanged;
 
         DrivePicker.ItemsSource = Initialization.AvailableVolumes;

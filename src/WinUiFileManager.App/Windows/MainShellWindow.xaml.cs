@@ -9,7 +9,6 @@ using Infrastructure.Services;
 using WinUiFileManager.Application.Navigation;
 using Presentation.MessageLogging;
 using Presentation.Services;
-using Presentation.Messaging;
 using Presentation.ViewModels;
 
 public sealed partial class MainShellWindow
@@ -30,7 +29,7 @@ public sealed partial class MainShellWindow
 
         ApplyTitleBarTheme(isDark: true);
 
-        MessengerProperties.SetMessenger(ShellView, App.Services.GetRequiredService<IMessenger>());
+        ShellView.Messenger = App.Services.GetRequiredService<IMessenger>();
         _ = App.Services.GetRequiredService<PanelNavigationService>();
         ShellView.GoToPathCommandHandler = App.Services.GetRequiredService<GoToPathCommandHandler>();
         ShellView.Loaded += OnShellViewLoaded;

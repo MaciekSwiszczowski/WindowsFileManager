@@ -1,5 +1,4 @@
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
-using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
@@ -10,6 +9,13 @@ public sealed partial class SpecFileEntryTableView
             nameof(ItemsSource),
             typeof(ObservableCollection<SpecFileEntryViewModel>),
             typeof(SpecFileEntryTableView), new PropertyMetadata(null));
+
+    public static readonly DependencyProperty MessengerProperty =
+        DependencyProperty.Register(
+            nameof(Messenger),
+            typeof(IMessenger),
+            typeof(SpecFileEntryTableView),
+            new PropertyMetadata(null));
 
     public SpecFileEntryTableView()
     {
@@ -24,6 +30,12 @@ public sealed partial class SpecFileEntryTableView
         set => SetValue(ItemsSourceProperty, value);
     }
 
+    public IMessenger? Messenger
+    {
+        get => (IMessenger?)GetValue(MessengerProperty);
+        set => SetValue(MessengerProperty, value);
+    }
+
     public TableView Table => EntryTable;
 
     public FileEntryTableNavigationState NavigationState { get; } = new();
@@ -36,6 +48,8 @@ public sealed partial class SpecFileEntryTableView
         {
             throw new InvalidOperationException($"{nameof(SpecFileEntryTableView)}.{nameof(Identity)} must be set.");
         }
+
+        _ = GetRequiredMessenger();
     }
 
     private void EntryTable_DoubleTapped(object sender, DoubleTappedRoutedEventArgs e)
@@ -45,11 +59,7 @@ public sealed partial class SpecFileEntryTableView
             return;
         }
 
-        var messenger = MessengerProperties.GetMessenger(this);
-        if (messenger is null)
-        {
-            return;
-        }
+        var messenger = GetRequiredMessenger();
 
         if (SpecFileEntryViewModel.IsParentEntry(item))
         {
@@ -64,5 +74,9 @@ public sealed partial class SpecFileEntryTableView
             e.Handled = true;
         }
     }
+
+    private IMessenger GetRequiredMessenger() =>
+        Messenger
+        ?? throw new InvalidOperationException($"{nameof(SpecFileEntryTableView)}.{nameof(Messenger)} must be set.");
 
 }

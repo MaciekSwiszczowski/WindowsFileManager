@@ -5,12 +5,6 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;
 
-    protected override void OnAttached()
-    {
-        base.OnAttached();
-        TrackTableOnLoaded();
-    }
-
     protected override void OnTableAttached(TableView table)
     {
         table.Sorting += OnSorting;

@@ -1,11 +1,12 @@
+using System.Windows.Input;
 using WinUiFileManager.Presentation.Keyboard;
-using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class MainShellView
 {
     private KeyboardManager? _keyboardManager;
+    private IMessenger? _messenger;
 
     private bool _fileTablesFrozenForSplitterDrag;
 
@@ -13,34 +14,27 @@ public sealed partial class MainShellView
     {
         InitializeComponent();
 
-        RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnShellMessengerChanged);
         Unloaded += OnUnloaded;
         RegisterSplitterHandlers(InspectorGridSplitter);
         RegisterGlobalPointerReleaseHandlers();
     }
 
-    private void OnShellMessengerChanged(DependencyObject sender, DependencyProperty dp)
+    public IMessenger? Messenger
     {
-        if (sender is not MainShellView view)
+        get => _messenger;
+        set
         {
-            return;
+            _messenger = value;
+            _keyboardManager = value is null ? null : new KeyboardManager(value);
+            Bindings.Update();
         }
-
-        if (MessengerProperties.GetMessenger(view) is not { } value)
-        {
-            view._keyboardManager = null;
-            return;
-        }
-
-        view._keyboardManager ??= new KeyboardManager(value);
     }
 
     public Action? ToggleThemeAction { get; set; }
 
     public GoToPathCommandHandler? GoToPathCommandHandler { get; set; }
 
-    public KeyboardManager KeyboardManager =>
-        _keyboardManager ?? throw new InvalidOperationException("Messenger attached property is not set on MainShellView.");
+    public ICommand? KeyboardCommand => _keyboardManager?.KeyPressedCommand;
 
     public void CapturePaneColumnLayouts()
     {

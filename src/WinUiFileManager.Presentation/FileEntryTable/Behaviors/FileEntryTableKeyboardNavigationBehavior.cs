@@ -14,12 +14,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBehaviorBase
 {
-    protected override void OnAttached()
-    {
-        base.OnAttached();
-        TrackTableOnLoaded();
-    }
-
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Handled

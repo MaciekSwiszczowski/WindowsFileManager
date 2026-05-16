@@ -1,5 +1,4 @@
 using WinUiFileManager.Application.Messages.RequestMessages;
-using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.Views;
 
@@ -13,22 +12,8 @@ public sealed partial class CommandButtonsView
     {
         InitializeComponent();
 
-        RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnMessengerChanged);
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
-    }
-
-    private void OnMessengerChanged(DependencyObject sender, DependencyProperty dp)
-    {
-        if (sender is not CommandButtonsView view)
-        {
-            return;
-        }
-
-        view._favouritesMessengerRegistration?.UnregisterAll(view);
-        view._favouritesMessengerRegistration = null;
-        view._isListeningForShortcuts = false;
-        view.TryRegisterFavouritesShortcutListener();
     }
 
     public CommandButtonsViewModel ViewModel { get; private set; } = null!;
@@ -38,8 +23,12 @@ public sealed partial class CommandButtonsView
     public void Initialize(CommandButtonsViewModel viewModel, Action? openMessageLogWindow = null)
     {
         OpenMessageLogWindow = openMessageLogWindow;
+        _favouritesMessengerRegistration?.UnregisterAll(this);
+        _favouritesMessengerRegistration = null;
+        _isListeningForShortcuts = false;
         ViewModel = viewModel;
         Bindings.Update();
+        TryRegisterFavouritesShortcutListener();
     }
 
     private void OnLoaded(object _, RoutedEventArgs e)
@@ -55,8 +44,7 @@ public sealed partial class CommandButtonsView
             return;
         }
 
-        var messenger = MessengerProperties.GetMessenger(this);
-        if (messenger is null)
+        if (ViewModel?.Messenger is not { } messenger)
         {
             return;
         }

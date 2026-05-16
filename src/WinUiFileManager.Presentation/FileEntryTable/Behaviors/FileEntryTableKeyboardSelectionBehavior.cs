@@ -1,5 +1,4 @@
 using WinUiFileManager.Application.Messages.RequestMessages;
-using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
@@ -18,15 +17,10 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     private bool _syncingSelection;
     private bool _shiftRangeActive;
 
-    protected override void OnAttached()
+    protected override void OnMessengerAvailable(IMessenger messenger)
     {
-        base.OnAttached();
-        TrackTableOnLoaded();
-        ObserveMessenger(m =>
-        {
-            m.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
-            m.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
-        });
+        messenger.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
+        messenger.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
     }
 
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
@@ -177,10 +171,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             ? EntryTable.Items[cursorIndex] as SpecFileEntryViewModel
             : NavigationState?.GetCurrentItem(EntryTable) ?? EntryTable.SelectedItem as SpecFileEntryViewModel;
 
-        if (MessengerProperties.GetMessenger(AssociatedObject) is not { } messenger)
-        {
-            return;
-        }
+        var messenger = GetRequiredMessenger();
 
         messenger.Send(
             new FileTableSelectionChangedMessage(

@@ -6,8 +6,8 @@
     xmlns:fields="using:WinUiFileManager.Presentation.ViewModels.Inspector.Fields"
     xmlns:fileInspector="using:WinUiFileManager.Presentation.Controls.FileInspector">
 
-    <controls:SwitchPresenter TargetType="fields:InspectorFieldTemplate"
-                              Value="{x:Bind Field.FieldTemplate, Mode=OneWay}">
+    <controls:SwitchPresenter TargetType="fields:InspectorFieldType"
+                              Value="{x:Bind Field.FieldType, Mode=OneWay}">
         <controls:Case Value="Text">
             <fileInspector:InspectorTextFieldView Field="{x:Bind Field, Mode=OneWay}" />
         </controls:Case>

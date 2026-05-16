@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
-public enum InspectorFieldTemplate
+public enum InspectorFieldType
 {
     Text,
     Thumbnail,

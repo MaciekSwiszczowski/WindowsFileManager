@@ -21,8 +21,7 @@ public static class ServiceConfiguration
         var services = new ServiceCollection();
 
         services.AddLogging();
-        services.AddSingleton(new FileInspectorInteropOptions(
-            FileInspectorInteropCategories.All));
+        services.AddSingleton(new FileInspectorInteropOptions(FileInspectorInteropCategories.All));
 
         services.AddInfrastructureServices();
 

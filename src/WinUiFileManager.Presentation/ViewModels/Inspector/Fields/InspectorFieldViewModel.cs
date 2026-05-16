@@ -10,7 +10,7 @@ public partial class InspectorFieldViewModel : ObservableObject
         Value = value;
     }
 
-    public virtual InspectorFieldTemplate FieldTemplate => InspectorFieldTemplate.Text;
+    public virtual InspectorFieldType FieldType => InspectorFieldType.Text;
 
     public FileInspectorCategory Category { get; }
 
@@ -22,16 +22,14 @@ public partial class InspectorFieldViewModel : ObservableObject
     public partial string Value { get; set; }
 
     [ObservableProperty]
-    public partial bool IsVisible { get; set; }
+    public partial bool IsVisible { get; set; } = true;
 
     [ObservableProperty]
     public partial bool IsLoading { get; set; }
 
-    public string DisplayValue => IsUnavailable ? "Not available" : Value;
+    public string DisplayValue => Value;
 
     public virtual bool IsUnavailable => !IsLoading && string.IsNullOrWhiteSpace(Value);
-
-    public string SearchText => $"{Category.GetDisplayName()} {Key} {Value}";
 
     partial void OnIsLoadingChanged(bool value)
     {
@@ -55,7 +53,7 @@ public partial class InspectorFieldViewModel : ObservableObject
 
     protected void NotifyValueStateChanged()
     {
-        OnPropertyChanged(nameof(DisplayValue));
-        OnPropertyChanged(nameof(IsUnavailable));
+        //OnPropertyChanged(nameof(DisplayValue));
+        //OnPropertyChanged(nameof(IsUnavailable));
     }
 }

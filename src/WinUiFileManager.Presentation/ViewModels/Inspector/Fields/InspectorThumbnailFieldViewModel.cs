@@ -11,7 +11,7 @@ public sealed partial class InspectorThumbnailFieldViewModel : InspectorFieldVie
     {
     }
 
-    public override InspectorFieldTemplate FieldTemplate => InspectorFieldTemplate.Thumbnail;
+    public override InspectorFieldType FieldType => InspectorFieldType.Thumbnail;
 
     [ObservableProperty]
     public partial ImageSource? ThumbnailSource { get; set; }

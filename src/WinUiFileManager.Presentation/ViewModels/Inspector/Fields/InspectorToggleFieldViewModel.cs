@@ -12,7 +12,7 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
         IsToggleOn = string.Equals(value, "Yes", StringComparison.OrdinalIgnoreCase);
     }
 
-    public override InspectorFieldTemplate FieldTemplate => InspectorFieldTemplate.Toggle;
+    public override InspectorFieldType FieldType => InspectorFieldType.Toggle;
 
     [ObservableProperty]
     public partial bool IsToggleOn { get; set; }

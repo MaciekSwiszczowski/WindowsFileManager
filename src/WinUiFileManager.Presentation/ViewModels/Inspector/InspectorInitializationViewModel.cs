@@ -69,6 +69,7 @@ public sealed class InspectorInitializationViewModel
                 viewModel.Fields.Add(field);
             }
 
+            viewModel.RefreshVisibility();
             return viewModel;
         }
 

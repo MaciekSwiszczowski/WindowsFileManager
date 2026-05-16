@@ -55,7 +55,7 @@ public static class ServiceConfiguration
         return services.BuildServiceProvider(options);
     }
 
-    [Conditional("DEBUG")]
+    [Conditional("DEBUG_ANALYZERS")]
     private static void ApplyDevelopmentServiceProviderValidation(ServiceProviderOptions options)
     {
         options.ValidateOnBuild = true;

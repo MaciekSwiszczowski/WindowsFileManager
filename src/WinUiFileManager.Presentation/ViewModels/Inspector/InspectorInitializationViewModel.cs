@@ -54,9 +54,9 @@ public sealed class InspectorInitializationViewModel
 
     public IObservable<IReadOnlyList<SpecFileEntryViewModel>> DeferredSelectionObservable { get; }
 
-    public ObservableCollection<InspectorCategoryViewModel> Categories { get; }
+    public List<InspectorCategoryViewModel> Categories { get; }
 
-    private static ObservableCollection<InspectorCategoryViewModel> CreateCategories()
+    private static List<InspectorCategoryViewModel> CreateCategories()
     {
         static InspectorCategoryViewModel Category(
             FileInspectorCategory category,

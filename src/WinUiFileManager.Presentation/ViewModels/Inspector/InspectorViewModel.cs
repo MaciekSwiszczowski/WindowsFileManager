@@ -21,7 +21,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     public partial string SearchText { get; set; } = string.Empty;
 
-    public ObservableCollection<InspectorCategoryViewModel> Categories { get; }
+    public List<InspectorCategoryViewModel> Categories { get; }
 
     public InspectorViewModel()
     {

@@ -14,6 +14,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTableBehaviorBase
 {
+    private int _selectionChangeVersion;
     private bool _syncingSelection;
     private bool _shiftRangeActive;
 
@@ -50,6 +51,7 @@ public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTable
             return;
         }
 
+        var selectionChangeVersion = ++_selectionChangeVersion;
         _shiftRangeActive = false;
 
         if (EntryTable!.GetRowIndex(
@@ -62,8 +64,7 @@ public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTable
 
         if (EntryTable!.SelectedItems.Count == 0)
         {
-            NavigationState?.Reset();
-            PublishSelectionChanged();
+            QueueEmptySelectionChanged(selectionChangeVersion);
             return;
         }
 
@@ -134,6 +135,28 @@ public sealed class FileEntryTableKeyboardSelectionBehaviorBase : FileEntryTable
         _shiftRangeActive = true;
         NavigationState?.SetSelectionRange(EntryTable, anchorIndex, targetIndex);
         EntryTable.ScrollRowIntoViewIfNeeded(targetIndex);
+        _selectionChangeVersion++;
+        PublishSelectionChanged();
+    }
+
+    private void QueueEmptySelectionChanged(int selectionChangeVersion)
+    {
+        if (AssociatedObject?.DispatcherQueue.TryEnqueue(
+                () => PublishEmptySelectionIfCurrent(selectionChangeVersion)) != true)
+        {
+            PublishEmptySelectionIfCurrent(selectionChangeVersion);
+        }
+    }
+
+    private void PublishEmptySelectionIfCurrent(int selectionChangeVersion)
+    {
+        if (selectionChangeVersion != _selectionChangeVersion
+            || EntryTable?.SelectedItems.Count != 0)
+        {
+            return;
+        }
+
+        NavigationState?.Reset();
         PublishSelectionChanged();
     }
 

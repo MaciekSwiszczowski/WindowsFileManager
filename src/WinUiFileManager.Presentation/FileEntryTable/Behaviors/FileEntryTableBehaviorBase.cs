@@ -35,9 +35,8 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
         }
 
         ApplyMessengerSubscription();
-        _messengerPropertyToken = AssociatedObject.RegisterPropertyChangedCallback(
-            MessengerProperties.MessengerProperty,
-            OnMessengerPropertyChanged);
+        _messengerPropertyToken = AssociatedObject
+            .RegisterPropertyChangedCallback(MessengerProperties.MessengerProperty, OnMessengerPropertyChanged);
     }
 
     private void OnMessengerPropertyChanged(DependencyObject sender, DependencyProperty dp) => ApplyMessengerSubscription();

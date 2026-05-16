@@ -12,7 +12,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// and not already last; otherwise it moves down by the current visible row count.
 /// Page movement clamps at the list boundaries and scrolls the target row into view.
 /// </summary>
-public sealed class FileEntryTableKeyboardNavigationBehaviorBase : FileEntryTableBehaviorBase
+public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBehaviorBase
 {
     protected override void OnAttached()
     {

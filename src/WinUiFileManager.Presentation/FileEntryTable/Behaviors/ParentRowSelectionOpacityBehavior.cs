@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ParentRowSelectionOpacityBehaviorBase : FileEntryTableBehaviorBase
+public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBase
 {
     private const double ParentSelectionOpacity = 0.5d;
     private const double DefaultSelectionOpacity = 1d;

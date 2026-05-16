@@ -3,7 +3,7 @@ using WinUiFileManager.Presentation.Messaging;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
-public sealed class ActiveRowIndicatorBehaviorBase : FileEntryTableBehaviorBase
+public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 {
     private const string DefaultIndicatorName = "ActiveRowIndicator";
 

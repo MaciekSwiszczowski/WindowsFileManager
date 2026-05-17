@@ -295,7 +295,7 @@ public sealed partial class SinglePanelView : IDisposable
         Messenger?.Send(new FileTableFocusedMessage(Identity, isFocused));
         if (isFocused)
         {
-            Messenger?.Send(new RefreshInspectorRequestMessage(Identity));
+            Messenger?.Send(new RefreshInspectorRequestMessage());
         }
     }
 }

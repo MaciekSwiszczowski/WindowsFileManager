@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using Microsoft.Reactive.Testing;
 using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -30,6 +31,11 @@ public sealed class ViewModelTestBuilder
 #pragma warning disable IDISP004
         var messenger = new StrongReferenceMessenger();
         var activePanels = new FakeActivePanelsService();
+        var schedulerProvider = new TestSchedulerProvider(new TestScheduler());
+        var inspectorInitialization = new InspectorInitializationViewModel(
+            activePanels,
+            schedulerProvider,
+            messenger);
         return new MainShellViewModel(
             SettingsRepository,
             removeFavourite,
@@ -39,7 +45,7 @@ public sealed class ViewModelTestBuilder
             FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,
             messenger,
-            new InspectorViewModel(),
+            new InspectorViewModel(inspectorInitialization, messenger, activePanels),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
             new PanelsViewModel(activePanels, messenger, fsService),
             new CommandButtonsViewModel(messenger));

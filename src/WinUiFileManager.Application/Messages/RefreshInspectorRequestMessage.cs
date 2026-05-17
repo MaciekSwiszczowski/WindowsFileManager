@@ -3,6 +3,6 @@ using WinUiFileManager.Application.Messaging;
 namespace WinUiFileManager.Application.Messages;
 
 /// <summary>
-/// Requests refreshing the inspector from the current selection of a panel.
+/// Requests refreshing the inspector from the current active panel selection.
 /// </summary>
-public sealed record RefreshInspectorRequestMessage(string Identity) : IFileManagerMessengerMessage;
+public sealed record RefreshInspectorRequestMessage : IFileManagerMessengerMessage;

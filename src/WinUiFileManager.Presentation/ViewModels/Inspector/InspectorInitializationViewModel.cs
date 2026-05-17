@@ -201,8 +201,9 @@ public sealed class InspectorInitializationViewModel
 
         var focusSelectionObservable = _messenger
             .CreateObservable<RefreshInspectorRequestMessage>()
-            .ObserveOn(_schedulers.MainThread)
-            .Select(message => CreateSelectionChangedMessage(message.Identity));
+            .Select(_ => _activePanelsService.ActivePanelIdentity)
+            .Where(static identity => !string.IsNullOrWhiteSpace(identity))
+            .Select(CreateSelectionChangedMessage);
 
         return tableSelectionObservable
             .Merge(focusSelectionObservable)

@@ -1,4 +1,5 @@
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -6,7 +7,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 {
     private readonly CompositeDisposable _subscriptions = [];
+    private readonly IMessenger _messenger;
+    private readonly IActivePanelsService _activePanelsService;
     private int _selectedItemCount;
+    private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
 
     public InspectorCommandsViewModel Commands { get; } = new();
@@ -23,26 +27,26 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     public List<InspectorCategoryViewModel> Categories { get; }
 
-    public InspectorViewModel()
+    public InspectorViewModel(InspectorInitializationViewModel initialization, IMessenger messenger, IActivePanelsService activePanelsService)
     {
-        Categories = [];
-    }
-
-    public InspectorViewModel(InspectorInitializationViewModel initialization)
-    {
-        ArgumentNullException.ThrowIfNull(initialization);
-
+        _messenger = messenger;
+        _activePanelsService = activePanelsService;
         Categories = initialization.Categories;
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
+            .Where(_ => _inspectorPanelVisible)
             .Subscribe(ShowNonSingleSelection));
         _subscriptions.Add(initialization
             .ImmediateSelectionObservable
+            .Where(_ => _inspectorPanelVisible)
             .Subscribe(ShowImmediateSelection));
         _subscriptions.Add(initialization
             .DeferredSelectionObservable
+            .Where(_ => _inspectorPanelVisible)
             .Subscribe(LoadDeferredSelection));
+
+        _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorRequested);
     }
 
     public void Dispose()
@@ -54,6 +58,21 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         _subscriptions.Dispose();
+        _messenger.UnregisterAll(this);
+    }
+
+    private void OnToggleInspectorRequested(object recipient, ToggleInspectorRequestedMessage message)
+    {
+        if (_inspectorPanelVisible == message.IsVisible)
+        {
+            return;
+        }
+
+        _inspectorPanelVisible = message.IsVisible;
+        if (_inspectorPanelVisible)
+        {
+            RefreshFromCurrentSelection();
+        }
     }
 
     private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
@@ -72,6 +91,15 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void LoadDeferredSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
     {
+    }
+
+    private void RefreshFromCurrentSelection()
+    {
+        var activePanelIdentity = _activePanelsService.ActivePanelIdentity;
+        if (!string.IsNullOrWhiteSpace(activePanelIdentity))
+        {
+            _messenger.Send(new RefreshInspectorRequestMessage());
+        }
     }
 
     private void SetSelectedItemCount(int value)

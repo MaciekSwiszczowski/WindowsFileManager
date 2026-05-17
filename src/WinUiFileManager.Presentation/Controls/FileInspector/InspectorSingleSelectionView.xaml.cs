@@ -4,6 +4,7 @@ namespace WinUiFileManager.Presentation.Controls.FileInspector;
 
 public sealed partial class InspectorSingleSelectionView
 {
+
     public InspectorSingleSelectionView()
     {
         InitializeComponent();
@@ -11,11 +12,11 @@ public sealed partial class InspectorSingleSelectionView
 
     public InspectorViewModel ViewModel
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorSingleSelectionView)} must be initialized with a view model.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new();
+    }
 }

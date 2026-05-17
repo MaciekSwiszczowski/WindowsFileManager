@@ -1,7 +1,9 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 
@@ -15,7 +17,13 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
 
-    public InspectorCommandsViewModel Commands { get; } = new();
+    public InspectorRefreshButtonViewModel RefreshButton { get; }
+
+    public InspectorPropertiesButtonViewModel PropertiesButton { get; }
+
+    public InspectorCopyToClipboardButtonViewModel CopyToClipboardButton { get; }
+
+    public InspectorSearchViewModel Search { get; }
 
     [ObservableProperty]
     public partial FileInspectorSelectionMode SelectionMode { get; private set; }
@@ -24,17 +32,27 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         ? "1 item selected"
         : $"{_selectedItemCount} items selected";
 
-    [ObservableProperty]
-    public partial string SearchText { get; set; } = string.Empty;
-
     public List<InspectorCategoryViewModel> Categories { get; }
 
-    public InspectorViewModel(InspectorInitializationViewModel initialization, IMessenger messenger, IActivePanelsService activePanelsService)
+    public InspectorViewModel(
+        InspectorInitializationViewModel initialization,
+        IMessenger messenger,
+        IActivePanelsService activePanelsService,
+        InspectorRefreshButtonViewModel refreshButton,
+        InspectorPropertiesButtonViewModel propertiesButton,
+        InspectorCopyToClipboardButtonViewModel copyToClipboardButton,
+        InspectorSearchViewModel search)
     {
         _messenger = messenger;
         _activePanelsService = activePanelsService;
         Categories = initialization.Categories;
         _fieldValueUpdater = new InspectorFieldValueUpdater(Categories);
+        RefreshButton = refreshButton;
+        PropertiesButton = propertiesButton;
+        CopyToClipboardButton = copyToClipboardButton;
+        Search = search;
+
+        CopyToClipboardButton.Initialize(() => Categories);
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
@@ -80,6 +98,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
     {
+        PropertiesButton.SetSelectedItem(null);
         SetSelectedItemCount(selectedItems.Count);
         SelectionMode = selectedItems.Count == 0
             ? FileInspectorSelectionMode.NoSelection
@@ -88,6 +107,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
+        PropertiesButton.SetSelectedItem(selectedItem.Model);
         SetSelectedItemCount(1);
         _fieldValueUpdater.ShowImmediateSelection(selectedItem);
         SelectionMode = FileInspectorSelectionMode.SingleSelection;

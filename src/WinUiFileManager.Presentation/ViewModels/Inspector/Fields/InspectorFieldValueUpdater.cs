@@ -60,14 +60,9 @@ internal sealed class InspectorFieldValueUpdater
     {
         SetValue("Read Only", FormatFlag(attributes.HasFlag(FileAttributes.ReadOnly)));
         SetValue("Hidden", FormatFlag(attributes.HasFlag(FileAttributes.Hidden)));
-        SetValue("System", FormatFlag(attributes.HasFlag(FileAttributes.System)));
         SetValue("Archive", FormatFlag(attributes.HasFlag(FileAttributes.Archive)));
-        SetValue("Temporary", FormatFlag(attributes.HasFlag(FileAttributes.Temporary)));
-        SetValue("Offline", FormatFlag(attributes.HasFlag(FileAttributes.Offline)));
-        SetValue("Not Content Indexed", FormatFlag(attributes.HasFlag(FileAttributes.NotContentIndexed)));
         SetValue("Encrypted", FormatFlag(attributes.HasFlag(FileAttributes.Encrypted)));
         SetValue("Compressed", FormatFlag(attributes.HasFlag(FileAttributes.Compressed)));
-        SetValue("Sparse", FormatFlag(attributes.HasFlag(FileAttributes.SparseFile)));
         SetValue("Reparse Point", FormatFlag(attributes.HasFlag(FileAttributes.ReparsePoint)));
     }
 

@@ -101,14 +101,9 @@ public sealed class InspectorInitializationViewModel
                 Field(Ntfs, "MFT Changed", "NTFS metadata change time in UTC."),
                 ToggleField("Read Only", "Whether the item is marked read-only."),
                 ToggleField("Hidden", "Whether the item is hidden."),
-                Field(Ntfs, "System", "Whether the item is marked as a system file."),
                 ToggleField("Archive", "Whether the archive attribute is set."),
-                ToggleField("Temporary", "Whether the item is marked temporary."),
-                Field(Ntfs, "Offline", "Whether the item is offline or placeholder-backed."),
-                ToggleField("Not Content Indexed", "Whether the item should be excluded from content indexing."),
                 Field(Ntfs, "Encrypted", "Whether the item is encrypted with EFS."),
                 Field(Ntfs, "Compressed", "Whether the item is compressed by NTFS."),
-                Field(Ntfs, "Sparse", "Whether the item is stored as a sparse file."),
                 Field(Ntfs, "Reparse Point", "Whether the item is a reparse point.")),
 
             Category(

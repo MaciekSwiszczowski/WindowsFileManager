@@ -26,6 +26,7 @@
                           Visibility="{x:Bind Field.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
             <TextBlock Width="118"
                        Padding="6,3"
+                       IsTextSelectionEnabled="True"
                        Text="{x:Bind Field.DisplayValue, Mode=OneWay}"
                        FontSize="12"
                        TextTrimming="CharacterEllipsis"

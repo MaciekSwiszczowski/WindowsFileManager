@@ -24,19 +24,19 @@
                        FontWeight="SemiBold"
                        Text="Inspector" />
             <Button Grid.Column="1"
-                    Command="{x:Bind ViewModel.Commands.RefreshCommand}"
+                    Command="{x:Bind ViewModel.RefreshButton.RefreshCommand}"
                     Content="Refresh" />
             <Button Grid.Column="2"
-                    Command="{x:Bind ViewModel.Commands.ShowPropertiesCommand}"
+                    Command="{x:Bind ViewModel.PropertiesButton.ShowPropertiesCommand}"
                     Content="Properties" />
             <Button Grid.Column="3"
-                    Command="{x:Bind ViewModel.Commands.CopyAllCommand}"
-                    Content="Copy All" />
+                    Command="{x:Bind ViewModel.CopyToClipboardButton.CopyToClipboardCommand}"
+                    Content="Copy" />
         </Grid>
 
         <TextBox Grid.Row="1"
                  PlaceholderText="Search property or value"
-                 Text="{x:Bind ViewModel.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                 Text="{x:Bind ViewModel.Search.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
         <ScrollViewer Grid.Row="2"
                       HorizontalScrollBarVisibility="Auto"

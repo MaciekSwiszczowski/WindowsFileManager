@@ -16,7 +16,15 @@ public sealed partial class CommandButtonsView
         Unloaded += OnUnloaded;
     }
 
-    public CommandButtonsViewModel ViewModel { get; private set; } = null!;
+    public CommandButtonsViewModel ViewModel
+    {
+        get => field ?? throw new InvalidOperationException($"{nameof(CommandButtonsView)} must be initialized with a view model.");
+        private set
+        {
+            field = value;
+            Bindings.Update();
+        }
+    }
 
     public Action? OpenMessageLogWindow { get; set; }
 
@@ -27,7 +35,6 @@ public sealed partial class CommandButtonsView
         _favouritesMessengerRegistration = null;
         _isListeningForShortcuts = false;
         ViewModel = viewModel;
-        Bindings.Update();
         TryRegisterFavouritesShortcutListener();
     }
 
@@ -44,11 +51,7 @@ public sealed partial class CommandButtonsView
             return;
         }
 
-        if (ViewModel?.Messenger is not { } messenger)
-        {
-            return;
-        }
-
+        var messenger = ViewModel.Messenger;
         _isListeningForShortcuts = true;
         _favouritesMessengerRegistration = messenger;
         messenger.Register<OpenFavouritesRequestedMessage>(this, OnOpenFavouritesShortcutRequested);

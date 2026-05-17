@@ -14,7 +14,15 @@ public sealed partial class PanelsView
     private void OnPaneSplitterPointerPressed(object sender, PointerRoutedEventArgs e)
         => PaneSplitterPressed?.Invoke(this, EventArgs.Empty);
 
-    public PanelsViewModel? ViewModel { get; private set; }
+    public PanelsViewModel ViewModel
+    {
+        get => field ?? throw new InvalidOperationException($"{nameof(PanelsView)} must be initialized with a view model.");
+        private set
+        {
+            field = value;
+            Bindings.Update();
+        }
+    }
 
     public AppInitializationViewModel? Initialization { get; set; }
 
@@ -37,7 +45,6 @@ public sealed partial class PanelsView
             Initialization!);
 
         ViewModel.PropertyChanged += OnPanelsPropertyChanged;
-        Bindings.Update();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -46,11 +53,7 @@ public sealed partial class PanelsView
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
-        if (ViewModel is not null)
-        {
-            ViewModel.PropertyChanged -= OnPanelsPropertyChanged;
-        }
-
+        ViewModel.PropertyChanged -= OnPanelsPropertyChanged;
         LeftPanel.Dispose();
         RightPanel.Dispose();
     }
@@ -68,11 +71,6 @@ public sealed partial class PanelsView
 
     private void FocusOtherPanel()
     {
-        if (ViewModel == null)
-        {
-            return;
-        }
-
         ViewModel.SetActivePanel(ViewModel.GetOtherPanel().Identity);
         FocusActiveTable();
     }
@@ -80,7 +78,7 @@ public sealed partial class PanelsView
     private void FocusActiveTable() => GetActivePanel().Table.Table.Focus(FocusState.Programmatic);
 
     private SinglePanelView GetActivePanel() =>
-        string.Equals(ViewModel?.ActivePanelIdentity, "Right", StringComparison.OrdinalIgnoreCase)
+        string.Equals(ViewModel.ActivePanelIdentity, "Right", StringComparison.OrdinalIgnoreCase)
             ? RightPanel
             : LeftPanel;
 

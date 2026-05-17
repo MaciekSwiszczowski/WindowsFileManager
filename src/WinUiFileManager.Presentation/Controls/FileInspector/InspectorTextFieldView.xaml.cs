@@ -14,13 +14,13 @@ public sealed partial class InspectorTextFieldView
 
     public InspectorFieldViewModel Field
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorTextFieldView)} must be initialized with a field.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new(FileInspectorCategory.Basic, string.Empty, string.Empty);
+    }
 
     private void OnRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

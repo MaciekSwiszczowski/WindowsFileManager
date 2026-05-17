@@ -14,13 +14,13 @@ public sealed partial class InspectorThumbnailFieldView
 
     public InspectorThumbnailFieldViewModel Field
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorThumbnailFieldView)} must be initialized with a field.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new(FileInspectorCategory.Thumbnails, string.Empty, string.Empty);
+    }
 
     private void OnRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

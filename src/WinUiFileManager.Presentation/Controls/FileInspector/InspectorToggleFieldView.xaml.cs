@@ -14,13 +14,13 @@ public sealed partial class InspectorToggleFieldView
 
     public InspectorToggleFieldViewModel Field
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorToggleFieldView)} must be initialized with a field.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new(FileInspectorCategory.Ntfs, string.Empty, string.Empty);
+    }
 
     private void OnRowPointerEntered(object sender, PointerRoutedEventArgs e)
     {

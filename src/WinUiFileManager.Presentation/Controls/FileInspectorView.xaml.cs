@@ -12,7 +12,6 @@ public sealed partial class FileInspectorView
         set
         {
             field = value;
-            DataContext = value;
             Bindings.Update();
         }
     }

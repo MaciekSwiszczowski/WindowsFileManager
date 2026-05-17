@@ -31,7 +31,15 @@ public sealed partial class SinglePanelView : IDisposable
 
     private string Identity => _identity ?? throw new InvalidOperationException("SinglePanel must be initialized with Identity.");
 
-    public PanelViewModel? ViewModel { get; private set; }
+    public PanelViewModel ViewModel
+    {
+        get => field ?? throw new InvalidOperationException($"{nameof(SinglePanelView)} must be initialized with a view model.");
+        private set
+        {
+            field = value;
+            Bindings.Update();
+        }
+    }
 
     private AppInitializationViewModel? Initialization { get; set; }
 
@@ -52,11 +60,6 @@ public sealed partial class SinglePanelView : IDisposable
 
         _identity = identity;
 
-        if (ViewModel is not null)
-        {
-            ViewModel.PropertyChanged -= OnPanelPropertyChanged;
-        }
-
         ViewModel = viewModel;
         Messenger = messenger;
         Initialization = initialization;
@@ -67,7 +70,6 @@ public sealed partial class SinglePanelView : IDisposable
 
         DrivePicker.ItemsSource = Initialization.AvailableVolumes;
 
-        Bindings.Update();
         EnsureFileEntryDataSource();
     }
 
@@ -88,7 +90,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
         _disposed = true;
 
-        ViewModel?.PropertyChanged -= OnPanelPropertyChanged;
+        ViewModel.PropertyChanged -= OnPanelPropertyChanged;
 
         _loaded = false;
         _dataSourceSubscriptions.Dispose();
@@ -106,7 +108,7 @@ public sealed partial class SinglePanelView : IDisposable
 
     private void EnsureFileEntryDataSource()
     {
-        if (!_loaded || Initialization is null || ViewModel is null || _dataSource is not null)
+        if (!_loaded || Initialization is null || _dataSource is not null)
         {
             return;
         }
@@ -130,13 +132,10 @@ public sealed partial class SinglePanelView : IDisposable
 
     private void ApplyState(FileEntryTableDataState state)
     {
-        if (ViewModel is not null)
-        {
-            ViewModel.Items = state.Items;
-            ViewModel.CurrentPath = state.CurrentPath;
-            ViewModel.ItemCount = state.Items.Count;
-            SyncDriveSelection(state.CurrentPath);
-        }
+        ViewModel.Items = state.Items;
+        ViewModel.CurrentPath = state.CurrentPath;
+        ViewModel.ItemCount = state.Items.Count;
+        SyncDriveSelection(state.CurrentPath);
     }
 
     private void SetItems(ObservableCollection<SpecFileEntryViewModel>? items)
@@ -152,7 +151,7 @@ public sealed partial class SinglePanelView : IDisposable
 
     private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        ViewModel?.ItemCount = _items?.Count ?? 0;
+        ViewModel.ItemCount = _items?.Count ?? 0;
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -170,8 +169,7 @@ public sealed partial class SinglePanelView : IDisposable
     private async void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_updatingDriveSelection
-            || sender is not ComboBox { SelectedItem: VolumeInfo volume }
-            || ViewModel is null)
+            || sender is not ComboBox { SelectedItem: VolumeInfo volume })
         {
             return;
         }
@@ -182,11 +180,6 @@ public sealed partial class SinglePanelView : IDisposable
 
     private async void OnPathTextBoxKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
         if (e.Key == VirtualKey.Escape)
         {
             ViewModel.EditablePath = ViewModel.CurrentPath;
@@ -212,7 +205,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, NormalizedPath.FromUserInput(rawPath)));
-        ViewModel?.PathValidationMessage = string.Empty;
+        ViewModel.PathValidationMessage = string.Empty;
     }
 
     private void SyncDriveSelection(string currentPath)
@@ -286,7 +279,7 @@ public sealed partial class SinglePanelView : IDisposable
 
     private void PublishMessagesOnFocusChanged(bool isFocused)
     {
-        if (_panelFocused == isFocused && (!isFocused || ViewModel?.IsActive == true))
+        if (_panelFocused == isFocused && (!isFocused || ViewModel.IsActive))
         {
             return;
         }

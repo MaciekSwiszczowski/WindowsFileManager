@@ -41,12 +41,19 @@ public sealed partial class MainShellView
         // SpecFileEntryTableView owns column layout through messages; persistence will be restored in the next table phase.
     }
 
-    public MainShellViewModel? ViewModel => DataContext as MainShellViewModel;
+    public MainShellViewModel ViewModel
+    {
+        get => field ?? throw new InvalidOperationException($"{nameof(MainShellView)} must be initialized with a view model.");
+        private set
+        {
+            field = value;
+            Bindings.Update();
+        }
+    }
 
     public void Initialize(MainShellViewModel viewModel, Action? openMessageLogWindow = null)
     {
-        DataContext = viewModel;
-        Bindings.Update();
+        ViewModel = viewModel;
 
         Panels.Initialization = viewModel.Initialization;
         Panels.Initialize(viewModel.Panels);
@@ -66,13 +73,8 @@ public sealed partial class MainShellView
     {
         Panels.PaneSplitterPressed -= OnPanelSplitterPressed;
 
-        if (ViewModel is not { } viewModel)
-        {
-            return;
-        }
-
-        viewModel.PropertyChanged -= OnMainShellViewModelPropertyChanged;
-        viewModel.Commands.PropertyChanged -= OnCommandButtonsPropertyChanged;
+        ViewModel.PropertyChanged -= OnMainShellViewModelPropertyChanged;
+        ViewModel.Commands.PropertyChanged -= OnCommandButtonsPropertyChanged;
     }
 
     private void RegisterSplitterHandlers(UIElement splitter)
@@ -113,7 +115,7 @@ public sealed partial class MainShellView
             return;
         }
 
-        if (ViewModel?.IsInspectorVisible == true)
+        if (ViewModel.IsInspectorVisible)
         {
             ViewModel.UpdateInspectorWidthFromLayout(InspectorColumn.ActualWidth);
         }
@@ -135,7 +137,7 @@ public sealed partial class MainShellView
         {
             DispatcherQueue.TryEnqueue(() =>
             {
-                if (ViewModel is not null && ViewModel.ParallelExecutionEnabled != ViewModel.Commands.ParallelExecutionEnabled)
+                if (ViewModel.ParallelExecutionEnabled != ViewModel.Commands.ParallelExecutionEnabled)
                 {
                     ViewModel.ParallelExecutionEnabled = ViewModel.Commands.ParallelExecutionEnabled;
                 }
@@ -145,11 +147,6 @@ public sealed partial class MainShellView
 
     private void UpdateInspectorLayout()
     {
-        if (ViewModel is null)
-        {
-            return;
-        }
-
         var isVisible = ViewModel.IsInspectorVisible;
         InspectorSplitterColumn.Width = isVisible
             ? new GridLength(6, GridUnitType.Pixel)

@@ -11,11 +11,11 @@ public sealed partial class InspectorCategoryView
 
     public InspectorCategoryViewModel Category
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorCategoryView)} must be initialized with a category.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new(FileInspectorCategory.Basic);
+    }
 }

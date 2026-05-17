@@ -11,13 +11,13 @@ public sealed partial class InspectorFieldPresenterView
 
     public InspectorFieldViewModel Field
     {
-        get => field;
+        get => field ?? throw new InvalidOperationException($"{nameof(InspectorFieldPresenterView)} must be initialized with a field.");
         set
         {
             field = value;
             Bindings.Update();
         }
-    } = new(FileInspectorCategory.Basic, string.Empty, string.Empty);
+    }
 
     public InspectorThumbnailFieldViewModel ThumbnailField =>
         Field as InspectorThumbnailFieldViewModel

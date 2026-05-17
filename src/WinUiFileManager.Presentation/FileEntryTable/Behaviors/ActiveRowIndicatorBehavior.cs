@@ -12,41 +12,30 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
     private const double ActiveOpacity = 1d;
     private const double InactiveOpacity = 0d;
 
-    protected override void OnAttached()
+    protected override void OnLoaded(FileEntryTableBehaviorContext context)
     {
-        base.OnAttached();
-
-        AssociatedObject.PreviewKeyDown += OnPreviewKeyDown;
+        context.View.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
-        AssociatedObject.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
+        context.View.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
+        context.Messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
     }
 
-    protected override void OnMessengerAvailable(IMessenger messenger) =>
-        messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
-
-    protected override void OnDetaching()
+    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
     {
-        if (AssociatedObject is { } table && _pointerPressedHandler is not null)
+        if (_pointerPressedHandler is not null)
         {
-            table.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
+            context.View.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
         }
 
-        if (AssociatedObject is { } view)
-        {
-            view.PreviewKeyDown -= OnPreviewKeyDown;
-        }
-
+        context.View.PreviewKeyDown -= OnPreviewKeyDown;
         _pointerPressedHandler = null;
         _activeItem = null;
-
-        base.OnDetaching();
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var source = e.OriginalSource as DependencyObject;
         if (!e.IsPrimaryPointerPress() ||
-            AssociatedObject is null ||
             source.FindAncestor<TableView>() is null ||
             source.FindItem() is not { } item)
         {
@@ -58,7 +47,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void OnPreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Handled || e.Key != VirtualKey.Enter || AssociatedObject is null || _activeItem is not { } activeItem)
+        if (e.Handled || e.Key != VirtualKey.Enter || _activeItem is not { } activeItem)
         {
             return;
         }
@@ -71,7 +60,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
     {
-        if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
+        if (message.Identity != Context.View.Identity)
         {
             return;
         }
@@ -92,9 +81,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
             return;
         }
 
-        if (AssociatedObject is { } view && _activeItem is { } previousActiveItem)
+        if (_activeItem is { } previousActiveItem)
         {
-            SetItemIndicatorOpacity(view.Table, previousActiveItem, InactiveOpacity);
+            SetItemIndicatorOpacity(Context.Table, previousActiveItem, InactiveOpacity);
         }
 
         _activeItem = item;
@@ -103,22 +92,15 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private bool TrySendNavigationMessage(SpecFileEntryViewModel item)
     {
-        if (AssociatedObject is null)
-        {
-            return false;
-        }
-
-        var messenger = GetRequiredMessenger();
-
         if (SpecFileEntryViewModel.IsParentEntry(item))
         {
-            messenger.Send(new FileTableNavigateUpRequestedMessage(AssociatedObject.Identity));
+            Context.Messenger.Send(new FileTableNavigateUpRequestedMessage(Context.View.Identity));
             return true;
         }
 
         if (item.Model is { Kind: ItemKind.Directory } model)
         {
-            messenger.Send(new FileTableNavigateDownRequestedMessage(AssociatedObject.Identity, model.Name));
+            Context.Messenger.Send(new FileTableNavigateDownRequestedMessage(Context.View.Identity, model.Name));
             return true;
         }
 
@@ -127,9 +109,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void ClearActiveItem()
     {
-        if (AssociatedObject is { } view && _activeItem is { } previousActiveItem)
+        if (_activeItem is { } previousActiveItem)
         {
-            SetItemIndicatorOpacity(view.Table, previousActiveItem, InactiveOpacity);
+            SetItemIndicatorOpacity(Context.Table, previousActiveItem, InactiveOpacity);
         }
 
         _activeItem = null;
@@ -137,12 +119,12 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void ApplyActiveItemIndicator()
     {
-        if (AssociatedObject is null || _activeItem is not { } activeItem)
+        if (_activeItem is not { } activeItem)
         {
             return;
         }
 
-        SetItemIndicatorOpacity(AssociatedObject.Table, activeItem, ActiveOpacity);
+        SetItemIndicatorOpacity(Context.Table, activeItem, ActiveOpacity);
     }
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)

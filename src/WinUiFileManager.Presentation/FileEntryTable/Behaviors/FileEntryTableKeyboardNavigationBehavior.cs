@@ -16,40 +16,26 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
 {
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        var context = Context;
         if (e.Handled
-            || WinUiViewHelper.HasAnyModifier(
-                VirtualKey.Shift,
-                VirtualKey.Control,
-                VirtualKey.Menu)
-            || !EnsureTable()
-            || NavigationState is null
-            || EntryTable!.Items.Count == 0
-            || !EntryTable.TryGetNavigationTargetIndex(
-                e.Key,
-                GetCurrentIndex(),
-                out var targetIndex))
+            || WinUiViewHelper.HasAnyModifier(VirtualKey.Shift,VirtualKey.Control, VirtualKey.Menu)
+            || context.Table.Items.Count == 0
+            || !context.Table.TryGetNavigationTargetIndex(e.Key, GetCurrentIndex(context), out var targetIndex))
         {
             return;
         }
 
-        EntryTable.SelectSingleRow(NavigationState, targetIndex);
+        context.Table.SelectSingleRow(context.NavigationState, targetIndex);
         e.Handled = true;
     }
 
-    private int GetCurrentIndex()
-    {
-        if (EntryTable is null)
-        {
-            return 0;
-        }
+    private static int GetCurrentIndex(FileEntryTableBehaviorContext context) =>
+        context.NavigationState.GetCurrentIndex(context.Table)
+        ?? context.Table.GetCurrentSelectedIndex();
 
-        return NavigationState?.GetCurrentIndex(EntryTable)
-            ?? EntryTable.GetCurrentSelectedIndex();
-    }
+    protected override void OnLoaded(FileEntryTableBehaviorContext context)
+        => context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
 
-    protected override void OnTableAttached(TableView table)
-        => table.PreviewKeyDown += EntryTable_PreviewKeyDown;
-
-    protected override void OnTableDetaching(TableView table)
-        => table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
+    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+        => context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
 }

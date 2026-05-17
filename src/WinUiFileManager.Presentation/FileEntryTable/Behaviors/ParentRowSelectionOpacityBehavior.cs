@@ -8,37 +8,31 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private SpecFileEntryViewModel? _dimmedParentItem;
     private bool _isParentRowSelected;
 
-    protected override void OnMessengerAvailable(IMessenger messenger) =>
-        messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+    protected override void OnLoaded(FileEntryTableBehaviorContext context) =>
+        context.Messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
 
-    protected override void OnDetaching()
+    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
     {
-        ResetParentSelectionOpacity();
+        ResetParentSelectionOpacity(context.Table);
         _dimmedParentItem = null;
         _isParentRowSelected = false;
-
-        base.OnDetaching();
     }
 
     private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
     {
-        if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
+        var context = Context;
+        if (message.Identity != context.View.Identity)
         {
             return;
         }
 
         _isParentRowSelected = message.IsParentRowSelected;
-        UpdateParentSelectionOpacity(queueRetry: true);
+        UpdateParentSelectionOpacity(context, queueRetry: true);
     }
 
-    private void UpdateParentSelectionOpacity(bool queueRetry)
+    private void UpdateParentSelectionOpacity(FileEntryTableBehaviorContext context, bool queueRetry)
     {
-        if (AssociatedObject is null)
-        {
-            return;
-        }
-
-        var table = AssociatedObject.Table;
+        var table = context.Table;
         if (!_isParentRowSelected)
         {
             ResetParentSelectionOpacity(table);
@@ -59,25 +53,20 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
 
         SetItemSelectionOpacity(table, parentItem, ParentSelectionOpacity);
         _dimmedParentItem = parentItem;
-        QueueParentSelectionOpacityRetry(queueRetry);
+        QueueParentSelectionOpacityRetry(context, queueRetry);
     }
 
-    private void QueueParentSelectionOpacityRetry(bool queueRetry)
+    private void QueueParentSelectionOpacityRetry(FileEntryTableBehaviorContext context, bool queueRetry)
     {
         if (queueRetry)
         {
-            AssociatedObject?.DispatcherQueue.TryEnqueue(() =>
+            context.View.DispatcherQueue.TryEnqueue(() =>
             {
-                UpdateParentSelectionOpacity(queueRetry: false);
+                if (IsLoaded)
+                {
+                    UpdateParentSelectionOpacity(context, queueRetry: false);
+                }
             });
-        }
-    }
-
-    private void ResetParentSelectionOpacity()
-    {
-        if (AssociatedObject is { } view)
-        {
-            ResetParentSelectionOpacity(view.Table);
         }
     }
 

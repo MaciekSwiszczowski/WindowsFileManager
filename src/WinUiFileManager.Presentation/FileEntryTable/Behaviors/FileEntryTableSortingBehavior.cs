@@ -5,24 +5,19 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
     private FileEntryColumn _sortColumn = FileEntryColumn.Name;
     private bool _sortAscending = true;
 
-    protected override void OnTableAttached(TableView table)
+    protected override void OnLoaded(FileEntryTableBehaviorContext context)
     {
-        table.Sorting += OnSorting;
-        ApplySort();
+        context.Table.Sorting += OnSorting;
+        ApplySort(context.Table);
     }
 
-    protected override void OnTableDetaching(TableView table)
+    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
     {
-        table.Sorting -= OnSorting;
+        context.Table.Sorting -= OnSorting;
     }
 
     private void OnSorting(object? sender, TableViewSortingEventArgs e)
     {
-        if (EntryTable is null)
-        {
-            return;
-        }
-
         e.Handled = true;
         if (FileEntryTableColumnMapping.MapColumn(e.Column.SortMemberPath) is not { } column)
         {
@@ -39,26 +34,21 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
             _sortAscending = true;
         }
 
-        ApplySort();
+        ApplySort(Context.Table);
     }
 
-    private void ApplySort()
+    private void ApplySort(TableView table)
     {
-        if (EntryTable is null)
-        {
-            return;
-        }
-
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
-        foreach (var column in EntryTable.Columns)
+        foreach (var column in table.Columns)
         {
             column.SortDirection = FileEntryTableColumnMapping.MapColumn(column.SortMemberPath) == _sortColumn
                 ? direction
                 : null;
         }
 
-        EntryTable.SortDescriptions.Clear();
-        EntryTable.SortDescriptions.Add(new WinUI.TableView.SortDescription(
+        table.SortDescriptions.Clear();
+        table.SortDescriptions.Add(new WinUI.TableView.SortDescription(
             FileEntryTableColumnMapping.MapSortMemberPath(_sortColumn),
             SortDirection.Ascending,
             new SpecFileEntryComparer(_sortColumn, _sortAscending),

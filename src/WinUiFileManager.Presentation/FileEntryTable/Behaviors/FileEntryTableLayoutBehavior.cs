@@ -2,17 +2,17 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehaviorBase
 {
-    protected override void OnMessengerAvailable(IMessenger messenger) =>
-        messenger.Register<FileTableColumnLayoutMessage>(this, OnColumnLayoutMessage);
+    protected override void OnLoaded(FileEntryTableBehaviorContext context) =>
+        context.Messenger.Register<FileTableColumnLayoutMessage>(this, OnColumnLayoutMessage);
 
     private void OnColumnLayoutMessage(object recipient, FileTableColumnLayoutMessage message)
     {
-        if (AssociatedObject is null || message.Identity != AssociatedObject.Identity)
+        if (message.Identity != Context.View.Identity)
         {
             return;
         }
 
-        foreach (var column in AssociatedObject.Table.Columns)
+        foreach (var column in Context.Table.Columns)
         {
             if (FileEntryTableColumnMapping.MapColumn(column.SortMemberPath) is { } fileEntryColumn)
             {

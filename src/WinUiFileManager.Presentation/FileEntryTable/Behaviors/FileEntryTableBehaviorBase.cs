@@ -2,112 +2,49 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableView>
 {
-    private IMessenger? _boundMessenger;
+    private FileEntryTableBehaviorContext? _context;
 
-    protected FileEntryTableNavigationState? NavigationState { get; private set; }
-
-    protected TableView? EntryTable { get; private set; }
+    protected FileEntryTableBehaviorContext Context =>
+        _context ?? throw new InvalidOperationException($"{GetType().Name} is not loaded.");
 
     protected override void OnAttached()
     {
         base.OnAttached();
-        NavigationState = AssociatedObject.NavigationState;
         AssociatedObject.Loaded += OnLoaded;
-        EnsureTable();
     }
 
     protected override void OnDetaching()
     {
-        ClearMessengerRegistration();
-        StopTrackingTable();
-        NavigationState = null;
+        AssociatedObject.Loaded -= OnLoaded;
+
+        if (_context is not null)
+        {
+            OnUnloaded(_context);
+            _context.Messenger.UnregisterAll(this);
+            _context = null;
+        }
+
         base.OnDetaching();
     }
 
-    protected virtual void OnMessengerAvailable(IMessenger messenger)
+    protected virtual void OnLoaded(FileEntryTableBehaviorContext context)
     {
     }
 
-    protected IMessenger GetRequiredMessenger()
+    protected virtual void OnUnloaded(FileEntryTableBehaviorContext context)
     {
-        if (AssociatedObject?.Messenger is { } messenger)
-        {
-            return messenger;
-        }
-
-        throw new InvalidOperationException(
-            $"{nameof(SpecFileEntryTableView)}.{nameof(SpecFileEntryTableView.Messenger)} must be set.");
     }
 
-    private void RegisterMessenger()
+    protected bool IsLoaded => _context is not null;
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
     {
-        if (_boundMessenger is not null)
+        if (_context is not null)
         {
             return;
         }
 
-        var messenger = GetRequiredMessenger();
-        OnMessengerAvailable(messenger);
-        _boundMessenger = messenger;
-    }
-
-    private void ClearMessengerRegistration()
-    {
-        if (_boundMessenger is not null)
-        {
-            _boundMessenger.UnregisterAll(this);
-            _boundMessenger = null;
-        }
-    }
-
-    protected bool EnsureTable()
-    {
-        if (AssociatedObject is null)
-        {
-            return false;
-        }
-
-        var table = AssociatedObject.Table;
-        if (ReferenceEquals(EntryTable, table))
-        {
-            return true;
-        }
-
-        if (EntryTable is not null)
-        {
-            OnTableDetaching(EntryTable);
-        }
-
-        EntryTable = table;
-        OnTableAttached(table);
-        return true;
-    }
-
-    protected virtual void OnTableAttached(TableView table)
-    {
-    }
-
-    protected virtual void OnTableDetaching(TableView table)
-    {
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        EnsureTable();
-        RegisterMessenger();
-    }
-
-    private void StopTrackingTable()
-    {
-        if (AssociatedObject is not null)
-        {
-            AssociatedObject.Loaded -= OnLoaded;
-        }
-
-        if (EntryTable is not null)
-        {
-            OnTableDetaching(EntryTable);
-            EntryTable = null;
-        }
+        _context = FileEntryTableBehaviorContext.Create(AssociatedObject);
+        OnLoaded(_context);
     }
 }

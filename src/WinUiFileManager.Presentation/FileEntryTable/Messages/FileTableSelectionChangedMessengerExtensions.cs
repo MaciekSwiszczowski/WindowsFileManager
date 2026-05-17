@@ -18,7 +18,7 @@ internal static class FileTableSelectionChangedMessengerExtensions
 
         public void Send(IMessenger messenger, FileTableSelectionChangedMessage message, UiDispatcherQueue dispatcherQueue)
         {
-            if (message.SelectedItems.Count == 0)
+            if (message.SelectedItems.Count == 0 && !message.IsParentRowSelected)
             {
                 SendEmptySelectionWhenStable(messenger, message, dispatcherQueue);
                 return;

@@ -1,11 +1,11 @@
+using CommunityToolkit.WinUI.Converters;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 internal sealed class InspectorFieldValueUpdater
 {
-    private static readonly string[] SizeSuffixes = ["B", "KB", "MB", "GB", "TB"];
-
+    private readonly FileSizeToFriendlyStringConverter _fileSizeConverter = new();
     private readonly IReadOnlyList<InspectorCategoryViewModel> _categories;
     private readonly IReadOnlyDictionary<string, InspectorFieldViewModel> _fields;
 
@@ -31,7 +31,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Full Path", model.FullPath.DisplayPath);
         SetValue("Type", model.Kind == ItemKind.Directory ? "Folder" : "File");
         SetValue("Extension", model.Extension);
-        SetValue("Size", FormatSize(model.Size));
+        SetValue("Size", ConvertSize(model));
         SetValue("Attributes", model.Attributes.ToString());
 
         SetValue("Created", FormatUtc(model.CreationTimeUtc));
@@ -94,24 +94,14 @@ internal sealed class InspectorFieldValueUpdater
 
     private static string FormatFlag(bool value) => value ? "Yes" : "No";
 
-    private static string FormatSize(long bytes)
+    private string ConvertSize(FileSystemEntryModel model)
     {
-        if (bytes < 0)
+        if (model.Kind != ItemKind.File)
         {
             return string.Empty;
         }
 
-        var suffixIndex = 0;
-        var size = (double)bytes;
-
-        while (size >= 1024 && suffixIndex < SizeSuffixes.Length - 1)
-        {
-            size /= 1024;
-            suffixIndex++;
-        }
-
-        return suffixIndex == 0
-            ? $"{size:F0} {SizeSuffixes[suffixIndex]}"
-            : $"{size:F2} {SizeSuffixes[suffixIndex]}";
+        return _fileSizeConverter.Convert(model.Size, typeof(string), string.Empty, string.Empty) as string
+            ?? string.Empty;
     }
 }

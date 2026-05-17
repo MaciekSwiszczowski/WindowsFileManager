@@ -16,4 +16,8 @@ public sealed class SpecFileEntryViewModel
     public static bool IsParentEntry(SpecFileEntryViewModel item) => item.Model is null;
 
     public FileSystemEntryModel? Model { get; }
+
+    public long? DisplaySizeBytes => Model?.Kind == ItemKind.File
+        ? Model.Size
+        : null;
 }

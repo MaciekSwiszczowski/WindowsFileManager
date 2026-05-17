@@ -1,6 +1,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 
@@ -9,6 +10,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private readonly CompositeDisposable _subscriptions = [];
     private readonly IMessenger _messenger;
     private readonly IActivePanelsService _activePanelsService;
+    private readonly InspectorFieldValueUpdater _fieldValueUpdater;
     private int _selectedItemCount;
     private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
@@ -32,6 +34,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _messenger = messenger;
         _activePanelsService = activePanelsService;
         Categories = initialization.Categories;
+        _fieldValueUpdater = new InspectorFieldValueUpdater(Categories);
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
@@ -83,13 +86,14 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
             : FileInspectorSelectionMode.MultiSelection;
     }
 
-    private void ShowImmediateSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
+    private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
-        SetSelectedItemCount(selectedItems.Count);
+        SetSelectedItemCount(1);
+        _fieldValueUpdater.ShowImmediateSelection(selectedItem);
         SelectionMode = FileInspectorSelectionMode.SingleSelection;
     }
 
-    private void LoadDeferredSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
+    private void LoadDeferredSelection(SpecFileEntryViewModel selectedItem)
     {
     }
 

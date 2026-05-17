@@ -14,15 +14,8 @@ public sealed class InspectorInitializationViewModel
     private readonly ISchedulerProvider _schedulers;
     private readonly IMessenger _messenger;
 
-    public InspectorInitializationViewModel(
-        IActivePanelsService activePanelsService,
-        ISchedulerProvider schedulers,
-        IMessenger messenger)
+    public InspectorInitializationViewModel(IActivePanelsService activePanelsService, ISchedulerProvider schedulers, IMessenger messenger)
     {
-        ArgumentNullException.ThrowIfNull(activePanelsService);
-        ArgumentNullException.ThrowIfNull(schedulers);
-        ArgumentNullException.ThrowIfNull(messenger);
-
         _activePanelsService = activePanelsService;
         _schedulers = schedulers;
         _messenger = messenger;
@@ -38,21 +31,21 @@ public sealed class InspectorInitializationViewModel
 
         ImmediateSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count == 1)
-            .ObserveOn(_schedulers.MainThread)
-            .Select(static message => message.SelectedItems);
+            .Select(static message => message.SelectedItems.First())
+            .ObserveOn(_schedulers.MainThread);
 
         DeferredSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count == 1)
+            .Select(static message => message.SelectedItems.First())
             .Throttle(SelectionThrottle, _schedulers.Background)
-            .ObserveOn(_schedulers.MainThread)
-            .Select(static message => message.SelectedItems);
+            .ObserveOn(_schedulers.MainThread);
     }
 
     public IObservable<IReadOnlyList<SpecFileEntryViewModel>> NonSingleSelectionObservable { get; }
 
-    public IObservable<IReadOnlyList<SpecFileEntryViewModel>> ImmediateSelectionObservable { get; }
+    public IObservable<SpecFileEntryViewModel> ImmediateSelectionObservable { get; }
 
-    public IObservable<IReadOnlyList<SpecFileEntryViewModel>> DeferredSelectionObservable { get; }
+    public IObservable<SpecFileEntryViewModel> DeferredSelectionObservable { get; }
 
     public List<InspectorCategoryViewModel> Categories { get; }
 
@@ -197,22 +190,23 @@ public sealed class InspectorInitializationViewModel
     {
         var tableSelectionObservable = _messenger
             .CreateObservable<FileTableSelectionChangedMessage>()
+            .ObserveOn(_schedulers.Background)
             .Where(message => IsSelectionFromActivePanel(message.Identity));
 
         var focusSelectionObservable = _messenger
             .CreateObservable<RefreshInspectorRequestMessage>()
+            .ObserveOn(_schedulers.Background)
             .Select(_ => _activePanelsService.ActivePanelIdentity)
             .Where(static identity => !string.IsNullOrWhiteSpace(identity))
-            .Select(CreateSelectionChangedMessage);
+            .SelectMany(identity => Observable.FromAsync(() => CreateSelectionChangedMessageAsync(identity)));
 
         return tableSelectionObservable
-            .Merge(focusSelectionObservable)
-            .ObserveOn(_schedulers.Background);
+            .Merge(focusSelectionObservable);
     }
 
-    private FileTableSelectionChangedMessage CreateSelectionChangedMessage(string identity)
+    private async Task<FileTableSelectionChangedMessage> CreateSelectionChangedMessageAsync(string identity)
     {
-        var selectedItems = RequestSelectedItems(identity);
+        var selectedItems = await RequestSelectedItemsAsync(identity).ConfigureAwait(false);
 
         // The inspector only consumes SelectedItems from this focus-refresh adapter.
         // Parent-row visual state and active-row state remain owned by the table behaviors, we can safely do any defaults here.
@@ -223,7 +217,7 @@ public sealed class InspectorInitializationViewModel
             ActiveItem: selectedItems.Count == 1 ? selectedItems[0] : null);
     }
 
-    private IReadOnlyList<SpecFileEntryViewModel> RequestSelectedItems(string identity)
+    private async Task<IReadOnlyList<SpecFileEntryViewModel>> RequestSelectedItemsAsync(string identity)
     {
         if (string.IsNullOrWhiteSpace(identity))
         {
@@ -231,7 +225,9 @@ public sealed class InspectorInitializationViewModel
         }
 
         var request = _messenger.Send(new FileTableSelectedItemsRequestMessage(identity));
-        return request.HasReceivedResponse ? request.Response : [];
+        return request.HasReceivedResponse
+            ? await request.Response.ConfigureAwait(false)
+            : [];
     }
 
     private bool IsSelectionFromActivePanel(string identity) => _activePanelsService.ActivePanelIdentity == identity;

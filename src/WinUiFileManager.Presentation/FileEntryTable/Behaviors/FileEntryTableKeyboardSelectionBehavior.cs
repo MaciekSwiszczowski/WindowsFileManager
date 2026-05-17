@@ -1,4 +1,5 @@
 using WinUiFileManager.Application.Messages.RequestMessages;
+using WinUiFileManager.Presentation.Threading;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
@@ -193,7 +194,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             return;
         }
 
-        message.Reply(GetSelectedItemsSnapshot());
+        message.Reply(GetSelectedItemsSnapshotAsync());
     }
 
     private void OnSelectedEntriesRequested(object recipient, FileTableSelectedEntriesRequestMessage message)
@@ -203,15 +204,23 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             return;
         }
 
-        message.Reply(GetSelectedItemsSnapshot()
+        message.Reply(CreateSelectedItemsSnapshot(Context)
             .Select(static item => item.Model)
             .OfType<FileSystemEntryModel>()
             .ToList());
     }
 
-    private IReadOnlyList<SpecFileEntryViewModel> GetSelectedItemsSnapshot()
+    private Task<IReadOnlyList<SpecFileEntryViewModel>> GetSelectedItemsSnapshotAsync()
     {
-        return Context.Table.SelectedItems
+        var context = Context;
+        return context.View.DispatcherQueue.HasThreadAccess ?
+            Task.FromResult(CreateSelectedItemsSnapshot(context)) :
+            context.View.DispatcherQueue.RunAsync(() => CreateSelectedItemsSnapshot(context));
+    }
+
+    private static IReadOnlyList<SpecFileEntryViewModel> CreateSelectedItemsSnapshot(FileEntryTableBehaviorContext context)
+    {
+        return context.Table.SelectedItems
             .OfType<SpecFileEntryViewModel>()
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();

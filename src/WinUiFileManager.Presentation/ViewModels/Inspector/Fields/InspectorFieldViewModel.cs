@@ -53,7 +53,7 @@ public partial class InspectorFieldViewModel : ObservableObject
 
     protected void NotifyValueStateChanged()
     {
-        //OnPropertyChanged(nameof(DisplayValue));
-        //OnPropertyChanged(nameof(IsUnavailable));
+        OnPropertyChanged(nameof(DisplayValue));
+        OnPropertyChanged(nameof(IsUnavailable));
     }
 }

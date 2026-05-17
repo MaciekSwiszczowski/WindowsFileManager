@@ -91,7 +91,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             () => _currentFullPath,
             () => Categories,
             () => Fields,
-            RefreshFromCurrentTableSelection);
+            () => _ = RefreshFromCurrentTableSelectionAsync());
 
         if (!subscribeToMessages)
         {
@@ -106,7 +106,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             .CreateObservable<FileTableFocusedMessage>()
             .Where(static message => message.IsFocused)
             .ObserveOn(schedulers.MainThread)
-            .Select(message => CreateSelectionChangedMessage(message.Identity));
+            .SelectMany(message => Observable.FromAsync(() => CreateSelectionChangedMessageAsync(message.Identity)));
 
         var observable = tableSelectionObservable
             .Merge(focusSelectionObservable)
@@ -183,7 +183,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        RefreshFromCurrentTableSelection();
+        _ = RefreshFromCurrentTableSelectionAsync();
     }
 
     public FileInspectorCommandsViewModel Commands { get; }
@@ -363,7 +363,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         return _deferredBatchPlan.LoadAsync(selection, cancellationToken);
     }
 
-    private IReadOnlyList<SpecFileEntryViewModel> RequestSelectedItems(string identity)
+    private async Task<IReadOnlyList<SpecFileEntryViewModel>> RequestSelectedItemsAsync(string identity)
     {
         if (string.IsNullOrWhiteSpace(identity))
         {
@@ -371,12 +371,14 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         }
 
         var request = _messenger.Send(new FileTableSelectedItemsRequestMessage(identity));
-        return request.HasReceivedResponse ? request.Response : [];
+        return request.HasReceivedResponse
+            ? await request.Response.ConfigureAwait(false)
+            : [];
     }
 
-    private FileTableSelectionChangedMessage CreateSelectionChangedMessage(string identity)
+    private async Task<FileTableSelectionChangedMessage> CreateSelectionChangedMessageAsync(string identity)
     {
-        var selectedItems = RequestSelectedItems(identity);
+        var selectedItems = await RequestSelectedItemsAsync(identity).ConfigureAwait(false);
         return new FileTableSelectionChangedMessage(
             identity,
             selectedItems,
@@ -390,7 +392,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         LoadDeferredTableSelection(selectedEntries);
     }
 
-    private void RefreshFromCurrentTableSelection()
+    private async Task RefreshFromCurrentTableSelectionAsync()
     {
         var activePanelIdentity = _activePanelsService.ActivePanelIdentity;
         if (string.IsNullOrWhiteSpace(activePanelIdentity))
@@ -398,7 +400,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return;
         }
 
-        var selectedItems = RequestSelectedItems(activePanelIdentity);
+        var selectedItems = await RequestSelectedItemsAsync(activePanelIdentity).ConfigureAwait(false);
 
         if (selectedItems.Count == 0)
         {

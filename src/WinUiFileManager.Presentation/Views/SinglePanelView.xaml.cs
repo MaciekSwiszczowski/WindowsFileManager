@@ -212,10 +212,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, NormalizedPath.FromUserInput(rawPath)));
-        if (ViewModel is not null)
-        {
-            ViewModel.PathValidationMessage = string.Empty;
-        }
+        ViewModel?.PathValidationMessage = string.Empty;
     }
 
     private void SyncDriveSelection(string currentPath)
@@ -252,14 +249,14 @@ public sealed partial class SinglePanelView : IDisposable
 
     private void OnPanelPointerPressed(object sender, PointerRoutedEventArgs e)
     {
-        PublishPanelFocusChanged(isFocused: true);
+        PublishMessagesOnFocusChanged(isFocused: true);
     }
 
     private void OnPanelGettingFocus(UIElement sender, GettingFocusEventArgs args)
     {
         if (ContainsFocusedElement(args.NewFocusedElement))
         {
-            PublishPanelFocusChanged(isFocused: true);
+            PublishMessagesOnFocusChanged(isFocused: true);
         }
     }
 
@@ -267,7 +264,7 @@ public sealed partial class SinglePanelView : IDisposable
     {
         if (!ContainsFocusedElement(args.NewFocusedElement))
         {
-            PublishPanelFocusChanged(isFocused: false);
+            PublishMessagesOnFocusChanged(isFocused: false);
         }
     }
 
@@ -287,7 +284,7 @@ public sealed partial class SinglePanelView : IDisposable
         return false;
     }
 
-    private void PublishPanelFocusChanged(bool isFocused)
+    private void PublishMessagesOnFocusChanged(bool isFocused)
     {
         if (_panelFocused == isFocused && (!isFocused || ViewModel?.IsActive == true))
         {
@@ -296,5 +293,9 @@ public sealed partial class SinglePanelView : IDisposable
 
         _panelFocused = isFocused;
         Messenger?.Send(new FileTableFocusedMessage(Identity, isFocused));
+        if (isFocused)
+        {
+            Messenger?.Send(new RefreshInspectorRequestMessage(Identity));
+        }
     }
 }

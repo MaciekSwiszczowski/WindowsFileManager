@@ -200,8 +200,7 @@ public sealed class InspectorInitializationViewModel
             .Where(message => IsSelectionFromActivePanel(message.Identity));
 
         var focusSelectionObservable = _messenger
-            .CreateObservable<FileTableFocusedMessage>()
-            .Where(static message => message.IsFocused)
+            .CreateObservable<RefreshInspectorRequestMessage>()
             .ObserveOn(_schedulers.MainThread)
             .Select(message => CreateSelectionChangedMessage(message.Identity));
 

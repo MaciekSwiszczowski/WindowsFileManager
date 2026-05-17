@@ -34,8 +34,8 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Size", ConvertSize(model));
         SetValue("Attributes", model.Attributes.ToString());
 
-        SetValue("Created", FormatUtc(model.CreationTimeUtc));
-        SetValue("Modified", FormatUtc(model.LastWriteTimeUtc));
+        SetValue("Created", FormatLocalTime(model.CreationTime));
+        SetValue("Modified", FormatLocalTime(model.LastWriteTime));
         SetAttributeFlags(model.Attributes);
 
         RefreshCategoryVisibility();
@@ -87,21 +87,21 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
-    private static string FormatUtc(DateTime value) =>
-        value == DateTime.MinValue
+    private static string FormatLocalTime(DateTimeOffset value) =>
+        value == DateTimeOffset.MinValue
             ? string.Empty
-            : value.ToString("yyyy-MM-dd HH:mm:ss 'UTC'");
+            : value.ToString("yyyy-MM-dd HH:mm:ss");
 
     private static string FormatFlag(bool value) => value ? "Yes" : "No";
 
     private string ConvertSize(FileSystemEntryModel model)
     {
-        if (model.Kind != ItemKind.File)
+        if (model.Size is not { } size)
         {
             return string.Empty;
         }
 
-        return _fileSizeConverter.Convert(model.Size, typeof(string), string.Empty, string.Empty) as string
+        return _fileSizeConverter.Convert(size, typeof(string), string.Empty, string.Empty) as string
             ?? string.Empty;
     }
 }

@@ -11,8 +11,8 @@ public sealed record FileInspectorSelection(
     string Extension,
     ItemKind Kind,
     long SizeBytes,
-    DateTime CreationTimeUtc,
-    DateTime LastWriteTimeUtc,
+    DateTimeOffset CreationTime,
+    DateTimeOffset LastWriteTime,
     string Attributes,
     FileAttributes AttributesFlags)
 {
@@ -39,9 +39,9 @@ public sealed record FileInspectorSelection(
             Name: model.Name,
             Extension: model.Extension,
             Kind: model.Kind,
-            SizeBytes: model.Size,
-            CreationTimeUtc: model.CreationTimeUtc,
-            LastWriteTimeUtc: model.LastWriteTimeUtc,
+            SizeBytes: model.Size ?? -1,
+            CreationTime: model.CreationTime,
+            LastWriteTime: model.LastWriteTime,
             Attributes: model.Attributes.ToString(),
             AttributesFlags: model.Attributes);
     }
@@ -59,8 +59,8 @@ public sealed record FileInspectorSelection(
             Extension: string.Empty,
             Kind: ItemKind.File,
             SizeBytes: -1,
-            CreationTimeUtc: DateTime.MinValue,
-            LastWriteTimeUtc: DateTime.MinValue,
+            CreationTime: DateTimeOffset.MinValue,
+            LastWriteTime: DateTimeOffset.MinValue,
             Attributes: string.Empty,
             AttributesFlags: FileAttributes.None);
 }

@@ -146,19 +146,18 @@ internal sealed class WindowsFileSystemService : IFileSystemService
     {
         var isDirectory = fsi is DirectoryInfo;
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
-        var size = fsi is FileInfo fi ? fi.Length : 0L;
+        long? size = fsi is FileInfo fi ? fi.Length : null;
         var extension = isDirectory ? string.Empty : fsi.Extension;
         var parentPath = Path.GetDirectoryName(fsi.FullName);
 
         return new FileSystemEntryModel(
-            DirectoryPath.FromFullyQualifiedPath(
-                string.IsNullOrWhiteSpace(parentPath) ? fsi.FullName : parentPath),
+            DirectoryPath.FromFullyQualifiedPath(string.IsNullOrWhiteSpace(parentPath) ? fsi.FullName : parentPath),
             fsi.Name,
             InternExtension(extension),
             kind,
             size,
-            fsi.LastWriteTimeUtc,
-            fsi.CreationTimeUtc,
+            ToLocalTime(fsi.LastWriteTimeUtc),
+            ToLocalTime(fsi.CreationTimeUtc),
             fsi.Attributes);
     }
 
@@ -176,11 +175,14 @@ internal sealed class WindowsFileSystemService : IFileSystemService
             name,
             InternExtension(extension),
             kind,
-            isDirectory ? 0L : entry.Length,
-            entry.LastWriteTimeUtc.UtcDateTime,
-            entry.CreationTimeUtc.UtcDateTime,
+            isDirectory ? null : entry.Length,
+            entry.LastWriteTimeUtc.ToLocalTime(),
+            entry.CreationTimeUtc.ToLocalTime(),
             entry.Attributes);
     }
+
+    private static DateTimeOffset ToLocalTime(DateTime utcDateTime) =>
+        new DateTimeOffset(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc)).ToLocalTime();
 
     private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(
         DirectoryPath directoryPath)

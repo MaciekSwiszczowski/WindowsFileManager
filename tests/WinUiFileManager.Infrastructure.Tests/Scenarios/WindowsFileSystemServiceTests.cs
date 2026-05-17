@@ -51,8 +51,8 @@ public sealed class WindowsFileSystemServiceTests
         await Assert.That(file.Kind).IsEqualTo(ItemKind.File);
         await Assert.That(file.Size).IsEqualTo(1024L);
         await Assert.That(file.Extension).IsEqualTo(".bin");
-        await Assert.That(file.LastWriteTimeUtc).IsGreaterThan(DateTime.MinValue);
-        await Assert.That(file.CreationTimeUtc).IsGreaterThan(DateTime.MinValue);
+        await Assert.That(file.LastWriteTime).IsGreaterThan(DateTimeOffset.MinValue);
+        await Assert.That(file.CreationTime).IsGreaterThan(DateTimeOffset.MinValue);
     }
 
     [Test]
@@ -140,6 +140,7 @@ public sealed class WindowsFileSystemServiceTests
         await Assert.That(entry).IsNotNull();
         await Assert.That(entry!.Name).IsEqualTo("mydir");
         await Assert.That(entry.Kind).IsEqualTo(ItemKind.Directory);
+        await Assert.That(entry.Size).IsNull();
     }
 
     [Test]

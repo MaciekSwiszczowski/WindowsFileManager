@@ -61,7 +61,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             FileEntryColumn.Name => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
             FileEntryColumn.Extension => TextComparer.Compare(x.Model?.Extension, y.Model?.Extension),
             FileEntryColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
-            FileEntryColumn.Modified => Nullable.Compare(x.Model?.LastWriteTimeUtc, y.Model?.LastWriteTimeUtc),
+            FileEntryColumn.Modified => Nullable.Compare(x.Model?.LastWriteTime, y.Model?.LastWriteTime),
             FileEntryColumn.Attributes => TextComparer.Compare(x.Model?.Attributes.ToString(), y.Model?.Attributes.ToString()),
             _ => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
         };

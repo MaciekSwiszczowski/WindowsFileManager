@@ -7,9 +7,9 @@ public sealed record FileSystemEntryModel
         string name,
         string extension,
         ItemKind kind,
-        long size,
-        DateTime lastWriteTimeUtc,
-        DateTime creationTimeUtc,
+        long? size,
+        DateTimeOffset lastWriteTime,
+        DateTimeOffset creationTime,
         FileAttributes attributes)
     {
         DirectoryPath = directoryPath;
@@ -17,30 +17,9 @@ public sealed record FileSystemEntryModel
         Extension = extension;
         Kind = kind;
         Size = size;
-        LastWriteTimeUtc = lastWriteTimeUtc;
-        CreationTimeUtc = creationTimeUtc;
+        LastWriteTime = lastWriteTime;
+        CreationTime = creationTime;
         Attributes = attributes;
-    }
-
-    public FileSystemEntryModel(
-        NormalizedPath fullPath,
-        string name,
-        string extension,
-        ItemKind kind,
-        long size,
-        DateTime lastWriteTimeUtc,
-        DateTime creationTimeUtc,
-        FileAttributes attributes)
-        : this(
-            DirectoryPath.FromEntryPath(fullPath),
-            name,
-            extension,
-            kind,
-            size,
-            lastWriteTimeUtc,
-            creationTimeUtc,
-            attributes)
-    {
     }
 
     public DirectoryPath DirectoryPath { get; }
@@ -53,11 +32,11 @@ public sealed record FileSystemEntryModel
 
     public ItemKind Kind { get; }
 
-    public long Size { get; }
+    public long? Size { get; }
 
-    public DateTime LastWriteTimeUtc { get; }
+    public DateTimeOffset LastWriteTime { get; }
 
-    public DateTime CreationTimeUtc { get; }
+    public DateTimeOffset CreationTime { get; }
 
     public FileAttributes Attributes { get; }
 }

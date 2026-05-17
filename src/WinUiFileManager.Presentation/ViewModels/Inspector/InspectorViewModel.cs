@@ -13,6 +13,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private readonly IMessenger _messenger;
     private readonly IActivePanelsService _activePanelsService;
     private readonly InspectorFieldValueUpdater _fieldValueUpdater;
+    private readonly InspectorAttributeToggleViewModel _attributeToggle;
     private int _selectedItemCount;
     private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
@@ -41,12 +42,14 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         InspectorRefreshButtonViewModel refreshButton,
         InspectorPropertiesButtonViewModel propertiesButton,
         InspectorCopyToClipboardButtonViewModel copyToClipboardButton,
-        InspectorSearchViewModel search)
+        InspectorSearchViewModel search,
+        InspectorAttributeToggleViewModel attributeToggle)
     {
         _messenger = messenger;
         _activePanelsService = activePanelsService;
         Categories = initialization.Categories;
         _fieldValueUpdater = new InspectorFieldValueUpdater(Categories);
+        _attributeToggle = attributeToggle;
         RefreshButton = refreshButton;
         PropertiesButton = propertiesButton;
         CopyToClipboardButton = copyToClipboardButton;
@@ -54,6 +57,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
         CopyToClipboardButton.Initialize(() => Categories);
         Search.Initialize(Categories);
+        _attributeToggle.Initialize(Categories, () => Search.Refresh());
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
@@ -100,6 +104,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
     {
         PropertiesButton.SetSelectedItem(null);
+        _attributeToggle.SetSelectedItem(null);
         SetSelectedItemCount(selectedItems.Count);
         SelectionMode = selectedItems.Count == 0
             ? FileInspectorSelectionMode.NoSelection
@@ -109,6 +114,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
         PropertiesButton.SetSelectedItem(selectedItem.Model);
+        _attributeToggle.SetSelectedItem(selectedItem.Model);
         SetSelectedItemCount(1);
         _fieldValueUpdater.ShowImmediateSelection(selectedItem);
         Search.Refresh();

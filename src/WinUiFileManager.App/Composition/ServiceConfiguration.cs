@@ -12,6 +12,7 @@ using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 
 namespace WinUiFileManager.App.Composition;
@@ -50,6 +51,7 @@ public static class ServiceConfiguration
         services.AddTransient<InspectorPropertiesButtonViewModel>();
         services.AddTransient<InspectorCopyToClipboardButtonViewModel>();
         services.AddTransient<InspectorSearchViewModel>();
+        services.AddTransient<InspectorAttributeToggleViewModel>();
         services.AddTransient<InspectorViewModel>();
         services.AddTransient<MainShellViewModel>();
         services.AddTransient<StatusBarViewModel>();

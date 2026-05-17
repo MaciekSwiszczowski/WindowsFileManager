@@ -27,7 +27,7 @@
             <CheckBox MinWidth="32"
                       Padding="0"
                       VerticalAlignment="Center"
-                      IsChecked="{x:Bind Field.IsToggleOn, Mode=TwoWay}"
+                      IsChecked="{x:Bind Field.IsToggleOn, Mode=OneWay}"
                       IsEnabled="{x:Bind Field.CanInteract, Mode=OneWay}"
                       Command="{x:Bind Field.ToggleCommand, Mode=OneWay}" />
         </StackPanel>

@@ -13,7 +13,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBehaviorBase
 {
-    private int _selectionChangeVersion;
     private bool _syncingSelection;
     private bool _shiftRangeActive;
 
@@ -45,7 +44,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             return;
         }
 
-        var selectionChangeVersion = ++_selectionChangeVersion;
         _shiftRangeActive = false;
 
         if (EntryTable!.GetRowIndex(
@@ -53,12 +51,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         {
             NavigationState?.SetCurrent(EntryTable!, addedIndex, resetSelectionAnchor: true);
             PublishSelectionChanged();
-            return;
-        }
-
-        if (EntryTable!.SelectedItems.Count == 0)
-        {
-            QueueEmptySelectionChanged(selectionChangeVersion);
             return;
         }
 
@@ -129,28 +121,6 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         _shiftRangeActive = true;
         NavigationState?.SetSelectionRange(EntryTable, anchorIndex, targetIndex);
         EntryTable.ScrollRowIntoViewIfNeeded(targetIndex);
-        _selectionChangeVersion++;
-        PublishSelectionChanged();
-    }
-
-    private void QueueEmptySelectionChanged(int selectionChangeVersion)
-    {
-        if (AssociatedObject?.DispatcherQueue.TryEnqueue(
-                () => PublishEmptySelectionIfCurrent(selectionChangeVersion)) != true)
-        {
-            PublishEmptySelectionIfCurrent(selectionChangeVersion);
-        }
-    }
-
-    private void PublishEmptySelectionIfCurrent(int selectionChangeVersion)
-    {
-        if (selectionChangeVersion != _selectionChangeVersion
-            || EntryTable?.SelectedItems.Count != 0)
-        {
-            return;
-        }
-
-        NavigationState?.Reset();
         PublishSelectionChanged();
     }
 
@@ -161,25 +131,30 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             return;
         }
 
-        var selectedRows = EntryTable.SelectedItems
+        GetRequiredMessenger()
+            .SendFileTableSelectionChanged(CreateSelectionChangedMessage(), AssociatedObject.DispatcherQueue);
+    }
+
+    private FileTableSelectionChangedMessage CreateSelectionChangedMessage()
+    {
+        var selectedRows = EntryTable!.SelectedItems
             .OfType<SpecFileEntryViewModel>()
             .ToList();
         var selectedItems = selectedRows
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
             .ToList();
-        var activeItem = NavigationState?.GetSelectionCursorIndex(EntryTable) is { } cursorIndex
-            ? EntryTable.Items[cursorIndex] as SpecFileEntryViewModel
-            : NavigationState?.GetCurrentItem(EntryTable) ?? EntryTable.SelectedItem as SpecFileEntryViewModel;
 
-        var messenger = GetRequiredMessenger();
-
-        messenger.Send(
-            new FileTableSelectionChangedMessage(
-                AssociatedObject.Identity,
-                selectedItems,
-                selectedRows.Any(static item => SpecFileEntryViewModel.IsParentEntry(item)),
-                activeItem));
+        return new FileTableSelectionChangedMessage(
+            AssociatedObject!.Identity,
+            selectedItems,
+            selectedRows.Any(static item => SpecFileEntryViewModel.IsParentEntry(item)),
+            GetActiveItem());
     }
+
+    private SpecFileEntryViewModel? GetActiveItem() =>
+        NavigationState?.GetSelectionCursorIndex(EntryTable!) is { } cursorIndex
+            ? EntryTable!.Items[cursorIndex] as SpecFileEntryViewModel
+            : NavigationState?.GetCurrentItem(EntryTable!) ?? EntryTable!.SelectedItem as SpecFileEntryViewModel;
 
     private int? GetCurrentIndex() =>
         (EntryTable is not null ? NavigationState?.GetSelectionCursorIndex(EntryTable) : null)

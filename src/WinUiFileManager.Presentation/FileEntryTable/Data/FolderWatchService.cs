@@ -69,6 +69,7 @@ internal sealed class FolderWatchService : IDisposable
                 IncludeSubdirectories = false,
                 NotifyFilter = NotifyFilters.FileName
                     | NotifyFilters.DirectoryName
+                    | NotifyFilters.Attributes
                     | NotifyFilters.CreationTime
                     | NotifyFilters.LastWrite
                     | NotifyFilters.Size,

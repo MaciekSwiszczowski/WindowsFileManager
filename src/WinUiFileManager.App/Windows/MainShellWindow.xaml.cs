@@ -4,9 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using CommunityToolkit.Mvvm.Messaging;
 using Infrastructure.Services;
-using WinUiFileManager.Application.Navigation;
+using Application.Navigation;
 using Presentation.MessageLogging;
 using Presentation.Services;
 using Presentation.ViewModels;
@@ -29,7 +28,6 @@ public sealed partial class MainShellWindow
 
         ApplyTitleBarTheme(isDark: true);
 
-        ShellView.Messenger = App.Services.GetRequiredService<IMessenger>();
         _ = App.Services.GetRequiredService<PanelNavigationService>();
         ShellView.GoToPathCommandHandler = App.Services.GetRequiredService<GoToPathCommandHandler>();
         ShellView.Loaded += OnShellViewLoaded;

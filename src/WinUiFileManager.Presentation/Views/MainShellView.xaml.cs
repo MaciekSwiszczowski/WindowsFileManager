@@ -6,10 +6,8 @@ namespace WinUiFileManager.Presentation.Views;
 public sealed partial class MainShellView
 {
     private KeyboardManager? _keyboardManager;
-    private IMessenger? _messenger;
 
     private bool _fileTablesFrozenForSplitterDrag;
-
     public MainShellView()
     {
         InitializeComponent();
@@ -17,17 +15,6 @@ public sealed partial class MainShellView
         Unloaded += OnUnloaded;
         RegisterSplitterHandlers(InspectorGridSplitter);
         RegisterGlobalPointerReleaseHandlers();
-    }
-
-    public IMessenger? Messenger
-    {
-        get => _messenger;
-        set
-        {
-            _messenger = value;
-            _keyboardManager = value is null ? null : new KeyboardManager(value);
-            Bindings.Update();
-        }
     }
 
     public Action? ToggleThemeAction { get; set; }
@@ -53,6 +40,7 @@ public sealed partial class MainShellView
 
     public void Initialize(MainShellViewModel viewModel, Action? openMessageLogWindow = null)
     {
+        _keyboardManager = new KeyboardManager(viewModel.Messenger);
         ViewModel = viewModel;
 
         Panels.Initialization = viewModel.Initialization;

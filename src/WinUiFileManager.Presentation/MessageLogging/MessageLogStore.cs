@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Presentation.FileEntryTable;
+using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.MessageLogging;
 
@@ -10,11 +11,17 @@ public sealed class MessageLogStore
     private const int MaxEntries = 500;
 
     private readonly List<MessageLogEntry> _allEntries = [];
+    private readonly object _gate = new();
+    private readonly DispatcherQueue _dispatcherQueue;
     private readonly IMessenger _messenger;
+    private bool _refreshScheduled;
+    private string _idFilter = string.Empty;
 
     public MessageLogStore(IMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(messenger);
+        _dispatcherQueue = DispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException($"{nameof(MessageLogStore)} must be created on a dispatcher thread.");
         _messenger = messenger;
         RegisterMessages();
     }
@@ -25,18 +32,32 @@ public sealed class MessageLogStore
 
     public string IdFilter
     {
-        get;
+        get
+        {
+            lock (_gate)
+            {
+                return _idFilter;
+            }
+        }
         set
         {
-            field = value.Trim();
-            RefreshDisplayedEntries();
+            lock (_gate)
+            {
+                _idFilter = value.Trim();
+            }
+
+            ScheduleDisplayedEntriesRefresh();
         }
-    } = string.Empty;
+    }
 
     public void Clear()
     {
-        _allEntries.Clear();
-        Entries.Clear();
+        lock (_gate)
+        {
+            _allEntries.Clear();
+        }
+
+        ScheduleDisplayedEntriesRefresh();
     }
 
     public void TogglePaused()
@@ -103,39 +124,63 @@ public sealed class MessageLogStore
             ExtractId(message),
             FormatArguments(message));
 
-        _allEntries.Insert(0, entry);
-        while (_allEntries.Count > MaxEntries)
+        lock (_gate)
         {
-            _allEntries.RemoveAt(_allEntries.Count - 1);
+            _allEntries.Insert(0, entry);
+            while (_allEntries.Count > MaxEntries)
+            {
+                _allEntries.RemoveAt(_allEntries.Count - 1);
+            }
         }
 
-        if (MatchesFilter(entry))
+        ScheduleDisplayedEntriesRefresh();
+    }
+
+    private void ScheduleDisplayedEntriesRefresh()
+    {
+        lock (_gate)
         {
-            Entries.Insert(0, entry.Text);
-            TrimDisplayedEntries();
+            if (_refreshScheduled)
+            {
+                return;
+            }
+
+            _refreshScheduled = true;
+        }
+
+        if (_dispatcherQueue.TryEnqueue(RefreshDisplayedEntries))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            _refreshScheduled = false;
         }
     }
 
     private void RefreshDisplayedEntries()
     {
+        IReadOnlyList<string> displayedEntries;
+        lock (_gate)
+        {
+            _refreshScheduled = false;
+            displayedEntries = _allEntries
+                .Where(entry => MatchesFilter(entry, _idFilter))
+                .Select(static entry => entry.Text)
+                .ToArray();
+        }
+
         Entries.Clear();
-        foreach (var entry in _allEntries.Where(MatchesFilter))
+        foreach (var entry in displayedEntries)
         {
-            Entries.Add(entry.Text);
+            Entries.Add(entry);
         }
     }
 
-    private bool MatchesFilter(MessageLogEntry entry) =>
-        string.IsNullOrEmpty(IdFilter)
-        || entry.Id.Contains(IdFilter, StringComparison.OrdinalIgnoreCase);
-
-    private void TrimDisplayedEntries()
-    {
-        while (Entries.Count > MaxEntries)
-        {
-            Entries.RemoveAt(Entries.Count - 1);
-        }
-    }
+    private static bool MatchesFilter(MessageLogEntry entry, string idFilter) =>
+        string.IsNullOrEmpty(idFilter)
+        || entry.Id.Contains(idFilter, StringComparison.OrdinalIgnoreCase);
 
     private static string ExtractId<T>(T message)
         where T : class

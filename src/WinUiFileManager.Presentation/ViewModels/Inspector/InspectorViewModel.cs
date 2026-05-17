@@ -53,6 +53,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         Search = search;
 
         CopyToClipboardButton.Initialize(() => Categories);
+        Search.Initialize(Categories);
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
@@ -110,6 +111,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         PropertiesButton.SetSelectedItem(selectedItem.Model);
         SetSelectedItemCount(1);
         _fieldValueUpdater.ShowImmediateSelection(selectedItem);
+        Search.Refresh();
         SelectionMode = FileInspectorSelectionMode.SingleSelection;
     }
 

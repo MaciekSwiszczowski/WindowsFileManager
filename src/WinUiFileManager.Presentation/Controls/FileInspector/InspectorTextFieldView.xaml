@@ -9,28 +9,37 @@
     </UserControl.Resources>
 
     <Border Background="Transparent"
+            HorizontalAlignment="Stretch"
             PointerEntered="OnRowPointerEntered"
             PointerExited="OnRowPointerExited"
             ToolTipService.ToolTip="{x:Bind Field.Tooltip, Mode=OneWay}"
             Visibility="{x:Bind Field.IsVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-        <StackPanel Orientation="Horizontal">
-            <TextBlock Width="88"
+        <Grid ColumnSpacing="0"
+              HorizontalAlignment="Stretch">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="88" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
                        Padding="6,3"
                        Text="{x:Bind Field.Key, Mode=OneWay}"
                        FontSize="12"
                        TextWrapping="Wrap" />
-            <ProgressRing Width="14"
+            <ProgressRing Grid.Column="1"
+                          Width="14"
                           Height="14"
                           Margin="6,3"
                           IsActive="True"
                           Visibility="{x:Bind Field.IsLoading, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
-            <TextBlock Width="118"
+            <TextBlock Grid.Column="2"
                        Padding="6,3"
                        IsTextSelectionEnabled="True"
                        Text="{x:Bind Field.DisplayValue, Mode=OneWay}"
                        FontSize="12"
                        TextTrimming="CharacterEllipsis"
                        TextWrapping="Wrap" />
-        </StackPanel>
+        </Grid>
     </Border>
 </UserControl>

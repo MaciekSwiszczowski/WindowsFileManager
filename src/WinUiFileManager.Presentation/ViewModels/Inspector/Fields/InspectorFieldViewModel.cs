@@ -29,6 +29,8 @@ public partial class InspectorFieldViewModel : ObservableObject
 
     public string DisplayValue => Value;
 
+    public string SearchText => string.Concat(Category.GetDisplayName(), " ", Key, " ", DisplayValue);
+
     public virtual bool IsUnavailable => !IsLoading && string.IsNullOrWhiteSpace(Value);
 
     partial void OnIsLoadingChanged(bool value)

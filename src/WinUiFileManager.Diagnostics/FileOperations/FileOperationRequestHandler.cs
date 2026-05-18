@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Dialogs;
 using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Application.Messages.RequestMessages.FileOperations;
 
@@ -48,8 +49,35 @@ public sealed class FileOperationRequestHandler : IDisposable
                 message.Flag,
                 message.Enabled,
                 message.Path.DisplayPath);
+            _ = ShowAttributeChangeFailureAsync(message, ex);
         }
     }
+
+    private async Task ShowAttributeChangeFailureAsync(
+        SetFileAttributeFlagRequestedMessage message,
+        Exception exception)
+    {
+        var dialogRequest = _messenger.Send(
+            new ShowDialogMessage(
+                new MessageDialogViewModel(CreateAttributeChangeFailureMessage(message, exception)),
+                [
+                    new DialogButtonConfiguration(DialogButtonRole.Close, "OK", IsDefault: true),
+                ],
+                title: "Attribute change failed",
+                contentTemplateKey: DialogTemplateKeys.Message));
+
+        _ = await dialogRequest.Response.ConfigureAwait(false);
+    }
+
+    private static string CreateAttributeChangeFailureMessage(
+        SetFileAttributeFlagRequestedMessage message,
+        Exception exception) =>
+        string.Join(
+            Environment.NewLine,
+            $"Path: {message.Path.DisplayPath}",
+            $"Attribute: {message.Flag}",
+            $"Requested state: {(message.Enabled ? "Enabled" : "Disabled")}",
+            $"Error: {exception.Message}");
 
     private static void SetAttributeFlag(SetFileAttributeFlagRequestedMessage message)
     {

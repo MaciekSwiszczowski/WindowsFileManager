@@ -57,7 +57,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
         CopyToClipboardButton.Initialize(() => Categories);
         Search.Initialize(Categories);
-        _attributeToggle.Initialize(Categories, () => Search.Refresh());
+        _attributeToggle.Initialize(Categories);
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable

@@ -27,6 +27,12 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
         OnPropertyChanged(nameof(ToggleCommand));
     }
 
+    public void ConfigureRefreshDrivenToggle(Func<bool, Task> toggleAsync)
+    {
+        ToggleCommand = new AsyncRelayCommand(() => SendRefreshDrivenToggleRequestAsync(toggleAsync));
+        OnPropertyChanged(nameof(ToggleCommand));
+    }
+
     protected override void OnFieldStateChanged()
     {
         OnPropertyChanged(nameof(CanInteract));
@@ -54,5 +60,10 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
 
         IsToggleOn = previousToggle;
         Value = previousValue;
+    }
+
+    private async Task SendRefreshDrivenToggleRequestAsync(Func<bool, Task> toggleAsync)
+    {
+        await toggleAsync(!IsToggleOn);
     }
 }

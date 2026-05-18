@@ -1,5 +1,6 @@
 using System.Reactive.Linq;
 using System.Reactive.Disposables;
+using WinUiFileManager.Application.Messages.RequestMessages.FileOperations;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.ViewModels.FileInspector;
 using WinUiFileManager.Presentation.ViewModels.FileInspector.Categories;
@@ -461,26 +462,11 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             return false;
         }
 
-        try
-        {
-            var updated = await _fileIdentityService.SetNtfsAttributeFlagAsync(
-                _currentFullPath,
-                flag,
-                enabled,
-                CancellationToken.None);
-
-            if (updated)
-            {
-                ShowAndLoadTableSelection(_lastTableSelection);
-            }
-
-            return updated;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to toggle NTFS flag {Flag} for {Path}", key, _currentFullPath);
-            return false;
-        }
+        _messenger.Send(new SetFileAttributeFlagRequestedMessage(
+            NormalizedPath.FromUserInput(_currentFullPath),
+            flag,
+            enabled));
+        return false;
     }
 
     private void RefreshVisibleCategories()

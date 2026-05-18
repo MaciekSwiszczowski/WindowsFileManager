@@ -35,9 +35,7 @@ public sealed class ViewModelTestBuilder
         var inspectorProperties = new InspectorPropertiesButtonViewModel(ShellService);
         var inspectorCopy = new InspectorCopyToClipboardButtonViewModel(ClipboardService);
         var inspectorSearch = new InspectorSearchViewModel();
-        var inspectorAttributes = new InspectorAttributeToggleViewModel(
-            new FakeFileIdentityService(),
-            NullLogger<InspectorAttributeToggleViewModel>.Instance);
+        var inspectorAttributes = new InspectorAttributeToggleViewModel(messenger);
 
         return new MainShellViewModel(
             SettingsRepository,

@@ -6,6 +6,7 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Infrastructure.Services;
 using Application.Navigation;
+using Diagnostics.FileOperations;
 using Presentation.MessageLogging;
 using Presentation.Services;
 using Presentation.ViewModels;
@@ -24,6 +25,7 @@ public sealed partial class MainShellWindow
         _themeManager.Apply(ElementTheme.Dark);
 
         _ = App.Services.GetRequiredService<PanelNavigationService>();
+        _ = App.Services.GetRequiredService<FileOperationRequestHandler>();
         ShellView.Loaded += OnShellViewLoaded;
     }
 

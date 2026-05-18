@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using TUnit.Core;
+using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
@@ -22,6 +23,7 @@ public sealed class ServiceRegistrationValidationTests
 
         services.AddLogging();
         services.AddInfrastructureServices();
+        services.AddDiagnosticsServices();
 
         services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
         services.AddSingleton<IShellService, Fakes.FakeShellService>();

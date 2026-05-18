@@ -25,7 +25,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
     private const uint PlaceholderStateInSync = 0x00000008;
     private const uint PlaceholderStatePartial = 0x00000010;
 
-    internal static Func<IStorageItem?, CancellationToken, Task<(string SyncState, string TransferState, string CustomStatus)>> CloudPropertyValuesProvider { get; set; } =
+    private static Func<IStorageItem?, CancellationToken, Task<(string SyncState, string TransferState, string CustomStatus)>> CloudPropertyValuesProvider { get; set; } =
         static (storageItem, _) => TryGetCloudPropertyValuesAsync(storageItem);
 
     private static readonly FileNtfsMetadataDetails EmptyNtfsMetadataDetails =
@@ -161,30 +161,6 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
         {
             var fallback = GetFallbackNtfsMetadata(path);
             return Task.FromResult(fallback);
-        }
-    }
-
-    public Task<bool> SetNtfsAttributeFlagAsync(string path, System.IO.FileAttributes flag, bool enabled, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        try
-        {
-            var currentAttributes = File.GetAttributes(path);
-            var updatedAttributes = enabled
-                ? currentAttributes | flag
-                : currentAttributes & ~flag;
-
-            if (updatedAttributes != currentAttributes)
-            {
-                File.SetAttributes(path, updatedAttributes);
-            }
-
-            return Task.FromResult(true);
-        }
-        catch
-        {
-            return Task.FromResult(false);
         }
     }
 
@@ -400,7 +376,7 @@ internal sealed class NtfsFileIdentityService : IFileIdentityService
                 if (thumbnail is not null)
                 {
                     thumbnail.Seek(0);
-                    using var input = thumbnail.AsStreamForRead();
+                    await using var input = thumbnail.AsStreamForRead();
                     using var sequence = new Sequence<byte>(ArrayPool<byte>.Shared);
                     int read;
                     do

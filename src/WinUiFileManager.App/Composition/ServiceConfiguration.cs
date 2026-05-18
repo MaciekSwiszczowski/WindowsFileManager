@@ -5,6 +5,7 @@ using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Infrastructure;
 using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.MessageLogging;
@@ -27,6 +28,7 @@ public static class ServiceConfiguration
         services.AddSingleton(new FileInspectorInteropOptions(FileInspectorInteropCategories.All));
 
         services.AddInfrastructureServices();
+        services.AddDiagnosticsServices();
 
         services.AddSingleton<PanelNavigationService>();
 

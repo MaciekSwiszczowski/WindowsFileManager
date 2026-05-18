@@ -17,6 +17,7 @@
   <ItemGroup>
     <ProjectReference Include="..\WinUiFileManager.Presentation\WinUiFileManager.Presentation.csproj" />
     <ProjectReference Include="..\WinUiFileManager.Application\WinUiFileManager.Application.csproj" />
+    <ProjectReference Include="..\WinUiFileManager.Diagnostics\WinUiFileManager.Diagnostics.csproj" />
     <ProjectReference Include="..\WinUiFileManager.Infrastructure\WinUiFileManager.Infrastructure.csproj" />
     <ProjectReference Include="..\WinUiFileManager.Interop\WinUiFileManager.Interop.csproj" />
   </ItemGroup>

@@ -158,6 +158,7 @@ The inspector UI groups deferred details under `NTFS`, `IDs`, `Locks`, `Links`, 
 - The `NTFS` category should expose all four NTFS timestamps together at the top of the category: creation, last access, last write, and MFT change time.
 - The `MFT Changed` value comes from NTFS metadata (`FILE_BASIC_INFO.ChangeTime`), not from the managed `FileSystemInfo` snapshot.
 - For the small subset of binary NTFS flags that are safe to change through normal file attributes, the value cell may include an inline toggle control next to the `Yes` / `No` text.
+- Attribute toggles are request-driven. The inspector sends a file-operation message and waits for the diagnostics/file-operation component to refresh the inspector after the filesystem write; the inspector UI does not mutate attributes or patch its own displayed values directly.
 - Do not duplicate creation / last-write timestamps in both `Basic` and `NTFS`. `NTFS` owns the timestamp set.
 - Property labels should stay short. Use tooltips for the longer explanation.
 - Every row should support copy-to-clipboard of the value.

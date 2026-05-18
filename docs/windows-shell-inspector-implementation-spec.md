@@ -32,6 +32,7 @@ The implementation is split by category. Each category lists:
 17. Cloud diagnostics are the last deferred inspector category. Keep the category hidden unless the selected item resolves to a sync root, provider, or cloud placeholder state.
 18. `FILE_BASIC_INFO`, `FILE_ID_INFO`, and `FILE_ATTRIBUTE_TAG_INFO` must be read through `GetFileInformationByHandleEx`. Do not invent fake P/Invoke entrypoint names for those structures.
 19. Inline NTFS toggles are allowed only for attribute bits that can be updated through normal `GetAttributes` / `SetAttributes` semantics. Leave provider-managed and FSCTL-backed bits read-only.
+20. The inspector UI must not perform file mutations directly and must not depend on interop-facing services for mutations. Attribute toggles publish a request message; the diagnostics/file-operation handler performs the write and requests an inspector refresh after the write completes.
 
 ## Category 0 – Item acquisition
 
@@ -138,6 +139,7 @@ The implementation is split by category. Each category lists:
 |---|---|---|
 | immediate NTFS flags | [`FileSystemInfo.Attributes`](<https://learn.microsoft.com/en-us/dotnet/api/system.io.filesysteminfo.attributes?view=net-10.0>) | Use the cheap managed snapshot for immediate first paint. |
 | refreshed NTFS flags + `CTime` + `ATime` + `MTime` + `ChgTime` | [`CreateFileW`](<https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew>) + [`GetFileInformationByHandleEx`](<https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex>) with `FileBasicInfo` | Use a native handle opened with normal sharing and `FILE_FLAG_BACKUP_SEMANTICS` for directories. Read `FILE_BASIC_INFO` to refresh attributes and retrieve creation, last access, last write, and change/MFT timestamps. This NTFS metadata load should run as its own deferred batch, and the timestamp rows should be the first rows in the `NTFS` category. |
+| mutable flags | `SetFileAttributeFlagRequestedMessage` handled outside Presentation | The UI sends only the selected path, flag, and target state. The diagnostics file-operation handler writes the attribute and publishes an inspector refresh request. |
 
 ## Category 3 – IDs / stable item identity and final path
 

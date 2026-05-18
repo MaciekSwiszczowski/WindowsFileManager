@@ -113,7 +113,7 @@ public sealed partial class SinglePanelView : IDisposable
             return;
         }
 
-        var fileSystemService = ViewModel.FileSystemService;
+        var fileEntryDataReader = ViewModel.FileEntryDataReader;
         var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
 
         var initialPath = string.Equals(Identity, "Left", StringComparison.OrdinalIgnoreCase)
@@ -121,7 +121,7 @@ public sealed partial class SinglePanelView : IDisposable
             : Initialization.RightInitialPath;
 
         _dataSource?.Dispose();
-        _dataSource = new FileEntryTableDataSource(Identity, uiScheduler, fileSystemService, Messenger!);
+        _dataSource = new FileEntryTableDataSource(Identity, uiScheduler, fileEntryDataReader, Messenger!);
         _dataSourceSubscriptions.Add(_dataSource.States.Subscribe(ApplyState));
 
         Messenger?.Send(new FileTableNavigateToPathRequestedMessage(Identity, initialPath));

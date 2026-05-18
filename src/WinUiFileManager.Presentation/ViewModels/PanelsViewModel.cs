@@ -9,12 +9,12 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
     public PanelsViewModel(
         IActivePanelsService activePanelsService,
         IMessenger messenger,
-        IFileSystemService fileSystemService)
+        FileEntryDataReader fileEntryDataReader)
     {
         _activePanelsService = activePanelsService;
         _messenger = messenger;
-        LeftPanel = new PanelViewModel("Left", fileSystemService, messenger);
-        RightPanel = new PanelViewModel("Right", fileSystemService, messenger);
+        LeftPanel = new PanelViewModel("Left", fileEntryDataReader, messenger);
+        RightPanel = new PanelViewModel("Right", fileEntryDataReader, messenger);
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);

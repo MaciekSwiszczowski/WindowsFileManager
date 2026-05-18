@@ -17,20 +17,6 @@
                             IsChecked="{x:Bind ViewModel.ParallelExecutionEnabled, Mode=TwoWay}"
                             ToolTipService.ToolTip="Parallel Operations" />
         <AppBarButton Icon="Refresh" ToolTipService.ToolTip="Refresh (Ctrl+R)" />
-        <AppBarButton x:Name="FavouritesAppBarButton"
-                      Icon="Favorite"
-                      ToolTipService.ToolTip="Favourites (Ctrl+D)">
-            <AppBarButton.Flyout>
-                <MenuFlyout x:Name="FavouritesFlyout" Opening="OnFavouritesFlyoutOpening">
-                    <MenuFlyoutItem Text="Add current folder" Click="OnAddFavouriteClick">
-                        <MenuFlyoutItem.Icon>
-                            <SymbolIcon Symbol="Add" />
-                        </MenuFlyoutItem.Icon>
-                    </MenuFlyoutItem>
-                    <MenuFlyoutSeparator />
-                </MenuFlyout>
-            </AppBarButton.Flyout>
-        </AppBarButton>
         <AppBarButton Command="{x:Bind ViewModel.CopyPathCommand}" ToolTipService.ToolTip="Copy Full Path (Ctrl+Shift+C)">
             <AppBarButton.Icon>
                 <SymbolIcon Symbol="Link" />

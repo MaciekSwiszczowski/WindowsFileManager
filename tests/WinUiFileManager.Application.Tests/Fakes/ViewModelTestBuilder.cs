@@ -1,8 +1,11 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Reactive.Testing;
-using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
+using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
@@ -10,19 +13,11 @@ public sealed class ViewModelTestBuilder
 {
     public FakeClipboardService ClipboardService { get; } = new();
     public FakeSettingsRepository SettingsRepository { get; } = new();
-    public FakeFavouritesRepository FavouritesRepository { get; } = new();
     public FakeShellService ShellService { get; } = new();
 
     public MainShellViewModel Build()
     {
-        var pathService = new WindowsPathNormalizationService();
-        var fsService = new WindowsFileSystemService(
-            pathService, NullLogger<WindowsFileSystemService>.Instance);
-
-        var removeFavourite = new RemoveFavouriteCommandHandler(
-            FavouritesRepository, NullLogger<RemoveFavouriteCommandHandler>.Instance);
-        var openFavourite = new OpenFavouriteCommandHandler(
-            FavouritesRepository, fsService, NullLogger<OpenFavouriteCommandHandler>.Instance);
+        var fileEntryDataReader = new FileEntryDataReader();
         var setParallelExec = new SetParallelExecutionCommandHandler(
             SettingsRepository, NullLogger<SetParallelExecutionCommandHandler>.Instance);
         var persistPaneState = new PersistPaneStateCommandHandler(
@@ -36,18 +31,31 @@ public sealed class ViewModelTestBuilder
             activePanels,
             schedulerProvider,
             messenger);
+        var inspectorRefresh = new InspectorRefreshButtonViewModel(messenger);
+        var inspectorProperties = new InspectorPropertiesButtonViewModel(ShellService);
+        var inspectorCopy = new InspectorCopyToClipboardButtonViewModel(ClipboardService);
+        var inspectorSearch = new InspectorSearchViewModel();
+        var inspectorAttributes = new InspectorAttributeToggleViewModel(
+            new FakeFileIdentityService(),
+            NullLogger<InspectorAttributeToggleViewModel>.Instance);
+
         return new MainShellViewModel(
             SettingsRepository,
-            removeFavourite,
-            openFavourite,
             setParallelExec,
             persistPaneState,
-            FavouritesRepository,
             NullLogger<MainShellViewModel>.Instance,
             messenger,
-            new InspectorViewModel(inspectorInitialization, messenger, activePanels),
+            new InspectorViewModel(
+                inspectorInitialization,
+                messenger,
+                activePanels,
+                inspectorRefresh,
+                inspectorProperties,
+                inspectorCopy,
+                inspectorSearch,
+                inspectorAttributes),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(activePanels, messenger, fsService),
+            new PanelsViewModel(activePanels, messenger, fileEntryDataReader),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }

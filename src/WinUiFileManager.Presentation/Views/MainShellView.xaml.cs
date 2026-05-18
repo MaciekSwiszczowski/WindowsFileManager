@@ -19,8 +19,6 @@ public sealed partial class MainShellView
 
     public Action? ToggleThemeAction { get; set; }
 
-    public GoToPathCommandHandler? GoToPathCommandHandler { get; set; }
-
     public ICommand? KeyboardCommand => _keyboardManager?.KeyPressedCommand;
 
     public void CapturePaneColumnLayouts()

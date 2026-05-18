@@ -94,6 +94,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                     IncludeSubdirectories = false,
                     NotifyFilter = NotifyFilters.FileName
                         | NotifyFilters.DirectoryName
+                        | NotifyFilters.Attributes
                         | NotifyFilters.CreationTime
                         | NotifyFilters.LastWrite
                         | NotifyFilters.Size,

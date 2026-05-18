@@ -4,16 +4,16 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject
 {
-    public PanelViewModel(string identity, IFileSystemService fileSystemService, IMessenger messenger)
+    public PanelViewModel(string identity, FileEntryDataReader fileEntryDataReader, IMessenger messenger)
     {
         Identity = identity;
-        FileSystemService = fileSystemService;
+        FileEntryDataReader = fileEntryDataReader;
         Messenger = messenger;
     }
 
     public string Identity { get; }
 
-    public IFileSystemService FileSystemService { get; }
+    public FileEntryDataReader FileEntryDataReader { get; }
 
     public IMessenger Messenger { get; }
 

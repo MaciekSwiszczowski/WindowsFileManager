@@ -24,12 +24,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INtfsVolumePolicyService, NtfsVolumePolicyService>();
         services.AddSingleton<IPathNormalizationService, WindowsPathNormalizationService>();
         services.AddSingleton<ISchedulerProvider, RxSchedulerProvider>();
-        services.AddSingleton<IFileSystemService, WindowsFileSystemService>();
         services.AddSingleton<IDirectoryChangeStream, WindowsDirectoryChangeStream>();
         services.AddSingleton<IFileIdentityService, NtfsFileIdentityService>();
         services.AddSingleton<IShellService, WindowsShellService>();
 
-        services.AddSingleton<IFavouritesRepository, JsonFavouritesRepository>();
         services.AddSingleton<ISettingsRepository, JsonSettingsRepository>();
 
         services.AddSingleton<ITimeProvider, SystemTimeProvider>();

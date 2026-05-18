@@ -1,4 +1,3 @@
-using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 
@@ -9,11 +8,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private const double MinVisibleInspectorWidth = 260d;
 
     private readonly ISettingsRepository _settingsRepository;
-    private readonly RemoveFavouriteCommandHandler _removeFavouriteHandler;
-    private readonly OpenFavouriteCommandHandler _openFavouriteHandler;
     private readonly SetParallelExecutionCommandHandler _setParallelExecutionHandler;
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
-    private readonly IFavouritesRepository _favouritesRepository;
     private readonly ILogger<MainShellViewModel> _logger;
     private readonly IMessenger _messenger;
 
@@ -68,11 +64,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
 
     public MainShellViewModel(
         ISettingsRepository settingsRepository,
-        RemoveFavouriteCommandHandler removeFavouriteHandler,
-        OpenFavouriteCommandHandler openFavouriteHandler,
         SetParallelExecutionCommandHandler setParallelExecutionHandler,
         PersistPaneStateCommandHandler persistPaneStateHandler,
-        IFavouritesRepository favouritesRepository,
         ILogger<MainShellViewModel> logger,
         IMessenger messenger,
         InspectorViewModel inspector,
@@ -82,11 +75,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         _messenger = messenger;
         _settingsRepository = settingsRepository;
-        _removeFavouriteHandler = removeFavouriteHandler;
-        _openFavouriteHandler = openFavouriteHandler;
         _setParallelExecutionHandler = setParallelExecutionHandler;
         _persistPaneStateHandler = persistPaneStateHandler;
-        _favouritesRepository = favouritesRepository;
         _logger = logger;
         Inspector = inspector;
         Initialization = initialization;
@@ -94,8 +84,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Commands = commands;
         _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorLayoutMessage);
     }
-
-    public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
 
     public double InspectorColumnWidth
     {
@@ -144,36 +132,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private Task CopyFullPathAsync() => Task.CompletedTask;
 
     [RelayCommand]
-    private Task AddFavouriteAsync() => Task.CompletedTask;
-
-    [RelayCommand]
-    private async Task RemoveFavouriteAsync(FavouriteFolderId id)
-    {
-        try
-        {
-            await _removeFavouriteHandler.ExecuteAsync(id, CancellationToken.None);
-            await LoadFavouritesAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Remove favourite failed");
-        }
-    }
-
-    [RelayCommand]
-    private async Task OpenFavouriteAsync(FavouriteFolderId id)
-    {
-        try
-        {
-            await _openFavouriteHandler.ExecuteAsync(id, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Open favourite failed");
-        }
-    }
-
-    [RelayCommand]
     private Task RefreshActivePaneAsync() => Task.CompletedTask;
 
     public async Task InitializeAsync()
@@ -188,8 +146,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
             InspectorWidth = _currentSettings.InspectorWidth;
             Panels.LeftPanelWidth = _currentSettings.LeftPaneWidth;
             MainWindowPlacement = _currentSettings.MainWindowPlacement;
-
-            await LoadFavouritesAsync();
 
             Panels.SetActivePanel(string.IsNullOrWhiteSpace(_currentSettings.LastActivePane)
                 ? "Left"
@@ -241,18 +197,6 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         {
             return fallback;
         }
-    }
-
-    private async Task LoadFavouritesAsync()
-    {
-        var items = await _favouritesRepository.GetAllAsync(CancellationToken.None);
-        Favourites.Clear();
-        foreach (var item in items)
-        {
-            Favourites.Add(item);
-        }
-
-        Commands.SetFavourites(Favourites);
     }
 
     private void OnToggleInspectorLayoutMessage(object recipient, ToggleInspectorRequestedMessage message)

@@ -22,17 +22,6 @@ public sealed partial class CommandButtonsViewModel : ObservableObject, IDisposa
     [ObservableProperty]
     public partial bool ParallelExecutionEnabled { get; set; }
 
-    public ObservableCollection<FavouriteFolder> Favourites { get; } = [];
-
-    public void SetFavourites(IEnumerable<FavouriteFolder> favourites)
-    {
-        Favourites.Clear();
-        foreach (var favourite in favourites)
-        {
-            Favourites.Add(favourite);
-        }
-    }
-
     public IMessenger Messenger => _messenger;
 
     public void Dispose()

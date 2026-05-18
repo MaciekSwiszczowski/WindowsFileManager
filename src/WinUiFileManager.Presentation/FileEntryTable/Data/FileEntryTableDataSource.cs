@@ -17,7 +17,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly SerialDisposable _activeDirectoryLoad = new();
     private readonly SerialDisposable _folderWatchingService = new();
     private readonly BehaviorSubject<FileEntryTableDataState> _states;
-    private readonly IFileSystemService _fileSystemService;
+    private readonly FileEntryDataReader _fileEntryDataReader;
     private readonly IMessenger _messenger;
     private readonly IScheduler _backgroundScheduler;
     private readonly IScheduler _uiScheduler;
@@ -27,18 +27,18 @@ internal sealed class FileEntryTableDataSource : IDisposable
     public FileEntryTableDataSource(
         string identity,
         IScheduler uiScheduler,
-        IFileSystemService fileSystemService,
+        FileEntryDataReader fileEntryDataReader,
         IMessenger messenger,
         IScheduler? backgroundScheduler = null)
     {
         ArgumentNullException.ThrowIfNull(uiScheduler);
-        ArgumentNullException.ThrowIfNull(fileSystemService);
+        ArgumentNullException.ThrowIfNull(fileEntryDataReader);
         ArgumentNullException.ThrowIfNull(messenger);
 
         Identity = identity;
         Items = new ObservableCollectionExtended<SpecFileEntryViewModel>();
         _uiScheduler = uiScheduler;
-        _fileSystemService = fileSystemService;
+        _fileEntryDataReader = fileEntryDataReader;
         _messenger = messenger;
         _backgroundScheduler = backgroundScheduler ?? TaskPoolScheduler.Default;
         _states = new BehaviorSubject<FileEntryTableDataState>(
@@ -64,7 +64,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
             return;
         }
 
-        var entries = _fileSystemService.ObserveDirectoryEntries(
+        var entries = _fileEntryDataReader.ObserveDirectoryEntries(
             context.Path,
             _backgroundScheduler,
             CancellationToken.None);
@@ -277,7 +277,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         FileSystemEntryModel? model;
         try
         {
-            model = await _fileSystemService.GetEntryAsync(path, CancellationToken.None);
+            model = await _fileEntryDataReader.GetEntryAsync(path, CancellationToken.None);
         }
         catch (IOException)
         {

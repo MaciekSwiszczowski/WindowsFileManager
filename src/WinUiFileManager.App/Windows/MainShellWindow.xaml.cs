@@ -24,7 +24,6 @@ public sealed partial class MainShellWindow
         _themeManager.Apply(ElementTheme.Dark);
 
         _ = App.Services.GetRequiredService<PanelNavigationService>();
-        ShellView.GoToPathCommandHandler = App.Services.GetRequiredService<GoToPathCommandHandler>();
         ShellView.Loaded += OnShellViewLoaded;
     }
 

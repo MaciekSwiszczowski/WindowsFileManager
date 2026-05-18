@@ -68,10 +68,6 @@ public sealed class KeyboardManager
                 Send(new CopyPathKeyPressedMessage());
                 input.Handled = true;
                 break;
-            case { Key: VirtualKey.D, Control: true, Shift: false, Alt: false }:
-                Send(new OpenFavouritesRequestedMessage());
-                input.Handled = true;
-                break;
             case { Key: VirtualKey.I, Control: true, Shift: false, Alt: false }:
                 Send(new ToggleInspectorKeyPressedMessage());
                 input.Handled = true;

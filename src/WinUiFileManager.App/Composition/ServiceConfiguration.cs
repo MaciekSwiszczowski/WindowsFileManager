@@ -3,10 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
-using WinUiFileManager.Application.Favourites;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
+using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
@@ -28,12 +28,7 @@ public static class ServiceConfiguration
 
         services.AddInfrastructureServices();
 
-        services.AddSingleton<GoToPathCommandHandler>();
         services.AddSingleton<PanelNavigationService>();
-
-        services.AddSingleton<AddFavouriteCommandHandler>();
-        services.AddSingleton<RemoveFavouriteCommandHandler>();
-        services.AddSingleton<OpenFavouriteCommandHandler>();
 
         services.AddSingleton<SetParallelExecutionCommandHandler>();
         services.AddSingleton<PersistPaneStateCommandHandler>();
@@ -44,6 +39,7 @@ public static class ServiceConfiguration
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
 
         services.AddTransient<AppInitializationViewModel>();
+        services.AddSingleton<FileEntryDataReader>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
         services.AddTransient<InspectorInitializationViewModel>();

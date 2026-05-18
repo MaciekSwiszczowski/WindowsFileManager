@@ -1,20 +1,12 @@
-using System.IO.Enumeration;
 using System.Collections.Concurrent;
+using System.IO.Enumeration;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
-using Microsoft.Extensions.Logging;
-using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Infrastructure.FileSystem;
+namespace WinUiFileManager.Presentation.FileEntryTable.Data;
 
-/// <summary>
-/// Enumerates directory contents and maps file-system metadata into entry models.
-/// Active-folder change notifications live in <see cref="WindowsDirectoryChangeStream"/>.
-/// </summary>
-internal sealed class WindowsFileSystemService : IFileSystemService
+public sealed class FileEntryDataReader
 {
     private static readonly ConcurrentDictionary<string, string> ExtensionPool =
         new(StringComparer.OrdinalIgnoreCase);
@@ -25,26 +17,6 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         IgnoreInaccessible = true,
         ReturnSpecialDirectories = false
     };
-
-    private readonly ILogger<WindowsFileSystemService> _logger;
-
-    public WindowsFileSystemService(
-        IPathNormalizationService pathService,
-        ILogger<WindowsFileSystemService> logger)
-    {
-        _ = pathService;
-        _logger = logger;
-    }
-
-    public async Task<IReadOnlyList<FileSystemEntryModel>> EnumerateDirectoryAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var entries = await ObserveDirectoryEntries(path, Scheduler.Immediate, cancellationToken)
-            .ToList()
-            .ToTask(cancellationToken);
-        return (IReadOnlyList<FileSystemEntryModel>)entries;
-    }
 
     public IObservable<FileSystemEntryModel> ObserveDirectoryEntries(
         NormalizedPath path,
@@ -65,7 +37,30 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         });
     }
 
-    private void PumpEntries(
+    public Task<FileSystemEntryModel?> GetEntryAsync(
+        NormalizedPath path,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var displayPath = path.DisplayPath;
+        FileSystemInfo? fsi = null;
+
+        if (File.Exists(displayPath))
+        {
+            fsi = new FileInfo(displayPath);
+        }
+        else if (Directory.Exists(displayPath))
+        {
+            fsi = new DirectoryInfo(displayPath);
+        }
+
+        return Task.FromResult(fsi is null
+            ? null
+            : BuildEntryModel(fsi));
+    }
+
+    private static void PumpEntries(
         NormalizedPath path,
         CancellationToken cancellationToken,
         IObserver<FileSystemEntryModel> observer)
@@ -74,7 +69,6 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         {
             if (!Directory.Exists(path.DisplayPath))
             {
-                WindowsFileSystemServiceLog.DirectoryDoesNotExist(_logger, path.DisplayPath);
                 observer.OnCompleted();
                 return;
             }
@@ -101,45 +95,6 @@ internal sealed class WindowsFileSystemService : IFileSystemService
         {
             observer.OnError(ex);
         }
-    }
-
-    public Task<FileSystemEntryModel?> GetEntryAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var displayPath = path.DisplayPath;
-        FileSystemInfo? fsi = null;
-
-        if (File.Exists(displayPath))
-        {
-            fsi = new FileInfo(displayPath);
-        }
-        else if (Directory.Exists(displayPath))
-        {
-            fsi = new DirectoryInfo(displayPath);
-        }
-
-        if (fsi is null)
-        {
-            return Task.FromResult<FileSystemEntryModel?>(null);
-        }
-
-        return Task.FromResult<FileSystemEntryModel?>(BuildEntryModel(fsi));
-    }
-
-    public Task<bool> ExistsAsync(NormalizedPath path, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        var displayPath = path.DisplayPath;
-        return Task.FromResult(File.Exists(displayPath) || Directory.Exists(displayPath));
-    }
-
-    public Task<bool> DirectoryExistsAsync(NormalizedPath path, CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult(Directory.Exists(path.DisplayPath));
     }
 
     private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)

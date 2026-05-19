@@ -12,6 +12,7 @@
         <behaviors:FileEntryTableSortingBehavior />
         <behaviors:FileEntryTableKeyboardNavigationBehavior />
         <behaviors:FileEntryTableKeyboardSelectionBehavior />
+        <behaviors:FileEntryTableSelectionSnapshotBehavior />
         <behaviors:ParentRowSelectionOpacityBehavior />
         <behaviors:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>

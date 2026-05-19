@@ -51,6 +51,7 @@
             </Grid>
             <fileEntryTable:SpecFileEntryTableView x:Name="EntryTable"
                                                    Grid.Row="1"
+                                                   CurrentFolder="{x:Bind ViewModel.CurrentPath, Mode=OneWay}"
                                                    ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" />
             <Border Grid.Row="2"
                     Height="24"

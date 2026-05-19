@@ -206,7 +206,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         var subscription = folderWatchService.Changes
             .ObserveOn(_uiScheduler)
             .Subscribe(
-                change => ApplyChange(cache, context.LoadVersion, change),
+                change => ApplyChange(cache, context.Path, context.LoadVersion, change),
                 OnFolderStreamError);
 
         var lifetime = new CompositeDisposable(folderWatchService, subscription);
@@ -238,6 +238,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private void ApplyChange(
         ISourceCache<SpecFileEntryViewModel, string> cache,
+        NormalizedPath directoryPath,
         int loadVersion,
         DirectoryChange change)
     {
@@ -249,8 +250,22 @@ internal sealed class FileEntryTableDataSource : IDisposable
         switch (change.Kind)
         {
             case DirectoryChangeKind.Created:
+                _ = AddOrRemoveChangedEntryAsync(
+                    cache,
+                    directoryPath,
+                    loadVersion,
+                    change.Path,
+                    snapshotOldPath: null,
+                    createSnapshotBeforeUpdate: false);
+                break;
             case DirectoryChangeKind.Changed:
-                _ = AddOrRemoveChangedEntryAsync(cache, loadVersion, change.Path);
+                _ = AddOrRemoveChangedEntryAsync(
+                    cache,
+                    directoryPath,
+                    loadVersion,
+                    change.Path,
+                    snapshotOldPath: change.Path,
+                    createSnapshotBeforeUpdate: true);
                 break;
             case DirectoryChangeKind.Deleted:
                 cache.RemoveKey(change.Path.Value);
@@ -258,10 +273,17 @@ internal sealed class FileEntryTableDataSource : IDisposable
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
+                    _messenger.Send(new FileTableCreateSelectionSnapshotsRequestedMessage(directoryPath));
                     cache.RemoveKey(oldPath.Value);
                 }
 
-                _ = AddOrRemoveChangedEntryAsync(cache, loadVersion, change.Path);
+                _ = AddOrRemoveChangedEntryAsync(
+                    cache,
+                    directoryPath,
+                    loadVersion,
+                    change.Path,
+                    snapshotOldPath: change.OldPath,
+                    createSnapshotBeforeUpdate: false);
                 break;
             case DirectoryChangeKind.Invalidated:
                 LoadNearestExistingDirectory(CurrentPath);
@@ -271,8 +293,11 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private async Task AddOrRemoveChangedEntryAsync(
         ISourceCache<SpecFileEntryViewModel, string> cache,
+        NormalizedPath directoryPath,
         int loadVersion,
-        NormalizedPath path)
+        NormalizedPath path,
+        NormalizedPath? snapshotOldPath,
+        bool createSnapshotBeforeUpdate)
     {
         FileSystemEntryModel? model;
         try
@@ -300,14 +325,42 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 return;
             }
 
-            if (model is { })
+            if (model is not null)
             {
-                cache.AddOrUpdate(new SpecFileEntryViewModel(model));
+                if (createSnapshotBeforeUpdate && snapshotOldPath is { })
+                {
+                    _messenger.Send(new FileTableCreateSelectionSnapshotsRequestedMessage(directoryPath));
+                }
+
+                var newItem = new SpecFileEntryViewModel(model);
+                cache.AddOrUpdate(newItem);
+
+                if (snapshotOldPath is { } replacementOldPath)
+                {
+                    SendApplySelectionSnapshots(
+                        directoryPath,
+                        replacementOldPath,
+                        model.FullPath);
+                }
+
                 return;
             }
 
             cache.RemoveKey(path.Value);
+            if (snapshotOldPath is not null)
+            {
+                SendApplySelectionSnapshots(directoryPath, oldPath: null, newPath: null);
+            }
         });
+    }
+
+    private void SendApplySelectionSnapshots(
+        NormalizedPath directoryPath,
+        NormalizedPath? oldPath,
+        NormalizedPath? newPath)
+    {
+        _ = _uiScheduler.Schedule(() =>
+            _messenger.Send(new FileTableApplySelectionSnapshotsRequestedMessage(directoryPath, oldPath, newPath)));
     }
 
     private void LoadNearestExistingDirectory(string path)

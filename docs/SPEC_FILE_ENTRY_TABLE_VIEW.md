@@ -143,6 +143,8 @@ Trigger conditions are specified in §13.
 |---|---|
 | `FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout)` | Applies pixel column widths for the five logical columns (Name / Ext / Size / Modified / Attr). Handled by **`FileEntryTableLayoutBehavior`** (row height and `TableView` column `Width` / `GridLength`). |
 | `FileTableSelectedItemsRequestMessage(string Identity)` | Request-response message. Replies with the current real selected rows for the matching table. |
+| `FileTableCreateSelectionSnapshotsRequestedMessage(NormalizedPath DirectoryPath)` | Requests every table currently displaying `DirectoryPath` to store selected real rows and active real row before a row replacement. |
+| `FileTableApplySelectionSnapshotsRequestedMessage(NormalizedPath DirectoryPath, NormalizedPath? OldPath, NormalizedPath? NewPath)` | Requests every table currently displaying `DirectoryPath` to remap stored selected rows through one old-path to new-path replacement, restore selection, and then clear it. Null old/new paths clear a pending snapshot without restoring. |
 | `FileTableNavigateToPathMessage(string Identity, NormalizedPath Path)` | Accepted navigation command. The table data source applies this validated path for the matching table identity. |
 
 Hosts should send layout once `Identity` is set so behaviors and `Loaded` ordering see a stable identity. The application shell sends defaults after wiring `ItemsSource`.
@@ -161,6 +163,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first and folders remain before files. |
 | `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row, updates `NavigationState`, and scrolls it into view. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
+| `FileEntryTableSelectionSnapshotBehavior` | Captures real-row selection plus the active real row around watcher-driven row replacement. It currently restores selection only; active-row restoration is intentionally left to the planned `TableView.CurrentRowIndex` / current-row rework. It remaps only paths present in the replacement message and observes collection additions so it does not scan large folders to find the changed row. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Up`, `Down`, `Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
 

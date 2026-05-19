@@ -10,12 +10,12 @@ public sealed partial class SpecFileEntryTableView
             typeof(ObservableCollection<SpecFileEntryViewModel>),
             typeof(SpecFileEntryTableView), new PropertyMetadata(null));
 
-    public static readonly DependencyProperty MessengerProperty =
+    public static readonly DependencyProperty CurrentFolderProperty =
         DependencyProperty.Register(
-            nameof(Messenger),
-            typeof(IMessenger),
+            nameof(CurrentFolder),
+            typeof(string),
             typeof(SpecFileEntryTableView),
-            new PropertyMetadata(null));
+            new PropertyMetadata(string.Empty));
 
     public SpecFileEntryTableView()
     {
@@ -30,10 +30,12 @@ public sealed partial class SpecFileEntryTableView
         set => SetValue(ItemsSourceProperty, value);
     }
 
-    public IMessenger? Messenger
+    public IMessenger? Messenger { get; set; }
+
+    public string CurrentFolder
     {
-        get => (IMessenger?)GetValue(MessengerProperty);
-        set => SetValue(MessengerProperty, value);
+        get => (string)GetValue(CurrentFolderProperty);
+        set => SetValue(CurrentFolderProperty, value);
     }
 
     public TableView Table => EntryTable;

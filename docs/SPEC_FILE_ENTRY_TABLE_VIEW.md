@@ -165,7 +165,7 @@ The control does not expose any custom CLR events.
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `FileEntryTableSelectionSnapshotBehavior` | Captures real-row selection plus the active real row around watcher-driven row replacement. It currently restores selection only; active-row restoration is intentionally left to the planned `TableView.CurrentRowIndex` / current-row rework. It remaps only paths present in the replacement message and observes collection additions so it does not scan large folders to find the changed row. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
-| `ActiveRowIndicatorBehavior` | Active row chrome. Updates on pointer selection, selection messages, and realized row containers so keyboard scrolling (`Up`, `Down`, `Home`, `End`, `PageUp`, `PageDown`) keeps the indicator on the active item. |
+| `ActiveRowIndicatorBehavior` | Tracks the active row independently from multi-selection, shows the active-row marker, and handles Enter activation. Pointer press moves the active row without changing selection itself; keyboard selection messages move it with the selection cursor. |
 
 All attached behaviors derive from `FileEntryTableBehavior`, which captures the owning control's `NavigationState` on attach.
 

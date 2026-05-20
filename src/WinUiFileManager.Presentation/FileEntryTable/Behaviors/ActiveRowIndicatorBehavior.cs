@@ -4,13 +4,12 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 {
-    private const string DefaultIndicatorName = "ActiveRowIndicator";
+    private const string IndicatorName = "ActiveRowIndicator";
+    private const double ActiveOpacity = 1d;
+    private const double InactiveOpacity = 0d;
 
     private SpecFileEntryViewModel? _activeItem;
     private PointerEventHandler? _pointerPressedHandler;
-
-    private const double ActiveOpacity = 1d;
-    private const double InactiveOpacity = 0d;
 
     protected override void OnLoaded(FileEntryTableBehaviorContext context)
     {
@@ -29,15 +28,15 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
         context.View.PreviewKeyDown -= OnPreviewKeyDown;
         _pointerPressedHandler = null;
-        _activeItem = null;
+        ClearActiveItem();
     }
 
     private void OnPointerPressed(object sender, PointerRoutedEventArgs e)
     {
         var source = e.OriginalSource as DependencyObject;
-        if (!e.IsPrimaryPointerPress() ||
-            source.FindAncestor<TableView>() is null ||
-            source.FindItem() is not { } item)
+        if (!e.IsPrimaryPointerPress()
+            || source.FindAncestor<TableView>() is null
+            || source.FindItem() is not { } item)
         {
             return;
         }
@@ -78,16 +77,14 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
     {
         if (ReferenceEquals(_activeItem, item))
         {
+            QueueApplyActiveIndicator();
             return;
         }
 
-        if (_activeItem is { } previousActiveItem)
-        {
-            SetItemIndicatorOpacity(Context.Table, previousActiveItem, InactiveOpacity);
-        }
-
+        ClearActiveItem();
         _activeItem = item;
-        ApplyActiveItemIndicator();
+        ApplyActiveIndicator();
+        QueueApplyActiveIndicator();
     }
 
     private bool TrySendNavigationMessage(SpecFileEntryViewModel item)
@@ -109,22 +106,31 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void ClearActiveItem()
     {
-        if (_activeItem is { } previousActiveItem)
+        if (_activeItem is { } activeItem)
         {
-            SetItemIndicatorOpacity(Context.Table, previousActiveItem, InactiveOpacity);
+            SetItemIndicatorOpacity(Context.Table, activeItem, InactiveOpacity);
         }
 
         _activeItem = null;
     }
 
-    private void ApplyActiveItemIndicator()
+    private void QueueApplyActiveIndicator()
     {
-        if (_activeItem is not { } activeItem)
+        Context.View.DispatcherQueue.TryEnqueue(() =>
         {
-            return;
-        }
+            if (IsLoaded)
+            {
+                ApplyActiveIndicator();
+            }
+        });
+    }
 
-        SetItemIndicatorOpacity(Context.Table, activeItem, ActiveOpacity);
+    private void ApplyActiveIndicator()
+    {
+        if (_activeItem is { } activeItem)
+        {
+            SetItemIndicatorOpacity(Context.Table, activeItem, ActiveOpacity);
+        }
     }
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
@@ -143,9 +149,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         for (var i = 0; i < childCount; i++)
         {
             var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is FrameworkElement { Name: DefaultIndicatorName } element)
+            if (child is FrameworkElement { Name: IndicatorName } indicator)
             {
-                element.Opacity = opacity;
+                indicator.Opacity = opacity;
             }
 
             SetDescendantIndicatorOpacity(child, opacity);

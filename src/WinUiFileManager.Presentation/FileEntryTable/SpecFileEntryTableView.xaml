@@ -32,22 +32,25 @@
         <DataTemplate x:Key="NameColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
             <Grid HorizontalAlignment="Left">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="10" />
-                    <ColumnDefinition Width="2" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="4" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Active row indicator -->
-                <Rectangle Grid.Column="0" 
-                           Width="3" Height="10"
-                           HorizontalAlignment="Stretch" 
-                           Fill="{ThemeResource SystemControlHighlightAccentBrush}"
-                           x:Name="ActiveRowIndicator" 
-                           Opacity="0"/>
-                
-                <TextBlock Grid.Column="2" Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetName(Model), Mode=OneWay}" 
-                           Style="{StaticResource EllipsisTextCellStyle}" 
-                           HorizontalAlignment="Left" />
+                <Rectangle
+                    x:Name="ActiveRowIndicator"
+                    Grid.Column="0"
+                    Width="3"
+                    Height="10"
+                    HorizontalAlignment="Left"
+                    Fill="{ThemeResource SystemControlHighlightAccentBrush}"
+                    Opacity="0" />
+
+                <TextBlock
+                    Grid.Column="2"
+                    Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetName(Model), Mode=OneWay}"
+                    Style="{StaticResource EllipsisTextCellStyle}"
+                    HorizontalAlignment="Left" />
             </Grid>
         </DataTemplate>
         <DataTemplate x:Key="ModifiedColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">

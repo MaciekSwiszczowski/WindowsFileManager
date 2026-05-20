@@ -21,12 +21,6 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
 
     public bool CanInteract => !IsLoading && !IsUnavailable;
 
-    public void ConfigureToggle(Func<bool, Task<bool>> toggleAsync)
-    {
-        ToggleCommand = new AsyncRelayCommand(() => ToggleAsync(toggleAsync));
-        OnPropertyChanged(nameof(ToggleCommand));
-    }
-
     public void ConfigureRefreshDrivenToggle(Func<bool, Task> toggleAsync)
     {
         ToggleCommand = new AsyncRelayCommand(() => SendRefreshDrivenToggleRequestAsync(toggleAsync));
@@ -42,24 +36,6 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
     {
         IsToggleOn = string.Equals(value, "Yes", StringComparison.OrdinalIgnoreCase);
         OnPropertyChanged(nameof(CanInteract));
-    }
-
-    private async Task ToggleAsync(Func<bool, Task<bool>> toggleAsync)
-    {
-        var nextValue = !IsToggleOn;
-        var previousValue = Value;
-        var previousToggle = IsToggleOn;
-
-        IsToggleOn = nextValue;
-        Value = nextValue ? "Yes" : "No";
-
-        if (await toggleAsync(nextValue))
-        {
-            return;
-        }
-
-        IsToggleOn = previousToggle;
-        Value = previousValue;
     }
 
     private async Task SendRefreshDrivenToggleRequestAsync(Func<bool, Task> toggleAsync)

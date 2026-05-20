@@ -13,21 +13,17 @@ public sealed class InspectorAttributeToggleViewModel
     };
 
     private readonly IMessenger _messenger;
-    private IReadOnlyDictionary<string, InspectorFieldViewModel> _fields = new Dictionary<string, InspectorFieldViewModel>();
     private NormalizedPath? _selectedPath;
 
-    public InspectorAttributeToggleViewModel(IMessenger messenger)
-    {
-        _messenger = messenger;
-    }
+    public InspectorAttributeToggleViewModel(IMessenger messenger) => _messenger = messenger;
 
     public void Initialize(IReadOnlyList<InspectorCategoryViewModel> categories)
     {
-        _fields = categories
+        var fields = categories
             .SelectMany(static category => category.Fields)
-            .ToDictionary(static field => field.Key, StringComparer.OrdinalIgnoreCase);
+            .OfType<InspectorToggleFieldViewModel>();
 
-        foreach (var field in _fields.Values.OfType<InspectorToggleFieldViewModel>())
+        foreach (var field in fields)
         {
             if (ToggleableFlags.ContainsKey(field.Key))
             {

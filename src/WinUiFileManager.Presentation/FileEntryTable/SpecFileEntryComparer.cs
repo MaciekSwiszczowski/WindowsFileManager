@@ -1,7 +1,10 @@
+using System.Collections.Concurrent;
+
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
 internal sealed class SpecFileEntryComparer : System.Collections.IComparer
 {
+    private static readonly ConcurrentDictionary<FileAttributes, string> AttributeTextPool = new();
     private static readonly StringComparer TextComparer = StringComparer.CurrentCultureIgnoreCase;
 
     private readonly FileEntryColumn _column;
@@ -62,9 +65,14 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer
             FileEntryColumn.Extension => TextComparer.Compare(x.Model?.Extension, y.Model?.Extension),
             FileEntryColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
             FileEntryColumn.Modified => Nullable.Compare(x.Model?.LastWriteTime, y.Model?.LastWriteTime),
-            FileEntryColumn.Attributes => TextComparer.Compare(x.Model?.Attributes.ToString(), y.Model?.Attributes.ToString()),
+            FileEntryColumn.Attributes => TextComparer.Compare(GetAttributeText(x.Model?.Attributes), GetAttributeText(y.Model?.Attributes)),
             _ => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
         };
+
+    private static string? GetAttributeText(FileAttributes? attributes) =>
+        attributes is { } value
+            ? AttributeTextPool.GetOrAdd(value, static key => key.ToString())
+            : null;
 
     private static int CompareEntryKind(SpecFileEntryViewModel x, SpecFileEntryViewModel y)
     {

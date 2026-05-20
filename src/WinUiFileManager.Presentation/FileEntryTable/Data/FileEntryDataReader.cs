@@ -37,9 +37,7 @@ public sealed class FileEntryDataReader
         });
     }
 
-    public Task<FileSystemEntryModel?> GetEntryAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
+    public FileSystemEntryModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -55,9 +53,9 @@ public sealed class FileEntryDataReader
             fsi = new DirectoryInfo(displayPath);
         }
 
-        return Task.FromResult(fsi is null
+        return fsi is null
             ? null
-            : BuildEntryModel(fsi));
+            : BuildEntryModel(fsi);
     }
 
     private static void PumpEntries(

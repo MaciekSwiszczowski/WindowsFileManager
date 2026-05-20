@@ -302,7 +302,9 @@ internal sealed class FileEntryTableDataSource : IDisposable
         FileSystemEntryModel? model;
         try
         {
-            model = await _fileEntryDataReader.GetEntryAsync(path, CancellationToken.None);
+            model = await Task
+                .Run(() => _fileEntryDataReader.GetEntry(path, CancellationToken.None))
+                .ConfigureAwait(false);
         }
         catch (IOException)
         {

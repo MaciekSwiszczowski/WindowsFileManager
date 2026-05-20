@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Dialogs;
-using WinUiFileManager.Application.Messages;
 using WinUiFileManager.Application.Messages.RequestMessages.FileOperations;
 
 namespace WinUiFileManager.Diagnostics.FileOperations;
@@ -32,14 +31,14 @@ public sealed class FileOperationRequestHandler : IDisposable
         _messenger.UnregisterAll(this);
     }
 
-    private void OnSetFileAttributeFlagRequested(
-        object recipient,
-        SetFileAttributeFlagRequestedMessage message)
+    private void OnSetFileAttributeFlagRequested(object recipient, SetFileAttributeFlagRequestedMessage message)
+        => _ = SetAttributeFlagAsync(message);
+
+    private async Task SetAttributeFlagAsync(SetFileAttributeFlagRequestedMessage message)
     {
         try
         {
-            SetAttributeFlag(message);
-            _messenger.Send(new RefreshInspectorRequestMessage());
+            await Task.Run(() => SetAttributeFlag(message)).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -49,13 +48,11 @@ public sealed class FileOperationRequestHandler : IDisposable
                 message.Flag,
                 message.Enabled,
                 message.Path.DisplayPath);
-            _ = ShowAttributeChangeFailureAsync(message, ex);
+            await ShowAttributeChangeFailureAsync(message, ex).ConfigureAwait(false);
         }
     }
 
-    private async Task ShowAttributeChangeFailureAsync(
-        SetFileAttributeFlagRequestedMessage message,
-        Exception exception)
+    private async Task ShowAttributeChangeFailureAsync(SetFileAttributeFlagRequestedMessage message, Exception exception)
     {
         var dialogRequest = _messenger.Send(
             new ShowDialogMessage(
@@ -69,9 +66,7 @@ public sealed class FileOperationRequestHandler : IDisposable
         _ = await dialogRequest.Response.ConfigureAwait(false);
     }
 
-    private static string CreateAttributeChangeFailureMessage(
-        SetFileAttributeFlagRequestedMessage message,
-        Exception exception) =>
+    private static string CreateAttributeChangeFailureMessage(SetFileAttributeFlagRequestedMessage message, Exception exception) =>
         string.Join(
             Environment.NewLine,
             $"Path: {message.Path.DisplayPath}",

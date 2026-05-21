@@ -1,5 +1,3 @@
-using WinUiFileManager.Application.Settings;
-
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class AppInitializationViewModel : ObservableObject

@@ -1,14 +1,12 @@
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Scheduling;
-using WinUiFileManager.Presentation.ViewModels.Panels;
 
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class SinglePanelView : IDisposable
 {
     private readonly PointerEventHandler _panelPointerPressedHandler;
-    private bool _updatingDriveSelection;
     private bool _loaded;
     private bool _initialNavigationRequested;
     private string? _identity;
@@ -41,15 +39,13 @@ public sealed partial class SinglePanelView : IDisposable
 
     private AppInitializationViewModel? Initialization { get; set; }
 
+    private ObservableCollection<VolumeInfo>? AvailableVolumes => Initialization?.AvailableVolumes;
+
     private IMessenger? Messenger { get; set; }
 
     public SpecFileEntryTableView Table => EntryTable;
 
-    public void Initialize(
-        string identity,
-        PanelViewModel viewModel,
-        IMessenger messenger,
-        AppInitializationViewModel initialization)
+    public void Initialize(string identity, PanelViewModel viewModel, IMessenger messenger, AppInitializationViewModel initialization)
     {
         if (_identity is not null && _identity != identity)
         {
@@ -58,17 +54,13 @@ public sealed partial class SinglePanelView : IDisposable
 
         _identity = identity;
 
-        ViewModel = viewModel;
         Messenger = messenger;
         Initialization = initialization;
+        ViewModel = viewModel;
 
         EntryTable.Identity = Identity;
         EntryTable.Messenger = messenger;
         ViewModel.FileEntries.Attach(new DispatcherQueueScheduler(DispatcherQueue));
-        ViewModel.FileEntries.PropertyChanged += OnFileEntryDataSourcePropertyChanged;
-        ViewModel.PropertyChanged += OnPanelPropertyChanged;
-
-        DrivePicker.ItemsSource = Initialization.AvailableVolumes;
 
         EnsureInitialNavigation();
     }
@@ -77,7 +69,6 @@ public sealed partial class SinglePanelView : IDisposable
     {
         _loaded = true;
         EnsureInitialNavigation();
-        Bindings.Update();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) => Dispose();
@@ -89,9 +80,6 @@ public sealed partial class SinglePanelView : IDisposable
             return;
         }
         _disposed = true;
-
-        ViewModel.PropertyChanged -= OnPanelPropertyChanged;
-        ViewModel.FileEntries.PropertyChanged -= OnFileEntryDataSourcePropertyChanged;
 
         _loaded = false;
         ViewModel.FileEntries.Detach();
@@ -119,27 +107,10 @@ public sealed partial class SinglePanelView : IDisposable
         Messenger.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));
     }
 
-    private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(PanelViewModel.IsActive)
-            or nameof(PanelViewModel.SelectedCount))
-        {
-            DispatcherQueue.TryEnqueue(Bindings.Update);
-        }
-    }
-
-    private void OnFileEntryDataSourcePropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(PanelFileEntryDataSourceViewModel.CurrentPath))
-        {
-            DispatcherQueue.TryEnqueue(() => SyncDriveSelection(ViewModel.FileEntries.CurrentPath));
-        }
-    }
-
     private async void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_updatingDriveSelection
-            || sender is not ComboBox { SelectedItem: VolumeInfo volume })
+        if (sender is not ComboBox { SelectedItem: VolumeInfo volume }
+            || IsCurrentPathOnVolume(volume))
         {
             return;
         }
@@ -178,19 +149,6 @@ public sealed partial class SinglePanelView : IDisposable
         ViewModel.FileEntries.PathValidationMessage = string.Empty;
     }
 
-    private void SyncDriveSelection(string currentPath)
-    {
-        var volume = FindVolume(currentPath);
-        if (ReferenceEquals(DrivePicker.SelectedItem, volume))
-        {
-            return;
-        }
-
-        _updatingDriveSelection = true;
-        DrivePicker.SelectedItem = volume;
-        _updatingDriveSelection = false;
-    }
-
     private VolumeInfo? FindVolume(string path)
     {
         if (Initialization is null || string.IsNullOrWhiteSpace(path))
@@ -208,6 +166,13 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         return null;
+    }
+
+    private bool IsCurrentPathOnVolume(VolumeInfo volume)
+    {
+        var currentPath = ViewModel.FileEntries.CurrentPath;
+        return !string.IsNullOrWhiteSpace(currentPath)
+            && currentPath.StartsWith(volume.RootPath.DisplayPath, StringComparison.OrdinalIgnoreCase);
     }
 
     private void OnPanelPointerPressed(object sender, PointerRoutedEventArgs e)

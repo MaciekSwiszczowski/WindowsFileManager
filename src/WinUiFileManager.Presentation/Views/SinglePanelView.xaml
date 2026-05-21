@@ -42,6 +42,8 @@
                           Grid.Column="0"
                           HorizontalAlignment="Stretch"
                           DisplayMemberPath="DriveLetter"
+                          ItemsSource="{x:Bind AvailableVolumes, Mode=OneWay}"
+                          SelectedItem="{x:Bind FindVolume(ViewModel.FileEntries.CurrentPath), Mode=OneWay}"
                           SelectionChanged="OnDriveSelectionChanged" />
                 <TextBox x:Name="PathBox"
                          Grid.Column="1"

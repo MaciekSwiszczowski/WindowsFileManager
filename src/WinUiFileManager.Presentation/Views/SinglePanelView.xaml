@@ -45,14 +45,14 @@
                           SelectionChanged="OnDriveSelectionChanged" />
                 <TextBox x:Name="PathBox"
                          Grid.Column="1"
-                         Text="{x:Bind ViewModel.EditablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTipService.ToolTip="{x:Bind ViewModel.PathValidationMessage, Mode=OneWay}"
+                         Text="{x:Bind ViewModel.FileEntries.EditablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTipService.ToolTip="{x:Bind ViewModel.FileEntries.PathValidationMessage, Mode=OneWay}"
                          KeyDown="OnPathTextBoxKeyDown" />
             </Grid>
             <fileEntryTable:SpecFileEntryTableView x:Name="EntryTable"
                                                    Grid.Row="1"
-                                                   CurrentFolder="{x:Bind ViewModel.CurrentPath, Mode=OneWay}"
-                                                   ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}" />
+                                                   CurrentFolder="{x:Bind ViewModel.FileEntries.CurrentPath, Mode=OneWay}"
+                                                   ItemsSource="{x:Bind ViewModel.FileEntries.Items, Mode=OneWay}" />
             <Border Grid.Row="2"
                     Height="24"
                     Padding="8,0"
@@ -60,8 +60,12 @@
                     Background="{ThemeResource SystemControlBackgroundAltHighBrush}">
                 <TextBlock VerticalAlignment="Center"
                            FontSize="12"
-                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}"
-                           Text="{x:Bind ViewModel.SummaryText, Mode=OneWay}" />
+                           Foreground="{ThemeResource SystemControlForegroundBaseMediumBrush}">
+                    <Run Text="{x:Bind ViewModel.FileEntries.Items.Count, Mode=OneWay}" />
+                    <Run Text=" items, " />
+                    <Run Text="{x:Bind ViewModel.SelectedCount, Mode=OneWay}" />
+                    <Run Text=" selected" />
+                </TextBlock>
             </Border>
         </Grid>
     </Border>

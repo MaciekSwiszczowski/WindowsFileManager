@@ -1,11 +1,10 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
-using Microsoft.UI.Dispatching;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 using UiDispatcherQueuePriority = Microsoft.UI.Dispatching.DispatcherQueuePriority;
 using UiDispatcherQueueTimer = Microsoft.UI.Dispatching.DispatcherQueueTimer;
 
-namespace WinUiFileManager.Presentation.FileEntryTable.Data;
+namespace WinUiFileManager.Presentation.Scheduling;
 
 internal sealed class DispatcherQueueScheduler : LocalScheduler, ISchedulerPeriodic
 {
@@ -120,13 +119,11 @@ internal sealed class DispatcherQueueScheduler : LocalScheduler, ISchedulerPerio
         disposable.Disposable = Disposable.Create(() =>
         {
             var activeTimer = Interlocked.Exchange(ref timer, null);
-            if (activeTimer is null)
+            if (activeTimer is not null)
             {
-                return;
+                activeTimer.Tick -= OnTick;
+                activeTimer.Stop();
             }
-
-            activeTimer.Tick -= OnTick;
-            activeTimer.Stop();
         });
 
         return disposable;

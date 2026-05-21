@@ -7,7 +7,6 @@ using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Infrastructure;
-using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
@@ -41,7 +40,6 @@ public static class ServiceConfiguration
         services.AddSingleton<IClipboardService, WinUiClipboardService>();
 
         services.AddTransient<AppInitializationViewModel>();
-        services.AddSingleton<FileEntryDataReader>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
         services.AddTransient<InspectorInitializationViewModel>();

@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.Infrastructure.FileEntries;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Persistence;
 using WinUiFileManager.Infrastructure.Scheduling;
@@ -24,6 +26,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<INtfsVolumePolicyService, NtfsVolumePolicyService>();
         services.AddSingleton<IPathNormalizationService, WindowsPathNormalizationService>();
         services.AddSingleton<ISchedulerProvider, RxSchedulerProvider>();
+        services.AddSingleton<IFileEntryDataReader, WindowsFileEntryDataReader>();
         services.AddSingleton<IDirectoryChangeStream, WindowsDirectoryChangeStream>();
         services.AddSingleton<IFileIdentityService, NtfsFileIdentityService>();
         services.AddSingleton<IShellService, WindowsShellService>();

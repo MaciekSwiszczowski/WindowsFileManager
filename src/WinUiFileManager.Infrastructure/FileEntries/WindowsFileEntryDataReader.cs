@@ -1,12 +1,10 @@
 using System.Collections.Concurrent;
 using System.IO.Enumeration;
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Presentation.FileEntryTable.Data;
+namespace WinUiFileManager.Infrastructure.FileEntries;
 
-public sealed class FileEntryDataReader
+internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
 {
     private static readonly ConcurrentDictionary<string, string> ExtensionPool =
         new(StringComparer.OrdinalIgnoreCase);
@@ -18,23 +16,27 @@ public sealed class FileEntryDataReader
         ReturnSpecialDirectories = false
     };
 
-    public IObservable<FileSystemEntryModel> ObserveDirectoryEntries(
+    public IReadOnlyList<FileSystemEntryModel> GetEntries(
         NormalizedPath path,
-        IScheduler scheduler,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(scheduler);
+        cancellationToken.ThrowIfCancellationRequested();
 
-        return Observable.Create<FileSystemEntryModel>(observer =>
+        if (!Directory.Exists(path.DisplayPath))
         {
-            var unsubscribe = new CancellationDisposable();
-            var linked = CancellationTokenSource.CreateLinkedTokenSource(
-                cancellationToken, unsubscribe.Token);
+            return [];
+        }
 
-            var scheduled = scheduler.Schedule(() => PumpEntries(path, linked.Token, observer));
+        var directoryPath = DirectoryPath.FromNormalizedPath(path);
+        var entries = new List<FileSystemEntryModel>();
 
-            return new CompositeDisposable(scheduled, unsubscribe, linked);
-        });
+        foreach (var entry in CreateDirectoryEnumerable(directoryPath))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(entry);
+        }
+
+        return entries;
     }
 
     public FileSystemEntryModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken)
@@ -56,43 +58,6 @@ public sealed class FileEntryDataReader
         return fsi is null
             ? null
             : BuildEntryModel(fsi);
-    }
-
-    private static void PumpEntries(
-        NormalizedPath path,
-        CancellationToken cancellationToken,
-        IObserver<FileSystemEntryModel> observer)
-    {
-        try
-        {
-            if (!Directory.Exists(path.DisplayPath))
-            {
-                observer.OnCompleted();
-                return;
-            }
-
-            var directoryPath = DirectoryPath.FromNormalizedPath(path);
-            foreach (var entry in CreateDirectoryEnumerable(directoryPath))
-            {
-                if (cancellationToken.IsCancellationRequested)
-                {
-                    observer.OnCompleted();
-                    return;
-                }
-
-                observer.OnNext(entry);
-            }
-
-            observer.OnCompleted();
-        }
-        catch (OperationCanceledException)
-        {
-            observer.OnCompleted();
-        }
-        catch (Exception ex)
-        {
-            observer.OnError(ex);
-        }
     }
 
     private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)

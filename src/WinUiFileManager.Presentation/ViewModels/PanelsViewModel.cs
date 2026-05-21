@@ -9,12 +9,13 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
     public PanelsViewModel(
         IActivePanelsService activePanelsService,
         IMessenger messenger,
-        FileEntryDataReader fileEntryDataReader)
+        IFileEntryDataReader fileEntryDataReader,
+        IDirectoryChangeStream directoryChangeStream)
     {
         _activePanelsService = activePanelsService;
         _messenger = messenger;
-        LeftPanel = new PanelViewModel("Left", fileEntryDataReader, messenger);
-        RightPanel = new PanelViewModel("Right", fileEntryDataReader, messenger);
+        LeftPanel = new PanelViewModel("Left", fileEntryDataReader, directoryChangeStream, messenger);
+        RightPanel = new PanelViewModel("Right", fileEntryDataReader, directoryChangeStream, messenger);
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);
@@ -62,6 +63,8 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 
         _disposed = true;
         _messenger.UnregisterAll(this);
+        LeftPanel.Dispose();
+        RightPanel.Dispose();
     }
 
     private void OnFileTableFocused(object recipient, FileTableFocusedMessage message)

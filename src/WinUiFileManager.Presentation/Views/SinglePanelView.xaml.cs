@@ -1,18 +1,16 @@
-using System.Reactive.Disposables;
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.Scheduling;
+using WinUiFileManager.Presentation.ViewModels.Panels;
 
 namespace WinUiFileManager.Presentation.Views;
 
 public sealed partial class SinglePanelView : IDisposable
 {
     private readonly PointerEventHandler _panelPointerPressedHandler;
-    private CompositeDisposable _dataSourceSubscriptions = new();
     private bool _updatingDriveSelection;
     private bool _loaded;
-    private FileEntryTableDataSource? _dataSource;
-    private ObservableCollection<SpecFileEntryViewModel>? _items;
+    private bool _initialNavigationRequested;
     private string? _identity;
     private bool _panelFocused;
     private bool _disposed;
@@ -66,17 +64,19 @@ public sealed partial class SinglePanelView : IDisposable
 
         EntryTable.Identity = Identity;
         EntryTable.Messenger = messenger;
+        ViewModel.FileEntries.Attach(new DispatcherQueueScheduler(DispatcherQueue));
+        ViewModel.FileEntries.PropertyChanged += OnFileEntryDataSourcePropertyChanged;
         ViewModel.PropertyChanged += OnPanelPropertyChanged;
 
         DrivePicker.ItemsSource = Initialization.AvailableVolumes;
 
-        EnsureFileEntryDataSource();
+        EnsureInitialNavigation();
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _loaded = true;
-        EnsureFileEntryDataSource();
+        EnsureInitialNavigation();
         Bindings.Update();
     }
 
@@ -91,78 +91,48 @@ public sealed partial class SinglePanelView : IDisposable
         _disposed = true;
 
         ViewModel.PropertyChanged -= OnPanelPropertyChanged;
+        ViewModel.FileEntries.PropertyChanged -= OnFileEntryDataSourcePropertyChanged;
 
         _loaded = false;
-        _dataSourceSubscriptions.Dispose();
-        _dataSourceSubscriptions = [];
-
-        _dataSource?.Dispose();
-        _dataSource = null;
-
-        SetItems(null);
+        ViewModel.FileEntries.Detach();
 
         PanelBorder.RemoveHandler(PointerPressedEvent, _panelPointerPressedHandler);
         GettingFocus -= OnPanelGettingFocus;
         LosingFocus -= OnPanelLosingFocus;
     }
 
-    private void EnsureFileEntryDataSource()
+    private void EnsureInitialNavigation()
     {
-        if (!_loaded || Initialization is null || _dataSource is not null)
+        if (!_loaded || Initialization is null || Messenger is null || _initialNavigationRequested)
         {
             return;
         }
-
-        var fileEntryDataReader = ViewModel.FileEntryDataReader;
-        var uiScheduler = new DispatcherQueueScheduler(DispatcherQueue);
 
         var initialPath = string.Equals(Identity, "Left", StringComparison.OrdinalIgnoreCase)
             ? Initialization.LeftInitialPath
             : Initialization.RightInitialPath;
 
-        _dataSource?.Dispose();
-        _dataSource = new FileEntryTableDataSource(Identity, uiScheduler, fileEntryDataReader, Messenger!);
-        _dataSourceSubscriptions.Add(_dataSource.States.Subscribe(ApplyState));
-
-        Messenger?.Send(new FileTableNavigateToPathRequestedMessage(Identity, initialPath));
+        _initialNavigationRequested = true;
+        Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, initialPath));
 
         // Initial column layout
-        Messenger?.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));
-    }
-
-    private void ApplyState(FileEntryTableDataState state)
-    {
-        ViewModel.Items = state.Items;
-        ViewModel.CurrentPath = state.CurrentPath;
-        ViewModel.ItemCount = state.Items.Count;
-        SyncDriveSelection(state.CurrentPath);
-    }
-
-    private void SetItems(ObservableCollection<SpecFileEntryViewModel>? items)
-    {
-        if (ReferenceEquals(_items, items))
-        {
-            return;
-        }
-        _items = items;
-        _items?.CollectionChanged -= OnItemsCollectionChanged;
-        _items?.CollectionChanged += OnItemsCollectionChanged;
-    }
-
-    private void OnItemsCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        ViewModel.ItemCount = _items?.Count ?? 0;
+        Messenger.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));
     }
 
     private void OnPanelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(PanelViewModel.IsActive)
-            or nameof(PanelViewModel.CurrentPath)
-            or nameof(PanelViewModel.ItemCount)
-            or nameof(PanelViewModel.SelectedCount)
-            or nameof(PanelViewModel.PathValidationMessage))
+            or nameof(PanelViewModel.SelectedCount))
         {
             DispatcherQueue.TryEnqueue(Bindings.Update);
+        }
+    }
+
+    private void OnFileEntryDataSourcePropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(PanelFileEntryDataSourceViewModel.CurrentPath))
+        {
+            DispatcherQueue.TryEnqueue(() => SyncDriveSelection(ViewModel.FileEntries.CurrentPath));
         }
     }
 
@@ -174,7 +144,7 @@ public sealed partial class SinglePanelView : IDisposable
             return;
         }
 
-        ViewModel.EditablePath = volume.RootPath.DisplayPath;
+        ViewModel.FileEntries.EditablePath = volume.RootPath.DisplayPath;
         await CommitPathAsync(volume.RootPath.DisplayPath);
     }
 
@@ -182,8 +152,8 @@ public sealed partial class SinglePanelView : IDisposable
     {
         if (e.Key == VirtualKey.Escape)
         {
-            ViewModel.EditablePath = ViewModel.CurrentPath;
-            ViewModel.PathValidationMessage = string.Empty;
+            ViewModel.FileEntries.EditablePath = ViewModel.FileEntries.CurrentPath;
+            ViewModel.FileEntries.PathValidationMessage = string.Empty;
             e.Handled = true;
             return;
         }
@@ -194,7 +164,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         e.Handled = true;
-        await CommitPathAsync(ViewModel.EditablePath);
+        await CommitPathAsync(ViewModel.FileEntries.EditablePath);
     }
 
     private async Task CommitPathAsync(string rawPath)
@@ -205,7 +175,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, NormalizedPath.FromUserInput(rawPath)));
-        ViewModel.PathValidationMessage = string.Empty;
+        ViewModel.FileEntries.PathValidationMessage = string.Empty;
     }
 
     private void SyncDriveSelection(string currentPath)

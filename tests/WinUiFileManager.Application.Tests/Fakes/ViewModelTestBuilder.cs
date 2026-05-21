@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Reactive.Testing;
 using WinUiFileManager.Application.Settings;
-using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -17,7 +16,8 @@ public sealed class ViewModelTestBuilder
 
     public MainShellViewModel Build()
     {
-        var fileEntryDataReader = new FileEntryDataReader();
+        var fileEntryDataReader = new FakeFileEntryDataReader();
+        var directoryChangeStream = new FakeDirectoryChangeStream();
         var setParallelExec = new SetParallelExecutionCommandHandler(
             SettingsRepository, NullLogger<SetParallelExecutionCommandHandler>.Instance);
         var persistPaneState = new PersistPaneStateCommandHandler(
@@ -53,7 +53,7 @@ public sealed class ViewModelTestBuilder
                 inspectorSearch,
                 inspectorAttributes),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(activePanels, messenger, fileEntryDataReader),
+            new PanelsViewModel(activePanels, messenger, fileEntryDataReader, directoryChangeStream),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }

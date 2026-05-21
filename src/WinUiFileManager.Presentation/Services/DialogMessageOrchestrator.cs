@@ -1,5 +1,5 @@
 using System.Reactive.Linq;
-using WinUiFileManager.Presentation.FileEntryTable.Data;
+using WinUiFileManager.Presentation.Scheduling;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.Services;

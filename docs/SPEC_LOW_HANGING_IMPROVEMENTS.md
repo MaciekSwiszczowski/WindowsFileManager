@@ -42,7 +42,7 @@ The contract for the Coordinator is already specified in `SPEC_FILE_ENTRY_TABLE_
 
 **Cancellation.** Each handler call must run with the `OperationProgressViewModel.CancellationToken`. The progress VM (already exists at `ViewModels/OperationProgressViewModel.cs`) needs to be shown as a modal `ContentDialog` while the operation runs and reset on completion. A press of the dialog's Cancel button calls `_cts.Cancel()`; the handler returns an `OperationSummary` with `Status = Cancelled`.
 
-**Destination resolution.** Copy/Move need the *other* pane's path. Pull from `MainShellViewModel` via a small abstraction (`IDestinationPathProvider` with one method `GetDestinationPath(string sourceIdentity)`). Today the *current* path of each pane only lives inside `FileEntryTableDataSource.States.CurrentPath`; expose it via `ActivePanelsService` or a new `PanelPathsService`.
+**Destination resolution.** Copy/Move need the *other* pane's path. Pull from `MainShellViewModel` via a small abstraction (`IDestinationPathProvider` with one method `GetDestinationPath(string sourceIdentity)`). Today the current path is echoed onto each `PanelViewModel`; expose it via `ActivePanelsService` or a new `PanelPathsService`.
 
 **Concurrency.** `DialogService` already serializes with a `SemaphoreSlim`; `FileOperationDialogService` queues new requests while one is open.
 
@@ -228,11 +228,11 @@ The user's stated approach is "review the Inspector view-model method by method.
 
 ### S-5. `FileEntryTableDataSource.cs` (381L)
 
-**Today.** Owns: enumeration scheduling, directory watcher subscription, the parent-row synthesis, the source cache, the public `States` `BehaviorSubject`, the cancellation tokens for the active load.
+**Today.** `PanelFileEntryDataSourceViewModel` listens to panel navigation messages and replaces the per-folder `FileEntryTableDataSource`. Each data source instance represents one folder and owns the initial scan-to-row projection, directory change subscription, parent-row synthesis, source list, and public `Items` collection.
 
 **Split.**
-- `FileEntryTableDataSource.cs` (≤ 180L): the public surface (`Identity`, `Items`, `States`, `NavigateTo(path)`, `Refresh()`, `Dispose`).
-- `Data/DirectoryLoadCoordinator.cs` (~120L): the load-version + cancel-active-load + load-completed pipeline.
+- `FileEntryTableDataSource.cs` (≤ 180L): the public surface (`Items`, `CurrentPath`, `Dispose`) and the two visible lifetime steps: initial scan, then notification subscription.
+- `Data/DirectoryLoadCoordinator.cs` (~120L): any reintroduced reload/refresh pipeline, if refresh needs more than replacing the current per-folder data source.
 - `Data/ParentEntryProjection.cs` (~80L): synthesis of the synthetic `..` row + parent-visibility messaging.
 
 **Done when.** No file > 200L.

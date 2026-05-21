@@ -1,6 +1,6 @@
 # Spec: SpecFileEntryTableView
 
-> **Implementation status (May 2026):** the control itself, its behaviors (§3.5), the data source (`FileEntryTable/Data/FileEntryTableDataSource`), and the primitive keyboard messages (§12.1) are all implemented. The **command Coordinator (§14)** and the **FileOperationDialogService (§16)** are **not yet implemented** beyond the rename path — `RenameService` consumes `RenameKeyPressedMessage` directly today. Wiring the rest of §14 / §16 is the active workstream in `SPEC_LOW_HANGING_IMPROVEMENTS.md` §I-1 / §I-2.
+> **Implementation status (May 2026):** the control itself, its behaviors (§3.5), the data source (`FileEntryTableData/FileEntryTableDataSource`), and the primitive keyboard messages (§12.1) are all implemented. The **command Coordinator (§14)** and the **FileOperationDialogService (§16)** are **not yet implemented** beyond the rename path — `RenameService` consumes `RenameKeyPressedMessage` directly today. Wiring the rest of §14 / §16 is the active workstream in `SPEC_LOW_HANGING_IMPROVEMENTS.md` §I-1 / §I-2.
 
 `SpecFileEntryTableView` is a self-contained grid control that renders a single directory's contents in a Total Commander-style list: five fixed columns (Name, Ext, Size, Modified, Attributes), a host-supplied `..` parent row pinned above the list, and a keyboard-first interaction model.
 

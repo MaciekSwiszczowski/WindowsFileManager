@@ -556,7 +556,7 @@ Prefer clarity over novelty.
 
 ### Large Directory Performance
 
-- The pane's data layer is `FileEntryTableDataSource` in `Presentation/FileEntryTable/Data/`. It owns enumeration, the directory watcher, and the `BehaviorSubject<FileEntryTableDataState>` the view binds to.
+- `PanelFileEntryDataSourceViewModel` listens to navigation messages for a panel, replaces the per-folder `FileEntryTableDataSource`, and exposes the `Items` collection bound by the panel table. `FileEntryTableDataSource` itself lives in `Presentation/FileEntryTableData/`, represents one folder, and receives filesystem reading/watching through Application abstractions implemented in Infrastructure.
 - Each row is a `SpecFileEntryViewModel` — a 19-line wrapper holding a single `FileSystemEntryModel?` reference plus a parent-row flag. No `ObservableObject`, no `PropertyChanged`. Display formatting happens on demand in cell templates via `SpecFileEntryDisplay` and converters.
 - `WinUI.TableView` handles row virtualization natively — only visible items are realized regardless of total count. `CacheLength="1.0"` on the items panel cuts realized-row count 3-4× versus the default.
 - Sort indicator + comparator live in `FileEntryTableSortingBehavior` + `SpecFileEntryComparer`; `..` always pins above real rows and folders sort before files within each group.

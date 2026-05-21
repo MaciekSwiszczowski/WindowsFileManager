@@ -4,7 +4,6 @@ using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
-using WinUiFileManager.Presentation.FileEntryTable.Data;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -36,7 +35,6 @@ public sealed class ServiceRegistrationValidationTests
         services.AddSingleton<PersistPaneStateCommandHandler>();
 
         services.AddTransient<AppInitializationViewModel>();
-        services.AddSingleton<FileEntryDataReader>();
         services.AddTransient<PanelsViewModel>();
         services.AddTransient<CommandButtonsViewModel>();
         services.AddTransient<InspectorInitializationViewModel>();

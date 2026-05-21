@@ -1,0 +1,130 @@
+using System.Reactive.Concurrency;
+using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.FileEntryTableData;
+
+namespace WinUiFileManager.Presentation.ViewModels.Panels;
+
+public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
+{
+    private readonly string _identity;
+    private readonly IFileEntryDataReader _fileEntryDataReader;
+    private readonly IDirectoryChangeStream _directoryChangeStream;
+    private readonly IMessenger _messenger;
+    private FileEntryTableDataSource? _dataSource;
+    private IScheduler? _uiScheduler;
+    private bool _attached;
+    private bool _disposed;
+
+    public PanelFileEntryDataSourceViewModel(
+        string identity,
+        IFileEntryDataReader fileEntryDataReader,
+        IDirectoryChangeStream directoryChangeStream,
+        IMessenger messenger)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
+        ArgumentNullException.ThrowIfNull(fileEntryDataReader);
+        ArgumentNullException.ThrowIfNull(directoryChangeStream);
+        ArgumentNullException.ThrowIfNull(messenger);
+
+        _identity = identity;
+        _fileEntryDataReader = fileEntryDataReader;
+        _directoryChangeStream = directoryChangeStream;
+        _messenger = messenger;
+    }
+
+    [ObservableProperty]
+    public partial string CurrentPath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string EditablePath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string PathValidationMessage { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial ObservableCollection<SpecFileEntryViewModel> Items { get; set; } = [];
+
+    public void Attach(IScheduler uiScheduler)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(uiScheduler);
+
+        if (_attached)
+        {
+            return;
+        }
+
+        _uiScheduler = uiScheduler;
+        _messenger.Register<FileTableNavigateToPathMessage>(this, OnNavigateToPath);
+        _attached = true;
+    }
+
+    public void Detach()
+    {
+        if (!_attached)
+        {
+            return;
+        }
+
+        _attached = false;
+        _messenger.UnregisterAll(this);
+        _dataSource?.Dispose();
+        _dataSource = null;
+        _uiScheduler = null;
+        Items = [];
+        CurrentPath = string.Empty;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        Detach();
+    }
+
+    private void OnNavigateToPath(object recipient, FileTableNavigateToPathMessage message)
+    {
+        if (message.Identity != _identity)
+        {
+            return;
+        }
+
+        ReplaceDataSource(message.Path);
+    }
+
+    private void ReplaceDataSource(NormalizedPath folderPath)
+    {
+        if (_uiScheduler is null)
+        {
+            return;
+        }
+
+        _dataSource?.Dispose();
+        _dataSource = new FileEntryTableDataSource(
+            _identity,
+            folderPath,
+            _uiScheduler,
+            _fileEntryDataReader,
+            _directoryChangeStream,
+            _messenger);
+
+        Items = _dataSource.Items;
+        CurrentPath = _dataSource.CurrentPath;
+    }
+
+    public bool HasPathValidationError => !string.IsNullOrWhiteSpace(PathValidationMessage);
+
+    partial void OnCurrentPathChanged(string value)
+    {
+        EditablePath = value;
+        PathValidationMessage = string.Empty;
+        OnPropertyChanged(nameof(HasPathValidationError));
+    }
+
+    partial void OnPathValidationMessageChanged(string value) =>
+        OnPropertyChanged(nameof(HasPathValidationError));
+}

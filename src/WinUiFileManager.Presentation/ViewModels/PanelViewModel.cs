@@ -1,60 +1,43 @@
-using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.ViewModels.Panels;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
-public sealed partial class PanelViewModel : ObservableObject
+public sealed partial class PanelViewModel : ObservableObject, IDisposable
 {
-    public PanelViewModel(string identity, FileEntryDataReader fileEntryDataReader, IMessenger messenger)
+    private bool _disposed;
+
+    public PanelViewModel(
+        string identity,
+        IFileEntryDataReader fileEntryDataReader,
+        IDirectoryChangeStream directoryChangeStream,
+        IMessenger messenger)
     {
         Identity = identity;
-        FileEntryDataReader = fileEntryDataReader;
-        Messenger = messenger;
+        FileEntries = new PanelFileEntryDataSourceViewModel(
+            identity,
+            fileEntryDataReader,
+            directoryChangeStream,
+            messenger);
     }
 
     public string Identity { get; }
 
-    public FileEntryDataReader FileEntryDataReader { get; }
-
-    public IMessenger Messenger { get; }
+    public PanelFileEntryDataSourceViewModel FileEntries { get; }
 
     [ObservableProperty]
     public partial bool IsActive { get; set; }
 
     [ObservableProperty]
-    public partial string CurrentPath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string EditablePath { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial string PathValidationMessage { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial int ItemCount { get; set; }
-
-    [ObservableProperty]
     public partial int SelectedCount { get; set; }
 
-    [ObservableProperty]
-    public partial ObservableCollection<SpecFileEntryViewModel>? Items { get; set; }
-
-    public string SummaryText => $"{ItemCount} items, {SelectedCount} selected";
-
-    public bool HasPathValidationError => !string.IsNullOrWhiteSpace(PathValidationMessage);
-
-    partial void OnCurrentPathChanged(string value)
+    public void Dispose()
     {
-        EditablePath = value;
-        PathValidationMessage = string.Empty;
-        OnPropertyChanged(nameof(HasPathValidationError));
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        FileEntries.Dispose();
     }
-
-    partial void OnPathValidationMessageChanged(string value) =>
-        OnPropertyChanged(nameof(HasPathValidationError));
-
-    partial void OnItemCountChanged(int value) =>
-        OnPropertyChanged(nameof(SummaryText));
-
-    partial void OnItemsChanged(ObservableCollection<SpecFileEntryViewModel>? value) =>
-        ItemCount = value?.Count ?? 0;
 }

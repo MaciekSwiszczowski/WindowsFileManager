@@ -162,8 +162,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         try
         {
             var request = new PersistPaneStateRequest(
-                LeftPanePath: GetPanePathOrFallback(Panels.LeftPanel.CurrentPath, _currentSettings.LastLeftPanePath),
-                RightPanePath: GetPanePathOrFallback(Panels.RightPanel.CurrentPath, _currentSettings.LastRightPanePath),
+                LeftPanePath: GetPanePathOrFallback(Panels.LeftPanel.FileEntries.CurrentPath, _currentSettings.LastLeftPanePath),
+                RightPanePath: GetPanePathOrFallback(Panels.RightPanel.FileEntries.CurrentPath, _currentSettings.LastRightPanePath),
                 ActivePane: Panels.ActivePanelIdentity,
                 InspectorVisible: IsInspectorVisible,
                 InspectorWidth: InspectorWidth,

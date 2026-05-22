@@ -160,7 +160,7 @@ The control does not expose any custom CLR events.
 | Behavior | Role |
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
-| `FileEntryTableSortingBehavior` | Header sort and `TableView.SortDescriptions`; uses `SpecFileEntryComparer` so `..` remains first and folders remain before files. |
+| `FileEntryTableSortingBehavior` | Handles header sort clicks, updates the visible sort indicator, and publishes `FileTableSortRequestedMessage`; it does not sort `TableView` rows directly. |
 | `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row, updates `NavigationState`, and scrolls it into view. |
 | `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
 | `FileEntryTableSelectionSnapshotBehavior` | Captures real-row selection plus the active real row around watcher-driven row replacement. It currently restores selection only; active-row restoration is intentionally left to the planned `TableView.CurrentRowIndex` / current-row rework. It remaps only paths present in the replacement message and observes collection additions so it does not scan large folders to find the changed row. |
@@ -205,7 +205,7 @@ Folder rows have an empty Size cell. The `..` row has empty Ext / Size / Modifie
 
 ## 5. Sorting
 
-Exactly one column header shows the sort indicator. Sort state is owned by `FileEntryTableSortingBehavior`.
+Exactly one column header shows the sort indicator. Header interaction state is owned by `FileEntryTableSortingBehavior`; row ordering is owned by `FileEntryTableDataSource`.
 
 Clicking a header:
 - Already the sort column → toggle the internal sort direction.
@@ -213,7 +213,9 @@ Clicking a header:
 
 The control does **not** expose sort state as dependency properties. Persisted column widths are a host concern; this control consumes them only via `FileTableColumnLayoutMessage`.
 
-`..` is always pinned visually first regardless of sort state. Folders are always displayed before files; the selected sort column and direction are applied within each group.
+On every sort-state change, `FileEntryTableSortingBehavior` publishes `FileTableSortRequestedMessage` with the table identity, selected `SortColumn`, and direction. The behavior clears `TableView.SortDescriptions`; `TableView` is not the row-sorting engine.
+
+`..` is always pinned visually first regardless of sort state. Folders are always displayed before files; the selected sort column and direction are applied within each group by the data source.
 
 ---
 

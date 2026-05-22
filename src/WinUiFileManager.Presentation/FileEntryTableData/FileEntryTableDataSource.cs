@@ -18,6 +18,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly IDirectoryChangeStream _directoryChangeStream;
     private readonly IMessenger _messenger;
     private readonly IScheduler _backgroundScheduler;
+    private SortState _sortState = SortState.Default;
     private bool _disposed;
 
     public FileEntryTableDataSource(
@@ -44,6 +45,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _messenger = messenger;
         _backgroundScheduler = backgroundScheduler ?? TaskPoolScheduler.Default;
 
+        _messenger.Register<FileTableSortRequestedMessage>(this, OnSortRequested);
+        _disposables.Add(Disposable.Create(() => _messenger.Unregister<FileTableSortRequestedMessage>(this)));
         _disposables.Add(_rows);
         _disposables.Add(_rows
             .Connect()
@@ -103,6 +106,16 @@ internal sealed class FileEntryTableDataSource : IDisposable
         }
 
         return rows;
+    }
+
+    private void OnSortRequested(object recipient, FileTableSortRequestedMessage message)
+    {
+        if (message.Identity != Identity)
+        {
+            return;
+        }
+
+        _sortState = new SortState(message.Column, message.Ascending);
     }
 
     private IObservable<FileEntryTableChange> CreateFileEntryChanges(DirectoryChange change) =>

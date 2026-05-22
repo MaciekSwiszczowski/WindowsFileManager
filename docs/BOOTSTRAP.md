@@ -559,7 +559,7 @@ Prefer clarity over novelty.
 - `PanelFileEntryDataSourceViewModel` listens to navigation messages for a panel, replaces the per-folder `FileEntryTableDataSource`, and exposes the `Items` collection bound by the panel table. `FileEntryTableDataSource` itself lives in `Presentation/FileEntryTableData/`, represents one folder, and receives filesystem reading/watching through Application abstractions implemented in Infrastructure.
 - Each row is a `SpecFileEntryViewModel` — a 19-line wrapper holding a single `FileSystemEntryModel?` reference plus a parent-row flag. No `ObservableObject`, no `PropertyChanged`. Display formatting happens on demand in cell templates via `SpecFileEntryDisplay` and converters.
 - `WinUI.TableView` handles row virtualization natively — only visible items are realized regardless of total count. `CacheLength="1.0"` on the items panel cuts realized-row count 3-4× versus the default.
-- Sort indicator + comparator live in `FileEntryTableSortingBehavior` + `SpecFileEntryComparer`; `..` always pins above real rows and folders sort before files within each group.
+- Sort indicator state lives in `FileEntryTableSortingBehavior`; row sorting belongs to `FileEntryTableDataSource` and is driven by `FileTableSortRequestedMessage`.
 - See `SPEC_FILE_ENTRY_TABLE_VIEW.md` for the full data-model + messaging contract.
 
 ### Inspector Reactive Loading
@@ -624,7 +624,7 @@ Prefer clarity over novelty.
 
 ### Column Sorting
 
-Owned by `FileEntryTableSortingBehavior`. Header click sets / toggles the internal sort indicator; `SpecFileEntryComparer` keeps `..` pinned first and folders before files within each group. Sort state is internal to the table — hosts read it back through messages, not dependency properties. See `SPEC_FILE_ENTRY_TABLE_VIEW.md` §5.
+Header click state is owned by `FileEntryTableSortingBehavior`. Header clicks set / toggle the visible sort indicator and publish `FileTableSortRequestedMessage`; `TableView.SortDescriptions` are not used for row ordering. Row ordering belongs to `FileEntryTableDataSource`. See `SPEC_FILE_ENTRY_TABLE_VIEW.md` §5.
 
 ### Selection Model
 

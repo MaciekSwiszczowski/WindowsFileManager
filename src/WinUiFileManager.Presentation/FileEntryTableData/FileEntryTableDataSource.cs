@@ -2,7 +2,6 @@ using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
 using WinUiFileManager.Presentation.FileEntryTable;
@@ -73,27 +72,9 @@ internal sealed class FileEntryTableDataSource : IDisposable
     }
 
     private IObservable<SpecFileEntryViewModel> ScanCurrentFolder() =>
-        Observable.Create<SpecFileEntryViewModel>(observer =>
-        {
-            var subject = new Subject<SpecFileEntryViewModel>();
-            var subjectSubscription = subject.Subscribe(observer);
-
-            if (Directory.GetParent(CurrentPath) is not null)
-            {
-                subject.OnNext(SpecFileEntryViewModel.CreateParentEntry());
-            }
-
-            var entriesSubscription = _fileEntryDataReader.GetEntries(FolderPath, _scanCancellation.Token)
-                .ToObservable()
-                .Subscribe(subject);
-
-            return Disposable.Create(this, _ =>
-            {
-                entriesSubscription.Dispose();
-                subjectSubscription.Dispose();
-                subject.Dispose();
-            });
-        });
+        _fileEntryDataReader
+            .GetEntries(FolderPath, _scanCancellation.Token)
+            .ToObservable();
 
     private IObservable<IChangeSet<SpecFileEntryViewModel, string>> CreateRows(IDirectoryChangeStream directoryChangeStream)
     {

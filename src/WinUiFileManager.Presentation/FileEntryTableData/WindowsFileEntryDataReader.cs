@@ -19,12 +19,18 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!Directory.Exists(path.DisplayPath))
+        var displayPath = path.DisplayPath;
+        if (!Directory.Exists(displayPath))
         {
             return [];
         }
 
         var entries = new List<SpecFileEntryViewModel>();
+        if (Directory.GetParent(displayPath) is not null)
+        {
+            entries.Add(SpecFileEntryViewModel.CreateParentEntry());
+        }
+
         foreach (var entry in CreateDirectoryEnumerable(path))
         {
             cancellationToken.ThrowIfCancellationRequested();

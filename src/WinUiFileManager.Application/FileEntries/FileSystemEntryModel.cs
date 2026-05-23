@@ -8,8 +8,8 @@ public sealed record FileSystemEntryModel
         string extension,
         ItemKind kind,
         long? size,
-        DateTimeOffset lastWriteTime,
-        DateTimeOffset creationTime,
+        DateTime lastWriteTime,
+        DateTime creationTime,
         FileAttributes attributes)
     {
         DirectoryPath = directoryPath;
@@ -34,9 +34,9 @@ public sealed record FileSystemEntryModel
 
     public long? Size { get; }
 
-    public DateTimeOffset LastWriteTime { get; }
+    public DateTime LastWriteTime { get; }
 
-    public DateTimeOffset CreationTime { get; }
+    public DateTime CreationTime { get; }
 
     public FileAttributes Attributes { get; }
 }

@@ -11,8 +11,8 @@ public sealed record FileInspectorSelection(
     string Extension,
     ItemKind Kind,
     long SizeBytes,
-    DateTimeOffset CreationTime,
-    DateTimeOffset LastWriteTime,
+    DateTime CreationTime,
+    DateTime LastWriteTime,
     string Attributes,
     FileAttributes AttributesFlags)
 {
@@ -59,8 +59,8 @@ public sealed record FileInspectorSelection(
             Extension: string.Empty,
             Kind: ItemKind.File,
             SizeBytes: -1,
-            CreationTime: DateTimeOffset.MinValue,
-            LastWriteTime: DateTimeOffset.MinValue,
+            CreationTime: DateTime.MinValue,
+            LastWriteTime: DateTime.MinValue,
             Attributes: string.Empty,
             AttributesFlags: FileAttributes.None);
 }

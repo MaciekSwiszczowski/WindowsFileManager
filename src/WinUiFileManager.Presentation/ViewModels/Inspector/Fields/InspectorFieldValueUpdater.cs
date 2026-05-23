@@ -82,8 +82,8 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
-    private static string FormatLocalTime(DateTimeOffset value) =>
-        value == DateTimeOffset.MinValue
+    private static string FormatLocalTime(DateTime value) =>
+        value == DateTime.MinValue
             ? string.Empty
             : value.ToString("yyyy-MM-dd HH:mm:ss");
 

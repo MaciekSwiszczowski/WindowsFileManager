@@ -65,8 +65,8 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             InternExtension(fileInfo.Extension),
             ItemKind.File,
             fileInfo.Length,
-            ToLocalTime(fileInfo.LastWriteTimeUtc),
-            ToLocalTime(fileInfo.CreationTimeUtc),
+            fileInfo.LastWriteTime,
+            fileInfo.CreationTime,
             fileInfo.Attributes);
     }
 
@@ -80,8 +80,8 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             InternExtension(string.Empty),
             ItemKind.Directory,
             null,
-            directoryInfo.LastWriteTimeUtc.ToLocalTime(),
-            directoryInfo.CreationTimeUtc.ToLocalTime(),
+            directoryInfo.LastWriteTime,
+            directoryInfo.CreationTime,
             directoryInfo.Attributes);
     }
 
@@ -98,8 +98,8 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             InternExtension(extension),
             kind,
             isDirectory ? null : entry.Length,
-            entry.LastWriteTimeUtc.ToLocalTime(),
-            entry.CreationTimeUtc.ToLocalTime(),
+            entry.LastWriteTimeUtc.ToLocalTime().DateTime,
+            entry.CreationTimeUtc.ToLocalTime().DateTime,
             entry.Attributes);
     }
 
@@ -137,11 +137,7 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
         }
     }
 
-    private static DateTimeOffset ToLocalTime(DateTime utcDateTime) =>
-        new DateTimeOffset(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc)).ToLocalTime();
-
-    private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(
-        NormalizedPath directoryPath)
+    private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(NormalizedPath directoryPath)
     {
         return new FileSystemEnumerable<FileSystemEntryModel>(
             directoryPath.DisplayPath,

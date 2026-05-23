@@ -4,6 +4,7 @@ using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Infrastructure;
+using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -23,6 +24,7 @@ public sealed class ServiceRegistrationValidationTests
         services.AddLogging();
         services.AddInfrastructureServices();
         services.AddDiagnosticsServices();
+        services.AddFileEntryTableDataServices();
 
         services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
         services.AddSingleton<IShellService, Fakes.FakeShellService>();

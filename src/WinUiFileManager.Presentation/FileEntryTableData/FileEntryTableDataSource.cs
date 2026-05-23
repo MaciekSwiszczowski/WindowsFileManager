@@ -83,9 +83,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 subject.OnNext(SpecFileEntryViewModel.CreateParentEntry());
             }
 
-            var entriesSubscription = _fileEntryDataReader
-                .GetEntries(FolderPath, _scanCancellation.Token)
-                .Select(static entry => new SpecFileEntryViewModel(entry))
+            var entriesSubscription = _fileEntryDataReader.GetEntries(FolderPath, _scanCancellation.Token)
+                .ToObservable()
                 .Subscribe(subject);
 
             return Disposable.Create(this, _ =>
@@ -147,10 +146,10 @@ internal sealed class FileEntryTableDataSource : IDisposable
             return;
         }
 
-        cache.AddOrUpdate(new SpecFileEntryViewModel(model));
+        cache.AddOrUpdate(model);
     }
 
-    private FileSystemEntryModel? TryGetEntry(NormalizedPath path)
+    private SpecFileEntryViewModel? TryGetEntry(NormalizedPath path)
     {
         try
         {

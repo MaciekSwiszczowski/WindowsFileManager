@@ -1,10 +1,11 @@
-using System.Reactive.Linq;
+using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.FileEntryTableData;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
 public sealed class FakeFileEntryDataReader : IFileEntryDataReader
 {
-    public IObservable<FileSystemEntryModel> GetEntries(NormalizedPath path, CancellationToken cancellationToken) => Observable.Empty<FileSystemEntryModel>();
+    public IReadOnlyList<SpecFileEntryViewModel> GetEntries(NormalizedPath path, CancellationToken cancellationToken) => [];
 
-    public FileSystemEntryModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken) => null;
+    public SpecFileEntryViewModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken) => null;
 }

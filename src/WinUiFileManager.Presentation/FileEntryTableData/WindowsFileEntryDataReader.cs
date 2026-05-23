@@ -1,11 +1,8 @@
 using System.Collections.Concurrent;
 using System.IO.Enumeration;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.Presentation.FileEntryTable;
 
-namespace WinUiFileManager.Infrastructure.FileEntries;
+namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
 {
@@ -18,41 +15,42 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
         ReturnSpecialDirectories = false,
     };
 
-    public IObservable<FileSystemEntryModel> GetEntries(NormalizedPath path, CancellationToken cancellationToken) =>
-        Observable.Create<FileSystemEntryModel>(observer =>
+    public IReadOnlyList<SpecFileEntryViewModel> GetEntries(NormalizedPath path, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        if (!Directory.Exists(path.DisplayPath))
         {
-            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var subject = new Subject<FileSystemEntryModel>();
-            var subscription = subject.Subscribe(observer);
+            return [];
+        }
 
-            _ = Task.Run(() => EnumerateEntries(path, subject, cancellation.Token), CancellationToken.None);
+        var entries = new List<SpecFileEntryViewModel>();
+        foreach (var entry in CreateDirectoryEnumerable(path))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            entries.Add(new SpecFileEntryViewModel(entry));
+        }
 
-            return Disposable.Create(() =>
-            {
-                cancellation.Cancel();
-                subscription.Dispose();
-                subject.Dispose();
-                cancellation.Dispose();
-            });
-        });
+        return entries;
+    }
 
-    public FileSystemEntryModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken)
+    public SpecFileEntryViewModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var displayPath = path.DisplayPath;
+        FileSystemEntryModel? model = null;
 
         if (File.Exists(displayPath))
         {
-            return BuildEntryModel(new FileInfo(displayPath));
+            model = BuildEntryModel(new FileInfo(displayPath));
         }
-
-        if (Directory.Exists(displayPath))
+        else if (Directory.Exists(displayPath))
         {
-            return BuildEntryModel(new DirectoryInfo(displayPath));
+            model = BuildEntryModel(new DirectoryInfo(displayPath));
         }
 
-        return null;
+        return model is null ? null : new SpecFileEntryViewModel(model);
     }
 
     private static FileSystemEntryModel BuildEntryModel(FileInfo fileInfo)
@@ -101,40 +99,6 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             entry.LastWriteTimeUtc.ToLocalTime().DateTime,
             entry.CreationTimeUtc.ToLocalTime().DateTime,
             entry.Attributes);
-    }
-
-    private static void EnumerateEntries(NormalizedPath path, IObserver<FileSystemEntryModel> observer, CancellationToken cancellationToken)
-    {
-        try
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!Directory.Exists(path.DisplayPath))
-            {
-                observer.OnCompleted();
-                return;
-            }
-
-            var directoryPath = path;
-            foreach (var entry in CreateDirectoryEnumerable(directoryPath))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                observer.OnNext(entry);
-            }
-
-            observer.OnCompleted();
-        }
-        catch (OperationCanceledException)
-        {
-            observer.OnCompleted();
-        }
-        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            observer.OnError(ex);
-        }
     }
 
     private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(NormalizedPath directoryPath)

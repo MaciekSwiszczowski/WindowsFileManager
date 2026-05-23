@@ -9,14 +9,14 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 internal sealed class FileEntryTableDataSource : IDisposable
 {
-    private const string ParentEntryKey = "\0..";
-
     private readonly CompositeDisposable _disposables;
     private readonly IFileEntryDataReader _fileEntryDataReader;
     private readonly IMessenger _messenger;
     private readonly CancellationTokenSource _scanCancellation = new();
     private SortState _sortState = SortState.Default;
     private bool _disposed;
+    private readonly string _identity;
+    private readonly NormalizedPath _folderPath;
 
     public FileEntryTableDataSource(
         string identity,
@@ -26,8 +26,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
-        Identity = identity;
-        FolderPath = folderPath;
+        _identity = identity;
+        _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
         _fileEntryDataReader = fileEntryDataReader;
         _messenger = messenger;
@@ -37,18 +37,22 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _disposables = Initialize(uiScheduler, directoryChangeStream);
         _disposables.Add(Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)));
         _disposables.Add(_scanCancellation);
-
     }
+
+    public string CurrentPath { get; }
+
+    public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; } = [];
+
 
     private CompositeDisposable Initialize(IScheduler uiScheduler, IDirectoryChangeStream directoryChangeStream)
     {
-        var rows = new SourceCache<SpecFileEntryViewModel, string>(GetKey);
+        var rows = new SourceCache<SpecFileEntryViewModel, string>(static item => item.GetKey());
         rows.AddOrUpdate(ScanCurrentFolder());
 
         CompositeDisposable disposables =
         [
             directoryChangeStream
-                .Watch(FolderPath)
+                .Watch(_folderPath)
                 .Subscribe(change => ApplyDirectoryChange(rows, change)),
             rows.Connect()
                 .ObserveOn(uiScheduler)
@@ -59,13 +63,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
         return disposables;
     }
 
-    private string Identity { get; }
-
-    private NormalizedPath FolderPath { get; }
-
-    public string CurrentPath { get; }
-
-    public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; } = [];
 
     public void Dispose()
     {
@@ -80,7 +77,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     }
 
     private IReadOnlyList<SpecFileEntryViewModel> ScanCurrentFolder() =>
-        _fileEntryDataReader.GetEntries(FolderPath, _scanCancellation.Token);
+        _fileEntryDataReader.GetEntries(_folderPath, _scanCancellation.Token);
 
     private void ApplyDirectoryChange(ISourceCache<SpecFileEntryViewModel, string> cache, DirectoryChange change)
     {
@@ -136,15 +133,11 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private void OnSortRequested(object recipient, FileTableSortRequestedMessage message)
     {
-        if (message.Identity != Identity)
+        if (message.Identity != _identity)
         {
             return;
         }
 
         _sortState = new SortState(message.Column, message.Ascending);
     }
-
-    private static string GetKey(SpecFileEntryViewModel item) =>
-        item.Model?.FullPath.Value ?? ParentEntryKey;
-
 }

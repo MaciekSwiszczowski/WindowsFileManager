@@ -1,5 +1,8 @@
 using System.Collections.Concurrent;
 using System.IO.Enumeration;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.FileEntries;
@@ -13,31 +16,26 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
     {
         AttributesToSkip = 0,
         IgnoreInaccessible = true,
-        ReturnSpecialDirectories = false
+        ReturnSpecialDirectories = false,
     };
 
-    public IReadOnlyList<FileSystemEntryModel> GetEntries(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        if (!Directory.Exists(path.DisplayPath))
+    public IObservable<FileSystemEntryModel> GetEntries(NormalizedPath path, CancellationToken cancellationToken) =>
+        Observable.Create<FileSystemEntryModel>(observer =>
         {
-            return [];
-        }
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var subject = new Subject<FileSystemEntryModel>();
+            var subscription = subject.Subscribe(observer);
 
-        var directoryPath = DirectoryPath.FromNormalizedPath(path);
-        var entries = new List<FileSystemEntryModel>();
+            _ = Task.Run(() => EnumerateEntries(path, subject, cancellation.Token), CancellationToken.None);
 
-        foreach (var entry in CreateDirectoryEnumerable(directoryPath))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            entries.Add(entry);
-        }
-
-        return entries;
-    }
+            return Disposable.Create(() =>
+            {
+                cancellation.Cancel();
+                subscription.Dispose();
+                subject.Dispose();
+                cancellation.Dispose();
+            });
+        });
 
     public FileSystemEntryModel? GetEntry(NormalizedPath path, CancellationToken cancellationToken)
     {
@@ -97,6 +95,43 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             entry.LastWriteTimeUtc.ToLocalTime(),
             entry.CreationTimeUtc.ToLocalTime(),
             entry.Attributes);
+    }
+
+    private static void EnumerateEntries(
+        NormalizedPath path,
+        IObserver<FileSystemEntryModel> observer,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (!Directory.Exists(path.DisplayPath))
+            {
+                observer.OnCompleted();
+                return;
+            }
+
+            var directoryPath = DirectoryPath.FromNormalizedPath(path);
+            foreach (var entry in CreateDirectoryEnumerable(directoryPath))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                observer.OnNext(entry);
+            }
+
+            observer.OnCompleted();
+        }
+        catch (OperationCanceledException)
+        {
+            observer.OnCompleted();
+        }
+        catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            observer.OnError(ex);
+        }
     }
 
     private static DateTimeOffset ToLocalTime(DateTime utcDateTime) =>

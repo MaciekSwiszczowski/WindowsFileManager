@@ -2,8 +2,7 @@ namespace WinUiFileManager.Application.FileEntries;
 
 public interface IFileEntryDataReader
 {
-    IReadOnlyList<FileSystemEntryModel> GetEntries(
-        NormalizedPath path,
+    IObservable<FileSystemEntryModel> GetEntries(NormalizedPath path,
         CancellationToken cancellationToken);
 
     FileSystemEntryModel? GetEntry(

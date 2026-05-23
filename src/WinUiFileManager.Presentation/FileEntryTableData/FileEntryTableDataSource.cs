@@ -1,9 +1,10 @@
+using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
-using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTableData;
@@ -12,12 +13,10 @@ internal sealed class FileEntryTableDataSource : IDisposable
 {
     private const string ParentEntryKey = "\0..";
 
-    private readonly CompositeDisposable _disposables = new();
-    private readonly SourceList<SpecFileEntryViewModel> _rows = new();
+    private readonly CompositeDisposable _disposables;
     private readonly IFileEntryDataReader _fileEntryDataReader;
-    private readonly IDirectoryChangeStream _directoryChangeStream;
     private readonly IMessenger _messenger;
-    private readonly IScheduler _backgroundScheduler;
+    private readonly CancellationTokenSource _scanCancellation = new();
     private SortState _sortState = SortState.Default;
     private bool _disposed;
 
@@ -27,8 +26,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IScheduler uiScheduler,
         IFileEntryDataReader fileEntryDataReader,
         IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger,
-        IScheduler? backgroundScheduler = null)
+        IMessenger messenger)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(identity);
         ArgumentNullException.ThrowIfNull(uiScheduler);
@@ -39,23 +37,19 @@ internal sealed class FileEntryTableDataSource : IDisposable
         Identity = identity;
         FolderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
-        Items = new ObservableCollectionExtended<SpecFileEntryViewModel>();
         _fileEntryDataReader = fileEntryDataReader;
-        _directoryChangeStream = directoryChangeStream;
         _messenger = messenger;
-        _backgroundScheduler = backgroundScheduler ?? TaskPoolScheduler.Default;
 
         _messenger.Register<FileTableSortRequestedMessage>(this, OnSortRequested);
-        _disposables.Add(Disposable.Create(() => _messenger.Unregister<FileTableSortRequestedMessage>(this)));
-        _disposables.Add(_rows);
-        _disposables.Add(_rows
-            .Connect()
-            .ObserveOn(uiScheduler)
-            .Bind(Items)
-            .Subscribe(static _ => { }, OnFolderStreamError));
-        _disposables.Add(CreateFolderLifetime()
-            .ObserveOn(uiScheduler)
-            .Subscribe(ApplyChange, OnFolderStreamError));
+        _disposables =
+        [
+            Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)),
+            _scanCancellation,
+            CreateRows(directoryChangeStream)
+                .ObserveOn(uiScheduler)
+                .Bind(Items)
+                .Subscribe(),
+        ];
     }
 
     private string Identity { get; }
@@ -64,7 +58,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     public string CurrentPath { get; }
 
-    public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; }
+    public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; } = [];
 
     public void Dispose()
     {
@@ -74,38 +68,97 @@ internal sealed class FileEntryTableDataSource : IDisposable
         }
 
         _disposed = true;
+        _scanCancellation.Cancel();
         _disposables.Dispose();
     }
 
-    private IObservable<FileEntryTableChange> CreateFolderLifetime()
+    private IObservable<SpecFileEntryViewModel> ScanCurrentFolder() =>
+        Observable.Create<SpecFileEntryViewModel>(observer =>
+        {
+            var subject = new Subject<SpecFileEntryViewModel>();
+            var subjectSubscription = subject.Subscribe(observer);
+
+            if (Directory.GetParent(CurrentPath) is not null)
+            {
+                subject.OnNext(SpecFileEntryViewModel.CreateParentEntry());
+            }
+
+            var entriesSubscription = _fileEntryDataReader
+                .GetEntries(FolderPath, _scanCancellation.Token)
+                .Select(static entry => new SpecFileEntryViewModel(entry))
+                .Subscribe(subject);
+
+            return Disposable.Create(this, _ =>
+            {
+                entriesSubscription.Dispose();
+                subjectSubscription.Dispose();
+                subject.Dispose();
+            });
+        });
+
+    private IObservable<IChangeSet<SpecFileEntryViewModel, string>> CreateRows(IDirectoryChangeStream directoryChangeStream)
     {
-        var initialRows = Observable
-            .Start(ScanCurrentFolder, _backgroundScheduler)
-            .SelectMany(static rows => rows.ToObservable())
-            .Select(static row => new FileEntryTableChange.AddOrUpdate(row));
+        Func<ISourceCache<SpecFileEntryViewModel, string>, IDisposable> subscribe = cache => ScanCurrentFolder()
+            .Do(cache.AddOrUpdate)
+            .Select(static _ => Unit.Default)
+            .Merge(directoryChangeStream
+                .Watch(FolderPath)
+                .Do(change => ApplyDirectoryChange(cache, change))
+                .Select(static _ => Unit.Default))
+            .Subscribe();
 
-        var fileNotifications = _directoryChangeStream
-            .Watch(FolderPath)
-            .SelectMany(CreateFileEntryChanges);
-
-        return initialRows.Concat(fileNotifications);
+        return ObservableChangeSet.Create(subscribe, GetKey);
     }
 
-    private IReadOnlyList<SpecFileEntryViewModel> ScanCurrentFolder()
+    private void ApplyDirectoryChange(ISourceCache<SpecFileEntryViewModel, string> cache, DirectoryChange change)
     {
-        var rows = new List<SpecFileEntryViewModel>();
-
-        if (Directory.GetParent(CurrentPath) is not null)
+        if (_disposed)
         {
-            rows.Add(SpecFileEntryViewModel.CreateParentEntry());
+            return;
         }
 
-        foreach (var entry in _fileEntryDataReader.GetEntries(FolderPath, CancellationToken.None))
+        switch (change.Kind)
         {
-            rows.Add(new SpecFileEntryViewModel(entry));
+            case DirectoryChangeKind.Created:
+            case DirectoryChangeKind.Changed:
+                AddOrRemove(cache, change.Path);
+                break;
+            case DirectoryChangeKind.Deleted:
+                cache.RemoveKey(change.Path.Value);
+                break;
+            case DirectoryChangeKind.Renamed:
+                if (change.OldPath is { } oldPath)
+                {
+                    cache.RemoveKey(oldPath.Value);
+                }
+
+                AddOrRemove(cache, change.Path);
+                break;
+        }
+    }
+
+    private void AddOrRemove(ISourceCache<SpecFileEntryViewModel, string> cache, NormalizedPath path)
+    {
+        var model = TryGetEntry(path);
+        if (model is null)
+        {
+            cache.RemoveKey(path.Value);
+            return;
         }
 
-        return rows;
+        cache.AddOrUpdate(new SpecFileEntryViewModel(model));
+    }
+
+    private FileSystemEntryModel? TryGetEntry(NormalizedPath path)
+    {
+        try
+        {
+            return _fileEntryDataReader.GetEntry(path, _scanCancellation.Token);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private void OnSortRequested(object recipient, FileTableSortRequestedMessage message)
@@ -118,229 +171,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _sortState = new SortState(message.Column, message.Ascending);
     }
 
-    private IObservable<FileEntryTableChange> CreateFileEntryChanges(DirectoryChange change) =>
-        change.Kind switch
-        {
-            DirectoryChangeKind.Created => ReadAddOrRemoveChange(
-                change.Path,
-                snapshotOldPath: null,
-                createSnapshotBeforeUpdate: false),
-            DirectoryChangeKind.Changed => ReadAddOrRemoveChange(
-                change.Path,
-                snapshotOldPath: change.Path,
-                createSnapshotBeforeUpdate: true),
-            DirectoryChangeKind.Deleted => Observable.Return(
-                new FileEntryTableChange.Remove(change.Path.Value)),
-            DirectoryChangeKind.Renamed => CreateRenamedChanges(change),
-            DirectoryChangeKind.Invalidated => CreateInvalidatedChange(),
-            _ => Observable.Empty<FileEntryTableChange>(),
-        };
-
-    private IObservable<FileEntryTableChange> ReadAddOrRemoveChange(
-        NormalizedPath path,
-        NormalizedPath? snapshotOldPath,
-        bool createSnapshotBeforeUpdate) =>
-        Observable
-            .Start(() => TryGetEntry(path), _backgroundScheduler)
-            .SelectMany(model => model is null
-                ? CreateMissingEntryChanges(path, snapshotOldPath)
-                : CreateAddOrUpdateChanges(model, snapshotOldPath, createSnapshotBeforeUpdate));
-
-    private IObservable<FileEntryTableChange> CreateRenamedChanges(DirectoryChange change)
-    {
-        if (change.OldPath is not { } oldPath)
-        {
-            return ReadAddOrRemoveChange(
-                change.Path,
-                snapshotOldPath: null,
-                createSnapshotBeforeUpdate: false);
-        }
-
-        return Observable
-            .Start(() => TryGetEntry(change.Path), _backgroundScheduler)
-            .SelectMany(model =>
-            {
-                var changes = new List<FileEntryTableChange>
-                {
-                    new FileEntryTableChange.CreateSelectionSnapshot(),
-                    new FileEntryTableChange.Remove(oldPath.Value)
-                };
-
-                if (model is not null)
-                {
-                    changes.Add(new FileEntryTableChange.AddOrUpdate(new SpecFileEntryViewModel(model)));
-                    changes.Add(new FileEntryTableChange.ApplySelectionSnapshot(oldPath, model.FullPath));
-                }
-                else
-                {
-                    changes.Add(new FileEntryTableChange.ApplySelectionSnapshot(OldPath: null, NewPath: null));
-                }
-
-                return changes.ToObservable();
-            });
-    }
-
-    private IObservable<FileEntryTableChange> CreateInvalidatedChange()
-    {
-        var nearestDirectory = FindNearestExistingDirectory();
-
-        return nearestDirectory is { } path
-            ? Observable.Return(new FileEntryTableChange.NavigateTo(path))
-            : Observable.Empty<FileEntryTableChange>();
-    }
-
-    private IObservable<FileEntryTableChange> CreateAddOrUpdateChanges(
-        FileSystemEntryModel model,
-        NormalizedPath? snapshotOldPath,
-        bool createSnapshotBeforeUpdate)
-    {
-        var item = new SpecFileEntryViewModel(model);
-
-        if (snapshotOldPath is not { } oldPath)
-        {
-            return Observable.Return(new FileEntryTableChange.AddOrUpdate(item));
-        }
-
-        var changes = new List<FileEntryTableChange>();
-        if (createSnapshotBeforeUpdate)
-        {
-            changes.Add(new FileEntryTableChange.CreateSelectionSnapshot());
-        }
-
-        changes.Add(new FileEntryTableChange.AddOrUpdate(item));
-        changes.Add(new FileEntryTableChange.ApplySelectionSnapshot(oldPath, model.FullPath));
-
-        return changes.ToObservable();
-    }
-
-    private IObservable<FileEntryTableChange> CreateMissingEntryChanges(
-        NormalizedPath path,
-        NormalizedPath? snapshotOldPath)
-    {
-        var changes = new List<FileEntryTableChange>
-        {
-            new FileEntryTableChange.Remove(path.Value)
-        };
-
-        if (snapshotOldPath is not null)
-        {
-            changes.Add(new FileEntryTableChange.ApplySelectionSnapshot(OldPath: null, NewPath: null));
-        }
-
-        return changes.ToObservable();
-    }
-
-    private FileSystemEntryModel? TryGetEntry(NormalizedPath path)
-    {
-        try
-        {
-            return _fileEntryDataReader.GetEntry(path, CancellationToken.None);
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
-        catch (Exception ex)
-        {
-            OnFolderStreamError(ex);
-            return null;
-        }
-    }
-
-    private NormalizedPath? FindNearestExistingDirectory()
-    {
-        var candidate = new DirectoryInfo(CurrentPath);
-        while (candidate is not null && !candidate.Exists)
-        {
-            candidate = candidate.Parent;
-        }
-
-        if (candidate is null)
-        {
-            return null;
-        }
-
-        return NormalizedPath.FromUserInput(candidate.FullName);
-    }
-
-    private void ApplyChange(FileEntryTableChange change)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        switch (change)
-        {
-            case FileEntryTableChange.AddOrUpdate addOrUpdate:
-                AddOrReplace(addOrUpdate.Item);
-                break;
-            case FileEntryTableChange.Remove remove:
-                RemoveByKey(remove.Key);
-                break;
-            case FileEntryTableChange.CreateSelectionSnapshot:
-                _messenger.Send(new FileTableCreateSelectionSnapshotsRequestedMessage(FolderPath));
-                break;
-            case FileEntryTableChange.ApplySelectionSnapshot apply:
-                _messenger.Send(new FileTableApplySelectionSnapshotsRequestedMessage(
-                    FolderPath,
-                    apply.OldPath,
-                    apply.NewPath));
-                break;
-            case FileEntryTableChange.NavigateTo navigateTo:
-                _messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, navigateTo.Path));
-                break;
-        }
-    }
-
-    private void OnFolderStreamError(Exception error) => System.Diagnostics.Debug.WriteLine(error);
-
-    private void AddOrReplace(SpecFileEntryViewModel item)
-    {
-        _rows.Edit(rows =>
-        {
-            RemoveByKey(rows, GetKey(item));
-            rows.Add(item);
-        });
-    }
-
-    private void RemoveByKey(string key)
-    {
-        _rows.Edit(rows => RemoveByKey(rows, key));
-    }
-
-    private static void RemoveByKey(IList<SpecFileEntryViewModel> rows, string key)
-    {
-        for (var index = rows.Count - 1; index >= 0; index--)
-        {
-            if (StringComparer.OrdinalIgnoreCase.Equals(GetKey(rows[index]), key))
-            {
-                rows.RemoveAt(index);
-            }
-        }
-    }
-
-    private static string GetKey(SpecFileEntryViewModel item)
-    {
-        return item.Model?.FullPath.Value ?? ParentEntryKey;
-    }
-
-    private abstract record FileEntryTableChange
-    {
-        public sealed record AddOrUpdate(SpecFileEntryViewModel Item) : FileEntryTableChange;
-
-        public sealed record Remove(string Key) : FileEntryTableChange;
-
-        public sealed record CreateSelectionSnapshot : FileEntryTableChange;
-
-        public sealed record ApplySelectionSnapshot(
-            NormalizedPath? OldPath,
-            NormalizedPath? NewPath) : FileEntryTableChange;
-
-        public sealed record NavigateTo(NormalizedPath Path) : FileEntryTableChange;
-    }
+    private static string GetKey(SpecFileEntryViewModel item) =>
+        item.Model?.FullPath.Value ?? ParentEntryKey;
 }

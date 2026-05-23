@@ -277,7 +277,7 @@ This is the surviving idea from the archived `SPEC_NATIVE_MODERNIZATION.md` M-2.
 
 ### St-5. Watcher restart hardening
 
-`WindowsDirectoryChangeStream.OnError` (Infrastructure/FileSystem) restarts the watcher immediately on error. Add exponential back-off (500 ms → 30 s, capped) and a 10-failure budget after which the watcher gives up and reports `Invalidated`. This was B4 from the archived bug-fix spec; it's still a real concern on flaky network drives.
+`WindowsDirectoryChangeStream.OnError` (Infrastructure/FileSystem) restarts the watcher immediately on error. Add exponential back-off (500 ms → 30 s, capped) and a 10-failure budget after which the watcher gives up and logs diagnostics. This was B4 from the archived bug-fix spec; it's still a real concern on flaky network drives.
 
 ---
 

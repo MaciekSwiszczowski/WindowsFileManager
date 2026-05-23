@@ -8,11 +8,8 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 
 /// <summary>
 /// Produces a cold observable of <see cref="DirectoryChange"/> events for a directory,
-/// backed by <see cref="FileSystemWatcher"/>. When the underlying watcher fails (buffer
-/// overflow, removed drive, etc.) the stream emits a single <see cref="DirectoryChangeKind.Invalidated"/>
-/// event and silently attempts to recreate the watcher. Consumers are expected to rescan
-/// the directory on Invalidated and, if the directory itself disappeared, fall back to the
-/// nearest existing ancestor.
+/// backed by <see cref="FileSystemWatcher"/>. When the underlying watcher fails, the stream
+/// attempts to recreate the watcher without asking consumers to rescan.
 /// </summary>
 internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 {
@@ -81,7 +78,6 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
             if (!Directory.Exists(_path))
             {
                 _logger.LogDebug("Skipping directory watcher for missing path: {Path}", _path);
-                EmitInvalidated();
                 return;
             }
 
@@ -110,7 +106,6 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to create directory watcher for {Path}", _path);
-                EmitInvalidated();
                 return;
             }
 
@@ -157,15 +152,10 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                     return;
                 }
 
-                _logger.LogWarning(
-                    e.GetException(),
-                    "Directory watcher failed for {Path}. Emitting Invalidated and recreating watcher.",
-                    _path);
-
+                _logger.LogWarning(e.GetException(), "Directory watcher failed for {Path}. Recreating watcher.", _path);
                 _watcher.Disposable = null;
             }
 
-            EmitInvalidated();
             CreateAndStart();
         }
 
@@ -177,18 +167,6 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
             }
 
             _observer.OnNext(new DirectoryChange(kind, NormalizedPath.FromUserInput(fullPath)));
-        }
-
-        private void EmitInvalidated()
-        {
-            if (IsDisposed())
-            {
-                return;
-            }
-
-            _observer.OnNext(new DirectoryChange(
-                DirectoryChangeKind.Invalidated,
-                NormalizedPath.FromUserInput(_path)));
         }
 
         private bool IsDisposed()

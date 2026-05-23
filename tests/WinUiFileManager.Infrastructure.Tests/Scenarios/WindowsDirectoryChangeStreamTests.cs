@@ -80,25 +80,6 @@ public sealed class WindowsDirectoryChangeStreamTests
     }
 
     [Test]
-    public async Task Test_Watch_EmitsInvalidated_ForMissingDirectory()
-    {
-        // Arrange
-        using var fixture = new NtfsTempDirectoryFixture();
-        var missingPath = NormalizedPath.FromUserInput(
-            Path.Combine(fixture.RootPath, "does-not-exist"));
-        using var sut = CreateStream();
-        var ready = new TaskCompletionSource<DirectoryChange>();
-
-        // Act
-        using var subscription = sut.Watch(missingPath)
-            .Where(c => c.Kind == DirectoryChangeKind.Invalidated)
-            .Subscribe(change => ready.TrySetResult(change));
-
-        // Assert
-        await ready.Task.WaitAsync(EventTimeout);
-    }
-
-    [Test]
     public async Task Test_Watch_StopsEmitting_AfterDispose()
     {
         // Arrange

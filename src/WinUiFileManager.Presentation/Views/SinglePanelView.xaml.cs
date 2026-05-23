@@ -101,7 +101,7 @@ public sealed partial class SinglePanelView : IDisposable
             : Initialization.RightInitialPath;
 
         _initialNavigationRequested = true;
-        Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, initialPath));
+        Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, new NormalizedPath(initialPath)));
 
         // Initial column layout
         Messenger.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));

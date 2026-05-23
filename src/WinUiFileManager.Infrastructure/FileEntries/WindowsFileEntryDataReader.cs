@@ -9,8 +9,7 @@ namespace WinUiFileManager.Infrastructure.FileEntries;
 
 internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
 {
-    private static readonly ConcurrentDictionary<string, string> ExtensionPool =
-        new(StringComparer.OrdinalIgnoreCase);
+    private static readonly ConcurrentDictionary<string, string> ExtensionPool = new(StringComparer.OrdinalIgnoreCase);
 
     private static readonly EnumerationOptions EnumerationOptions = new()
     {
@@ -42,44 +41,51 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
         cancellationToken.ThrowIfCancellationRequested();
 
         var displayPath = path.DisplayPath;
-        FileSystemInfo? fsi = null;
 
         if (File.Exists(displayPath))
         {
-            fsi = new FileInfo(displayPath);
-        }
-        else if (Directory.Exists(displayPath))
-        {
-            fsi = new DirectoryInfo(displayPath);
+            return BuildEntryModel(new FileInfo(displayPath));
         }
 
-        return fsi is null
-            ? null
-            : BuildEntryModel(fsi);
+        if (Directory.Exists(displayPath))
+        {
+            return BuildEntryModel(new DirectoryInfo(displayPath));
+        }
+
+        return null;
     }
 
-    private static FileSystemEntryModel BuildEntryModel(FileSystemInfo fsi)
+    private static FileSystemEntryModel BuildEntryModel(FileInfo fileInfo)
     {
-        var isDirectory = fsi is DirectoryInfo;
-        var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
-        long? size = fsi is FileInfo fi ? fi.Length : null;
-        var extension = isDirectory ? string.Empty : fsi.Extension;
-        var parentPath = Path.GetDirectoryName(fsi.FullName);
+        var parentPath = Path.GetDirectoryName(fileInfo.FullName);
 
         return new FileSystemEntryModel(
-            DirectoryPath.FromFullyQualifiedPath(string.IsNullOrWhiteSpace(parentPath) ? fsi.FullName : parentPath),
-            fsi.Name,
-            InternExtension(extension),
-            kind,
-            size,
-            ToLocalTime(fsi.LastWriteTimeUtc),
-            ToLocalTime(fsi.CreationTimeUtc),
-            fsi.Attributes);
+            NormalizedPath.FromFullyQualifiedPath(string.IsNullOrWhiteSpace(parentPath) ? fileInfo.FullName : parentPath),
+            fileInfo.Name,
+            InternExtension(fileInfo.Extension),
+            ItemKind.File,
+            fileInfo.Length,
+            ToLocalTime(fileInfo.LastWriteTimeUtc),
+            ToLocalTime(fileInfo.CreationTimeUtc),
+            fileInfo.Attributes);
     }
 
-    private static FileSystemEntryModel BuildEntryModel(
-        DirectoryPath directoryPath,
-        ref FileSystemEntry entry)
+    private static FileSystemEntryModel BuildEntryModel(DirectoryInfo directoryInfo)
+    {
+        var parentPath = Path.GetDirectoryName(directoryInfo.FullName);
+
+        return new FileSystemEntryModel(
+            NormalizedPath.FromFullyQualifiedPath(string.IsNullOrWhiteSpace(parentPath) ? directoryInfo.FullName : parentPath),
+            directoryInfo.Name,
+            InternExtension(string.Empty),
+            ItemKind.Directory,
+            null,
+            directoryInfo.LastWriteTimeUtc.ToLocalTime(),
+            directoryInfo.CreationTimeUtc.ToLocalTime(),
+            directoryInfo.Attributes);
+    }
+
+    private static FileSystemEntryModel BuildEntryModel(NormalizedPath directoryPath, ref FileSystemEntry entry)
     {
         var isDirectory = entry.IsDirectory;
         var kind = isDirectory ? ItemKind.Directory : ItemKind.File;
@@ -97,10 +103,7 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
             entry.Attributes);
     }
 
-    private static void EnumerateEntries(
-        NormalizedPath path,
-        IObserver<FileSystemEntryModel> observer,
-        CancellationToken cancellationToken)
+    private static void EnumerateEntries(NormalizedPath path, IObserver<FileSystemEntryModel> observer, CancellationToken cancellationToken)
     {
         try
         {
@@ -112,7 +115,7 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
                 return;
             }
 
-            var directoryPath = DirectoryPath.FromNormalizedPath(path);
+            var directoryPath = path;
             foreach (var entry in CreateDirectoryEnumerable(directoryPath))
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -138,7 +141,7 @@ internal sealed class WindowsFileEntryDataReader : IFileEntryDataReader
         new DateTimeOffset(DateTime.SpecifyKind(utcDateTime, DateTimeKind.Utc)).ToLocalTime();
 
     private static FileSystemEnumerable<FileSystemEntryModel> CreateDirectoryEnumerable(
-        DirectoryPath directoryPath)
+        NormalizedPath directoryPath)
     {
         return new FileSystemEnumerable<FileSystemEntryModel>(
             directoryPath.DisplayPath,

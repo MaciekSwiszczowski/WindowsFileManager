@@ -3,7 +3,7 @@
 public sealed record FileSystemEntryModel
 {
     public FileSystemEntryModel(
-        DirectoryPath directoryPath,
+        NormalizedPath directoryPath,
         string name,
         string extension,
         ItemKind kind,
@@ -22,9 +22,9 @@ public sealed record FileSystemEntryModel
         Attributes = attributes;
     }
 
-    public DirectoryPath DirectoryPath { get; }
+    public NormalizedPath DirectoryPath { get; }
 
-    public NormalizedPath FullPath => DirectoryPath.GetEntryPath(Name);
+    public NormalizedPath FullPath => new(Path.Combine(DirectoryPath.Value, Name));
 
     public string Name { get; }
 

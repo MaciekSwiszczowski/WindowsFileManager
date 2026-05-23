@@ -67,7 +67,7 @@ public sealed class PanelNavigationService : IDisposable
             return;
         }
 
-        var childPath = DirectoryPath.FromNormalizedPath(currentPath).GetEntryPath(message.FolderName);
+        var childPath = new NormalizedPath(Path.Combine(currentPath.Value, message.FolderName));
         TryNavigate(message.Identity, childPath);
     }
 

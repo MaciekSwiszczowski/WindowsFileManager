@@ -47,7 +47,5 @@ public readonly record struct NormalizedPath
             : new NormalizedPath(ExtendedPathPrefix + path);
     }
 
-    public static implicit operator NormalizedPath(string path) => FromUserInput(path);
-
     public override string ToString() => Value;
 }

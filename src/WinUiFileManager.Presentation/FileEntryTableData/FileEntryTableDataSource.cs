@@ -1,4 +1,3 @@
-using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
@@ -27,12 +26,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
-        ArgumentNullException.ThrowIfNull(uiScheduler);
-        ArgumentNullException.ThrowIfNull(fileEntryDataReader);
-        ArgumentNullException.ThrowIfNull(directoryChangeStream);
-        ArgumentNullException.ThrowIfNull(messenger);
-
         Identity = identity;
         FolderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
@@ -40,15 +33,30 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _messenger = messenger;
 
         _messenger.Register<FileTableSortRequestedMessage>(this, OnSortRequested);
-        _disposables =
+
+        _disposables = Initialize(uiScheduler, directoryChangeStream);
+        _disposables.Add(Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)));
+        _disposables.Add(_scanCancellation);
+
+    }
+
+    private CompositeDisposable Initialize(IScheduler uiScheduler, IDirectoryChangeStream directoryChangeStream)
+    {
+        var rows = new SourceCache<SpecFileEntryViewModel, string>(GetKey);
+        rows.AddOrUpdate(ScanCurrentFolder());
+
+        CompositeDisposable disposables =
         [
-            Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)),
-            _scanCancellation,
-            CreateRows(directoryChangeStream)
+            directoryChangeStream
+                .Watch(FolderPath)
+                .Subscribe(change => ApplyDirectoryChange(rows, change)),
+            rows.Connect()
                 .ObserveOn(uiScheduler)
                 .Bind(Items)
                 .Subscribe(),
+            rows,
         ];
+        return disposables;
     }
 
     private string Identity { get; }
@@ -71,24 +79,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _disposables.Dispose();
     }
 
-    private IObservable<SpecFileEntryViewModel> ScanCurrentFolder() =>
-        _fileEntryDataReader
-            .GetEntries(FolderPath, _scanCancellation.Token)
-            .ToObservable();
-
-    private IObservable<IChangeSet<SpecFileEntryViewModel, string>> CreateRows(IDirectoryChangeStream directoryChangeStream)
-    {
-        Func<ISourceCache<SpecFileEntryViewModel, string>, IDisposable> subscribe = cache => ScanCurrentFolder()
-            .Do(cache.AddOrUpdate)
-            .Select(static _ => Unit.Default)
-            .Merge(directoryChangeStream
-                .Watch(FolderPath)
-                .Do(change => ApplyDirectoryChange(cache, change))
-                .Select(static _ => Unit.Default))
-            .Subscribe();
-
-        return ObservableChangeSet.Create(subscribe, GetKey);
-    }
+    private IReadOnlyList<SpecFileEntryViewModel> ScanCurrentFolder() =>
+        _fileEntryDataReader.GetEntries(FolderPath, _scanCancellation.Token);
 
     private void ApplyDirectoryChange(ISourceCache<SpecFileEntryViewModel, string> cache, DirectoryChange change)
     {
@@ -104,12 +96,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 AddOrRemove(cache, change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
-                cache.RemoveKey(GetChangePathKey(change.Path));
+                cache.RemoveKey(NormalizedPath.FromFullyQualifiedPath(change.Path).Value);
                 break;
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
-                    cache.RemoveKey(GetChangePathKey(oldPath));
+                    cache.RemoveKey(NormalizedPath.FromFullyQualifiedPath(oldPath).Value);
                 }
 
                 AddOrRemove(cache, change.Path);
@@ -119,7 +111,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private void AddOrRemove(ISourceCache<SpecFileEntryViewModel, string> cache, string path)
     {
-        var normalizedPath = NormalizeChangePath(path);
+        var normalizedPath = NormalizedPath.FromFullyQualifiedPath(path);
         var model = TryGetEntry(normalizedPath);
         if (model is null)
         {
@@ -155,8 +147,4 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private static string GetKey(SpecFileEntryViewModel item) =>
         item.Model?.FullPath.Value ?? ParentEntryKey;
 
-    private static string GetChangePathKey(string path) => NormalizeChangePath(path).Value;
-
-    private static NormalizedPath NormalizeChangePath(string path) =>
-        NormalizedPath.FromFullyQualifiedPath(path);
 }

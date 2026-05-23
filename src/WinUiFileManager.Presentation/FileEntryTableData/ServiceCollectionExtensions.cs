@@ -6,7 +6,9 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddFileEntryTableDataServices(this IServiceCollection services)
     {
-        services.AddSingleton<IFileEntryDataReader, WindowsFileEntryDataReader>();
+        services.AddSingleton<FileEntryRowFactory>();
+        services.AddSingleton<IFileEntryRowReader, WindowsFileEntryRowReader>();
+        services.AddSingleton<IFolderEntryScanner, WindowsFolderEntryScanner>();
         return services;
     }
 }

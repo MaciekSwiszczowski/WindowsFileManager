@@ -16,7 +16,8 @@ public sealed class ViewModelTestBuilder
 
     public MainShellViewModel Build()
     {
-        var fileEntryDataReader = new FakeFileEntryDataReader();
+        var folderEntryScanner = new FakeFolderEntryScanner();
+        var fileEntryRowReader = new FakeFileEntryRowReader();
         var directoryChangeStream = new FakeDirectoryChangeStream();
         var setParallelExec = new SetParallelExecutionCommandHandler(
             SettingsRepository, NullLogger<SetParallelExecutionCommandHandler>.Instance);
@@ -53,7 +54,7 @@ public sealed class ViewModelTestBuilder
                 inspectorSearch,
                 inspectorAttributes),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(activePanels, messenger, fileEntryDataReader, directoryChangeStream),
+            new PanelsViewModel(activePanels, messenger, folderEntryScanner, fileEntryRowReader, directoryChangeStream),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }

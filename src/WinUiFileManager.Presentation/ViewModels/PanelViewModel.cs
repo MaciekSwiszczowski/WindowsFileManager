@@ -8,14 +8,16 @@ public sealed partial class PanelViewModel : ObservableObject, IDisposable
 
     public PanelViewModel(
         string identity,
-        IFileEntryDataReader fileEntryDataReader,
+        IFolderEntryScanner folderEntryScanner,
+        IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
         Identity = identity;
         FileEntries = new PanelFileEntryDataSourceViewModel(
             identity,
-            fileEntryDataReader,
+            folderEntryScanner,
+            fileEntryRowReader,
             directoryChangeStream,
             messenger);
     }

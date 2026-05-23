@@ -10,7 +10,8 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 internal sealed class FileEntryTableDataSource : IDisposable
 {
     private readonly CompositeDisposable _disposables;
-    private readonly IFileEntryDataReader _fileEntryDataReader;
+    private readonly IFolderEntryScanner _folderEntryScanner;
+    private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly IMessenger _messenger;
     private readonly CancellationTokenSource _scanCancellation = new();
     private SortState _sortState = SortState.Default;
@@ -22,14 +23,16 @@ internal sealed class FileEntryTableDataSource : IDisposable
         string identity,
         NormalizedPath folderPath,
         IScheduler uiScheduler,
-        IFileEntryDataReader fileEntryDataReader,
+        IFolderEntryScanner folderEntryScanner,
+        IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
         _identity = identity;
         _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
-        _fileEntryDataReader = fileEntryDataReader;
+        _folderEntryScanner = folderEntryScanner;
+        _fileEntryRowReader = fileEntryRowReader;
         _messenger = messenger;
 
         _messenger.Register<FileTableSortRequestedMessage>(this, OnSortRequested);
@@ -77,7 +80,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     }
 
     private IReadOnlyList<SpecFileEntryViewModel> ScanCurrentFolder() =>
-        _fileEntryDataReader.GetEntries(_folderPath, _scanCancellation.Token);
+        _folderEntryScanner.Scan(_folderPath, _scanCancellation.Token);
 
     private void ApplyDirectoryChange(ISourceCache<SpecFileEntryViewModel, string> cache, DirectoryChange change)
     {
@@ -93,12 +96,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 AddOrRemove(cache, change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
-                cache.RemoveKey(NormalizedPath.FromFullyQualifiedPath(change.Path).Value);
+                cache.RemoveKey(GetChangePathKey(change.Path));
                 break;
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
-                    cache.RemoveKey(NormalizedPath.FromFullyQualifiedPath(oldPath).Value);
+                    cache.RemoveKey(GetChangePathKey(oldPath));
                 }
 
                 AddOrRemove(cache, change.Path);
@@ -109,7 +112,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private void AddOrRemove(ISourceCache<SpecFileEntryViewModel, string> cache, string path)
     {
         var normalizedPath = NormalizedPath.FromFullyQualifiedPath(path);
-        var model = TryGetEntry(normalizedPath);
+        var model = _fileEntryRowReader.TryRead(normalizedPath, _scanCancellation.Token);
         if (model is null)
         {
             cache.RemoveKey(normalizedPath.Value);
@@ -119,17 +122,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         cache.AddOrUpdate(model);
     }
 
-    private SpecFileEntryViewModel? TryGetEntry(NormalizedPath path)
-    {
-        try
-        {
-            return _fileEntryDataReader.GetEntry(path, _scanCancellation.Token);
-        }
-        catch
-        {
-            return null;
-        }
-    }
+    private static string GetChangePathKey(string path) => NormalizedPath.FromFullyQualifiedPath(path).Value;
 
     private void OnSortRequested(object recipient, FileTableSortRequestedMessage message)
     {

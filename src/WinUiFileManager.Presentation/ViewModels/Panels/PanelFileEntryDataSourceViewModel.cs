@@ -1,13 +1,13 @@
 using System.Reactive.Concurrency;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTableData;
 
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
 public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
 {
     private readonly string _identity;
-    private readonly IFileEntryDataReader _fileEntryDataReader;
+    private readonly IFolderEntryScanner _folderEntryScanner;
+    private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly IDirectoryChangeStream _directoryChangeStream;
     private readonly IMessenger _messenger;
     private FileEntryTableDataSource? _dataSource;
@@ -17,17 +17,14 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
 
     public PanelFileEntryDataSourceViewModel(
         string identity,
-        IFileEntryDataReader fileEntryDataReader,
+        IFolderEntryScanner folderEntryScanner,
+        IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(identity);
-        ArgumentNullException.ThrowIfNull(fileEntryDataReader);
-        ArgumentNullException.ThrowIfNull(directoryChangeStream);
-        ArgumentNullException.ThrowIfNull(messenger);
-
         _identity = identity;
-        _fileEntryDataReader = fileEntryDataReader;
+        _folderEntryScanner = folderEntryScanner;
+        _fileEntryRowReader = fileEntryRowReader;
         _directoryChangeStream = directoryChangeStream;
         _messenger = messenger;
     }
@@ -108,7 +105,8 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
             _identity,
             folderPath,
             _uiScheduler,
-            _fileEntryDataReader,
+            _folderEntryScanner,
+            _fileEntryRowReader,
             _directoryChangeStream,
             _messenger);
 

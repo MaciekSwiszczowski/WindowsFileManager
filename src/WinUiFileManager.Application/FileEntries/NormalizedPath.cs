@@ -47,5 +47,7 @@ public readonly record struct NormalizedPath
             : new NormalizedPath(ExtendedPathPrefix + path);
     }
 
+    public NormalizedPath GetChildPath(string name) => new(Path.Combine(Value, name));
+
     public override string ToString() => Value;
 }

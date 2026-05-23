@@ -124,12 +124,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 AddOrRemove(cache, change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
-                cache.RemoveKey(change.Path.Value);
+                cache.RemoveKey(GetChangePathKey(change.Path));
                 break;
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
-                    cache.RemoveKey(oldPath.Value);
+                    cache.RemoveKey(GetChangePathKey(oldPath));
                 }
 
                 AddOrRemove(cache, change.Path);
@@ -137,12 +137,13 @@ internal sealed class FileEntryTableDataSource : IDisposable
         }
     }
 
-    private void AddOrRemove(ISourceCache<SpecFileEntryViewModel, string> cache, NormalizedPath path)
+    private void AddOrRemove(ISourceCache<SpecFileEntryViewModel, string> cache, string path)
     {
-        var model = TryGetEntry(path);
+        var normalizedPath = NormalizeChangePath(path);
+        var model = TryGetEntry(normalizedPath);
         if (model is null)
         {
-            cache.RemoveKey(path.Value);
+            cache.RemoveKey(normalizedPath.Value);
             return;
         }
 
@@ -173,4 +174,9 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private static string GetKey(SpecFileEntryViewModel item) =>
         item.Model?.FullPath.Value ?? ParentEntryKey;
+
+    private static string GetChangePathKey(string path) => NormalizeChangePath(path).Value;
+
+    private static NormalizedPath NormalizeChangePath(string path) =>
+        NormalizedPath.FromFullyQualifiedPath(path);
 }

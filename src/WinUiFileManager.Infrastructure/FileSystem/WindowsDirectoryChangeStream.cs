@@ -139,8 +139,8 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
             _observer.OnNext(new DirectoryChange(
                 DirectoryChangeKind.Renamed,
-                NormalizedPath.FromUserInput(e.FullPath),
-                NormalizedPath.FromUserInput(e.OldFullPath)));
+                e.FullPath,
+                e.OldFullPath));
         }
 
         private void OnError(object? sender, ErrorEventArgs e)
@@ -166,7 +166,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 return;
             }
 
-            _observer.OnNext(new DirectoryChange(kind, NormalizedPath.FromUserInput(fullPath)));
+            _observer.OnNext(new DirectoryChange(kind, fullPath));
         }
 
         private bool IsDisposed()

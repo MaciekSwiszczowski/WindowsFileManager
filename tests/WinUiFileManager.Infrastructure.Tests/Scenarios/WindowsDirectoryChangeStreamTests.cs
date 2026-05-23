@@ -29,7 +29,7 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path.DisplayPath).Contains("created.txt");
+        await Assert.That(signalled.Path).Contains("created.txt");
     }
 
     [Test]
@@ -51,7 +51,7 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path.DisplayPath).Contains("to-delete.txt");
+        await Assert.That(signalled.Path).Contains("to-delete.txt");
     }
 
     [Test]
@@ -74,9 +74,9 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path.DisplayPath).Contains("new.txt");
+        await Assert.That(signalled.Path).Contains("new.txt");
         await Assert.That(signalled.OldPath).IsNotNull();
-        await Assert.That(signalled.OldPath!.Value.DisplayPath).Contains("old.txt");
+        await Assert.That(signalled.OldPath!).Contains("old.txt");
     }
 
     [Test]

@@ -2,6 +2,8 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileInspectorCategoryViewModel : ObservableObject
 {
+    public delegate FileInspectorCategoryViewModel Factory(FileInspectorCategory category);
+
     public FileInspectorCategoryViewModel(FileInspectorCategory category)
     {
         Category = category;

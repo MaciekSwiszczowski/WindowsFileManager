@@ -13,12 +13,27 @@ public sealed class InspectorInitializationViewModel
     private readonly IActivePanelsService _activePanelsService;
     private readonly ISchedulerProvider _schedulers;
     private readonly IMessenger _messenger;
+    private readonly InspectorCategoryViewModel.Factory _categoryFactory;
+    private readonly InspectorFieldViewModel.Factory _fieldFactory;
+    private readonly InspectorThumbnailFieldViewModel.ThumbnailFactory _thumbnailFieldFactory;
+    private readonly InspectorToggleFieldViewModel.ToggleFactory _toggleFieldFactory;
 
-    public InspectorInitializationViewModel(IActivePanelsService activePanelsService, ISchedulerProvider schedulers, IMessenger messenger)
+    public InspectorInitializationViewModel(
+        IActivePanelsService activePanelsService,
+        ISchedulerProvider schedulers,
+        IMessenger messenger,
+        InspectorCategoryViewModel.Factory categoryFactory,
+        InspectorFieldViewModel.Factory fieldFactory,
+        InspectorThumbnailFieldViewModel.ThumbnailFactory thumbnailFieldFactory,
+        InspectorToggleFieldViewModel.ToggleFactory toggleFieldFactory)
     {
         _activePanelsService = activePanelsService;
         _schedulers = schedulers;
         _messenger = messenger;
+        _categoryFactory = categoryFactory;
+        _fieldFactory = fieldFactory;
+        _thumbnailFieldFactory = thumbnailFieldFactory;
+        _toggleFieldFactory = toggleFieldFactory;
 
         Categories = CreateCategories();
 
@@ -49,13 +64,13 @@ public sealed class InspectorInitializationViewModel
 
     public List<InspectorCategoryViewModel> Categories { get; }
 
-    private static List<InspectorCategoryViewModel> CreateCategories()
+    private List<InspectorCategoryViewModel> CreateCategories()
     {
-        static InspectorCategoryViewModel Category(
+        InspectorCategoryViewModel Category(
             FileInspectorCategory category,
             params InspectorFieldViewModel[] fields)
         {
-            var viewModel = new InspectorCategoryViewModel(category);
+            var viewModel = _categoryFactory(category);
 
             foreach (var field in fields)
             {
@@ -66,21 +81,21 @@ public sealed class InspectorInitializationViewModel
             return viewModel;
         }
 
-        static InspectorFieldViewModel Field(
+        InspectorFieldViewModel Field(
             FileInspectorCategory category,
             string key,
             string tooltip) =>
-            new(category, key, tooltip);
+            _fieldFactory(category, key, tooltip, string.Empty);
 
-        static InspectorThumbnailFieldViewModel ThumbnailField(
+        InspectorThumbnailFieldViewModel ThumbnailField(
             string key,
             string tooltip) =>
-            new(Thumbnails, key, tooltip);
+            _thumbnailFieldFactory(Thumbnails, key, tooltip, string.Empty);
 
-        static InspectorToggleFieldViewModel ToggleField(
+        InspectorToggleFieldViewModel ToggleField(
             string key,
             string tooltip) =>
-            new(Ntfs, key, tooltip);
+            _toggleFieldFactory(Ntfs, key, tooltip, string.Empty);
 
         return
         [

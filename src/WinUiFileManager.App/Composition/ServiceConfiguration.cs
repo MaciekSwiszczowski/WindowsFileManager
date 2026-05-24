@@ -4,6 +4,7 @@ using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Dialogs;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
@@ -13,10 +14,6 @@ using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
-using WinUiFileManager.Presentation.ViewModels.Inspector;
-using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
-using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
-using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 
 namespace WinUiFileManager.App.Composition;
 
@@ -35,6 +32,7 @@ public static class ServiceConfiguration
         builder.AddInfrastructureServices();
         builder.AddDiagnosticsServices();
         builder.AddFileEntryTableDataServices();
+        builder.AddPresentationViewModels();
 
         builder.RegisterType<PanelNavigationService>().SingleInstance();
 
@@ -46,18 +44,8 @@ public static class ServiceConfiguration
         builder.RegisterType<DialogService>().SingleInstance();
         builder.RegisterType<WinUiClipboardService>().As<IClipboardService>().SingleInstance();
 
-        builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();
-        builder.RegisterType<PanelsViewModel>().InstancePerDependency();
-        builder.RegisterType<CommandButtonsViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorInitializationViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorRefreshButtonViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorPropertiesButtonViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorCopyToClipboardButtonViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorSearchViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorAttributeToggleViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorViewModel>().InstancePerDependency();
-        builder.RegisterType<MainShellViewModel>().InstancePerDependency();
-        builder.RegisterType<StatusBarViewModel>().InstancePerDependency();
+        builder.RegisterType<MessageDialogViewModel>().InstancePerDependency();
+        builder.RegisterType<RenameDialogViewModel>().InstancePerDependency();
 
         builder.RegisterType<MainShellWindow>().InstancePerDependency();
 

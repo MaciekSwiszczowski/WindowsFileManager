@@ -2,6 +2,12 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class FileInspectorFieldViewModel : ObservableObject
 {
+    public delegate FileInspectorFieldViewModel Factory(
+        FileInspectorCategory category,
+        string key,
+        string tooltip,
+        string value,
+        int sortOrder);
 
     public FileInspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "", int sortOrder = 0)
     {

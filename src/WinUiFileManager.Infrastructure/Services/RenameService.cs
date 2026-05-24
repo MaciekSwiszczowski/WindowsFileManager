@@ -13,17 +13,23 @@ public sealed class RenameService : IDisposable
     private readonly IActivePanelsService _activePanels;
     private readonly ILogger<RenameService> _logger;
     private readonly IMessenger _messenger;
+    private readonly RenameDialogViewModel.Factory _renameDialogFactory;
+    private readonly MessageDialogViewModel.Factory _messageDialogFactory;
     private bool _disposed;
 
     public RenameService(
         IActivePanelsService activePanels,
         ILogger<RenameService> logger,
-        IMessenger messenger)
+        IMessenger messenger,
+        RenameDialogViewModel.Factory renameDialogFactory,
+        MessageDialogViewModel.Factory messageDialogFactory)
     {
         ArgumentNullException.ThrowIfNull(messenger);
         _activePanels = activePanels;
         _logger = logger;
         _messenger = messenger;
+        _renameDialogFactory = renameDialogFactory;
+        _messageDialogFactory = messageDialogFactory;
 
         _messenger.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
     }
@@ -62,7 +68,7 @@ public sealed class RenameService : IDisposable
             }
 
             var item = request.Response[0];
-            var viewModel = new RenameDialogViewModel(item);
+            var viewModel = _renameDialogFactory(item);
             var dialogRequest = _messenger.Send(
                 new ShowDialogMessage(
                     viewModel,
@@ -134,7 +140,7 @@ public sealed class RenameService : IDisposable
     {
         var dialogRequest = _messenger.Send(
             new ShowDialogMessage(
-                new MessageDialogViewModel(message),
+                _messageDialogFactory(message),
                 [
                     new DialogButtonConfiguration(DialogButtonRole.Close, "OK", IsDefault: true),
                 ],

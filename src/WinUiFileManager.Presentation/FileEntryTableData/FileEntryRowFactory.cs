@@ -7,6 +7,9 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 internal sealed class FileEntryRowFactory
 {
     private static readonly ConcurrentDictionary<string, string> ExtensionPool = new(StringComparer.OrdinalIgnoreCase);
+    private readonly SpecFileEntryViewModel.Factory _rowFactory;
+
+    public FileEntryRowFactory(SpecFileEntryViewModel.Factory rowFactory) => _rowFactory = rowFactory;
 
     public SpecFileEntryViewModel Create(NormalizedPath directoryPath, ref FileSystemEntry entry)
     {
@@ -22,7 +25,7 @@ internal sealed class FileEntryRowFactory
             entry.CreationTimeUtc.ToLocalTime().DateTime,
             entry.Attributes);
 
-        return new SpecFileEntryViewModel(model);
+        return _rowFactory(model);
     }
 
     public SpecFileEntryViewModel Create(NormalizedPath directoryPath, FileInfo fileInfo)
@@ -37,7 +40,7 @@ internal sealed class FileEntryRowFactory
             fileInfo.CreationTime,
             fileInfo.Attributes);
 
-        return new SpecFileEntryViewModel(model);
+        return _rowFactory(model);
     }
 
     public SpecFileEntryViewModel Create(NormalizedPath directoryPath, DirectoryInfo directoryInfo)
@@ -52,7 +55,7 @@ internal sealed class FileEntryRowFactory
             directoryInfo.CreationTime,
             directoryInfo.Attributes);
 
-        return new SpecFileEntryViewModel(model);
+        return _rowFactory(model);
     }
 
     private static string InternExtension(string extension) =>

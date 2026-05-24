@@ -4,22 +4,16 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject, IDisposable
 {
+    public delegate PanelViewModel Factory(string identity);
+
     private bool _disposed;
 
     public PanelViewModel(
         string identity,
-        IFolderEntryScanner folderEntryScanner,
-        IFileEntryRowReader fileEntryRowReader,
-        IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger)
+        PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory)
     {
         Identity = identity;
-        FileEntries = new PanelFileEntryDataSourceViewModel(
-            identity,
-            folderEntryScanner,
-            fileEntryRowReader,
-            directoryChangeStream,
-            messenger);
+        FileEntries = fileEntriesFactory(identity);
     }
 
     public string Identity { get; }

@@ -2,6 +2,8 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 public sealed partial class InspectorThumbnailFieldViewModel : InspectorFieldViewModel
 {
+    public delegate InspectorThumbnailFieldViewModel ThumbnailFactory(FileInspectorCategory category, string key, string tooltip, string value);
+
     public InspectorThumbnailFieldViewModel(
         FileInspectorCategory category,
         string key,

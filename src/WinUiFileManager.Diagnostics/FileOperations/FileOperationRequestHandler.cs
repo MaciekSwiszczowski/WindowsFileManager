@@ -9,14 +9,17 @@ public sealed class FileOperationRequestHandler : IDisposable
 {
     private readonly ILogger<FileOperationRequestHandler> _logger;
     private readonly IMessenger _messenger;
+    private readonly MessageDialogViewModel.Factory _messageDialogFactory;
     private bool _disposed;
 
     public FileOperationRequestHandler(
         IMessenger messenger,
-        ILogger<FileOperationRequestHandler> logger)
+        ILogger<FileOperationRequestHandler> logger,
+        MessageDialogViewModel.Factory messageDialogFactory)
     {
         _messenger = messenger;
         _logger = logger;
+        _messageDialogFactory = messageDialogFactory;
         _messenger.Register<SetFileAttributeFlagRequestedMessage>(this, OnSetFileAttributeFlagRequested);
     }
 
@@ -56,7 +59,7 @@ public sealed class FileOperationRequestHandler : IDisposable
     {
         var dialogRequest = _messenger.Send(
             new ShowDialogMessage(
-                new MessageDialogViewModel(CreateAttributeChangeFailureMessage(message, exception)),
+                _messageDialogFactory(CreateAttributeChangeFailureMessage(message, exception)),
                 [
                     new DialogButtonConfiguration(DialogButtonRole.Close, "OK", IsDefault: true),
                 ],

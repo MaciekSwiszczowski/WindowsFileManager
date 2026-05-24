@@ -5,6 +5,7 @@ using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
+using WinUiFileManager.Presentation.ViewModels.Panels;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 
@@ -28,10 +29,22 @@ public sealed class ViewModelTestBuilder
         var messenger = new StrongReferenceMessenger();
         var activePanels = new FakeActivePanelsService();
         var schedulerProvider = new TestSchedulerProvider(new TestScheduler());
+        PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory = identity =>
+            new PanelFileEntryDataSourceViewModel(
+                identity,
+                folderEntryScanner,
+                fileEntryRowReader,
+                directoryChangeStream,
+                messenger);
+        PanelViewModel.Factory panelFactory = identity => new PanelViewModel(identity, fileEntriesFactory);
         var inspectorInitialization = new InspectorInitializationViewModel(
             activePanels,
             schedulerProvider,
-            messenger);
+            messenger,
+            category => new InspectorCategoryViewModel(category),
+            (category, key, tooltip, value) => new InspectorFieldViewModel(category, key, tooltip, value),
+            (category, key, tooltip, value) => new InspectorThumbnailFieldViewModel(category, key, tooltip, value),
+            (category, key, tooltip, value) => new InspectorToggleFieldViewModel(category, key, tooltip, value));
         var inspectorRefresh = new InspectorRefreshButtonViewModel(messenger);
         var inspectorProperties = new InspectorPropertiesButtonViewModel(ShellService);
         var inspectorCopy = new InspectorCopyToClipboardButtonViewModel(ClipboardService);
@@ -54,7 +67,7 @@ public sealed class ViewModelTestBuilder
                 inspectorSearch,
                 inspectorAttributes),
             new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
-            new PanelsViewModel(activePanels, messenger, folderEntryScanner, fileEntryRowReader, directoryChangeStream),
+            new PanelsViewModel(activePanels, messenger, panelFactory),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004
     }

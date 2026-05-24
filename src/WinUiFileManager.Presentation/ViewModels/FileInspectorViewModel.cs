@@ -11,9 +11,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 {
     private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(300);
 
-    private readonly IFileIdentityService _fileIdentityService;
     private readonly IActivePanelsService _activePanelsService;
-    private readonly ILogger<FileInspectorViewModel> _logger;
     private readonly FileInspectorFieldState _fieldState;
     private readonly FileInspectorSelectionFieldUpdater _selectionFieldUpdater;
     private readonly FileInspectorDeferredBatchPlan _deferredBatchPlan;
@@ -24,7 +22,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
     private long _currentSelectionVersion;
     private string _currentFullPath = string.Empty;
     private long _tableSelectionRefreshVersion;
-    private IReadOnlyList<SpecFileEntryViewModel> _lastTableSelection = [];
     private FileInspectorSelection? _currentTableSelection;
     private int _selectedItemCount;
     private bool _inspectorPanelVisible = true;
@@ -32,38 +29,24 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     public FileInspectorViewModel(
         IFileIdentityService fileIdentityService,
-        IClipboardService clipboardService,
-        IShellService shellService,
-        IActivePanelsService activePanelsService,
-        ISchedulerProvider schedulers,
-        ILogger<FileInspectorViewModel> logger,
-        IMessenger messenger)
-        : this(fileIdentityService, clipboardService, shellService, activePanelsService, schedulers, logger, subscribeToMessages: true, messenger)
-    {
-    }
-
-    internal FileInspectorViewModel(
-        IFileIdentityService fileIdentityService,
-        IClipboardService clipboardService,
-        IShellService shellService,
         IActivePanelsService activePanelsService,
         ISchedulerProvider schedulers,
         ILogger<FileInspectorViewModel> logger,
         bool subscribeToMessages,
-        IMessenger messenger)
+        IMessenger messenger,
+        FileInspectorFieldViewModel.Factory fieldFactory,
+        FileInspectorCategoryViewModel.Factory categoryFactory)
     {
-        _fileIdentityService = fileIdentityService;
         _activePanelsService = activePanelsService;
-        _logger = logger;
         _messenger = messenger;
 
         var inspectorModel = new FileInspectorModelBuilder(
             NtfsFileInspectorCategory.CanToggleField,
-            ToggleNtfsFlagAsync).Build();
+            ToggleNtfsFlagAsync,
+            fieldFactory,
+            categoryFactory).Build();
         _fieldState = new FileInspectorFieldState(inspectorModel);
         _selectionFieldUpdater = new FileInspectorSelectionFieldUpdater(_fieldState);
-        Fields = _fieldState.Fields;
-        Categories = _fieldState.Categories;
 
         _deferredBatchPlan = new FileInspectorDeferredBatchPlan(
             fileIdentityService,
@@ -85,14 +68,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
             () => HasCurrentSelection,
             () => _currentSelectionVersion,
             RefreshVisibleCategories);
-
-        Commands = new FileInspectorCommandsViewModel(
-            clipboardService,
-            shellService,
-            () => _currentFullPath,
-            () => Categories,
-            () => Fields,
-            () => _ = RefreshFromCurrentTableSelectionAsync());
 
         if (!subscribeToMessages)
         {
@@ -187,8 +162,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _ = RefreshFromCurrentTableSelectionAsync();
     }
 
-    public FileInspectorCommandsViewModel Commands { get; }
-
     private FileInspectorSelectionMode SelectionMode
     {
         get;
@@ -217,27 +190,16 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         _ => string.Empty,
     };
 
-    public ObservableCollection<FileInspectorFieldViewModel> Fields { get; }
-
-    public ObservableCollection<FileInspectorCategoryViewModel> Categories { get; }
-
     public bool HasVisibleFields => _fieldState.HasVisibleFields;
 
     public bool IsLoadingDetails { get; set => SetProperty(ref field, value); }
 
-    public string SearchText
+    private string SearchText
     {
         get;
-        set
-        {
-            if (SetProperty(ref field, value))
-            {
-                RefreshVisibleCategories();
-            }
-        }
     } = string.Empty;
 
-    public void ShowSelection(FileInspectorSelection selection)
+    private void ShowSelection(FileInspectorSelection selection)
     {
         if (_disposed)
         {
@@ -269,7 +231,7 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         RefreshVisibleCategories();
     }
 
-    public void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
+    private void ApplyDeferredBatch(FileInspectorDeferredBatchResult batchResult)
     {
         if (_disposed || !HasCurrentSelection)
         {
@@ -305,7 +267,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     private void ShowImmediateTableSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
-        _lastTableSelection = selectedEntries;
         SetSelectedItemCount(selectedEntries.Count);
         _ = Interlocked.Increment(ref _tableSelectionRefreshVersion);
 
@@ -337,7 +298,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     private void ShowNoSelection()
     {
-        _lastTableSelection = [];
         _currentTableSelection = null;
         _deferredLoader.Cancel();
         SetSelectedItemCount(0);
@@ -347,7 +307,6 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
 
     private void ShowMultiSelection(IReadOnlyList<SpecFileEntryViewModel> selectedEntries)
     {
-        _lastTableSelection = selectedEntries;
         _currentTableSelection = null;
         _deferredLoader.Cancel();
         SetSelectedItemCount(selectedEntries.Count);
@@ -454,19 +413,26 @@ public sealed class FileInspectorViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(SelectionStatusText));
     }
 
-    private async Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
+    private Task<bool> ToggleNtfsFlagAsync(string key, bool enabled)
     {
-        if (string.IsNullOrWhiteSpace(_currentFullPath)
-            || !NtfsFileInspectorCategory.TryGetToggleFlag(key, out var flag))
+        try
         {
-            return false;
-        }
+            if (string.IsNullOrWhiteSpace(_currentFullPath)
+                || !NtfsFileInspectorCategory.TryGetToggleFlag(key, out var flag))
+            {
+                return Task.FromResult(false);
+            }
 
-        _messenger.Send(new SetFileAttributeFlagRequestedMessage(
-            NormalizedPath.FromUserInput(_currentFullPath),
-            flag,
-            enabled));
-        return false;
+            _messenger.Send(new SetFileAttributeFlagRequestedMessage(
+                NormalizedPath.FromUserInput(_currentFullPath),
+                flag,
+                enabled));
+            return Task.FromResult(false);
+        }
+        catch (Exception exception)
+        {
+            return Task.FromException<bool>(exception);
+        }
     }
 
     private void RefreshVisibleCategories()

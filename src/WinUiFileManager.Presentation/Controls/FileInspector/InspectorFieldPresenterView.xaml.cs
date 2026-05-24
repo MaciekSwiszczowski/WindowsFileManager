@@ -21,9 +21,8 @@ public sealed partial class InspectorFieldPresenterView
 
     public InspectorThumbnailFieldViewModel ThumbnailField =>
         Field as InspectorThumbnailFieldViewModel
-        ?? new InspectorThumbnailFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value);
+        ?? throw new InvalidOperationException($"{nameof(Field)} must be a thumbnail field.");
 
-    public InspectorToggleFieldViewModel ToggleField =>
-        Field as InspectorToggleFieldViewModel
-        ?? new InspectorToggleFieldViewModel(Field.Category, Field.Key, Field.Tooltip, Field.Value);
+    public InspectorToggleFieldViewModel ToggleField => Field as InspectorToggleFieldViewModel
+                                                        ?? throw new InvalidOperationException($"{nameof(Field)} must be a toggle field.");
 }

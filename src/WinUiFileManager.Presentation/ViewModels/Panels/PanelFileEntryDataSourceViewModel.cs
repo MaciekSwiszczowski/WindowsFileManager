@@ -5,6 +5,8 @@ namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
 public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
 {
+    public delegate PanelFileEntryDataSourceViewModel Factory(string identity);
+
     private readonly string _identity;
     private readonly IFolderEntryScanner _folderEntryScanner;
     private readonly IFileEntryRowReader _fileEntryRowReader;

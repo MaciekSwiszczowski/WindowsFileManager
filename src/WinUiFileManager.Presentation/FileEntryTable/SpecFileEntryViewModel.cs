@@ -2,6 +2,8 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed class SpecFileEntryViewModel
 {
+    public delegate SpecFileEntryViewModel Factory(FileSystemEntryModel model);
+
     private const string ParentEntryKey = "\0..";
 
     // Keep this row model lean. Do not add presentation state or convenience properties here:

@@ -6,13 +6,19 @@ internal sealed class FileInspectorModelBuilder
 {
     private readonly Func<string, bool> _canToggleField;
     private readonly Func<string, bool, Task<bool>> _toggleFieldAsync;
+    private readonly FileInspectorFieldViewModel.Factory _fieldFactory;
+    private readonly FileInspectorCategoryViewModel.Factory _categoryFactory;
 
     public FileInspectorModelBuilder(
         Func<string, bool> canToggleField,
-        Func<string, bool, Task<bool>> toggleFieldAsync)
+        Func<string, bool, Task<bool>> toggleFieldAsync,
+        FileInspectorFieldViewModel.Factory fieldFactory,
+        FileInspectorCategoryViewModel.Factory categoryFactory)
     {
         _canToggleField = canToggleField;
         _toggleFieldAsync = toggleFieldAsync;
+        _fieldFactory = fieldFactory;
+        _categoryFactory = categoryFactory;
     }
 
     public FileInspectorModel Build()
@@ -27,7 +33,7 @@ internal sealed class FileInspectorModelBuilder
         {
             foreach (var definition in provider.Fields)
             {
-                var field = new FileInspectorFieldViewModel(
+                var field = _fieldFactory(
                     definition.Category,
                     definition.Key,
                     definition.Tooltip,
@@ -71,7 +77,7 @@ internal sealed class FileInspectorModelBuilder
         new CloudFileInspectorCategory()
     ];
 
-    private static FileInspectorCategoryViewModel GetOrCreateCategory(
+    private FileInspectorCategoryViewModel GetOrCreateCategory(
         FileInspectorCategory category,
         ObservableCollection<FileInspectorCategoryViewModel> categories,
         Dictionary<FileInspectorCategory, FileInspectorCategoryViewModel> categoryMap)
@@ -81,7 +87,7 @@ internal sealed class FileInspectorModelBuilder
             return existingCategory;
         }
 
-        var createdCategory = new FileInspectorCategoryViewModel(category);
+        var createdCategory = _categoryFactory(category);
         categoryMap.Add(category, createdCategory);
         var insertIndex = 0;
         while (insertIndex < categories.Count

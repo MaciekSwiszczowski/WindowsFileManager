@@ -6,6 +6,8 @@ namespace WinUiFileManager.Application.Dialogs;
 
 public sealed class RenameDialogViewModel : IDialogViewModel, INotifyPropertyChanged
 {
+    public delegate RenameDialogViewModel Factory(FileSystemEntryModel entry);
+
     private readonly FileSystemEntryModel _entry;
     private string _newName;
 

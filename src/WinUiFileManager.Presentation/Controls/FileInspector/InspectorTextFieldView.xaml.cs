@@ -12,7 +12,7 @@ public sealed partial class InspectorTextFieldView
         InitializeComponent();
     }
 
-    public InspectorFieldViewModel Field
+    public InspectorBasicFieldViewModel BasicField
     {
         get => field ?? throw new InvalidOperationException($"{nameof(InspectorTextFieldView)} must be initialized with a field.");
         set

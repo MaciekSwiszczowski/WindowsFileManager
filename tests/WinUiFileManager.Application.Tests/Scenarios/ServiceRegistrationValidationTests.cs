@@ -49,8 +49,7 @@ public sealed class ServiceRegistrationValidationTests
         var shell = container.Resolve<MainShellViewModel>();
         var rowFactory = container.Resolve<SpecFileEntryViewModel.Factory>();
         var panelFactory = container.Resolve<PanelViewModel.Factory>();
-        var textFieldFactory = container.Resolve<InspectorFieldViewModel.Factory>();
-        var legacyFileInspector = container.Resolve<FileInspectorViewModel>();
+        var textFieldFactory = container.Resolve<InspectorBasicFieldViewModel.Factory>();
         var renameService = container.Resolve<RenameService>();
         var fileOperationHandler = container.Resolve<FileOperationRequestHandler>();
 
@@ -59,7 +58,6 @@ public sealed class ServiceRegistrationValidationTests
         await Assert.That(rowFactory(CreateEntry())).IsNotNull();
         await Assert.That(panelFactory("Test")).IsNotNull();
         await Assert.That(textFieldFactory(FileInspectorCategory.Basic, "Name", "Tooltip", string.Empty)).IsNotNull();
-        await Assert.That(legacyFileInspector).IsNotNull();
         await Assert.That(renameService).IsNotNull();
         await Assert.That(fileOperationHandler).IsNotNull();
     }

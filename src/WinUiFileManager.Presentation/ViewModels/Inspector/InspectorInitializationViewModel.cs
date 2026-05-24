@@ -14,7 +14,7 @@ public sealed class InspectorInitializationViewModel
     private readonly ISchedulerProvider _schedulers;
     private readonly IMessenger _messenger;
     private readonly InspectorCategoryViewModel.Factory _categoryFactory;
-    private readonly InspectorFieldViewModel.Factory _fieldFactory;
+    private readonly InspectorBasicFieldViewModel.Factory _fieldFactory;
     private readonly InspectorThumbnailFieldViewModel.ThumbnailFactory _thumbnailFieldFactory;
     private readonly InspectorToggleFieldViewModel.ToggleFactory _toggleFieldFactory;
 
@@ -23,7 +23,7 @@ public sealed class InspectorInitializationViewModel
         ISchedulerProvider schedulers,
         IMessenger messenger,
         InspectorCategoryViewModel.Factory categoryFactory,
-        InspectorFieldViewModel.Factory fieldFactory,
+        InspectorBasicFieldViewModel.Factory fieldFactory,
         InspectorThumbnailFieldViewModel.ThumbnailFactory thumbnailFieldFactory,
         InspectorToggleFieldViewModel.ToggleFactory toggleFieldFactory)
     {
@@ -68,7 +68,7 @@ public sealed class InspectorInitializationViewModel
     {
         InspectorCategoryViewModel Category(
             FileInspectorCategory category,
-            params InspectorFieldViewModel[] fields)
+            params InspectorFieldViewModelBase[] fields)
         {
             var viewModel = _categoryFactory(category);
 
@@ -81,7 +81,7 @@ public sealed class InspectorInitializationViewModel
             return viewModel;
         }
 
-        InspectorFieldViewModel Field(
+        InspectorBasicFieldViewModel Field(
             FileInspectorCategory category,
             string key,
             string tooltip) =>

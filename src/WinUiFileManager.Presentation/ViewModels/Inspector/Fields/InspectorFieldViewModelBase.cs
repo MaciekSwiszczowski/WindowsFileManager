@@ -1,10 +1,8 @@
-namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
+﻿namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
-public partial class InspectorFieldViewModel : ObservableObject
+public abstract partial class InspectorFieldViewModelBase : ObservableObject
 {
-    public delegate InspectorFieldViewModel Factory(FileInspectorCategory category, string key, string tooltip, string value);
-
-    public InspectorFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "")
+    protected InspectorFieldViewModelBase(FileInspectorCategory category, string key, string tooltip, string value = "")
     {
         Category = category;
         Key = key;

@@ -22,7 +22,7 @@ public sealed partial class InspectorCategoryViewModel : ObservableObject
     [ObservableProperty]
     public partial bool HasVisibleFields { get; set; }
 
-    public ObservableCollection<InspectorFieldViewModel> Fields { get; } = [];
+    public ObservableCollection<InspectorFieldViewModelBase> Fields { get; } = [];
 
     public void RefreshVisibility()
     {

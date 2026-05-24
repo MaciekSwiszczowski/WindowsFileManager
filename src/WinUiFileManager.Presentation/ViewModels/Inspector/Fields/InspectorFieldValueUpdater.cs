@@ -7,7 +7,7 @@ internal sealed class InspectorFieldValueUpdater
 {
     private readonly FileSizeToFriendlyStringConverter _fileSizeConverter = new();
     private readonly IReadOnlyList<InspectorCategoryViewModel> _categories;
-    private readonly IReadOnlyDictionary<string, InspectorFieldViewModel> _fields;
+    private readonly IReadOnlyDictionary<string, InspectorFieldViewModelBase> _fields;
 
     public InspectorFieldValueUpdater(IReadOnlyList<InspectorCategoryViewModel> categories)
     {

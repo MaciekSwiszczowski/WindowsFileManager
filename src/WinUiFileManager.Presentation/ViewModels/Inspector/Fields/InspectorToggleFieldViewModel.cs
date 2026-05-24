@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
-public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewModel
+public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewModelBase
 {
     public delegate InspectorToggleFieldViewModel ToggleFactory(FileInspectorCategory category, string key, string tooltip, string value);
 

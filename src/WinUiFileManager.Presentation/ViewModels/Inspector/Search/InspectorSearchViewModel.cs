@@ -33,6 +33,6 @@ public sealed partial class InspectorSearchViewModel : ObservableObject
 
     partial void OnSearchTextChanged(string value) => Refresh(value);
 
-    private static bool ShouldFieldBeVisible(InspectorFieldViewModel field, string search, bool hasSearch) =>
+    private static bool ShouldFieldBeVisible(InspectorFieldViewModelBase field, string search, bool hasSearch) =>
         !hasSearch || field.SearchText.Contains(search, StringComparison.OrdinalIgnoreCase);
 }

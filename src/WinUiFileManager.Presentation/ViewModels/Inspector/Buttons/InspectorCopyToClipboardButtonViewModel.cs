@@ -41,6 +41,6 @@ public sealed class InspectorCopyToClipboardButtonViewModel
         }
     }
 
-    private static string GetCopyValue(InspectorFieldViewModel field) =>
+    private static string GetCopyValue(InspectorFieldViewModelBase field) =>
         field.DisplayValue;
 }

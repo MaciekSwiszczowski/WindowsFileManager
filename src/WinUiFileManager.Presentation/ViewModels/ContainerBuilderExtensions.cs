@@ -28,15 +28,10 @@ public static class ContainerBuilderExtensions
         builder.RegisterType<InspectorSearchViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorAttributeToggleViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorCategoryViewModel>().InstancePerDependency();
-        builder.RegisterType<InspectorFieldViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorBasicFieldViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorThumbnailFieldViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorToggleFieldViewModel>().InstancePerDependency();
 
-        builder.RegisterType<FileInspectorViewModel>().InstancePerDependency();
-        builder.RegisterType<FileInspectorCategoryViewModel>().InstancePerDependency();
-        builder.RegisterType<FileInspectorFieldViewModel>().InstancePerDependency();
-
         builder.RegisterType<SpecFileEntryViewModel>().InstancePerDependency();
-
     }
 }

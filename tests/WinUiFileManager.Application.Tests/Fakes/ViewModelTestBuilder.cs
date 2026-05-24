@@ -42,7 +42,7 @@ public sealed class ViewModelTestBuilder
             schedulerProvider,
             messenger,
             category => new InspectorCategoryViewModel(category),
-            (category, key, tooltip, value) => new InspectorFieldViewModel(category, key, tooltip, value),
+            (category, key, tooltip, value) => new InspectorBasicFieldViewModel(category, key, tooltip, value),
             (category, key, tooltip, value) => new InspectorThumbnailFieldViewModel(category, key, tooltip, value),
             (category, key, tooltip, value) => new InspectorToggleFieldViewModel(category, key, tooltip, value));
         var inspectorRefresh = new InspectorRefreshButtonViewModel(messenger);

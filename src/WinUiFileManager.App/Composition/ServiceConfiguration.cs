@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
@@ -20,51 +22,53 @@ namespace WinUiFileManager.App.Composition;
 
 public static class ServiceConfiguration
 {
-    public static ServiceProvider ConfigureServices()
+    public static AutofacServiceProvider ConfigureServices()
     {
+        var builder = new ContainerBuilder();
+
         var services = new ServiceCollection();
-
         services.AddLogging();
-        services.AddSingleton(new FileInspectorInteropOptions(FileInspectorInteropCategories.All));
+        builder.Populate(services);
 
-        services.AddInfrastructureServices();
-        services.AddDiagnosticsServices();
-        services.AddFileEntryTableDataServices();
+        builder.RegisterInstance(new FileInspectorInteropOptions(FileInspectorInteropCategories.All));
 
-        services.AddSingleton<PanelNavigationService>();
+        builder.AddInfrastructureServices();
+        builder.AddDiagnosticsServices();
+        builder.AddFileEntryTableDataServices();
 
-        services.AddSingleton<SetParallelExecutionCommandHandler>();
-        services.AddSingleton<PersistPaneStateCommandHandler>();
+        builder.RegisterType<PanelNavigationService>().SingleInstance();
 
-        services.AddSingleton<MessageLogStore>();
+        builder.RegisterType<SetParallelExecutionCommandHandler>().SingleInstance();
+        builder.RegisterType<PersistPaneStateCommandHandler>().SingleInstance();
 
-        services.AddSingleton<DialogService>();
-        services.AddSingleton<IClipboardService, WinUiClipboardService>();
+        builder.RegisterType<MessageLogStore>().SingleInstance();
 
-        services.AddTransient<AppInitializationViewModel>();
-        services.AddTransient<PanelsViewModel>();
-        services.AddTransient<CommandButtonsViewModel>();
-        services.AddTransient<InspectorInitializationViewModel>();
-        services.AddTransient<InspectorRefreshButtonViewModel>();
-        services.AddTransient<InspectorPropertiesButtonViewModel>();
-        services.AddTransient<InspectorCopyToClipboardButtonViewModel>();
-        services.AddTransient<InspectorSearchViewModel>();
-        services.AddTransient<InspectorAttributeToggleViewModel>();
-        services.AddTransient<InspectorViewModel>();
-        services.AddTransient<MainShellViewModel>();
-        services.AddTransient<StatusBarViewModel>();
+        builder.RegisterType<DialogService>().SingleInstance();
+        builder.RegisterType<WinUiClipboardService>().As<IClipboardService>().SingleInstance();
 
-        services.AddTransient<MainShellWindow>();
+        builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();
+        builder.RegisterType<PanelsViewModel>().InstancePerDependency();
+        builder.RegisterType<CommandButtonsViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorInitializationViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorRefreshButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorPropertiesButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorCopyToClipboardButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorSearchViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorAttributeToggleViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorViewModel>().InstancePerDependency();
+        builder.RegisterType<MainShellViewModel>().InstancePerDependency();
+        builder.RegisterType<StatusBarViewModel>().InstancePerDependency();
 
-        var options = new ServiceProviderOptions();
-        ApplyDevelopmentServiceProviderValidation(options);
-        return services.BuildServiceProvider(options);
+        builder.RegisterType<MainShellWindow>().InstancePerDependency();
+
+        var container = builder.Build();
+        ApplyDevelopmentContainerValidation(container);
+        return new AutofacServiceProvider(container);
     }
 
     [Conditional("DEBUG_ANALYZERS")]
-    private static void ApplyDevelopmentServiceProviderValidation(ServiceProviderOptions options)
+    private static void ApplyDevelopmentContainerValidation(IContainer container)
     {
-        options.ValidateOnBuild = true;
-        options.ValidateScopes = true;
+        container.Resolve<MainShellViewModel>();
     }
 }

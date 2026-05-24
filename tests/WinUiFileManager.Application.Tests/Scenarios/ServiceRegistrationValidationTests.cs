@@ -1,3 +1,5 @@
+using Autofac;
+using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using TUnit.Core;
 using WinUiFileManager.Diagnostics;
@@ -19,43 +21,41 @@ public sealed class ServiceRegistrationValidationTests
     [Test]
     public async Task Test_ServiceGraph_BuildsWithValidation()
     {
+        var builder = new ContainerBuilder();
+
         var services = new ServiceCollection();
-
         services.AddLogging();
-        services.AddInfrastructureServices();
-        services.AddDiagnosticsServices();
-        services.AddFileEntryTableDataServices();
+        builder.Populate(services);
 
-        services.AddSingleton<IClipboardService, Fakes.FakeClipboardService>();
-        services.AddSingleton<IShellService, Fakes.FakeShellService>();
-        services.AddSingleton<DialogService>();
-        services.AddSingleton<ISettingsRepository, Fakes.FakeSettingsRepository>();
+        builder.AddInfrastructureServices();
+        builder.AddDiagnosticsServices();
+        builder.AddFileEntryTableDataServices();
 
-        services.AddSingleton<PanelNavigationService>();
+        builder.RegisterType<Fakes.FakeClipboardService>().As<IClipboardService>().SingleInstance();
+        builder.RegisterType<Fakes.FakeShellService>().As<IShellService>().SingleInstance();
+        builder.RegisterType<DialogService>().SingleInstance();
+        builder.RegisterType<Fakes.FakeSettingsRepository>().As<ISettingsRepository>().SingleInstance();
 
-        services.AddSingleton<SetParallelExecutionCommandHandler>();
-        services.AddSingleton<PersistPaneStateCommandHandler>();
+        builder.RegisterType<PanelNavigationService>().SingleInstance();
 
-        services.AddTransient<AppInitializationViewModel>();
-        services.AddTransient<PanelsViewModel>();
-        services.AddTransient<CommandButtonsViewModel>();
-        services.AddTransient<InspectorInitializationViewModel>();
-        services.AddTransient<InspectorRefreshButtonViewModel>();
-        services.AddTransient<InspectorPropertiesButtonViewModel>();
-        services.AddTransient<InspectorCopyToClipboardButtonViewModel>();
-        services.AddTransient<InspectorSearchViewModel>();
-        services.AddTransient<InspectorAttributeToggleViewModel>();
-        services.AddTransient<InspectorViewModel>();
-        services.AddTransient<MainShellViewModel>();
-        services.AddTransient<StatusBarViewModel>();
+        builder.RegisterType<SetParallelExecutionCommandHandler>().SingleInstance();
+        builder.RegisterType<PersistPaneStateCommandHandler>().SingleInstance();
 
-        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
-        {
-            ValidateOnBuild = true,
-            ValidateScopes = true,
-        });
+        builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();
+        builder.RegisterType<PanelsViewModel>().InstancePerDependency();
+        builder.RegisterType<CommandButtonsViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorInitializationViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorRefreshButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorPropertiesButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorCopyToClipboardButtonViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorSearchViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorAttributeToggleViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorViewModel>().InstancePerDependency();
+        builder.RegisterType<MainShellViewModel>().InstancePerDependency();
+        builder.RegisterType<StatusBarViewModel>().InstancePerDependency();
 
-        var shell = provider.GetRequiredService<MainShellViewModel>();
+        using var container = builder.Build();
+        var shell = container.Resolve<MainShellViewModel>();
 
         await Assert.That(shell).IsNotNull();
         await Assert.That(shell.Inspector).IsNotNull();

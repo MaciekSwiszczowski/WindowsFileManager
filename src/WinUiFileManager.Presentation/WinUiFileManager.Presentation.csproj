@@ -9,6 +9,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Autofac" />
     <PackageReference Include="DynamicData" />
     <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />

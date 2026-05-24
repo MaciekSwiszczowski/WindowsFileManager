@@ -23,8 +23,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Autofac" />
+    <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
-    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="Microsoft.Extensions.Logging" />
     <PackageReference Include="Microsoft.Extensions.Options" />
   </ItemGroup>

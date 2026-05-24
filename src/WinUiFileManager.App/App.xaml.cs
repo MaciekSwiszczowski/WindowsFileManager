@@ -1,5 +1,6 @@
 namespace WinUiFileManager.App;
 
+using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
@@ -8,7 +9,7 @@ using WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class App
 {
-    private readonly ServiceProvider _serviceProvider;
+    private readonly AutofacServiceProvider _serviceProvider;
 
     public App()
     {
@@ -38,6 +39,6 @@ public sealed partial class App
 
     private Window? _mainWindow;
 
-    public static ServiceProvider Services => ((App)Current)._serviceProvider;
-    public ServiceProvider ServiceProvider => _serviceProvider;
+    public static IServiceProvider Services => ((App)Current)._serviceProvider;
+    public IServiceProvider ServiceProvider => _serviceProvider;
 }

@@ -17,7 +17,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly CancellationTokenSource _scanCancellation = new();
     private readonly BehaviorSubject<IComparer<SpecFileEntryViewModel>> _sortComparer = new(CreateComparer(SortState.Default));
     private bool _disposed;
-    private readonly string _identity;
     private readonly NormalizedPath _folderPath;
 
     public FileEntryTableDataSource(
@@ -29,14 +28,13 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger)
     {
-        _identity = identity;
         _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
         _folderEntryScanner = folderEntryScanner;
         _fileEntryRowReader = fileEntryRowReader;
         _messenger = messenger;
 
-        _messenger.Register<FileTableSortRequestedMessage>(this, OnSortRequested);
+        _messenger.Register(this, MessageIdentity.Filter<FileTableSortRequestedMessage>(identity, OnSortRequested));
 
         _disposables = Initialize(uiScheduler, directoryChangeStream);
         _disposables.Add(Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)));
@@ -126,13 +124,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private static string GetChangePathKey(string path) => NormalizedPath.FromFullyQualifiedPath(path).Value;
 
-    private void OnSortRequested(object recipient, FileTableSortRequestedMessage message)
+    private void OnSortRequested(FileTableSortRequestedMessage message)
     {
-        if (message.Identity != _identity)
-        {
-            return;
-        }
-
         _sortComparer.OnNext(CreateComparer(new SortState(message.Column, message.Ascending)));
     }
 

@@ -186,14 +186,14 @@ public sealed class MessageLogStore
         where T : class
     {
         var type = message.GetType();
-        return ReadStringProperty(type, message, "Identity")
-            ?? ReadStringProperty(type, message, "SourceIdentity")
-            ?? ReadStringProperty(type, message, "DialogId")
+        return ReadPropertyAsString(type, message, "Identity")
+            ?? ReadPropertyAsString(type, message, "SourceIdentity")
+            ?? ReadPropertyAsString(type, message, "DialogId")
             ?? string.Empty;
     }
 
-    private static string? ReadStringProperty(Type type, object instance, string propertyName) =>
-        type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(instance) as string;
+    private static string? ReadPropertyAsString(Type type, object instance, string propertyName) =>
+        type.GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public)?.GetValue(instance)?.ToString();
 
     private static string FormatArguments<T>(T message)
         where T : class

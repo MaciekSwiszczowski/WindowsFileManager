@@ -6,9 +6,9 @@ namespace WinUiFileManager.Application.Messages.RequestMessages;
 /// <summary>
 /// Request-response message used to query the current real selected entries for one table.
 /// </summary>
-public sealed class FileTableSelectedEntriesRequestMessage : RequestMessage<IReadOnlyList<FileSystemEntryModel>>, IFileManagerMessengerMessage
+public sealed class FileTableSelectedEntriesRequestMessage : RequestMessage<IReadOnlyList<FileSystemEntryModel>>, IIdentityMessage
 {
-    public FileTableSelectedEntriesRequestMessage(string identity) => Identity = identity;
+    public FileTableSelectedEntriesRequestMessage(Identity identity) => Identity = identity;
 
-    public string Identity { get; }
+    public Identity Identity { get; }
 }

@@ -9,7 +9,9 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private bool _isParentRowSelected;
 
     protected override void OnLoaded(FileEntryTableBehaviorContext context) =>
-        context.Messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+        context.Messenger.Register(
+            this,
+            MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
 
     protected override void OnUnloaded(FileEntryTableBehaviorContext context)
     {
@@ -18,13 +20,9 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
         _isParentRowSelected = false;
     }
 
-    private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
+    private void OnFileTableSelectionChanged(FileTableSelectionChangedMessage message)
     {
         var context = Context;
-        if (message.Identity != context.View.Identity)
-        {
-            return;
-        }
 
         _isParentRowSelected = message.IsParentRowSelected;
         UpdateParentSelectionOpacity(context, queueRetry: true);

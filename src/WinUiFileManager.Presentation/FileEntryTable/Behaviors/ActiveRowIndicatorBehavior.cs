@@ -16,7 +16,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         context.View.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
         context.View.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
-        context.Messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
+        context.Messenger.Register(
+            this,
+            MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
     }
 
     protected override void OnUnloaded(FileEntryTableBehaviorContext context)
@@ -57,13 +59,8 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         }
     }
 
-    private void OnFileTableSelectionChanged(object recipient, FileTableSelectionChangedMessage message)
+    private void OnFileTableSelectionChanged(FileTableSelectionChangedMessage message)
     {
-        if (message.Identity != Context.View.Identity)
-        {
-            return;
-        }
-
         if (message.ActiveItem is not { } item)
         {
             ClearActiveItem();

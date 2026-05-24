@@ -7,4 +7,4 @@ namespace WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 /// Consumed by <see cref="WinUiFileManager.Application.Navigation.PanelNavigationService"/>, which resolves and
 /// validates the target path before publishing <see cref="WinUiFileManager.Application.Navigation.FileTableNavigateToPathMessage"/>.
 /// </summary>
-public sealed record FileTableNavigateUpRequestedMessage(string Identity) : IFileManagerMessengerMessage;
+public sealed record FileTableNavigateUpRequestedMessage(Identity Identity) : IIdentityMessage;

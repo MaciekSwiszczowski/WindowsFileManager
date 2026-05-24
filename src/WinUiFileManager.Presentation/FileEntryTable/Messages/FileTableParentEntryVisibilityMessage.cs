@@ -8,4 +8,4 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// </summary>
 /// <param name="Identity">Table instance id; must match <see cref="SpecFileEntryTableView.Identity"/>.</param>
 /// <param name="ShowParentEntry"><c>true</c> to show <c>..</c>; <c>false</c> at a root or when parent navigation is unavailable.</param>
-public sealed record FileTableParentEntryVisibilityMessage(string Identity, bool ShowParentEntry) : IFileManagerMessengerMessage;
+public sealed record FileTableParentEntryVisibilityMessage(Identity Identity, bool ShowParentEntry) : IIdentityMessage;

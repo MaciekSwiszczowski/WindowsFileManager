@@ -5,4 +5,4 @@ namespace WinUiFileManager.Application.Messages;
 /// <summary>
 /// Published when a file table receives or loses focus.
 /// </summary>
-public sealed record FileTableFocusedMessage(string Identity, bool IsFocused = true) : IFileManagerMessengerMessage;
+public sealed record FileTableFocusedMessage(Identity Identity, bool IsFocused = true) : IIdentityMessage;

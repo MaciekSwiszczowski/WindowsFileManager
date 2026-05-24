@@ -17,8 +17,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     protected override void OnLoaded(FileEntryTableBehaviorContext context)
     {
-        context.Messenger.Register<FileTableSelectedItemsRequestMessage>(this, OnSelectedItemsRequested);
-        context.Messenger.Register<FileTableSelectedEntriesRequestMessage>(this, OnSelectedEntriesRequested);
+        context.Messenger.Register(
+            this,
+            MessageIdentity.Filter<FileTableSelectedItemsRequestMessage>(context.View.Identity, OnSelectedItemsRequested));
+        context.Messenger.Register(
+            this,
+            MessageIdentity.Filter<FileTableSelectedEntriesRequestMessage>(context.View.Identity, OnSelectedEntriesRequested));
         context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
         context.Table.SelectionChanged += EntryTable_SelectionChanged;
     }
@@ -187,23 +191,13 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     private int? ClampIndex(int? index) => Context.Table.ClampIndex(index);
 
-    private void OnSelectedItemsRequested(object recipient, FileTableSelectedItemsRequestMessage message)
+    private void OnSelectedItemsRequested(FileTableSelectedItemsRequestMessage message)
     {
-        if (message.Identity != Context.View.Identity)
-        {
-            return;
-        }
-
         message.Reply(GetSelectedItemsSnapshotAsync());
     }
 
-    private void OnSelectedEntriesRequested(object recipient, FileTableSelectedEntriesRequestMessage message)
+    private void OnSelectedEntriesRequested(FileTableSelectedEntriesRequestMessage message)
     {
-        if (message.Identity != Context.View.Identity)
-        {
-            return;
-        }
-
         message.Reply(CreateSelectedItemsSnapshot(Context)
             .Select(static item => item.Model)
             .OfType<FileSystemEntryModel>()

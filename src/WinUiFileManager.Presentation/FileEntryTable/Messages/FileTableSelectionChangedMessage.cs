@@ -18,7 +18,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// or parent-row navigation, and is used by table UI behaviors such as the active-row indicator.
 /// </param>
 public sealed record FileTableSelectionChangedMessage(
-    string Identity,
+    Identity Identity,
     IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
     bool IsParentRowSelected,
-    SpecFileEntryViewModel? ActiveItem = null) : IFileManagerMessengerMessage;
+    SpecFileEntryViewModel? ActiveItem = null) : IIdentityMessage;

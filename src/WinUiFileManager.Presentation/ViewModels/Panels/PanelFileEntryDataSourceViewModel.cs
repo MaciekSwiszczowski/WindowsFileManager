@@ -52,7 +52,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         }
 
         _uiScheduler = uiScheduler;
-        _messenger.Register<FileTableNavigateToPathMessage>(this, OnNavigateToPath);
+        _messenger.Register(this, MessageIdentity.Filter<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
         _attached = true;
     }
 
@@ -83,15 +83,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         Detach();
     }
 
-    private void OnNavigateToPath(object recipient, FileTableNavigateToPathMessage message)
-    {
-        if (message.Identity != _identity)
-        {
-            return;
-        }
-
-        ReplaceDataSource(message.Path);
-    }
+    private void OnNavigateToPath(FileTableNavigateToPathMessage message) => ReplaceDataSource(message.Path);
 
     private void ReplaceDataSource(NormalizedPath folderPath)
     {

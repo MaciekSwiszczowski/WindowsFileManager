@@ -9,4 +9,4 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// <param name="Identity">Table instance id; must match <see cref="SpecFileEntryTableView.Identity"/>.</param>
 /// <param name="Column">Logical file-entry column to sort by.</param>
 /// <param name="Ascending">True for ascending order; false for descending order.</param>
-public sealed record FileTableSortRequestedMessage(string Identity, SortColumn Column, bool Ascending) : IFileManagerMessengerMessage;
+public sealed record FileTableSortRequestedMessage(Identity Identity, SortColumn Column, bool Ascending) : IIdentityMessage;

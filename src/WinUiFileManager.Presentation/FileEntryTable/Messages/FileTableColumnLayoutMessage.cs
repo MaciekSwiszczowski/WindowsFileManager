@@ -8,4 +8,4 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// </summary>
 /// <param name="Identity">Table instance id; must match <see cref="SpecFileEntryTableView.Identity"/>.</param>
 /// <param name="Layout">Width of each logical column (Name, Extension, Size, Modified, Attributes).</param>
-public sealed record FileTableColumnLayoutMessage(string Identity, ColumnLayout Layout) : IFileManagerMessengerMessage;
+public sealed record FileTableColumnLayoutMessage(Identity Identity, ColumnLayout Layout) : IIdentityMessage;

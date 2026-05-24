@@ -15,7 +15,9 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
     {
         context.Messenger.Register<FileTableCreateSelectionSnapshotsRequestedMessage>(this, OnCreateSnapshotRequested);
         context.Messenger.Register<FileTableApplySelectionSnapshotsRequestedMessage>(this, OnApplySnapshotRequested);
-        context.Messenger.Register<FileTableSelectionChangedMessage>(this, OnSelectionChanged);
+        context.Messenger.Register(
+            this,
+            MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnSelectionChanged));
 
         AttachItemsSource(context.View.ItemsSource);
         _itemsSourcePropertyToken = context.View.RegisterPropertyChangedCallback(
@@ -86,13 +88,8 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         }
     }
 
-    private void OnSelectionChanged(object _, FileTableSelectionChangedMessage message)
+    private void OnSelectionChanged(FileTableSelectionChangedMessage message)
     {
-        if (message.Identity != Context.View.Identity)
-        {
-            return;
-        }
-
         _lastActivePath = message.ActiveItem?.Model?.FullPath;
     }
 

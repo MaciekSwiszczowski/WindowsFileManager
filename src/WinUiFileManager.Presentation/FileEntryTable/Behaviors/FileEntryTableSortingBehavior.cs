@@ -20,7 +20,7 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
     private void OnSorting(object? sender, TableViewSortingEventArgs e)
     {
         e.Handled = true;
-        if (FileEntryTableColumnMapping.MapSortColumn(e.Column.SortMemberPath) is not { } column)
+        if (FileEntryTableColumnMapping.MapColumn(e.Column.SortMemberPath) is not { } column)
         {
             return;
         }
@@ -44,7 +44,7 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
         var direction = _sortAscending ? SortDirection.Ascending : SortDirection.Descending;
         foreach (var column in table.Columns)
         {
-            column.SortDirection = FileEntryTableColumnMapping.MapSortColumn(column.SortMemberPath) == _sortColumn
+            column.SortDirection = FileEntryTableColumnMapping.MapColumn(column.SortMemberPath) == _sortColumn
                 ? direction
                 : null;
         }

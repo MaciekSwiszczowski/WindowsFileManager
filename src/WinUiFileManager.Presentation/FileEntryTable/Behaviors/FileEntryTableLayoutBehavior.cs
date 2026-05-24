@@ -21,14 +21,14 @@ public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehaviorBase
         }
     }
 
-    private static double MapWidth(FileEntryColumn column, ColumnLayout layout) =>
+    private static double MapWidth(SortColumn column, ColumnLayout layout) =>
         column switch
         {
-            FileEntryColumn.Name => layout.NameWidth,
-            FileEntryColumn.Extension => layout.ExtensionWidth,
-            FileEntryColumn.Size => layout.SizeWidth,
-            FileEntryColumn.Modified => layout.ModifiedWidth,
-            FileEntryColumn.Attributes => layout.AttributesWidth,
+            SortColumn.Name => layout.NameWidth,
+            SortColumn.Extension => layout.ExtensionWidth,
+            SortColumn.Size => layout.SizeWidth,
+            SortColumn.Modified => layout.ModifiedWidth,
+            SortColumn.Attributes => layout.AttributesWidth,
             _ => layout.NameWidth,
         };
 }

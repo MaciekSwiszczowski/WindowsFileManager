@@ -89,7 +89,7 @@ Column widths are **not** dependency properties; hosts drive them with messages 
 ### 3.3 Supporting types
 
 ```
-enum FileEntryColumn { Name, Extension, Size, Modified, Attributes }
+enum SortColumn { Name, Extension, Size, Modified, Attributes }
 
 record ColumnLayout(
     double NameWidth,
@@ -215,7 +215,7 @@ The control does **not** expose sort state as dependency properties. Persisted c
 
 On every sort-state change, `FileEntryTableSortingBehavior` publishes `FileTableSortRequestedMessage` with the table identity, selected `SortColumn`, and direction. The behavior clears `TableView.SortDescriptions`; `TableView` is not the row-sorting engine.
 
-`..` is always pinned visually first regardless of sort state. Folders are always displayed before files; the selected sort column and direction are applied within each group by the data source.
+`..` is always pinned visually first regardless of sort state. Folders are always displayed before files. Folders are sorted by name; the selected sort column is applied only within the file group. Name-sort direction applies to folders, but file-only column sorts such as Size do not reorder folders by their file-column values.
 
 ---
 

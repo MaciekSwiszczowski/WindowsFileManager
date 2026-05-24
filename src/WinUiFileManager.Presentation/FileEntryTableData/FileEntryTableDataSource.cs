@@ -1,6 +1,7 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
 using WinUiFileManager.Presentation.FileEntryTable;
@@ -14,7 +15,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly IMessenger _messenger;
     private readonly CancellationTokenSource _scanCancellation = new();
-    private SortState _sortState = SortState.Default;
+    private readonly BehaviorSubject<IComparer<SpecFileEntryViewModel>> _sortComparer = new(CreateComparer(SortState.Default));
     private bool _disposed;
     private readonly string _identity;
     private readonly NormalizedPath _folderPath;
@@ -59,9 +60,10 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 .Subscribe(change => ApplyDirectoryChange(rows, change)),
             rows.Connect()
                 .ObserveOn(uiScheduler)
-                .Bind(Items)
+                .SortAndBind(Items, _sortComparer.ObserveOn(uiScheduler))
                 .Subscribe(),
             rows,
+            _sortComparer,
         ];
         return disposables;
     }
@@ -131,6 +133,9 @@ internal sealed class FileEntryTableDataSource : IDisposable
             return;
         }
 
-        _sortState = new SortState(message.Column, message.Ascending);
+        _sortComparer.OnNext(CreateComparer(new SortState(message.Column, message.Ascending)));
     }
+
+    private static IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
+        new SpecFileEntryComparer(sortState.Column, sortState.Ascending);
 }

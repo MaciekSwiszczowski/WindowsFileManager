@@ -5,18 +5,7 @@ internal static class FileEntryTableColumnMapping
 {
     private const string ModifiedSortMemberPath = "Modified";
 
-    public static FileEntryColumn? MapColumn(string? sortMemberPath) =>
-        sortMemberPath switch
-        {
-            nameof(FileSystemEntryModel.Name) => FileEntryColumn.Name,
-            nameof(FileSystemEntryModel.Extension) => FileEntryColumn.Extension,
-            nameof(FileSystemEntryModel.Size) => FileEntryColumn.Size,
-            nameof(FileSystemEntryModel.LastWriteTime) or ModifiedSortMemberPath => FileEntryColumn.Modified,
-            nameof(FileSystemEntryModel.Attributes) => FileEntryColumn.Attributes,
-            _ => null,
-        };
-
-    public static SortColumn? MapSortColumn(string? sortMemberPath) =>
+    public static SortColumn? MapColumn(string? sortMemberPath) =>
         sortMemberPath switch
         {
             nameof(FileSystemEntryModel.Name) => SortColumn.Name,
@@ -27,14 +16,14 @@ internal static class FileEntryTableColumnMapping
             _ => null,
         };
 
-    public static string MapSortMemberPath(FileEntryColumn column) =>
+    public static string MapSortMemberPath(SortColumn column) =>
         column switch
         {
-            FileEntryColumn.Name => nameof(FileSystemEntryModel.Name),
-            FileEntryColumn.Extension => nameof(FileSystemEntryModel.Extension),
-            FileEntryColumn.Size => nameof(FileSystemEntryModel.Size),
-            FileEntryColumn.Modified => ModifiedSortMemberPath,
-            FileEntryColumn.Attributes => nameof(FileSystemEntryModel.Attributes),
+            SortColumn.Name => nameof(FileSystemEntryModel.Name),
+            SortColumn.Extension => nameof(FileSystemEntryModel.Extension),
+            SortColumn.Size => nameof(FileSystemEntryModel.Size),
+            SortColumn.Modified => ModifiedSortMemberPath,
+            SortColumn.Attributes => nameof(FileSystemEntryModel.Attributes),
             _ => nameof(FileSystemEntryModel.Name),
         };
 }

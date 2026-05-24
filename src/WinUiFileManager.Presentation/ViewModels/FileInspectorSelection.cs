@@ -1,4 +1,5 @@
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -37,12 +38,12 @@ public sealed record FileInspectorSelection(
             RefreshVersion: refreshVersion,
             FullPath: model.FullPath.DisplayPath,
             Name: model.Name,
-            Extension: model.Extension,
+            Extension: FileEntryDisplayStringCache.Shared.GetExtension(model.Extension),
             Kind: model.Kind,
             SizeBytes: model.Size ?? -1,
             CreationTime: model.CreationTime,
             LastWriteTime: model.LastWriteTime,
-            Attributes: model.Attributes.ToString(),
+            Attributes: FileEntryDisplayStringCache.Shared.GetInspectorAttributes(model.Attributes),
             AttributesFlags: model.Attributes);
     }
 

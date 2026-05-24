@@ -5,6 +5,7 @@ using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.FileEntryTableData;
 
@@ -15,7 +16,8 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly IMessenger _messenger;
     private readonly CancellationTokenSource _scanCancellation = new();
-    private readonly BehaviorSubject<IComparer<SpecFileEntryViewModel>> _sortComparer = new(CreateComparer(SortState.Default));
+    private readonly BehaviorSubject<IComparer<SpecFileEntryViewModel>> _sortComparer;
+    private readonly FileEntryDisplayStringCache _displayStringCache;
     private bool _disposed;
     private readonly NormalizedPath _folderPath;
 
@@ -26,13 +28,16 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IFolderEntryScanner folderEntryScanner,
         IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger)
+        IMessenger messenger,
+        FileEntryDisplayStringCache displayStringCache)
     {
         _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
         _folderEntryScanner = folderEntryScanner;
         _fileEntryRowReader = fileEntryRowReader;
         _messenger = messenger;
+        _displayStringCache = displayStringCache;
+        _sortComparer = new BehaviorSubject<IComparer<SpecFileEntryViewModel>>(CreateComparer(SortState.Default));
 
         _messenger.Register(this, MessageIdentity.Filter<FileTableSortRequestedMessage>(identity, OnSortRequested));
 
@@ -129,6 +134,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _sortComparer.OnNext(CreateComparer(new SortState(message.Column, message.Ascending)));
     }
 
-    private static IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
-        new SpecFileEntryComparer(sortState.Column, sortState.Ascending);
+    private IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
+        new SpecFileEntryComparer(sortState.Column, sortState.Ascending, _displayStringCache);
 }

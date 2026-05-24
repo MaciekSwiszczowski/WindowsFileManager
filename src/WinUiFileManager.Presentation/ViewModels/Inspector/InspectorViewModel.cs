@@ -1,6 +1,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
@@ -43,12 +44,13 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         InspectorPropertiesButtonViewModel propertiesButton,
         InspectorCopyToClipboardButtonViewModel copyToClipboardButton,
         InspectorSearchViewModel search,
-        InspectorAttributeToggleViewModel attributeToggle)
+        InspectorAttributeToggleViewModel attributeToggle,
+        FileEntryDisplayStringCache displayStringCache)
     {
         _messenger = messenger;
         _activePanelsService = activePanelsService;
         Categories = initialization.Categories;
-        _fieldValueUpdater = new InspectorFieldValueUpdater(Categories);
+        _fieldValueUpdater = new InspectorFieldValueUpdater(Categories, displayStringCache);
         _attributeToggle = attributeToggle;
         RefreshButton = refreshButton;
         PropertiesButton = propertiesButton;

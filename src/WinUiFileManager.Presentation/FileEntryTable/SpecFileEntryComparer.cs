@@ -1,19 +1,20 @@
-using System.Collections.Concurrent;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
 internal sealed class SpecFileEntryComparer : System.Collections.IComparer, IComparer<SpecFileEntryViewModel>
 {
-    private static readonly ConcurrentDictionary<FileAttributes, string> AttributeTextPool = new();
     private static readonly StringComparer TextComparer = StringComparer.CurrentCultureIgnoreCase;
 
+    private readonly FileEntryDisplayStringCache _displayStringCache;
     private readonly SortColumn _column;
     private readonly bool _ascending;
 
-    public SpecFileEntryComparer(SortColumn column, bool ascending)
+    public SpecFileEntryComparer(SortColumn column, bool ascending, FileEntryDisplayStringCache displayStringCache)
     {
         _column = column;
         _ascending = ascending;
+        _displayStringCache = displayStringCache;
     }
 
     public int Compare(object? x, object? y)
@@ -99,7 +100,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
             SortColumn.Extension => TextComparer.Compare(x.Model?.Extension, y.Model?.Extension),
             SortColumn.Size => Nullable.Compare(x.Model?.Size, y.Model?.Size),
             SortColumn.Modified => Nullable.Compare(x.Model?.LastWriteTime, y.Model?.LastWriteTime),
-            SortColumn.Attributes => TextComparer.Compare(GetAttributeText(x.Model?.Attributes), GetAttributeText(y.Model?.Attributes)),
+            SortColumn.Attributes => TextComparer.Compare(GetTableAttributeText(x.Model?.Attributes), GetTableAttributeText(y.Model?.Attributes)),
             _ => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
         };
 
@@ -109,9 +110,9 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
         return _column == SortColumn.Name && !_ascending ? -result : result;
     }
 
-    private static string? GetAttributeText(FileAttributes? attributes) =>
+    private string? GetTableAttributeText(FileAttributes? attributes) =>
         attributes is { } value
-            ? AttributeTextPool.GetOrAdd(value, static key => key.ToString())
+            ? _displayStringCache.GetTableAttributes(value)
             : null;
 
     private static int CompareEntryKind(SpecFileEntryViewModel x, SpecFileEntryViewModel y)

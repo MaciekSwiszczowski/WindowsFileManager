@@ -1,5 +1,6 @@
 using System.Reactive.Concurrency;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
@@ -12,6 +13,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly IDirectoryChangeStream _directoryChangeStream;
     private readonly IMessenger _messenger;
+    private readonly FileEntryDisplayStringCache _displayStringCache;
     private FileEntryTableDataSource? _dataSource;
     private IScheduler? _uiScheduler;
     private bool _attached;
@@ -22,13 +24,15 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         IFolderEntryScanner folderEntryScanner,
         IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger)
+        IMessenger messenger,
+        FileEntryDisplayStringCache displayStringCache)
     {
         _identity = identity;
         _folderEntryScanner = folderEntryScanner;
         _fileEntryRowReader = fileEntryRowReader;
         _directoryChangeStream = directoryChangeStream;
         _messenger = messenger;
+        _displayStringCache = displayStringCache;
     }
 
     [ObservableProperty]
@@ -102,7 +106,8 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
             _folderEntryScanner,
             _fileEntryRowReader,
             _directoryChangeStream,
-            _messenger);
+            _messenger,
+            _displayStringCache);
 
         Items = _dataSource.Items;
         CurrentPath = _dataSource.CurrentPath;

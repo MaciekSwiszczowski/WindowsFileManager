@@ -4,6 +4,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:behaviors="using:WinUiFileManager.Presentation.FileEntryTable.Behaviors"
     xmlns:converters="using:CommunityToolkit.WinUI.Converters"
+    xmlns:presentationConverters="using:WinUiFileManager.Presentation.Converters"
     xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:tv="using:WinUI.TableView">
@@ -19,6 +20,7 @@
 
     <UserControl.Resources>
         <converters:FileSizeToFriendlyStringConverter x:Key="FileSizeToFriendlyStringConverter" />
+        <presentationConverters:FileAttributesToTableTextConverter x:Key="FileAttributesToTableTextConverter" />
         <Style x:Key="EllipsisTextCellStyle" TargetType="TextBlock">
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="VerticalAlignment" Value="Center" />
@@ -110,7 +112,9 @@
                                     SortMemberPath="Size" Width="70" MinWidth="50" CanSort="True" />
             <tv:TableViewTemplateColumn Header="Modified" SortMemberPath="Modified" Width="120" MinWidth="100" CanSort="True"
                                         CellTemplate="{StaticResource ModifiedColumnTemplate}" />
-            <tv:TableViewTextColumn Header="Attr" Binding="{Binding Model.Attributes, TargetNullValue=''}" ElementStyle="{StaticResource MutedEllipsisCellStyle}"
+            <tv:TableViewTextColumn Header="Attr"
+                                    Binding="{Binding Model.Attributes, Converter={StaticResource FileAttributesToTableTextConverter}, TargetNullValue=''}"
+                                    ElementStyle="{StaticResource MutedEllipsisCellStyle}"
                                     SortMemberPath="Attributes" Width="50" MinWidth="40" CanSort="True" />
         </tv:TableView.Columns>
     </tv:TableView>

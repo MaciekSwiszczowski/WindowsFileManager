@@ -1,4 +1,5 @@
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
@@ -8,7 +9,7 @@ public sealed class SpecFileEntryComparerTests
     public async Task Test_SizeSort_KeepsDirectoriesSortedByName()
     {
         // Arrange
-        var comparer = new SpecFileEntryComparer(SortColumn.Size, ascending: false);
+        var comparer = new SpecFileEntryComparer(SortColumn.Size, ascending: false, FileEntryDisplayStringCache.Shared);
         var items = new List<SpecFileEntryViewModel>
         {
             File("small.txt", 1),
@@ -29,7 +30,7 @@ public sealed class SpecFileEntryComparerTests
     public async Task Test_NameSort_AppliesDirectionInsideDirectoryGroup()
     {
         // Arrange
-        var comparer = new SpecFileEntryComparer(SortColumn.Name, ascending: false);
+        var comparer = new SpecFileEntryComparer(SortColumn.Name, ascending: false, FileEntryDisplayStringCache.Shared);
         var items = new List<SpecFileEntryViewModel>
         {
             File("a.txt", 1),

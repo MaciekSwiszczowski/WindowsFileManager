@@ -1,15 +1,21 @@
-using System.Collections.Concurrent;
 using System.IO.Enumeration;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 internal sealed class FileEntryRowFactory
 {
-    private static readonly ConcurrentDictionary<string, string> ExtensionPool = new(StringComparer.OrdinalIgnoreCase);
     private readonly SpecFileEntryViewModel.Factory _rowFactory;
+    private readonly FileEntryDisplayStringCache _displayStringCache;
 
-    public FileEntryRowFactory(SpecFileEntryViewModel.Factory rowFactory) => _rowFactory = rowFactory;
+    public FileEntryRowFactory(
+        SpecFileEntryViewModel.Factory rowFactory,
+        FileEntryDisplayStringCache displayStringCache)
+    {
+        _rowFactory = rowFactory;
+        _displayStringCache = displayStringCache;
+    }
 
     public SpecFileEntryViewModel Create(NormalizedPath directoryPath, ref FileSystemEntry entry)
     {
@@ -18,7 +24,7 @@ internal sealed class FileEntryRowFactory
         var model = new FileSystemEntryModel(
             directoryPath,
             name,
-            InternExtension(isDirectory ? string.Empty : Path.GetExtension(name)),
+            _displayStringCache.GetExtension(isDirectory ? string.Empty : Path.GetExtension(name)),
             isDirectory ? ItemKind.Directory : ItemKind.File,
             isDirectory ? null : entry.Length,
             entry.LastWriteTimeUtc.ToLocalTime().DateTime,
@@ -33,7 +39,7 @@ internal sealed class FileEntryRowFactory
         var model = new FileSystemEntryModel(
             directoryPath,
             fileInfo.Name,
-            InternExtension(fileInfo.Extension),
+            _displayStringCache.GetExtension(fileInfo.Extension),
             ItemKind.File,
             fileInfo.Length,
             fileInfo.LastWriteTime,
@@ -48,7 +54,7 @@ internal sealed class FileEntryRowFactory
         var model = new FileSystemEntryModel(
             directoryPath,
             directoryInfo.Name,
-            InternExtension(string.Empty),
+            _displayStringCache.GetExtension(string.Empty),
             ItemKind.Directory,
             null,
             directoryInfo.LastWriteTime,
@@ -57,9 +63,4 @@ internal sealed class FileEntryRowFactory
 
         return _rowFactory(model);
     }
-
-    private static string InternExtension(string extension) =>
-        string.IsNullOrEmpty(extension)
-            ? string.Empty
-            : ExtensionPool.GetOrAdd(extension, static value => value);
 }

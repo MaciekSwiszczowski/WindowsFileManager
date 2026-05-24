@@ -1,16 +1,21 @@
 using CommunityToolkit.WinUI.Converters;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 internal sealed class InspectorFieldValueUpdater
 {
     private readonly FileSizeToFriendlyStringConverter _fileSizeConverter = new();
+    private readonly FileEntryDisplayStringCache _displayStringCache;
     private readonly IReadOnlyList<InspectorCategoryViewModel> _categories;
     private readonly IReadOnlyDictionary<string, InspectorFieldViewModelBase> _fields;
 
-    public InspectorFieldValueUpdater(IReadOnlyList<InspectorCategoryViewModel> categories)
+    public InspectorFieldValueUpdater(
+        IReadOnlyList<InspectorCategoryViewModel> categories,
+        FileEntryDisplayStringCache displayStringCache)
     {
+        _displayStringCache = displayStringCache;
         _categories = categories;
         _fields = categories
             .SelectMany(static category => category.Fields)
@@ -30,9 +35,9 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Name", model.Name);
         SetValue("Full Path", model.FullPath.DisplayPath);
         SetValue("Type", model.Kind == ItemKind.Directory ? "Folder" : "File");
-        SetValue("Extension", model.Extension);
+        SetValue("Extension", _displayStringCache.GetExtension(model.Extension));
         SetValue("Size", ConvertSize(model));
-        SetValue("Attributes", model.Attributes.ToString());
+        SetValue("Attributes", _displayStringCache.GetInspectorAttributes(model.Attributes));
 
         SetValue("Created", FormatLocalTime(model.CreationTime));
         SetValue("Modified", FormatLocalTime(model.LastWriteTime));

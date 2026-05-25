@@ -15,7 +15,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     private bool _syncingSelection;
     private bool _shiftRangeActive;
 
-    protected override void OnLoaded(FileEntryTableBehaviorContext context)
+    protected override void OnLoaded(FileEntryTableContext context)
     {
         context.Messenger.Register(
             this,
@@ -27,7 +27,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         context.Table.SelectionChanged += EntryTable_SelectionChanged;
     }
 
-    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected override void OnUnloaded(FileEntryTableContext context)
     {
         context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
         context.Table.SelectionChanged -= EntryTable_SelectionChanged;
@@ -104,7 +104,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         return true;
     }
 
-    private void ApplySelectionRange(FileEntryTableBehaviorContext context, int anchorIndex, int targetIndex)
+    private void ApplySelectionRange(FileEntryTableContext context, int anchorIndex, int targetIndex)
     {
         anchorIndex = ClampIndex(anchorIndex) ?? 0;
         targetIndex = ClampIndex(targetIndex) ?? anchorIndex;
@@ -138,7 +138,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         context.Messenger.SendFileTableSelectionChanged(CreateSelectionChangedMessage(context), context.View.DispatcherQueue);
     }
 
-    private FileTableSelectionChangedMessage CreateSelectionChangedMessage(FileEntryTableBehaviorContext context)
+    private FileTableSelectionChangedMessage CreateSelectionChangedMessage(FileEntryTableContext context)
     {
         var selectedRows = context.Table.SelectedItems
             .OfType<SpecFileEntryViewModel>()
@@ -154,18 +154,18 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             GetActiveItem(context));
     }
 
-    private static SpecFileEntryViewModel? GetActiveItem(FileEntryTableBehaviorContext context) =>
+    private static SpecFileEntryViewModel? GetActiveItem(FileEntryTableContext context) =>
         context.NavigationState.GetSelectionCursorIndex(context.Table) is { } cursorIndex
             ? context.Table.Items[cursorIndex] as SpecFileEntryViewModel
             : context.NavigationState.GetCurrentItem(context.Table) ?? context.Table.SelectedItem as SpecFileEntryViewModel;
 
-    private int? GetCurrentIndex(FileEntryTableBehaviorContext context) =>
+    private int? GetCurrentIndex(FileEntryTableContext context) =>
         context.NavigationState.GetSelectionCursorIndex(context.Table)
         ?? context.NavigationState.GetCurrentIndex(context.Table)
         ?? GetCurrentSelectedIndex(context)
         ?? (context.Table.Items.Count > 0 ? 0 : null);
 
-    private static int? GetCurrentSelectedIndex(FileEntryTableBehaviorContext context)
+    private static int? GetCurrentSelectedIndex(FileEntryTableContext context)
     {
         if (context.Table.SelectedIndex >= 0)
         {
@@ -212,7 +212,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             context.View.DispatcherQueue.RunAsync(() => CreateSelectedItemsSnapshot(context));
     }
 
-    private static IReadOnlyList<SpecFileEntryViewModel> CreateSelectedItemsSnapshot(FileEntryTableBehaviorContext context)
+    private static IReadOnlyList<SpecFileEntryViewModel> CreateSelectedItemsSnapshot(FileEntryTableContext context)
     {
         return context.Table.SelectedItems
             .OfType<SpecFileEntryViewModel>()

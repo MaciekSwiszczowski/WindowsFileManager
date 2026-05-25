@@ -11,7 +11,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
     private SpecFileEntryViewModel? _activeItem;
     private PointerEventHandler? _pointerPressedHandler;
 
-    protected override void OnLoaded(FileEntryTableBehaviorContext context)
+    protected override void OnLoaded(FileEntryTableContext context)
     {
         context.View.PreviewKeyDown += OnPreviewKeyDown;
         _pointerPressedHandler = OnPointerPressed;
@@ -21,7 +21,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
             MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
     }
 
-    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected override void OnUnloaded(FileEntryTableContext context)
     {
         if (_pointerPressedHandler is not null)
         {

@@ -8,12 +8,12 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private SpecFileEntryViewModel? _dimmedParentItem;
     private bool _isParentRowSelected;
 
-    protected override void OnLoaded(FileEntryTableBehaviorContext context) =>
+    protected override void OnLoaded(FileEntryTableContext context) =>
         context.Messenger.Register(
             this,
             MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
 
-    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected override void OnUnloaded(FileEntryTableContext context)
     {
         ResetParentSelectionOpacity(context.Table);
         _dimmedParentItem = null;
@@ -28,7 +28,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
         UpdateParentSelectionOpacity(context, queueRetry: true);
     }
 
-    private void UpdateParentSelectionOpacity(FileEntryTableBehaviorContext context, bool queueRetry)
+    private void UpdateParentSelectionOpacity(FileEntryTableContext context, bool queueRetry)
     {
         var table = context.Table;
         if (!_isParentRowSelected)
@@ -54,7 +54,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
         QueueParentSelectionOpacityRetry(context, queueRetry);
     }
 
-    private void QueueParentSelectionOpacityRetry(FileEntryTableBehaviorContext context, bool queueRetry)
+    private void QueueParentSelectionOpacityRetry(FileEntryTableContext context, bool queueRetry)
     {
         if (queueRetry)
         {

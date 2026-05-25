@@ -2,7 +2,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehaviorBase
 {
-    protected override void OnLoaded(FileEntryTableBehaviorContext context) =>
+    protected override void OnLoaded(FileEntryTableContext context) =>
         context.Messenger.Register(
             this,
             MessageIdentity.Filter<FileTableColumnLayoutMessage>(context.View.Identity, OnColumnLayoutMessage));

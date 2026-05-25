@@ -2,9 +2,9 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableView>
 {
-    private FileEntryTableBehaviorContext? _context;
+    private FileEntryTableContext? _context;
 
-    protected FileEntryTableBehaviorContext Context =>
+    protected FileEntryTableContext Context =>
         _context ?? throw new InvalidOperationException($"{GetType().Name} is not loaded.");
 
     protected override void OnAttached()
@@ -27,11 +27,11 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
         base.OnDetaching();
     }
 
-    protected virtual void OnLoaded(FileEntryTableBehaviorContext context)
+    protected virtual void OnLoaded(FileEntryTableContext context)
     {
     }
 
-    protected virtual void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected virtual void OnUnloaded(FileEntryTableContext context)
     {
     }
 
@@ -44,7 +44,7 @@ public abstract class FileEntryTableBehaviorBase : Behavior<SpecFileEntryTableVi
             return;
         }
 
-        _context = FileEntryTableBehaviorContext.Create(AssociatedObject);
+        _context = FileEntryTableContext.Create(AssociatedObject);
         OnLoaded(_context);
     }
 }

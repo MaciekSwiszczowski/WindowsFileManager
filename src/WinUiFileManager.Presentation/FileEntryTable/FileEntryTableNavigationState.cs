@@ -7,7 +7,7 @@ public sealed class FileEntryTableNavigationState
     private int? _selectionAnchorIndex;
     private int? _selectionCursorIndex;
 
-    public void Reset()
+    private void Reset()
     {
         _currentItem = null;
         _currentIndex = null;

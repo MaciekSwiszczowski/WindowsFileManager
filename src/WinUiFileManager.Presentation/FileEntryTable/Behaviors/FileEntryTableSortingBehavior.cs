@@ -5,14 +5,14 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
     private SortColumn _sortColumn = SortColumn.Name;
     private bool _sortAscending = true;
 
-    protected override void OnLoaded(FileEntryTableBehaviorContext context)
+    protected override void OnLoaded(FileEntryTableContext context)
     {
         context.Table.Sorting += OnSorting;
         ApplySortIndicator(context.Table);
         PublishSortRequest(context);
     }
 
-    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected override void OnUnloaded(FileEntryTableContext context)
     {
         context.Table.Sorting -= OnSorting;
     }
@@ -52,7 +52,7 @@ public sealed class FileEntryTableSortingBehavior : FileEntryTableBehaviorBase
         table.SortDescriptions.Clear();
     }
 
-    private void PublishSortRequest(FileEntryTableBehaviorContext context) =>
+    private void PublishSortRequest(FileEntryTableContext context) =>
         context.Messenger.Send(
             new FileTableSortRequestedMessage(context.View.Identity, _sortColumn, _sortAscending));
 }

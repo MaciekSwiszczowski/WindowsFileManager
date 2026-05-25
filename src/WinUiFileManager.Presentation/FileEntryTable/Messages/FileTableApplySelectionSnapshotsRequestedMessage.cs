@@ -1,5 +1,3 @@
-using WinUiFileManager.Application.Messaging;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 
 public sealed record FileTableApplySelectionSnapshotsRequestedMessage(

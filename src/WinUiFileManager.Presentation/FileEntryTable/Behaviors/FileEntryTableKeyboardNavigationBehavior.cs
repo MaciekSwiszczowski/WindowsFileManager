@@ -29,13 +29,13 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
         e.Handled = true;
     }
 
-    private static int GetCurrentIndex(FileEntryTableBehaviorContext context) =>
+    private static int GetCurrentIndex(FileEntryTableContext context) =>
         context.NavigationState.GetCurrentIndex(context.Table)
         ?? context.Table.GetCurrentSelectedIndex();
 
-    protected override void OnLoaded(FileEntryTableBehaviorContext context)
+    protected override void OnLoaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
 
-    protected override void OnUnloaded(FileEntryTableBehaviorContext context)
+    protected override void OnUnloaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
 }

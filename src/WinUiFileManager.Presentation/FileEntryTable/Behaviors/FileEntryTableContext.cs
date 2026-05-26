@@ -26,14 +26,6 @@ public sealed class FileEntryTableContext
 
     public IReadOnlyList<SpecFileEntryViewModel> GetSelectedItems() => Table.SelectedItems.OfType<SpecFileEntryViewModel>().ToList();
 
-    public SpecFileEntryViewModel? FindItemByName(string name) =>
-        Table.Items
-            .OfType<SpecFileEntryViewModel>()
-            .FirstOrDefault(item => string.Equals(
-                item.Model?.Name,
-                name,
-                StringComparison.OrdinalIgnoreCase));
-
     public static FileEntryTableContext Create(SpecFileEntryTableView view)
     {
         if (string.IsNullOrWhiteSpace(view.Identity))

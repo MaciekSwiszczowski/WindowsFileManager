@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Dialogs;
+using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Application.Messages.RequestMessages.FileOperations;
 
 namespace WinUiFileManager.Diagnostics.FileOperations;
@@ -41,6 +42,7 @@ public sealed class FileOperationRequestHandler : IDisposable
     {
         try
         {
+            CreateSelectionSnapshot(message);
             await Task.Run(() => SetAttributeFlag(message)).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -76,6 +78,23 @@ public sealed class FileOperationRequestHandler : IDisposable
             $"Attribute: {message.Flag}",
             $"Requested state: {(message.Enabled ? "Enabled" : "Disabled")}",
             $"Error: {exception.Message}");
+
+    private void CreateSelectionSnapshot(SetFileAttributeFlagRequestedMessage message)
+    {
+        var directoryPath = Path.GetDirectoryName(message.Path.DisplayPath);
+        if (string.IsNullOrWhiteSpace(directoryPath))
+        {
+            return;
+        }
+
+        var request = _messenger.Send(
+            new FileTableSelectionSnapshotRequestMessage(
+                NormalizedPath.FromUserInput(directoryPath),
+                message.Path,
+                message.Path));
+
+        _ = request.HasReceivedResponse && request.Response;
+    }
 
     private static void SetAttributeFlag(SetFileAttributeFlagRequestedMessage message)
     {

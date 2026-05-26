@@ -1,5 +1,3 @@
-using DynamicData;
-
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 using Application.FileEntries;
@@ -19,37 +17,34 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 
     private void OnSnapshotRequested(object recipient, FileTableSelectionSnapshotRequestMessage message)
     {
-        var context = Context;
-        if (!IsCurrentDirectory(context.View, message.DirectoryPath))
+        if (!IsCurrentDirectory(Context.View, message.DirectoryPath) ||
+            Context.View.ItemsSource is not { } itemsSource)
         {
             return;
         }
 
-        var selectedItems = context.GetSelectedItems()
-            .Where(static item => item.Model is not null)
-            .Select(static item => new SnapshotItem(item.Model!.Name, item))
-            .ToList();
-
-        var activeItem = context.NavigationState.GetCurrentItem(context.Table)
-            ?? context.Table.SelectedItem as SpecFileEntryViewModel;
-        var activeSnapshotItem = activeItem?.Model is { } activeModel
-            ? new SnapshotItem(activeModel.Name, activeItem)
-            : null;
-
-        var oldName = GetFileName(message.OldPath);
-        if (!ContainsItem(selectedItems, activeSnapshotItem, oldName)
-            || context.View.ItemsSource is not { } itemsSource)
+        var snapshot = CreateSnapshot(Context, message);
+        if (snapshot is null)
         {
-            Reply(message, false);
+            Reply(message, response: false);
             return;
         }
 
         ClearSnapshot();
-        _snapshot = new SelectionSnapshot(message.DirectoryPath, selectedItems, activeSnapshotItem, oldName, GetFileName(message.NewPath));
-        _itemsSource = itemsSource;
-        _itemsSource.CollectionChanged += OnItemsSourceCollectionChanged;
+        _snapshot = snapshot;
+        ObserveItemsSource(itemsSource);
 
-        Reply(message, true);
+        Reply(message, response: true);
+    }
+
+    private static SelectionSnapshot? CreateSnapshot(FileEntryTableContext context, FileTableSelectionSnapshotRequestMessage message)
+    {
+        var oldName = GetFileName(message.OldPath);
+        var isSelected = IsFileSelected(context, oldName);
+        var isActive = IsFileActive(context, oldName);
+        return isSelected || isActive
+            ? new SelectionSnapshot(message.DirectoryPath, GetFileName(message.NewPath), isSelected, isActive)
+            : null;
     }
 
     private void OnItemsSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -61,44 +56,48 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
             return;
         }
 
-        snapshot = UpdateChangedItem(snapshot, changedItem);
-        RestoreSelectedItems(snapshot.SelectedItems);
-        RestoreActiveItem(snapshot.ActiveItem);
+        RestoreChangedItem(snapshot, changedItem);
         ClearSnapshot();
     }
 
-    private SelectionSnapshot UpdateChangedItem(SelectionSnapshot snapshot, SpecFileEntryViewModel changedItem)
+    private static bool IsFileSelected(FileEntryTableContext context, string name)
     {
-        var changedSnapshotItem = new SnapshotItem(snapshot.NewName, changedItem);
-        var selectedItems = snapshot.SelectedItems
-            .Select(item => SameName(item.Name, snapshot.OldName) ? changedSnapshotItem : item)
-            .ToList();
-        var activeItem = snapshot.ActiveItem is { } active && SameName(active.Name, snapshot.OldName)
-            ? changedSnapshotItem
-            : snapshot.ActiveItem;
-
-        return snapshot with
-        {
-            SelectedItems = selectedItems,
-            ActiveItem = activeItem,
-        };
+        // The synthetic ".." row is navigation UI, not a filesystem entry. It cannot be renamed or updated,
+        // so file-operation snapshots only inspect real file rows.
+        return context
+            .GetSelectedItems()
+            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
+            .Any(item => HasFileName(item, name));
     }
 
-    private void RestoreSelectedItems(IEnumerable<SnapshotItem> selectedItems)
+    private static bool IsFileActive(FileEntryTableContext context, string name)
     {
-        Context.Table.SelectedItems.Clear();
-        Context.Table.SelectedItems.AddRange(selectedItems.Select(static item => item.Item));
+        var activeItem = context.NavigationState.GetCurrentItem(context.Table)
+            ?? context.Table.SelectedItem as SpecFileEntryViewModel;
+
+        // The parent row can be active for navigation, but file operations never replace it.
+        return activeItem is not null
+            && !SpecFileEntryViewModel.IsParentEntry(activeItem)
+            && HasFileName(activeItem, name);
     }
 
-    private void RestoreActiveItem(SnapshotItem? activeItem)
+    private void RestoreChangedItem(SelectionSnapshot snapshot, SpecFileEntryViewModel changedItem)
     {
-        if (activeItem is null)
+        if (snapshot.WasSelected)
         {
-            return;
+            Context.Table.SelectedItems.Add(changedItem);
         }
 
-        Context.Table.SelectedItem = activeItem.Item;
-        if (Context.Table.GetRowIndex(activeItem.Item) is { } idx)
+        if (snapshot.WasActive)
+        {
+            RestoreActiveItem(changedItem);
+        }
+    }
+
+    private void RestoreActiveItem(SpecFileEntryViewModel item)
+    {
+        Context.Table.SelectedItem = item;
+        if (Context.Table.GetRowIndex(item) is { } idx)
         {
             // SelectedItem is WinUI state; NavigationState is the table behavior state used by keyboard range
             // selection and active-row navigation, so both need to point at the restored active item.
@@ -109,6 +108,12 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
     private static bool IsCurrentDirectory(SpecFileEntryTableView view, NormalizedPath directoryPath) =>
         !string.IsNullOrWhiteSpace(view.CurrentFolder)
         && directoryPath == view.CurrentFolder;
+
+    private void ObserveItemsSource(ObservableCollection<SpecFileEntryViewModel> itemsSource)
+    {
+        _itemsSource = itemsSource;
+        _itemsSource.CollectionChanged += OnItemsSourceCollectionChanged;
+    }
 
     private void ClearSnapshot()
     {
@@ -124,14 +129,10 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
     private static SpecFileEntryViewModel? FindChangedItem(System.Collections.IList? items, string name) =>
         items?
             .OfType<SpecFileEntryViewModel>()
-            .FirstOrDefault(item => SameName(item.Model?.Name, name));
+            .FirstOrDefault(item => !SpecFileEntryViewModel.IsParentEntry(item) && HasFileName(item, name));
 
-    private static bool ContainsItem(
-        IReadOnlyList<SnapshotItem> selectedItems,
-        SnapshotItem? activeItem,
-        string name) =>
-        selectedItems.Any(item => SameName(item.Name, name))
-        || activeItem is not null && SameName(activeItem.Name, name);
+    private static bool HasFileName(SpecFileEntryViewModel item, string name) =>
+        item.Model is { } model && SameName(model.Name, name);
 
     private static string GetFileName(NormalizedPath path) => Path.GetFileName(path.DisplayPath);
 
@@ -140,18 +141,13 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 
     private static void Reply(FileTableSelectionSnapshotRequestMessage message, bool response)
     {
-        if (!message.HasReceivedResponse)
+        if (message.HasReceivedResponse)
         {
-            message.Reply(response);
+            return;
         }
+
+        message.Reply(response);
     }
 
-    private sealed record SelectionSnapshot(
-        NormalizedPath DirectoryPath,
-        IReadOnlyList<SnapshotItem> SelectedItems,
-        SnapshotItem? ActiveItem,
-        string OldName,
-        string NewName);
-
-    private sealed record SnapshotItem(string Name, SpecFileEntryViewModel Item);
+    private sealed record SelectionSnapshot(NormalizedPath DirectoryPath, string NewName, bool WasSelected, bool WasActive);
 }

@@ -1,3 +1,5 @@
+using System.Reactive.Linq;
+
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 using Application.FileEntries;
@@ -5,36 +7,42 @@ using Application.Messages.RequestMessages.FileOperations;
 
 public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBehaviorBase
 {
+    private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(30);
+    private IDisposable? _snapshotSubscription;
     private SelectionSnapshot? _snapshot;
-    private ObservableCollection<SpecFileEntryViewModel>? _itemsSource;
 
     protected override void OnLoaded(FileEntryTableContext context)
     {
         context.Messenger.Register<FileTableSelectionSnapshotRequestMessage>(this, OnSnapshotRequested);
     }
 
-    protected override void OnUnloaded(FileEntryTableContext context) => ClearSnapshot();
+    protected override void OnUnloaded(FileEntryTableContext context) => ClearSnapshotSubscription();
 
     private void OnSnapshotRequested(object recipient, FileTableSelectionSnapshotRequestMessage message)
     {
-        if (!IsCurrentDirectory(Context.View, message.DirectoryPath) ||
+        if (message.DirectoryPath != Context.View.CurrentFolder ||
             Context.View.ItemsSource is not { } itemsSource)
         {
             return;
         }
 
-        var snapshot = CreateSnapshot(Context, message);
-        if (snapshot is null)
+        _snapshot = CreateSnapshot(Context, message);
+        if (_snapshot is null)
         {
-            Reply(message, response: false);
+            message.TryReply(response: false);
             return;
         }
 
-        ClearSnapshot();
-        _snapshot = snapshot;
-        ObserveItemsSource(itemsSource);
+        _snapshotSubscription = Observable
+            .FromEventPattern<NotifyCollectionChangedEventArgs>(itemsSource, nameof(INotifyCollectionChanged.CollectionChanged))
+            .Where(_ => _snapshot.DirectoryPath == Context.View.CurrentFolder)
+            .TakeUntil(Observable.Timer(SnapshotTimeout))
+            .SelectMany(args => FindChangedItems(args.EventArgs.NewItems, _snapshot.NewName))
+            .Subscribe(
+                onNext: changedItem => RestoreChangedItem(_snapshot, changedItem),
+                onCompleted: ClearSnapshotSubscription);
 
-        Reply(message, response: true);
+        message.TryReply(response: true);
     }
 
     private static SelectionSnapshot? CreateSnapshot(FileEntryTableContext context, FileTableSelectionSnapshotRequestMessage message)
@@ -47,19 +55,6 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
             : null;
     }
 
-    private void OnItemsSourceCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (_snapshot is not { } snapshot
-            || !IsCurrentDirectory(Context.View, snapshot.DirectoryPath)
-            || FindChangedItem(e.NewItems, snapshot.NewName) is not { } changedItem)
-        {
-            return;
-        }
-
-        RestoreChangedItem(snapshot, changedItem);
-        ClearSnapshot();
-    }
-
     private static bool IsFileSelected(FileEntryTableContext context, string name)
     {
         // The synthetic ".." row is navigation UI, not a filesystem entry. It cannot be renamed or updated,
@@ -67,7 +62,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         return context
             .GetSelectedItems()
             .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
-            .Any(item => HasFileName(item, name));
+            .Any(item => HasEqualFileName(item, name));
     }
 
     private static bool IsFileActive(FileEntryTableContext context, string name)
@@ -78,7 +73,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         // The parent row can be active for navigation, but file operations never replace it.
         return activeItem is not null
             && !SpecFileEntryViewModel.IsParentEntry(activeItem)
-            && HasFileName(activeItem, name);
+            && HasEqualFileName(activeItem, name);
     }
 
     private void RestoreChangedItem(SelectionSnapshot snapshot, SpecFileEntryViewModel changedItem)
@@ -92,6 +87,8 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         {
             RestoreActiveItem(changedItem);
         }
+
+        ClearSnapshotSubscription();
     }
 
     private void RestoreActiveItem(SpecFileEntryViewModel item)
@@ -105,49 +102,22 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         }
     }
 
-    private static bool IsCurrentDirectory(SpecFileEntryTableView view, NormalizedPath directoryPath) =>
-        !string.IsNullOrWhiteSpace(view.CurrentFolder)
-        && directoryPath == view.CurrentFolder;
-
-    private void ObserveItemsSource(ObservableCollection<SpecFileEntryViewModel> itemsSource)
+    private void ClearSnapshotSubscription()
     {
-        _itemsSource = itemsSource;
-        _itemsSource.CollectionChanged += OnItemsSourceCollectionChanged;
-    }
-
-    private void ClearSnapshot()
-    {
-        if (_itemsSource is not null)
-        {
-            _itemsSource.CollectionChanged -= OnItemsSourceCollectionChanged;
-            _itemsSource = null;
-        }
-
+        _snapshotSubscription?.Dispose();
+        _snapshotSubscription = null;
         _snapshot = null;
     }
 
-    private static SpecFileEntryViewModel? FindChangedItem(System.Collections.IList? items, string name) =>
-        items?
-            .OfType<SpecFileEntryViewModel>()
-            .FirstOrDefault(item => !SpecFileEntryViewModel.IsParentEntry(item) && HasFileName(item, name));
+    private static IEnumerable<SpecFileEntryViewModel> FindChangedItems(System.Collections.IList? items, string name) =>
+        items is null
+            ? []
+            : items.OfType<SpecFileEntryViewModel>().Where(item => HasEqualFileName(item, name)).Take(1);
 
-    private static bool HasFileName(SpecFileEntryViewModel item, string name) =>
-        item.Model is { } model && SameName(model.Name, name);
+    private static bool HasEqualFileName(SpecFileEntryViewModel item, string name) =>
+        item.Model is { } model && string.Equals(model.Name, name, StringComparison.OrdinalIgnoreCase);
 
     private static string GetFileName(NormalizedPath path) => Path.GetFileName(path.DisplayPath);
-
-    private static bool SameName(string? left, string right) =>
-        string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
-
-    private static void Reply(FileTableSelectionSnapshotRequestMessage message, bool response)
-    {
-        if (message.HasReceivedResponse)
-        {
-            return;
-        }
-
-        message.Reply(response);
-    }
 
     private sealed record SelectionSnapshot(NormalizedPath DirectoryPath, string NewName, bool WasSelected, bool WasActive);
 }

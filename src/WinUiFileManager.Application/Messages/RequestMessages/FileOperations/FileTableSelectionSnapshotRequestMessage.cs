@@ -34,4 +34,12 @@ public sealed class FileTableSelectionSnapshotRequestMessage : RequestMessage<bo
     /// Path of the item after the operation. The table waits for a row with this file name before restoring.
     /// </summary>
     public NormalizedPath NewPath { get; }
+
+    public void TryReply(bool response)
+    {
+        if (!HasReceivedResponse)
+        {
+            Reply(response);
+        }
+    }
 }

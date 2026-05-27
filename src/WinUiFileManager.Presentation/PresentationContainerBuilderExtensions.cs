@@ -1,15 +1,26 @@
 using Autofac;
 using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 using WinUiFileManager.Presentation.ViewModels.Panels;
 
-namespace WinUiFileManager.Presentation.ViewModels;
+namespace WinUiFileManager.Presentation;
 
-public static class ContainerBuilderExtensions
+public static class PresentationContainerBuilderExtensions
 {
+    public static ContainerBuilder AddPresentationServices(this ContainerBuilder builder)
+    {
+        builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
+        builder.RegisterType<FileEntryRowFactory>().SingleInstance();
+        builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
+        builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
+        builder.AddPresentationViewModels();
+        return builder;
+    }
+
     public static void AddPresentationViewModels(this ContainerBuilder builder)
     {
         builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();

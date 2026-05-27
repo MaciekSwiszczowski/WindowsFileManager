@@ -1,7 +1,6 @@
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
 using WinUiFileManager.Presentation.FileEntryTable;
@@ -14,12 +13,11 @@ internal sealed class FileEntryTableDataSource : IDisposable
     private readonly CompositeDisposable _disposables;
     private readonly IFolderEntryScanner _folderEntryScanner;
     private readonly IFileEntryRowReader _fileEntryRowReader;
-    private readonly IMessenger _messenger;
     private readonly CancellationTokenSource _scanCancellation = new();
-    private readonly BehaviorSubject<IComparer<SpecFileEntryViewModel>> _sortComparer;
     private readonly FileEntryDisplayStringCache _displayStringCache;
     private bool _disposed;
     private readonly NormalizedPath _folderPath;
+    private readonly Identity _identity;
 
     public FileEntryTableDataSource(
         string identity,
@@ -31,18 +29,14 @@ internal sealed class FileEntryTableDataSource : IDisposable
         IMessenger messenger,
         FileEntryDisplayStringCache displayStringCache)
     {
+        _identity = identity;
         _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
         _folderEntryScanner = folderEntryScanner;
         _fileEntryRowReader = fileEntryRowReader;
-        _messenger = messenger;
         _displayStringCache = displayStringCache;
-        _sortComparer = new BehaviorSubject<IComparer<SpecFileEntryViewModel>>(CreateComparer(SortState.Default));
 
-        _messenger.Register(this, MessageIdentity.Filter<FileTableSortRequestedMessage>(identity, OnSortRequested));
-
-        _disposables = Initialize(uiScheduler, directoryChangeStream);
-        _disposables.Add(Disposable.Create(this, static vm => vm._messenger.Unregister<FileTableSortRequestedMessage>(vm)));
+        _disposables = Initialize(uiScheduler, directoryChangeStream, messenger);
         _disposables.Add(_scanCancellation);
     }
 
@@ -51,10 +45,20 @@ internal sealed class FileEntryTableDataSource : IDisposable
     public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; } = [];
 
 
-    private CompositeDisposable Initialize(IScheduler uiScheduler, IDirectoryChangeStream directoryChangeStream)
+    private CompositeDisposable Initialize(
+        IScheduler uiScheduler,
+        IDirectoryChangeStream directoryChangeStream,
+        IMessenger messenger)
     {
         var rows = new SourceCache<SpecFileEntryViewModel, FilePathKey>(static item => item.GetKey());
-        rows.AddOrUpdate(ScanCurrentFolder());
+        rows.AddOrUpdate(_folderEntryScanner.Scan(_folderPath, _scanCancellation.Token));
+
+        var sortComparers = messenger
+            .CreateObservable<FileTableSortRequestedMessage>()
+            .Where(message => message.Identity == _identity)
+            .Select(message => CreateComparer(new SortState(message.Column, message.Ascending)))
+            .StartWith(CreateComparer(SortState.Default))
+            .ObserveOn(uiScheduler);
 
         CompositeDisposable disposables =
         [
@@ -63,14 +67,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 .Subscribe(change => ApplyDirectoryChange(rows, change)),
             rows.Connect()
                 .ObserveOn(uiScheduler)
-                .SortAndBind(Items, _sortComparer.ObserveOn(uiScheduler))
+                .SortAndBind(Items, sortComparers)
                 .Subscribe(),
             rows,
-            _sortComparer,
         ];
         return disposables;
     }
-
 
     public void Dispose()
     {
@@ -83,9 +85,6 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _scanCancellation.Cancel();
         _disposables.Dispose();
     }
-
-    private IReadOnlyList<SpecFileEntryViewModel> ScanCurrentFolder() =>
-        _folderEntryScanner.Scan(_folderPath, _scanCancellation.Token);
 
     private void ApplyDirectoryChange(ISourceCache<SpecFileEntryViewModel, FilePathKey> cache, DirectoryChange change)
     {
@@ -127,13 +126,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         cache.AddOrUpdate(model);
     }
 
-    private static FilePathKey GetPathCacheKey(string path) =>
-        new(Path.GetFullPath(NormalizedPath.FromUserInput(path).DisplayPath));
-
-    private void OnSortRequested(FileTableSortRequestedMessage message)
-    {
-        _sortComparer.OnNext(CreateComparer(new SortState(message.Column, message.Ascending)));
-    }
+    private static FilePathKey GetPathCacheKey(string path) => new(Path.GetFullPath(NormalizedPath.FromUserInput(path).DisplayPath));
 
     private IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
         new SpecFileEntryComparer(sortState.Column, sortState.Ascending, _displayStringCache);

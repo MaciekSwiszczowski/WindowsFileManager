@@ -10,7 +10,7 @@ using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Diagnostics;
 using WinUiFileManager.Infrastructure;
-using WinUiFileManager.Presentation.FileEntryTableData;
+using WinUiFileManager.Presentation;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels;
@@ -31,8 +31,7 @@ public static class ServiceConfiguration
 
         builder.AddInfrastructureServices();
         builder.AddDiagnosticsServices();
-        builder.AddFileEntryTableDataServices();
-        builder.AddPresentationViewModels();
+        builder.AddPresentationServices();
 
         builder.RegisterType<PanelNavigationService>().SingleInstance();
 

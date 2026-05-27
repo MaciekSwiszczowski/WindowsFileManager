@@ -15,6 +15,10 @@ public sealed class ActivePanelsService : IActivePanelsService, IDisposable
     {
         ArgumentNullException.ThrowIfNull(messenger);
         _messenger = messenger;
+    }
+
+    public void Initialize()
+    {
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
     }
 

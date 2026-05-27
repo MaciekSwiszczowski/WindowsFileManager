@@ -21,6 +21,10 @@ public sealed class FileOperationRequestHandler : IDisposable
         _messenger = messenger;
         _logger = logger;
         _messageDialogFactory = messageDialogFactory;
+    }
+
+    public void Initialize()
+    {
         _messenger.Register<SetFileAttributeFlagRequestedMessage>(this, OnSetFileAttributeFlagRequested);
     }
 

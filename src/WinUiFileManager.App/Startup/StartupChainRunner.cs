@@ -8,9 +8,7 @@ public sealed class StartupChainRunner
     private readonly ILogger<StartupChainRunner> _logger;
     private bool _started;
 
-    public StartupChainRunner(
-        StartupChain startupChain,
-        ILogger<StartupChainRunner> logger)
+    public StartupChainRunner(StartupChain startupChain, ILogger<StartupChainRunner> logger)
     {
         _startupChain = startupChain;
         _logger = logger;

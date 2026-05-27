@@ -30,7 +30,10 @@ public sealed class RenameService : IDisposable
         _messenger = messenger;
         _renameDialogFactory = renameDialogFactory;
         _messageDialogFactory = messageDialogFactory;
+    }
 
+    public void Initialize()
+    {
         _messenger.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
     }
 

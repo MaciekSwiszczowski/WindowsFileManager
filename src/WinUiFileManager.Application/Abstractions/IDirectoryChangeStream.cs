@@ -1,5 +1,3 @@
-using WinUiFileManager.Application.FileEntries;
-
 namespace WinUiFileManager.Application.Abstractions;
 
 /// <summary>
@@ -10,5 +8,5 @@ namespace WinUiFileManager.Application.Abstractions;
 /// </summary>
 public interface IDirectoryChangeStream : IDisposable
 {
-    IObservable<DirectoryChange> Watch(NormalizedPath path);
+    public IObservable<DirectoryChange> Watch(NormalizedPath path);
 }

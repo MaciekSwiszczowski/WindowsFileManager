@@ -53,7 +53,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
 
     private CompositeDisposable Initialize(IScheduler uiScheduler, IDirectoryChangeStream directoryChangeStream)
     {
-        var rows = new SourceCache<SpecFileEntryViewModel, string>(static item => item.GetKey());
+        var rows = new SourceCache<SpecFileEntryViewModel, string>(GetRowCacheKey);
         rows.AddOrUpdate(ScanCurrentFolder());
 
         CompositeDisposable disposables =
@@ -101,12 +101,12 @@ internal sealed class FileEntryTableDataSource : IDisposable
                 AddOrRemove(cache, change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
-                cache.RemoveKey(GetChangePathKey(change.Path));
+                cache.RemoveKey(GetPathCacheKey(change.Path));
                 break;
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
-                    cache.RemoveKey(GetChangePathKey(oldPath));
+                    cache.RemoveKey(GetPathCacheKey(oldPath));
                 }
 
                 AddOrRemove(cache, change.Path);
@@ -120,14 +120,16 @@ internal sealed class FileEntryTableDataSource : IDisposable
         var model = _fileEntryRowReader.TryRead(normalizedPath, _scanCancellation.Token);
         if (model is null)
         {
-            cache.RemoveKey(normalizedPath.Value);
+            cache.RemoveKey(GetPathCacheKey(path));
             return;
         }
 
         cache.AddOrUpdate(model);
     }
 
-    private static string GetChangePathKey(string path) => NormalizedPath.FromFullyQualifiedPath(path).Value;
+    private static string GetRowCacheKey(SpecFileEntryViewModel item) => GetPathCacheKey(item.GetKey());
+
+    private static string GetPathCacheKey(string path) => NormalizedPath.FromUserInput(path).Value.ToUpperInvariant();
 
     private void OnSortRequested(FileTableSortRequestedMessage message)
     {

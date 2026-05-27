@@ -9,7 +9,6 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 {
     private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(30);
     private IDisposable? _snapshotSubscription;
-    private SelectionSnapshot? _snapshot;
 
     protected override void OnLoaded(FileEntryTableContext context)
     {
@@ -26,20 +25,21 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
             return;
         }
 
-        _snapshot = CreateSnapshot(Context, message);
-        if (_snapshot is null)
+        var snapshot = CreateSnapshot(Context, message);
+        if (snapshot is null)
         {
             message.TryReply(response: false);
             return;
         }
 
+        ClearSnapshotSubscription();
         _snapshotSubscription = Observable
             .FromEventPattern<NotifyCollectionChangedEventArgs>(itemsSource, nameof(INotifyCollectionChanged.CollectionChanged))
-            .Where(_ => _snapshot.DirectoryPath == Context.View.CurrentFolder)
+            .Where(_ => snapshot.DirectoryPath == Context.View.CurrentFolder)
             .TakeUntil(Observable.Timer(SnapshotTimeout))
-            .SelectMany(args => FindChangedItems(args.EventArgs.NewItems, _snapshot.NewName))
+            .SelectMany(args => FindChangedItems(args.EventArgs.NewItems, snapshot.NewName))
             .Subscribe(
-                onNext: changedItem => RestoreChangedItem(_snapshot, changedItem),
+                onNext: changedItem => RestoreChangedItem(snapshot, changedItem),
                 onCompleted: ClearSnapshotSubscription);
 
         message.TryReply(response: true);
@@ -106,7 +106,6 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
     {
         _snapshotSubscription?.Dispose();
         _snapshotSubscription = null;
-        _snapshot = null;
     }
 
     private static IEnumerable<SpecFileEntryViewModel> FindChangedItems(System.Collections.IList? items, string name) =>

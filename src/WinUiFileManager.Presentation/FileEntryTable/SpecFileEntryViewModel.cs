@@ -2,6 +2,8 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 
 public sealed class SpecFileEntryViewModel
 {
+    private static readonly FilePathKey ParentEntryPathKey = new FilePathKey(ParentEntryKey);
+
     public delegate SpecFileEntryViewModel Factory(FileSystemEntryModel model);
 
     private const string ParentEntryKey = "\0..";
@@ -22,5 +24,10 @@ public sealed class SpecFileEntryViewModel
 
     public FileSystemEntryModel? Model { get; }
 
-    public string GetKey() => Model?.FullPath.Value ?? ParentEntryKey;
+    // Used by FileEntryTableDataSource SourceCache. Real filesystem paths are normalized here so
+    // initial scan rows and FileSystemWatcher updates use the same cache key shape.
+    public FilePathKey GetKey()
+    {
+        return Model is null ? ParentEntryPathKey : new FilePathKey(Path.GetFullPath(Model.FullPath.DisplayPath));
+    }
 }

@@ -81,20 +81,13 @@ public sealed class InspectorInitializationViewModel
             return viewModel;
         }
 
-        InspectorBasicFieldViewModel Field(
-            FileInspectorCategory category,
-            string key,
-            string tooltip) =>
+        InspectorBasicFieldViewModel Field(FileInspectorCategory category, string key, string tooltip) =>
             _fieldFactory(category, key, tooltip, string.Empty);
 
-        InspectorThumbnailFieldViewModel ThumbnailField(
-            string key,
-            string tooltip) =>
+        InspectorThumbnailFieldViewModel ThumbnailField(string key, string tooltip) =>
             _thumbnailFieldFactory(Thumbnails, key, tooltip, string.Empty);
 
-        InspectorToggleFieldViewModel ToggleField(
-            string key,
-            string tooltip) =>
+        InspectorToggleFieldViewModel ToggleField(string key, string tooltip) =>
             _toggleFieldFactory(Ntfs, key, tooltip, string.Empty);
 
         return

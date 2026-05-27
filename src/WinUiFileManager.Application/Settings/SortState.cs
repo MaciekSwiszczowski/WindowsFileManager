@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Application.Settings;
 

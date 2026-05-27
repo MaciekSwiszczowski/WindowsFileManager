@@ -13,28 +13,32 @@ public sealed class InspectorAttributeToggleViewModel
     };
 
     private readonly IMessenger _messenger;
+    private IReadOnlyList<InspectorToggleFieldViewModel> _fields = [];
     private NormalizedPath? _selectedPath;
 
     public InspectorAttributeToggleViewModel(IMessenger messenger) => _messenger = messenger;
 
     public void Initialize(IReadOnlyList<InspectorCategoryViewModel> categories)
     {
-        var fields = categories
+        _fields = categories
             .SelectMany(static category => category.Fields)
-            .OfType<InspectorToggleFieldViewModel>();
+            .OfType<InspectorToggleFieldViewModel>()
+            .Where(static field => ToggleableFlags.ContainsKey(field.Key))
+            .ToArray();
 
-        foreach (var field in fields)
+        foreach (var field in _fields)
         {
-            if (ToggleableFlags.ContainsKey(field.Key))
-            {
-                field.ConfigureRefreshDrivenToggle(enabled => ToggleAttributeAsync(field.Key, enabled));
-            }
+            field.ConfigureRefreshDrivenToggle(enabled => ToggleAttributeAsync(field.Key, enabled));
         }
     }
 
     public void SetSelectedItem(FileSystemEntryModel? selectedItem)
     {
         _selectedPath = selectedItem?.FullPath;
+        foreach (var field in _fields)
+        {
+            field.ResetToggleCommand();
+        }
     }
 
     private Task ToggleAttributeAsync(string key, bool enabled)

@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Composition;
+using Startup;
 using WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class App
@@ -20,6 +21,8 @@ public sealed partial class App
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
+
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
         await viewModel.InitializeAsync();
 

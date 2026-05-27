@@ -11,17 +11,16 @@ namespace WinUiFileManager.Presentation;
 
 public static class PresentationContainerBuilderExtensions
 {
-    public static ContainerBuilder AddPresentationServices(this ContainerBuilder builder)
+    public static void AddPresentationServices(this ContainerBuilder builder)
     {
         builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
         builder.RegisterType<FileEntryRowFactory>().SingleInstance();
         builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
         builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
         builder.AddPresentationViewModels();
-        return builder;
     }
 
-    public static void AddPresentationViewModels(this ContainerBuilder builder)
+    private static void AddPresentationViewModels(this ContainerBuilder builder)
     {
         builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();
         builder.RegisterType<PanelsViewModel>().InstancePerDependency();

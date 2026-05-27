@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
+using WinUiFileManager.App.Startup;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Dialogs;
@@ -46,6 +47,8 @@ public static class ServiceConfiguration
         builder.RegisterType<MessageDialogViewModel>().InstancePerDependency();
         builder.RegisterType<RenameDialogViewModel>().InstancePerDependency();
 
+        builder.RegisterType<StartupChain>().SingleInstance();
+        builder.RegisterType<StartupChainRunner>().SingleInstance();
         builder.RegisterType<MainShellWindow>().InstancePerDependency();
 
         var container = builder.Build();

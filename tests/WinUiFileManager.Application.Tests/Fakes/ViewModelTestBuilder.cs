@@ -47,7 +47,8 @@ public sealed class ViewModelTestBuilder
             new PanelFileEntryDataSourceViewModel(
                 identity,
                 messenger,
-                dataSourceFactory);
+                dataSourceFactory,
+                schedulerProvider);
         PanelViewModel.Factory panelFactory = identity =>
             new PanelViewModel(identity, messenger, appInitialization, fileEntriesFactory);
         var inspectorInitialization = new InspectorInitializationViewModel(

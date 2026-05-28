@@ -1,4 +1,3 @@
-using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Application.Startup;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;

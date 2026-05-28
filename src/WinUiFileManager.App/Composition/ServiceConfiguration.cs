@@ -49,6 +49,7 @@ public static class ServiceConfiguration
 
         builder.RegisterType<StartupChain>().SingleInstance();
         builder.RegisterType<StartupChainRunner>().SingleInstance();
+        builder.RegisterType<StartupPathResolver>().SingleInstance();
         builder.RegisterType<MainShellWindow>().InstancePerDependency();
 
         var container = builder.Build();

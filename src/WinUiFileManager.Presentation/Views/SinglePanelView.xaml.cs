@@ -43,9 +43,7 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         _identity = viewModel.Identity;
-
         ViewModel = viewModel;
-
         EntryTable.Identity = Identity;
         EntryTable.Messenger = viewModel.Messenger;
     }

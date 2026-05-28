@@ -24,16 +24,6 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 
     public void Initialize()
     {
-        if (!_dispatcherQueue.HasThreadAccess)
-        {
-            if (!_dispatcherQueue.TryEnqueue(Initialize))
-            {
-                throw new InvalidOperationException("Failed to enqueue panels initialization on the UI dispatcher.");
-            }
-
-            return;
-        }
-
         LeftPanel.Initialize();
         RightPanel.Initialize();
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
@@ -52,10 +42,18 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 
     public PanelViewModel ActivePanel => GetPanel(ActivePanelIdentity);
 
-    public IMessenger Messenger => _messenger;
-
     public void SetActivePanel(string identity)
     {
+        if (!_dispatcherQueue.HasThreadAccess)
+        {
+            if (!_dispatcherQueue.TryEnqueue(() => SetActivePanel(identity)))
+            {
+                throw new InvalidOperationException("Failed to enqueue active panel update on the UI dispatcher.");
+            }
+
+            return;
+        }
+
         var panel = GetPanel(identity);
         _activePanelsService.SetActivePanel(panel.Identity);
         OnPropertyChanged(nameof(ActivePanelIdentity));
@@ -64,7 +62,7 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
         RightPanel.IsActive = string.Equals(RightPanel.Identity, ActivePanelIdentity, StringComparison.Ordinal);
     }
 
-    public PanelViewModel GetPanel(string identity) =>
+    private PanelViewModel GetPanel(string identity) =>
         string.Equals(identity, RightPanel.Identity, StringComparison.OrdinalIgnoreCase)
             ? RightPanel
             : LeftPanel;

@@ -2,6 +2,7 @@ namespace WinUiFileManager.App.Startup;
 
 using CommunityToolkit.Mvvm.Messaging;
 using Application.Abstractions;
+using Application.Messages.RequestMessages.Navigation;
 using Application.Navigation;
 using Application.Startup;
 using Diagnostics.FileOperations;
@@ -25,6 +26,7 @@ public sealed class StartupChain
     private readonly IMessenger _messenger;
     private readonly PanelsViewModel _panels;
     private readonly PanelNavigationService _panelNavigationService;
+    private readonly StartupPathResolver _startupPathResolver;
     private readonly ISettingsRepository _settingsRepository;
     private readonly RenameService _renameService;
     private readonly INtfsVolumePolicyService _volumePolicyService;
@@ -35,6 +37,7 @@ public sealed class StartupChain
         IMessenger messenger,
         PanelsViewModel panels,
         PanelNavigationService panelNavigationService,
+        StartupPathResolver startupPathResolver,
         ISettingsRepository settingsRepository,
         RenameService renameService,
         INtfsVolumePolicyService volumePolicyService)
@@ -44,6 +47,7 @@ public sealed class StartupChain
         _messenger = messenger;
         _panels = panels;
         _panelNavigationService = panelNavigationService;
+        _startupPathResolver = startupPathResolver;
         _settingsRepository = settingsRepository;
         _renameService = renameService;
         _volumePolicyService = volumePolicyService;
@@ -64,7 +68,13 @@ public sealed class StartupChain
 
         await Task.WhenAll(settingsTask, volumesTask).ConfigureAwait(false);
 
-        var startupData = new AppStartupData(await settingsTask, await volumesTask);
+        var settings = await settingsTask.ConfigureAwait(false);
+        var volumes = await volumesTask.ConfigureAwait(false);
+        var startupPaths = _startupPathResolver.Resolve(settings, volumes);
+        var startupData = new AppStartupData(settings, volumes, startupPaths.LeftPath, startupPaths.RightPath);
+
         _messenger.Send(new AppStartupDataLoadedMessage(startupData));
+        _messenger.Send(new FileTableNavigateToPathRequestedMessage("Left", startupData.LeftInitialPath));
+        _messenger.Send(new FileTableNavigateToPathRequestedMessage("Right", startupData.RightInitialPath));
     }
 }

@@ -1,3 +1,4 @@
+using System.Reactive.Concurrency;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
@@ -9,6 +10,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     private readonly string _identity;
     private readonly FileEntryTableDataSource.Factory _dataSourceFactory;
     private readonly IMessenger _messenger;
+    private readonly ISchedulerProvider _schedulers;
     private FileEntryTableDataSource? _dataSource;
     private bool _initialized;
     private bool _disposed;
@@ -16,11 +18,13 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     public PanelFileEntryDataSourceViewModel(
         string identity,
         IMessenger messenger,
-        FileEntryTableDataSource.Factory dataSourceFactory)
+        FileEntryTableDataSource.Factory dataSourceFactory,
+        ISchedulerProvider schedulers)
     {
         _identity = identity;
         _messenger = messenger;
         _dataSourceFactory = dataSourceFactory;
+        _schedulers = schedulers;
     }
 
     [ObservableProperty]
@@ -61,15 +65,27 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         _dataSource = null;
     }
 
-    private void OnNavigateToPath(FileTableNavigateToPathMessage message) => ReplaceDataSource(message.Path);
-
-    private void ReplaceDataSource(NormalizedPath folderPath)
+    private void OnNavigateToPath(FileTableNavigateToPathMessage message)
     {
-        _dataSource?.Dispose();
-        _dataSource = _dataSourceFactory(_identity, folderPath);
+        var dataSource = _dataSourceFactory(_identity, message.Path);
+        ApplyDataSource(dataSource);
+    }
 
-        Items = _dataSource.Items;
-        CurrentPath = _dataSource.CurrentPath;
+    private void ApplyDataSource(FileEntryTableDataSource dataSource)
+    {
+        if (_disposed)
+        {
+            dataSource.Dispose();
+            return;
+        }
+
+        _dataSource?.Dispose();
+        _dataSource = dataSource;
+        _schedulers.MainThread.Schedule(() =>
+        {
+            Items = dataSource.Items;
+            CurrentPath = dataSource.CurrentPath;
+        });
     }
 
     public bool HasPathValidationError => !string.IsNullOrWhiteSpace(PathValidationMessage);

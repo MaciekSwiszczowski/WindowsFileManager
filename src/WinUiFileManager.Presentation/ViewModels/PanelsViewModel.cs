@@ -1,8 +1,11 @@
+using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+
 namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class PanelsViewModel : ObservableObject, IDisposable
 {
     private readonly IActivePanelsService _activePanelsService;
+    private readonly UiDispatcherQueue _dispatcherQueue;
     private readonly IMessenger _messenger;
     private bool _disposed;
 
@@ -13,8 +16,24 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
     {
         _activePanelsService = activePanelsService;
         _messenger = messenger;
+        _dispatcherQueue = UiDispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException($"{nameof(PanelsViewModel)} must be created on a dispatcher thread.");
         LeftPanel = panelFactory("Left");
         RightPanel = panelFactory("Right");
+    }
+
+    public void Initialize()
+    {
+        if (!_dispatcherQueue.HasThreadAccess)
+        {
+            if (!_dispatcherQueue.TryEnqueue(Initialize))
+            {
+                throw new InvalidOperationException("Failed to enqueue panels initialization on the UI dispatcher.");
+            }
+
+            return;
+        }
+
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);

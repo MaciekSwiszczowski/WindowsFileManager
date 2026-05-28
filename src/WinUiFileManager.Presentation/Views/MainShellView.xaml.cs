@@ -41,7 +41,6 @@ public sealed partial class MainShellView
         _keyboardManager = new KeyboardManager(viewModel.Messenger);
         ViewModel = viewModel;
 
-        Panels.Initialization = viewModel.Initialization;
         Panels.Initialize(viewModel.Panels);
         Panels.PaneSplitterPressed += OnPanelSplitterPressed;
 

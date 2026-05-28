@@ -24,25 +24,14 @@ public sealed partial class PanelsView
         }
     }
 
-    public AppInitializationViewModel? Initialization { get; set; }
-
     public event EventHandler? PaneSplitterPressed;
 
     public void Initialize(PanelsViewModel viewModel)
     {
         ViewModel = viewModel;
 
-        LeftPanel.Initialize(
-            ViewModel.LeftPanel.Identity,
-            ViewModel.LeftPanel,
-            viewModel.Messenger,
-            Initialization!);
-
-        RightPanel.Initialize(
-            ViewModel.RightPanel.Identity,
-            ViewModel.RightPanel,
-            viewModel.Messenger,
-            Initialization!);
+        LeftPanel.Initialize(ViewModel.LeftPanel);
+        RightPanel.Initialize(ViewModel.RightPanel);
 
         ViewModel.PropertyChanged += OnPanelsPropertyChanged;
     }

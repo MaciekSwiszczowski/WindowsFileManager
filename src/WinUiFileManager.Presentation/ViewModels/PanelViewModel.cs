@@ -10,13 +10,21 @@ public sealed partial class PanelViewModel : ObservableObject, IDisposable
 
     public PanelViewModel(
         string identity,
+        IMessenger messenger,
+        AppInitializationViewModel initialization,
         PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory)
     {
         Identity = identity;
+        Messenger = messenger;
+        Initialization = initialization;
         FileEntries = fileEntriesFactory(identity);
     }
 
     public string Identity { get; }
+
+    public IMessenger Messenger { get; }
+
+    public AppInitializationViewModel Initialization { get; }
 
     public PanelFileEntryDataSourceViewModel FileEntries { get; }
 

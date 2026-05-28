@@ -22,8 +22,8 @@ public static class PresentationContainerBuilderExtensions
 
     private static void AddPresentationViewModels(this ContainerBuilder builder)
     {
-        builder.RegisterType<AppInitializationViewModel>().InstancePerDependency();
-        builder.RegisterType<PanelsViewModel>().InstancePerDependency();
+        builder.RegisterType<AppInitializationViewModel>().SingleInstance();
+        builder.RegisterType<PanelsViewModel>().SingleInstance();
         builder.RegisterType<PanelViewModel>().InstancePerDependency();
         builder.RegisterType<PanelFileEntryDataSourceViewModel>().InstancePerDependency();
         builder.RegisterType<CommandButtonsViewModel>().InstancePerDependency();

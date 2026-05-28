@@ -22,13 +22,13 @@ public sealed partial class App
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
-        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
-
         var mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
         mainWindow.Initialize(viewModel);
 
         _mainWindow = mainWindow;
         _mainWindow.Activate();
+
+        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
     }
 
     private void OnUnhandledException(object sender, UnhandledExceptionEventArgs e)

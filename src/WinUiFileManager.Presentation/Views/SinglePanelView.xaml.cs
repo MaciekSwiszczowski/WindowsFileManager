@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Scheduling;
@@ -46,22 +45,22 @@ public sealed partial class SinglePanelView : IDisposable
 
     public SpecFileEntryTableView Table => EntryTable;
 
-    public void Initialize(string identity, PanelViewModel viewModel, IMessenger messenger, AppInitializationViewModel initialization)
+    public void Initialize(PanelViewModel viewModel)
     {
-        if (_identity is not null && _identity != identity)
+        if (_identity is not null && _identity != viewModel.Identity)
         {
             throw new InvalidOperationException("Identity cannot be changed once set.");
         }
 
-        _identity = identity;
+        _identity = viewModel.Identity;
 
-        Messenger = messenger;
-        Initialization = initialization;
+        Messenger = viewModel.Messenger;
+        Initialization = viewModel.Initialization;
         Initialization.PropertyChanged += OnInitializationPropertyChanged;
         ViewModel = viewModel;
 
         EntryTable.Identity = Identity;
-        EntryTable.Messenger = messenger;
+        EntryTable.Messenger = viewModel.Messenger;
         ViewModel.FileEntries.Attach(new DispatcherQueueScheduler(DispatcherQueue));
 
         EnsureInitialNavigation();

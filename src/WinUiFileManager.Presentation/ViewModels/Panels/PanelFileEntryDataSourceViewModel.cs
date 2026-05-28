@@ -10,7 +10,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     private readonly FileEntryTableDataSource.Factory _dataSourceFactory;
     private readonly IMessenger _messenger;
     private FileEntryTableDataSource? _dataSource;
-    private bool _attached;
+    private bool _initialized;
     private bool _disposed;
 
     public PanelFileEntryDataSourceViewModel(
@@ -35,32 +35,17 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     [ObservableProperty]
     public partial ObservableCollection<SpecFileEntryViewModel> Items { get; set; } = [];
 
-    public void Attach()
+    public void Initialize()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
-        if (_attached)
+        if (_initialized)
         {
             return;
         }
 
         _messenger.Register(this, IdentityFilter.For<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
-        _attached = true;
-    }
-
-    public void Detach()
-    {
-        if (!_attached)
-        {
-            return;
-        }
-
-        _attached = false;
-        _messenger.UnregisterAll(this);
-        _dataSource?.Dispose();
-        _dataSource = null;
-        Items = [];
-        CurrentPath = string.Empty;
+        _initialized = true;
     }
 
     public void Dispose()
@@ -71,7 +56,9 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         }
 
         _disposed = true;
-        Detach();
+        _messenger.UnregisterAll(this);
+        _dataSource?.Dispose();
+        _dataSource = null;
     }
 
     private void OnNavigateToPath(FileTableNavigateToPathMessage message) => ReplaceDataSource(message.Path);

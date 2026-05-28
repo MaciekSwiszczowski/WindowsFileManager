@@ -34,6 +34,8 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
             return;
         }
 
+        LeftPanel.Initialize();
+        RightPanel.Initialize();
         _messenger.Register<FileTableFocusedMessage>(this, OnFileTableFocused);
         _messenger.Register<FileTableSelectionChangedMessage>(this, OnFileTableSelectionChanged);
         SetActivePanel(_activePanelsService.ActivePanelIdentity);

@@ -6,8 +6,6 @@ namespace WinUiFileManager.Presentation.Views;
 public sealed partial class SinglePanelView : IDisposable
 {
     private readonly PointerEventHandler _panelPointerPressedHandler;
-    private bool _loaded;
-    private bool _initialNavigationRequested;
     private string? _identity;
     private bool _panelFocused;
     private bool _disposed;
@@ -15,7 +13,6 @@ public sealed partial class SinglePanelView : IDisposable
     public SinglePanelView()
     {
         InitializeComponent();
-        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
 
         _panelPointerPressedHandler = OnPanelPointerPressed;
@@ -36,12 +33,6 @@ public sealed partial class SinglePanelView : IDisposable
         }
     }
 
-    private AppInitializationViewModel? Initialization { get; set; }
-
-    private ObservableCollection<VolumeInfo>? AvailableVolumes => Initialization?.AvailableVolumes;
-
-    private IMessenger? Messenger { get; set; }
-
     public SpecFileEntryTableView Table => EntryTable;
 
     public void Initialize(PanelViewModel viewModel)
@@ -53,22 +44,10 @@ public sealed partial class SinglePanelView : IDisposable
 
         _identity = viewModel.Identity;
 
-        Messenger = viewModel.Messenger;
-        Initialization = viewModel.Initialization;
-        Initialization.PropertyChanged += OnInitializationPropertyChanged;
         ViewModel = viewModel;
 
         EntryTable.Identity = Identity;
         EntryTable.Messenger = viewModel.Messenger;
-        ViewModel.FileEntries.Attach();
-
-        EnsureInitialNavigation();
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        _loaded = true;
-        EnsureInitialNavigation();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e) => Dispose();
@@ -81,50 +60,12 @@ public sealed partial class SinglePanelView : IDisposable
         }
         _disposed = true;
 
-        _loaded = false;
-        if (Initialization is not null)
-        {
-            Initialization.PropertyChanged -= OnInitializationPropertyChanged;
-        }
-
-        ViewModel.FileEntries.Detach();
-
         PanelBorder.RemoveHandler(PointerPressedEvent, _panelPointerPressedHandler);
         GettingFocus -= OnPanelGettingFocus;
         LosingFocus -= OnPanelLosingFocus;
     }
 
-    private void EnsureInitialNavigation()
-    {
-        if (!_loaded || Initialization is null || Messenger is null || _initialNavigationRequested)
-        {
-            return;
-        }
-
-        var initialPath = string.Equals(Identity, "Left", StringComparison.OrdinalIgnoreCase)
-            ? Initialization.LeftInitialPath
-            : Initialization.RightInitialPath;
-        if (string.IsNullOrWhiteSpace(initialPath))
-        {
-            return;
-        }
-
-        _initialNavigationRequested = true;
-        Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, new NormalizedPath(initialPath)));
-
-        // Initial column layout
-        Messenger.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));
-    }
-
-    private void OnInitializationPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName is nameof(AppInitializationViewModel.LeftInitialPath) or nameof(AppInitializationViewModel.RightInitialPath))
-        {
-            EnsureInitialNavigation();
-        }
-    }
-
-    private async void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)
+    private void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (sender is not ComboBox { SelectedItem: VolumeInfo volume }
             || IsCurrentPathOnVolume(volume))
@@ -133,10 +74,10 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         ViewModel.FileEntries.EditablePath = volume.RootPath.DisplayPath;
-        await CommitPathAsync(volume.RootPath.DisplayPath);
+        CommitPath(volume.RootPath.DisplayPath);
     }
 
-    private async void OnPathTextBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    private void OnPathTextBoxKeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == VirtualKey.Escape)
         {
@@ -152,28 +93,23 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         e.Handled = true;
-        await CommitPathAsync(ViewModel.FileEntries.EditablePath);
+        CommitPath(ViewModel.FileEntries.EditablePath);
     }
 
-    private async Task CommitPathAsync(string rawPath)
+    private void CommitPath(string rawPath)
     {
-        if (Messenger is null)
-        {
-            return;
-        }
-
-        Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, NormalizedPath.FromUserInput(rawPath)));
+        ViewModel.Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, NormalizedPath.FromUserInput(rawPath)));
         ViewModel.FileEntries.PathValidationMessage = string.Empty;
     }
 
     private VolumeInfo? FindVolume(string path)
     {
-        if (Initialization is null || string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(path))
         {
             return null;
         }
 
-        foreach (var volume in Initialization.AvailableVolumes)
+        foreach (var volume in ViewModel.AvailableVolumes)
         {
             var root = volume.RootPath.DisplayPath;
             if (path.StartsWith(root, StringComparison.OrdinalIgnoreCase))
@@ -237,10 +173,10 @@ public sealed partial class SinglePanelView : IDisposable
         }
 
         _panelFocused = isFocused;
-        Messenger?.Send(new FileTableFocusedMessage(Identity, isFocused));
+        ViewModel.Messenger.Send(new FileTableFocusedMessage(Identity, isFocused));
         if (isFocused)
         {
-            Messenger?.Send(new RefreshInspectorRequestMessage());
+            ViewModel.Messenger.Send(new RefreshInspectorRequestMessage());
         }
     }
 }

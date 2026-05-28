@@ -15,6 +15,7 @@ public static class PresentationContainerBuilderExtensions
     {
         builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
         builder.RegisterType<FileEntryRowFactory>().SingleInstance();
+        builder.RegisterType<FileEntryTableDataSource>().InstancePerDependency();
         builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
         builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
         builder.AddPresentationViewModels();

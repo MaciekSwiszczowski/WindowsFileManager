@@ -1,6 +1,4 @@
-using System.Reactive.Concurrency;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
@@ -9,30 +7,20 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     public delegate PanelFileEntryDataSourceViewModel Factory(string identity);
 
     private readonly string _identity;
-    private readonly IFolderEntryScanner _folderEntryScanner;
-    private readonly IFileEntryRowReader _fileEntryRowReader;
-    private readonly IDirectoryChangeStream _directoryChangeStream;
+    private readonly FileEntryTableDataSource.Factory _dataSourceFactory;
     private readonly IMessenger _messenger;
-    private readonly FileEntryDisplayStringCache _displayStringCache;
     private FileEntryTableDataSource? _dataSource;
-    private IScheduler? _uiScheduler;
     private bool _attached;
     private bool _disposed;
 
     public PanelFileEntryDataSourceViewModel(
         string identity,
-        IFolderEntryScanner folderEntryScanner,
-        IFileEntryRowReader fileEntryRowReader,
-        IDirectoryChangeStream directoryChangeStream,
         IMessenger messenger,
-        FileEntryDisplayStringCache displayStringCache)
+        FileEntryTableDataSource.Factory dataSourceFactory)
     {
         _identity = identity;
-        _folderEntryScanner = folderEntryScanner;
-        _fileEntryRowReader = fileEntryRowReader;
-        _directoryChangeStream = directoryChangeStream;
         _messenger = messenger;
-        _displayStringCache = displayStringCache;
+        _dataSourceFactory = dataSourceFactory;
     }
 
     [ObservableProperty]
@@ -47,17 +35,15 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     [ObservableProperty]
     public partial ObservableCollection<SpecFileEntryViewModel> Items { get; set; } = [];
 
-    public void Attach(IScheduler uiScheduler)
+    public void Attach()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        ArgumentNullException.ThrowIfNull(uiScheduler);
 
         if (_attached)
         {
             return;
         }
 
-        _uiScheduler = uiScheduler;
         _messenger.Register(this, IdentityFilter.For<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
         _attached = true;
     }
@@ -73,7 +59,6 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         _messenger.UnregisterAll(this);
         _dataSource?.Dispose();
         _dataSource = null;
-        _uiScheduler = null;
         Items = [];
         CurrentPath = string.Empty;
     }
@@ -93,21 +78,8 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
 
     private void ReplaceDataSource(NormalizedPath folderPath)
     {
-        if (_uiScheduler is null)
-        {
-            return;
-        }
-
         _dataSource?.Dispose();
-        _dataSource = new FileEntryTableDataSource(
-            _identity,
-            folderPath,
-            _uiScheduler,
-            _folderEntryScanner,
-            _fileEntryRowReader,
-            _directoryChangeStream,
-            _messenger,
-            _displayStringCache);
+        _dataSource = _dataSourceFactory(_identity, folderPath);
 
         Items = _dataSource.Items;
         CurrentPath = _dataSource.CurrentPath;

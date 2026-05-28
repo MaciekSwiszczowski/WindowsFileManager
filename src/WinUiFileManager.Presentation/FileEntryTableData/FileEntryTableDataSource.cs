@@ -8,8 +8,10 @@ using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.FileEntryTableData;
 
-internal sealed class FileEntryTableDataSource : IDisposable
+public sealed class FileEntryTableDataSource : IDisposable
 {
+    public delegate FileEntryTableDataSource Factory(string identity, NormalizedPath folderPath);
+
     private readonly CompositeDisposable _disposables;
     private readonly IFolderEntryScanner _folderEntryScanner;
     private readonly IFileEntryRowReader _fileEntryRowReader;
@@ -22,7 +24,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
     public FileEntryTableDataSource(
         string identity,
         NormalizedPath folderPath,
-        IScheduler uiScheduler,
+        ISchedulerProvider schedulers,
         IFolderEntryScanner folderEntryScanner,
         IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
@@ -36,7 +38,7 @@ internal sealed class FileEntryTableDataSource : IDisposable
         _fileEntryRowReader = fileEntryRowReader;
         _displayStringCache = displayStringCache;
 
-        _disposables = Initialize(uiScheduler, directoryChangeStream, messenger);
+        _disposables = Initialize(schedulers.MainThread, directoryChangeStream, messenger);
         _disposables.Add(_scanCancellation);
     }
 

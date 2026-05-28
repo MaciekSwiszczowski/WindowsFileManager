@@ -1,6 +1,5 @@
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.Scheduling;
 
 namespace WinUiFileManager.Presentation.Views;
 
@@ -61,7 +60,7 @@ public sealed partial class SinglePanelView : IDisposable
 
         EntryTable.Identity = Identity;
         EntryTable.Messenger = viewModel.Messenger;
-        ViewModel.FileEntries.Attach(new DispatcherQueueScheduler(DispatcherQueue));
+        ViewModel.FileEntries.Attach();
 
         EnsureInitialNavigation();
     }

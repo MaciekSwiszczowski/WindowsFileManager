@@ -6,6 +6,7 @@ using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 using WinUiFileManager.Presentation.ViewModels.Panels;
+using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
@@ -31,15 +32,24 @@ public sealed class ViewModelTestBuilder
         var activePanels = new FakeActivePanelsService();
         var schedulerProvider = new TestSchedulerProvider(new TestScheduler());
         var displayStringCache = FileEntryDisplayStringCache.Shared;
-        PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory = identity =>
-            new PanelFileEntryDataSourceViewModel(
+        var appInitialization = new AppInitializationViewModel();
+        FileEntryTableDataSource.Factory dataSourceFactory = (identity, folderPath) =>
+            new FileEntryTableDataSource(
                 identity,
+                folderPath,
+                schedulerProvider,
                 folderEntryScanner,
                 fileEntryRowReader,
                 directoryChangeStream,
                 messenger,
                 displayStringCache);
-        PanelViewModel.Factory panelFactory = identity => new PanelViewModel(identity, fileEntriesFactory);
+        PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory = identity =>
+            new PanelFileEntryDataSourceViewModel(
+                identity,
+                messenger,
+                dataSourceFactory);
+        PanelViewModel.Factory panelFactory = identity =>
+            new PanelViewModel(identity, messenger, appInitialization, fileEntriesFactory);
         var inspectorInitialization = new InspectorInitializationViewModel(
             activePanels,
             schedulerProvider,
@@ -70,7 +80,7 @@ public sealed class ViewModelTestBuilder
                 inspectorSearch,
                 inspectorAttributes,
                 displayStringCache),
-            new AppInitializationViewModel(new FakeNtfsVolumePolicyService()),
+            appInitialization,
             new PanelsViewModel(activePanels, messenger, panelFactory),
             new CommandButtonsViewModel(messenger));
 #pragma warning restore IDISP004

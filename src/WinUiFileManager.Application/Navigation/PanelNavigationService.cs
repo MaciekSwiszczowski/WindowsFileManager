@@ -22,6 +22,10 @@ public sealed class PanelNavigationService : IDisposable
     public PanelNavigationService(IMessenger messenger)
     {
         _messenger = messenger;
+    }
+
+    public void Initialize()
+    {
         _messenger.Register<FileTableNavigateToPathRequestedMessage>(this, OnNavigateToPathRequested);
         _messenger.Register<FileTableNavigateUpRequestedMessage>(this, OnNavigateUpRequested);
         _messenger.Register<FileTableNavigateDownRequestedMessage>(this, OnNavigateDownRequested);

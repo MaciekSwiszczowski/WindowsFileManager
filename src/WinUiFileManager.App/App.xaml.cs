@@ -19,12 +19,10 @@ public sealed partial class App
         UnhandledException += OnUnhandledException;
     }
 
-    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
-
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
-        await viewModel.InitializeAsync();
+        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
 
         var mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
         mainWindow.Initialize(viewModel);

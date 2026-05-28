@@ -2,6 +2,7 @@ using Windows.Graphics;
 
 namespace WinUiFileManager.App.Windows;
 
+using System.ComponentModel;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Application.Settings;
@@ -15,6 +16,7 @@ internal sealed class WindowManager
     private readonly AppWindow _appWindow;
     private MainShellViewModel? _viewModel;
     private bool _trackingEnabled;
+    private bool _updatingViewModelPlacement;
 
     public WindowManager(Window window, AppWindow appWindow)
     {
@@ -27,6 +29,7 @@ internal sealed class WindowManager
         _viewModel = viewModel;
         Apply(viewModel.MainWindowPlacement);
         _trackingEnabled = true;
+        viewModel.PropertyChanged += OnViewModelPropertyChanged;
         _window.SizeChanged += OnWindowSizeChanged;
         _appWindow.Changed += OnAppWindowChanged;
     }
@@ -91,6 +94,27 @@ internal sealed class WindowManager
         UpdateRestoredPlacement();
     }
 
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName != nameof(MainShellViewModel.MainWindowPlacement)
+            || _viewModel is null
+            || _updatingViewModelPlacement)
+        {
+            return;
+        }
+
+        var trackingEnabled = _trackingEnabled;
+        _trackingEnabled = false;
+        try
+        {
+            Apply(_viewModel.MainWindowPlacement);
+        }
+        finally
+        {
+            _trackingEnabled = trackingEnabled;
+        }
+    }
+
     private void UpdateRestoredPlacement()
     {
         if (!_trackingEnabled || _viewModel is null)
@@ -103,6 +127,14 @@ internal sealed class WindowManager
             return;
         }
 
-        _viewModel.MainWindowPlacement = Capture();
+        _updatingViewModelPlacement = true;
+        try
+        {
+            _viewModel.MainWindowPlacement = Capture();
+        }
+        finally
+        {
+            _updatingViewModelPlacement = false;
+        }
     }
 }

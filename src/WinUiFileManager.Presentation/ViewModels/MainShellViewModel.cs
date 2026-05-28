@@ -1,5 +1,7 @@
 using WinUiFileManager.Application.Settings;
+using WinUiFileManager.Application.Startup;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
+using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.ViewModels;
 
@@ -12,6 +14,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private readonly PersistPaneStateCommandHandler _persistPaneStateHandler;
     private readonly ILogger<MainShellViewModel> _logger;
     private readonly IMessenger _messenger;
+    private readonly UiDispatcherQueue _dispatcherQueue;
 
     private bool _isInspectorVisible = true;
 
@@ -34,7 +37,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(InspectorColumnWidth))]
     public partial double InspectorWidth { get; set; } = 340d;
 
-    public WindowPlacement MainWindowPlacement { get; set; } = WindowPlacement.Default;
+    [ObservableProperty]
+    public partial WindowPlacement MainWindowPlacement { get; set; } = WindowPlacement.Default;
 
     public bool ParallelExecutionEnabled
     {
@@ -82,6 +86,9 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
         Initialization = initialization;
         Panels = panels;
         Commands = commands;
+        _dispatcherQueue = UiDispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException($"{nameof(MainShellViewModel)} must be created on a dispatcher thread.");
+        _messenger.Register<AppStartupDataLoadedMessage>(this, OnAppStartupDataLoaded);
         _messenger.Register<ToggleInspectorRequestedMessage>(this, OnToggleInspectorLayoutMessage);
     }
 
@@ -134,12 +141,26 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private Task RefreshActivePaneAsync() => Task.CompletedTask;
 
-    public async Task InitializeAsync()
+    private void OnAppStartupDataLoaded(object recipient, AppStartupDataLoadedMessage message)
+    {
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            ApplyStartupData(message.StartupData);
+            return;
+        }
+
+        if (!_dispatcherQueue.TryEnqueue(() => ApplyStartupData(message.StartupData)))
+        {
+            _logger.LogError("Failed to enqueue startup data application on the UI dispatcher.");
+        }
+    }
+
+    private void ApplyStartupData(AppStartupData startupData)
     {
         try
         {
-            _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
-            await Initialization.InitializeAsync(_currentSettings, CancellationToken.None);
+            _currentSettings = startupData.Settings;
+            Initialization.Initialize(_currentSettings, startupData.NtfsVolumes);
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
             Commands.IsInspectorVisible = Initialization.InspectorVisible;
             Commands.ParallelExecutionEnabled = _currentSettings.ParallelExecutionEnabled;

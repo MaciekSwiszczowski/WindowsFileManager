@@ -4,7 +4,6 @@ using System.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
-using Application.Navigation;
 using Presentation.MessageLogging;
 using Presentation.Services;
 using Presentation.ViewModels;
@@ -22,7 +21,6 @@ public sealed partial class MainShellWindow
         _themeManager = new WindowThemeManager(this, appWindow);
         _themeManager.Apply(ElementTheme.Dark);
 
-        _ = App.Services.GetRequiredService<PanelNavigationService>();
         ShellView.Loaded += OnShellViewLoaded;
     }
 

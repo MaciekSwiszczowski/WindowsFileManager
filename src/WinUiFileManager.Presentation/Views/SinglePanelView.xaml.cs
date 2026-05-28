@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Scheduling;
@@ -56,6 +57,7 @@ public sealed partial class SinglePanelView : IDisposable
 
         Messenger = messenger;
         Initialization = initialization;
+        Initialization.PropertyChanged += OnInitializationPropertyChanged;
         ViewModel = viewModel;
 
         EntryTable.Identity = Identity;
@@ -82,6 +84,11 @@ public sealed partial class SinglePanelView : IDisposable
         _disposed = true;
 
         _loaded = false;
+        if (Initialization is not null)
+        {
+            Initialization.PropertyChanged -= OnInitializationPropertyChanged;
+        }
+
         ViewModel.FileEntries.Detach();
 
         PanelBorder.RemoveHandler(PointerPressedEvent, _panelPointerPressedHandler);
@@ -99,12 +106,24 @@ public sealed partial class SinglePanelView : IDisposable
         var initialPath = string.Equals(Identity, "Left", StringComparison.OrdinalIgnoreCase)
             ? Initialization.LeftInitialPath
             : Initialization.RightInitialPath;
+        if (string.IsNullOrWhiteSpace(initialPath))
+        {
+            return;
+        }
 
         _initialNavigationRequested = true;
         Messenger.Send(new FileTableNavigateToPathRequestedMessage(Identity, new NormalizedPath(initialPath)));
 
         // Initial column layout
         Messenger.Send(new FileTableColumnLayoutMessage(Identity, ColumnLayout.Default));
+    }
+
+    private void OnInitializationPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(AppInitializationViewModel.LeftInitialPath) or nameof(AppInitializationViewModel.RightInitialPath))
+        {
+            EnsureInitialNavigation();
+        }
     }
 
     private async void OnDriveSelectionChanged(object sender, SelectionChangedEventArgs e)

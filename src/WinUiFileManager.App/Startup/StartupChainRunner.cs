@@ -4,13 +4,15 @@ namespace WinUiFileManager.App.Startup;
 
 public sealed class StartupChainRunner
 {
-    private readonly StartupChain _startupChain;
+    private readonly Func<StartupChain> _startupChainFactory;
     private readonly ILogger<StartupChainRunner> _logger;
     private bool _started;
 
-    public StartupChainRunner(StartupChain startupChain, ILogger<StartupChainRunner> logger)
+    public StartupChainRunner(
+        Func<StartupChain> startupChainFactory,
+        ILogger<StartupChainRunner> logger)
     {
-        _startupChain = startupChain;
+        _startupChainFactory = startupChainFactory;
         _logger = logger;
     }
 
@@ -29,7 +31,8 @@ public sealed class StartupChainRunner
     {
         try
         {
-            await _startupChain.StartupChainAsync().ConfigureAwait(false);
+            var startupChain = _startupChainFactory();
+            await startupChain.StartupChainAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {

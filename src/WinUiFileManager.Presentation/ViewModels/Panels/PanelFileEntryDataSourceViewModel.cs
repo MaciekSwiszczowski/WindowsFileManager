@@ -58,7 +58,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         }
 
         _uiScheduler = uiScheduler;
-        _messenger.Register(this, MessageIdentity.Filter<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
+        _messenger.Register(this, IdentityFilter.For<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
         _attached = true;
     }
 

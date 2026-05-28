@@ -5,7 +5,7 @@ public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehaviorBase
     protected override void OnLoaded(FileEntryTableContext context) =>
         context.Messenger.Register(
             this,
-            MessageIdentity.Filter<FileTableColumnLayoutMessage>(context.View.Identity, OnColumnLayoutMessage));
+            IdentityFilter.For<FileTableColumnLayoutMessage>(context.View.Identity, OnColumnLayoutMessage));
 
     private void OnColumnLayoutMessage(FileTableColumnLayoutMessage message)
     {

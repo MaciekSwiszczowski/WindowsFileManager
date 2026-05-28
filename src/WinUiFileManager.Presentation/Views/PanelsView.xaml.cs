@@ -7,7 +7,6 @@ public sealed partial class PanelsView
         InitializeComponent();
 
         PaneGridSplitter.AddHandler(PointerPressedEvent, new PointerEventHandler(OnPaneSplitterPointerPressed), handledEventsToo: true);
-        Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
 
@@ -34,10 +33,6 @@ public sealed partial class PanelsView
         RightPanel.Initialize(ViewModel.RightPanel);
 
         ViewModel.PropertyChanged += OnPanelsPropertyChanged;
-    }
-
-    private void OnLoaded(object sender, RoutedEventArgs e)
-    {
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)

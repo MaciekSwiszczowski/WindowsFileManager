@@ -19,10 +19,10 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     {
         context.Messenger.Register(
             this,
-            MessageIdentity.Filter<FileTableSelectedItemsRequestMessage>(context.View.Identity, OnSelectedItemsRequested));
+            IdentityFilter.For<FileTableSelectedItemsRequestMessage>(context.View.Identity, OnSelectedItemsRequested));
         context.Messenger.Register(
             this,
-            MessageIdentity.Filter<FileTableSelectedEntriesRequestMessage>(context.View.Identity, OnSelectedEntriesRequested));
+            IdentityFilter.For<FileTableSelectedEntriesRequestMessage>(context.View.Identity, OnSelectedEntriesRequested));
         context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
         context.Table.SelectionChanged += EntryTable_SelectionChanged;
     }

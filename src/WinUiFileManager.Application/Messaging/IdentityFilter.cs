@@ -2,9 +2,9 @@ using CommunityToolkit.Mvvm.Messaging;
 
 namespace WinUiFileManager.Application.Messaging;
 
-public static class MessageIdentity
+public static class IdentityFilter
 {
-    public static MessageHandler<object, TMessage> Filter<TMessage>(
+    public static MessageHandler<object, TMessage> For<TMessage>(
         Identity identity,
         Action<TMessage> handler)
         where TMessage : class, IIdentityMessage

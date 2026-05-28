@@ -11,7 +11,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     protected override void OnLoaded(FileEntryTableContext context) =>
         context.Messenger.Register(
             this,
-            MessageIdentity.Filter<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
+            IdentityFilter.For<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
 
     protected override void OnUnloaded(FileEntryTableContext context)
     {

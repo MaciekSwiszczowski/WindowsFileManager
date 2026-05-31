@@ -80,6 +80,7 @@ public sealed class ViewModelTestBuilder
                 inspectorCopy,
                 inspectorSearch,
                 inspectorAttributes,
+                [new InspectorStreamsDeferredFieldLoader(messenger)],
                 displayStringCache),
             appInitialization,
             new PanelsViewModel(activePanels, messenger, panelFactory),

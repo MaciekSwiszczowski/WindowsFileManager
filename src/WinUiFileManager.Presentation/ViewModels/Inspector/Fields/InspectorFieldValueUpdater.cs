@@ -8,7 +8,6 @@ internal sealed class InspectorFieldValueUpdater
 {
     private readonly FileSizeToFriendlyStringConverter _fileSizeConverter = new();
     private readonly FileEntryDisplayStringCache _displayStringCache;
-    private readonly IReadOnlyList<InspectorCategoryViewModel> _categories;
     private readonly IReadOnlyDictionary<string, InspectorFieldViewModelBase> _fields;
 
     public InspectorFieldValueUpdater(
@@ -16,7 +15,6 @@ internal sealed class InspectorFieldValueUpdater
         FileEntryDisplayStringCache displayStringCache)
     {
         _displayStringCache = displayStringCache;
-        _categories = categories;
         _fields = categories
             .SelectMany(static category => category.Fields)
             .ToDictionary(static field => field.Key, StringComparer.OrdinalIgnoreCase);
@@ -28,7 +26,6 @@ internal sealed class InspectorFieldValueUpdater
 
         if (selectedItem.Model is not { } model)
         {
-            RefreshCategoryVisibility();
             return;
         }
 
@@ -42,8 +39,20 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Created", FormatLocalTime(model.CreationTime));
         SetValue("Modified", FormatLocalTime(model.LastWriteTime));
         SetAttributeFlags(model.Attributes);
+    }
 
-        RefreshCategoryVisibility();
+    public void ShowStreamsDiagnostics(FileStreamDiagnosticsDetails diagnostics)
+    {
+        var streamCount = string.IsNullOrWhiteSpace(diagnostics.AlternateStreamCount)
+            ? "0"
+            : diagnostics.AlternateStreamCount;
+
+        SetValue("Alternate Stream Count", streamCount);
+        SetValue(
+            "Alternate Streams",
+            diagnostics.AlternateStreams.Count > 0
+                ? string.Join(Environment.NewLine, diagnostics.AlternateStreams)
+                : "No alternate streams");
     }
 
     private void ClearValues()
@@ -76,14 +85,6 @@ internal sealed class InspectorFieldValueUpdater
         if (_fields.TryGetValue(key, out var field))
         {
             field.Value = value;
-        }
-    }
-
-    private void RefreshCategoryVisibility()
-    {
-        foreach (var category in _categories)
-        {
-            category.RefreshVisibility();
         }
     }
 

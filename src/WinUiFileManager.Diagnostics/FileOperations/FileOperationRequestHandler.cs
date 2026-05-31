@@ -97,7 +97,7 @@ public sealed class FileOperationRequestHandler : IDisposable
                 message.Path,
                 message.Path));
 
-        _ = request.HasReceivedResponse && request.Response;
+        _ = request is { HasReceivedResponse: true, Response: true };
     }
 
     private static void SetAttributeFlag(SetFileAttributeFlagRequestedMessage message)

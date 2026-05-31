@@ -6,6 +6,7 @@ using Application.Messages.RequestMessages.Navigation;
 using Application.Navigation;
 using Application.Startup;
 using Diagnostics.FileOperations;
+using Diagnostics.Inspector;
 using Infrastructure.Services;
 using Presentation.ViewModels;
 
@@ -23,6 +24,7 @@ public sealed class StartupChain
 {
     private readonly ActivePanelsService _activePanelsService;
     private readonly FileOperationRequestHandler _fileOperationRequestHandler;
+    private readonly InspectorStreamsDiagnosticsHandler _inspectorStreamsDiagnosticsHandler;
     private readonly IMessenger _messenger;
     private readonly PanelsViewModel _panels;
     private readonly PanelNavigationService _panelNavigationService;
@@ -34,6 +36,7 @@ public sealed class StartupChain
     public StartupChain(
         ActivePanelsService activePanelsService,
         FileOperationRequestHandler fileOperationRequestHandler,
+        InspectorStreamsDiagnosticsHandler inspectorStreamsDiagnosticsHandler,
         IMessenger messenger,
         PanelsViewModel panels,
         PanelNavigationService panelNavigationService,
@@ -44,6 +47,7 @@ public sealed class StartupChain
     {
         _activePanelsService = activePanelsService;
         _fileOperationRequestHandler = fileOperationRequestHandler;
+        _inspectorStreamsDiagnosticsHandler = inspectorStreamsDiagnosticsHandler;
         _messenger = messenger;
         _panels = panels;
         _panelNavigationService = panelNavigationService;
@@ -59,6 +63,7 @@ public sealed class StartupChain
 
         _activePanelsService.Initialize();
         _fileOperationRequestHandler.Initialize();
+        _inspectorStreamsDiagnosticsHandler.Initialize();
         _panelNavigationService.Initialize();
         _renameService.Initialize();
         _panels.Initialize();

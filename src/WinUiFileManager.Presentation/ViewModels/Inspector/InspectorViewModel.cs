@@ -15,6 +15,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private readonly IActivePanelsService _activePanelsService;
     private readonly InspectorFieldValueUpdater _fieldValueUpdater;
     private readonly InspectorAttributeToggleViewModel _attributeToggle;
+    private readonly IReadOnlyList<IInspectorDeferredFieldLoader> _deferredFieldLoaders;
     private int _selectedItemCount;
     private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
@@ -45,6 +46,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         InspectorCopyToClipboardButtonViewModel copyToClipboardButton,
         InspectorSearchViewModel search,
         InspectorAttributeToggleViewModel attributeToggle,
+        IEnumerable<IInspectorDeferredFieldLoader> deferredFieldLoaders,
         FileEntryDisplayStringCache displayStringCache)
     {
         _messenger = messenger;
@@ -56,10 +58,21 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         PropertiesButton = propertiesButton;
         CopyToClipboardButton = copyToClipboardButton;
         Search = search;
+        _deferredFieldLoaders = deferredFieldLoaders.ToList();
 
         CopyToClipboardButton.Initialize(() => Categories);
         Search.Initialize(Categories);
         _attributeToggle.Initialize(Categories);
+        foreach (var loader in _deferredFieldLoaders)
+        {
+            if (loader is not IInspectorDeferredFieldLoaderInitializer initializer)
+            {
+                throw new InvalidOperationException($"{loader.GetType().Name} cannot be initialized.");
+            }
+
+            initializer.Initialize(_fieldValueUpdater);
+            _subscriptions.Add(loader);
+        }
 
         _subscriptions.Add(initialization
             .NonSingleSelectionObservable
@@ -105,6 +118,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
     {
+        CancelDeferredFieldLoads();
         PropertiesButton.SetSelectedItem(null);
         _attributeToggle.SetSelectedItem(null);
         SetSelectedItemCount(selectedItems.Count);
@@ -115,6 +129,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
+        CancelDeferredFieldLoads();
         PropertiesButton.SetSelectedItem(selectedItem.Model);
         _attributeToggle.SetSelectedItem(selectedItem.Model);
         SetSelectedItemCount(1);
@@ -125,6 +140,18 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 
     private void LoadDeferredSelection(SpecFileEntryViewModel selectedItem)
     {
+        foreach (var loader in _deferredFieldLoaders)
+        {
+            loader.Load(selectedItem);
+        }
+    }
+
+    private void CancelDeferredFieldLoads()
+    {
+        foreach (var loader in _deferredFieldLoaders)
+        {
+            loader.Cancel();
+        }
     }
 
     private void RefreshFromCurrentSelection()

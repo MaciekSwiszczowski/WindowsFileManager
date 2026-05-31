@@ -9,7 +9,7 @@ using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Infrastructure;
 
-public static class ContainerBuilderExtensions
+public static class InfrastructureContainerBuilderExtensions
 {
     public static ContainerBuilder AddInfrastructureServices(this ContainerBuilder builder)
     {

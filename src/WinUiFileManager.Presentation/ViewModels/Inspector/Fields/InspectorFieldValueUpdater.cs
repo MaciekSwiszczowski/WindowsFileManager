@@ -1,4 +1,3 @@
-using CommunityToolkit.WinUI.Converters;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
 
@@ -6,7 +5,6 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 internal sealed class InspectorFieldValueUpdater
 {
-    private readonly FileSizeToFriendlyStringConverter _fileSizeConverter = new();
     private readonly FileEntryDisplayStringCache _displayStringCache;
     private readonly IReadOnlyDictionary<string, InspectorFieldViewModelBase> _fields;
 
@@ -33,11 +31,11 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Full Path", model.FullPath.DisplayPath);
         SetValue("Type", model.Kind == ItemKind.Directory ? "Folder" : "File");
         SetValue("Extension", _displayStringCache.GetExtension(model.Extension));
-        SetValue("Size", ConvertSize(model));
+        SetValue("Size", InspectorFieldFormatting.Size(model));
         SetValue("Attributes", _displayStringCache.GetInspectorAttributes(model.Attributes));
 
-        SetValue("Created", FormatLocalTime(model.CreationTime));
-        SetValue("Modified", FormatLocalTime(model.LastWriteTime));
+        SetValue("Created", InspectorFieldFormatting.LocalTime(model.CreationTime));
+        SetValue("Modified", InspectorFieldFormatting.LocalTime(model.LastWriteTime));
         SetAttributeFlags(model.Attributes);
     }
 
@@ -53,6 +51,39 @@ internal sealed class InspectorFieldValueUpdater
             diagnostics.AlternateStreams.Count > 0
                 ? string.Join(Environment.NewLine, diagnostics.AlternateStreams)
                 : "No alternate streams");
+    }
+
+    public void ShowIdentityDiagnostics(InspectorIdentityDiagnosticsDetails diagnostics)
+    {
+        SetValue("Created", InspectorFieldFormatting.UtcAsLocal(diagnostics.NtfsMetadata.CreationTimeUtc));
+        SetValue("Accessed", InspectorFieldFormatting.UtcAsLocal(diagnostics.NtfsMetadata.LastAccessTimeUtc));
+        SetValue("Modified", InspectorFieldFormatting.UtcAsLocal(diagnostics.NtfsMetadata.LastWriteTimeUtc));
+        SetValue("MFT Changed", InspectorFieldFormatting.UtcAsLocal(diagnostics.NtfsMetadata.ChangeTimeUtc));
+
+        SetValue("File ID", InspectorFieldFormatting.FileId(diagnostics.Identity.FileId));
+        SetValue("Volume Serial", diagnostics.Identity.VolumeSerial);
+        SetValue("File Index (64-bit)", diagnostics.Identity.LegacyFileIndex);
+        SetValue("Hard Link Count", diagnostics.Identity.HardLinkCount);
+        SetValue("Final Path", diagnostics.Identity.FinalPath);
+    }
+
+    public void ShowLockDiagnostics(FileLockDiagnostics diagnostics)
+    {
+        if (!InspectorFieldFormatting.HasPositiveLockEvidence(diagnostics))
+        {
+            SetValue("Is locked", "False");
+            SetValue("In Use", string.Empty);
+            SetValue("Locked By", string.Empty);
+            SetValue("Lock PIDs", string.Empty);
+            SetValue("Lock Services", string.Empty);
+            return;
+        }
+
+        SetValue("Is locked", "True");
+        SetValue("In Use", InspectorFieldFormatting.OptionalBoolean(diagnostics.InUse));
+        SetValue("Locked By", diagnostics.LockBy.Count == 0 ? string.Empty : string.Join(Environment.NewLine, diagnostics.LockBy));
+        SetValue("Lock PIDs", diagnostics.LockPids.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockPids));
+        SetValue("Lock Services", diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices));
     }
 
     public void SetLoading(IEnumerable<string> keys, bool isLoading)
@@ -83,12 +114,12 @@ internal sealed class InspectorFieldValueUpdater
 
     private void SetAttributeFlags(FileAttributes attributes)
     {
-        SetValue("Read Only", FormatFlag(attributes.HasFlag(FileAttributes.ReadOnly)));
-        SetValue("Hidden", FormatFlag(attributes.HasFlag(FileAttributes.Hidden)));
-        SetValue("Archive", FormatFlag(attributes.HasFlag(FileAttributes.Archive)));
-        SetValue("Encrypted", FormatFlag(attributes.HasFlag(FileAttributes.Encrypted)));
-        SetValue("Compressed", FormatFlag(attributes.HasFlag(FileAttributes.Compressed)));
-        SetValue("Reparse Point", FormatFlag(attributes.HasFlag(FileAttributes.ReparsePoint)));
+        SetValue("Read Only", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.ReadOnly)));
+        SetValue("Hidden", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.Hidden)));
+        SetValue("Archive", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.Archive)));
+        SetValue("Encrypted", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.Encrypted)));
+        SetValue("Compressed", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.Compressed)));
+        SetValue("Reparse Point", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.ReparsePoint)));
     }
 
     private void SetValue(string key, string value)
@@ -99,21 +130,4 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
-    private static string FormatLocalTime(DateTime value) =>
-        value == DateTime.MinValue
-            ? string.Empty
-            : value.ToString("yyyy-MM-dd HH:mm:ss");
-
-    private static string FormatFlag(bool value) => value ? "Yes" : "No";
-
-    private string ConvertSize(FileSystemEntryModel model)
-    {
-        if (model.Size is not { } size)
-        {
-            return string.Empty;
-        }
-
-        return _fileSizeConverter.Convert(size, typeof(string), string.Empty, string.Empty) as string
-            ?? string.Empty;
-    }
 }

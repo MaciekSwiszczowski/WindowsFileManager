@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 namespace WinUiFileManager.Interop.Types;
 
 [StructLayout(LayoutKind.Sequential)]
-internal readonly struct LegacyFileIndexInfo
+public readonly struct LegacyFileIndexInfo
 {
     public uint FileIndexLow { get; }
 

@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Interop.Adapters;
 
-internal interface IRestartManagerInterop
+public interface IRestartManagerInterop
 {
     int StartSession(out uint sessionHandle);
 

@@ -3,7 +3,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;
 
-internal interface IFileSystemMetadataInterop
+public interface IFileSystemMetadataInterop
 {
     public SafeFileHandle OpenForMetadataRead(string path, bool treatAsDirectory);
 

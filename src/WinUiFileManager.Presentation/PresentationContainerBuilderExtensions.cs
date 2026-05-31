@@ -38,6 +38,8 @@ public static class PresentationContainerBuilderExtensions
         builder.RegisterType<InspectorCopyToClipboardButtonViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorSearchViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorAttributeToggleViewModel>().InstancePerDependency();
+        builder.RegisterType<InspectorIdentityDeferredFieldLoader>().As<IInspectorDeferredFieldLoader>().InstancePerDependency();
+        builder.RegisterType<InspectorLocksDeferredFieldLoader>().As<IInspectorDeferredFieldLoader>().InstancePerDependency();
         builder.RegisterType<InspectorStreamsDeferredFieldLoader>().As<IInspectorDeferredFieldLoader>().InstancePerDependency();
         builder.RegisterType<InspectorCategoryViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorBasicFieldViewModel>().InstancePerDependency();

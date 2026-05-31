@@ -3,19 +3,19 @@ using System.Runtime.InteropServices;
 namespace WinUiFileManager.Interop.Types;
 
 [StructLayout(LayoutKind.Sequential)]
-internal readonly struct FileBasicInteropInfo
+public readonly struct FileBasicInteropInfo
 {
-    internal uint FileAttributes { get; }
+    public uint FileAttributes { get; }
 
-    internal long CreationTime { get; }
+    public long CreationTime { get; }
 
-    internal long LastAccessTime { get; }
+    public long LastAccessTime { get; }
 
-    internal long LastWriteTime { get; }
+    public long LastWriteTime { get; }
 
-    internal long ChangeTime { get; }
+    public long ChangeTime { get; }
 
-    internal FileBasicInteropInfo(
+    public FileBasicInteropInfo(
         uint fileAttributes,
         long creationTime,
         long lastAccessTime,

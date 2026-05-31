@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Interop.Adapters;
 
-internal sealed record RestartManagerProcessInfo(
+public sealed record RestartManagerProcessInfo(
     int ProcessId,
     string AppName,
     string ServiceShortName);

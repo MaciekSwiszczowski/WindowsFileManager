@@ -59,7 +59,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
 
     protected abstract Task<TDiagnostics> LoadDiagnosticsAsync(NormalizedPath path, CancellationToken cancellationToken);
 
-    protected abstract void Apply(TDiagnostics diagnostics);
+    protected abstract Task ApplyAsync(TDiagnostics diagnostics);
 
     private async Task LoadAsync(NormalizedPath path, long version, CancellationTokenSource cancellation)
     {
@@ -68,7 +68,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
             var diagnostics = await LoadDiagnosticsAsync(path, cancellation.Token);
             if (CanApply(version, cancellation.Token))
             {
-                Apply(diagnostics);
+                await ApplyAsync(diagnostics);
             }
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)

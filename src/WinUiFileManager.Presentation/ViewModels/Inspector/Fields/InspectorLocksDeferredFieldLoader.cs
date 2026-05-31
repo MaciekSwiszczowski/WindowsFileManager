@@ -32,6 +32,9 @@ internal sealed class InspectorLocksDeferredFieldLoader : InspectorDeferredField
             : FileLockDiagnostics.None;
     }
 
-    protected override void Apply(FileLockDiagnostics diagnostics) =>
+    protected override Task ApplyAsync(FileLockDiagnostics diagnostics)
+    {
         FieldValueUpdater.ShowLockDiagnostics(diagnostics);
+        return Task.CompletedTask;
+    }
 }

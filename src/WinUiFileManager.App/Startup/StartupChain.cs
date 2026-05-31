@@ -24,11 +24,13 @@ public sealed class StartupChain
 {
     private readonly ActivePanelsService _activePanelsService;
     private readonly FileOperationRequestHandler _fileOperationRequestHandler;
+    private readonly InspectorCloudDiagnosticsHandler _inspectorCloudDiagnosticsHandler;
     private readonly InspectorIdentityDiagnosticsHandler _inspectorIdentityDiagnosticsHandler;
     private readonly InspectorLinksDiagnosticsHandler _inspectorLinksDiagnosticsHandler;
     private readonly InspectorLocksDiagnosticsHandler _inspectorLocksDiagnosticsHandler;
     private readonly InspectorSecurityDiagnosticsHandler _inspectorSecurityDiagnosticsHandler;
     private readonly InspectorStreamsDiagnosticsHandler _inspectorStreamsDiagnosticsHandler;
+    private readonly InspectorThumbnailDiagnosticsHandler _inspectorThumbnailDiagnosticsHandler;
     private readonly IMessenger _messenger;
     private readonly PanelsViewModel _panels;
     private readonly PanelNavigationService _panelNavigationService;
@@ -40,11 +42,13 @@ public sealed class StartupChain
     public StartupChain(
         ActivePanelsService activePanelsService,
         FileOperationRequestHandler fileOperationRequestHandler,
+        InspectorCloudDiagnosticsHandler inspectorCloudDiagnosticsHandler,
         InspectorIdentityDiagnosticsHandler inspectorIdentityDiagnosticsHandler,
         InspectorLinksDiagnosticsHandler inspectorLinksDiagnosticsHandler,
         InspectorLocksDiagnosticsHandler inspectorLocksDiagnosticsHandler,
         InspectorSecurityDiagnosticsHandler inspectorSecurityDiagnosticsHandler,
         InspectorStreamsDiagnosticsHandler inspectorStreamsDiagnosticsHandler,
+        InspectorThumbnailDiagnosticsHandler inspectorThumbnailDiagnosticsHandler,
         IMessenger messenger,
         PanelsViewModel panels,
         PanelNavigationService panelNavigationService,
@@ -55,11 +59,13 @@ public sealed class StartupChain
     {
         _activePanelsService = activePanelsService;
         _fileOperationRequestHandler = fileOperationRequestHandler;
+        _inspectorCloudDiagnosticsHandler = inspectorCloudDiagnosticsHandler;
         _inspectorIdentityDiagnosticsHandler = inspectorIdentityDiagnosticsHandler;
         _inspectorLinksDiagnosticsHandler = inspectorLinksDiagnosticsHandler;
         _inspectorLocksDiagnosticsHandler = inspectorLocksDiagnosticsHandler;
         _inspectorSecurityDiagnosticsHandler = inspectorSecurityDiagnosticsHandler;
         _inspectorStreamsDiagnosticsHandler = inspectorStreamsDiagnosticsHandler;
+        _inspectorThumbnailDiagnosticsHandler = inspectorThumbnailDiagnosticsHandler;
         _messenger = messenger;
         _panels = panels;
         _panelNavigationService = panelNavigationService;
@@ -75,11 +81,13 @@ public sealed class StartupChain
 
         _activePanelsService.Initialize();
         _fileOperationRequestHandler.Initialize();
+        _inspectorCloudDiagnosticsHandler.Initialize();
         _inspectorIdentityDiagnosticsHandler.Initialize();
         _inspectorLinksDiagnosticsHandler.Initialize();
         _inspectorLocksDiagnosticsHandler.Initialize();
         _inspectorSecurityDiagnosticsHandler.Initialize();
         _inspectorStreamsDiagnosticsHandler.Initialize();
+        _inspectorThumbnailDiagnosticsHandler.Initialize();
         _panelNavigationService.Initialize();
         _renameService.Initialize();
         _panels.Initialize();

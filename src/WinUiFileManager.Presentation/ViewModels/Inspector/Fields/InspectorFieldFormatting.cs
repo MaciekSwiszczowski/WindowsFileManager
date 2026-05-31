@@ -40,6 +40,9 @@ internal static class InspectorFieldFormatting
         || !string.IsNullOrWhiteSpace(diagnostics.ReparseData)
         || !string.IsNullOrWhiteSpace(diagnostics.ObjectId);
 
+    public static bool HasThumbnail(FileThumbnailDiagnosticsDetails diagnostics) =>
+        diagnostics.ThumbnailBytes is { Length: > 0 };
+
     public static string FileId(NtfsFileId fileId) =>
         fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
 

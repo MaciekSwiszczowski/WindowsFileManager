@@ -115,6 +115,39 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Protected", InspectorFieldFormatting.OptionalBoolean(diagnostics.Protected));
     }
 
+    public void ShowCloudDiagnostics(FileCloudDiagnosticsDetails diagnostics)
+    {
+        if (!diagnostics.IsCloudControlled)
+        {
+            SetValue("Status", "Not cloud controlled");
+            SetValue("Provider", string.Empty);
+            SetValue("Sync Root", string.Empty);
+            SetValue("Root ID", string.Empty);
+            SetValue("Provider ID", string.Empty);
+            SetValue("Available", string.Empty);
+            SetValue("Transfer", string.Empty);
+            SetValue("Custom", string.Empty);
+            return;
+        }
+
+        SetValue("Status", diagnostics.Status);
+        SetValue("Provider", diagnostics.Provider);
+        SetValue("Sync Root", diagnostics.SyncRoot);
+        SetValue("Root ID", diagnostics.SyncRootId);
+        SetValue("Provider ID", diagnostics.ProviderId);
+        SetValue("Available", diagnostics.Available);
+        SetValue("Transfer", diagnostics.Transfer);
+        SetValue("Custom", diagnostics.Custom);
+    }
+
+    public void ShowThumbnailDiagnostics(FileThumbnailDiagnosticsDetails diagnostics, ImageSource? thumbnailSource)
+    {
+        SetThumbnailSource(thumbnailSource);
+        SetValue("Thumbnail", thumbnailSource is null ? string.Empty : "Preview");
+        SetValue("Has Thumbnail", InspectorFieldFormatting.HasThumbnail(diagnostics) ? "Yes" : "No");
+        SetValue("Association", diagnostics.ProgId);
+    }
+
     public void SetLoading(IEnumerable<string> keys, bool isLoading)
     {
         foreach (var key in keys)
@@ -159,4 +192,12 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
+    private void SetThumbnailSource(ImageSource? thumbnailSource)
+    {
+        if (_fields.TryGetValue("Thumbnail", out var field)
+            && field is InspectorThumbnailFieldViewModel thumbnailField)
+        {
+            thumbnailField.ThumbnailSource = thumbnailSource;
+        }
+    }
 }

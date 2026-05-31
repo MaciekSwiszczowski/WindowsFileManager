@@ -1,6 +1,6 @@
 namespace WinUiFileManager.Interop.Adapters;
 
-internal interface ICloudFilesInterop
+public interface ICloudFilesInterop
 {
     uint GetPlaceholderState(uint fileAttributes, uint reparseTag);
 }

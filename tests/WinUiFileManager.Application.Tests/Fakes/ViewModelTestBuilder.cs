@@ -81,11 +81,13 @@ public sealed class ViewModelTestBuilder
                 inspectorSearch,
                 inspectorAttributes,
                 [
+                    new InspectorCloudDeferredFieldLoader(messenger),
                     new InspectorIdentityDeferredFieldLoader(messenger),
                     new InspectorLinksDeferredFieldLoader(messenger),
                     new InspectorLocksDeferredFieldLoader(messenger),
                     new InspectorSecurityDeferredFieldLoader(messenger),
                     new InspectorStreamsDeferredFieldLoader(messenger),
+                    new InspectorThumbnailDeferredFieldLoader(messenger),
                 ],
                 displayStringCache),
             appInitialization,

@@ -27,6 +27,9 @@ internal sealed class InspectorStreamsDeferredFieldLoader : InspectorDeferredFie
             : FileStreamDiagnosticsDetails.Empty;
     }
 
-    protected override void Apply(FileStreamDiagnosticsDetails diagnostics) =>
+    protected override Task ApplyAsync(FileStreamDiagnosticsDetails diagnostics)
+    {
         FieldValueUpdater.ShowStreamsDiagnostics(diagnostics);
+        return Task.CompletedTask;
+    }
 }

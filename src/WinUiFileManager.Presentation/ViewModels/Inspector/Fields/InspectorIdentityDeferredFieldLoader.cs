@@ -36,6 +36,9 @@ internal sealed class InspectorIdentityDeferredFieldLoader : InspectorDeferredFi
             : InspectorIdentityDiagnosticsDetails.Empty;
     }
 
-    protected override void Apply(InspectorIdentityDiagnosticsDetails diagnostics) =>
+    protected override Task ApplyAsync(InspectorIdentityDiagnosticsDetails diagnostics)
+    {
         FieldValueUpdater.ShowIdentityDiagnostics(diagnostics);
+        return Task.CompletedTask;
+    }
 }

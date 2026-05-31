@@ -32,6 +32,9 @@ internal sealed class InspectorLinksDeferredFieldLoader : InspectorDeferredField
             : FileLinkDiagnosticsDetails.Empty;
     }
 
-    protected override void Apply(FileLinkDiagnosticsDetails diagnostics) =>
+    protected override Task ApplyAsync(FileLinkDiagnosticsDetails diagnostics)
+    {
         FieldValueUpdater.ShowLinkDiagnostics(diagnostics);
+        return Task.CompletedTask;
+    }
 }

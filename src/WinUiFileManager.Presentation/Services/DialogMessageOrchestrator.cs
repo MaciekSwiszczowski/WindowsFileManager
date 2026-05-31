@@ -4,10 +4,24 @@ using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.Services;
 
+/// <summary>
+/// Serialises incoming <see cref="ShowDialogMessage"/>s onto the UI thread and shows them one at a time,
+/// so two requests can never race to open overlapping <see cref="ContentDialog"/>s (WinUI throws if a
+/// second dialog opens while one is showing). Owned and (re)created by <see cref="DialogService"/>.
+/// </summary>
+/// <remarks>
+/// Built as a cold Rx pipeline: dialog messages are observed on a <see cref="DispatcherQueueScheduler"/>
+/// (UI thread, AGENTS.md §6) and processed with <c>Concat</c> so each dialog's task completes before the
+/// next begins (strict FIFO, no concurrency). Each request replies its own
+/// <see cref="TaskCompletionSource{T}"/> task back to the sender immediately, and the pipeline completes
+/// it with the dialog result. The single subscription is owned here and disposed in <see cref="Dispose"/>
+/// (AGENTS.md §5), which is what unsubscribes from the messenger observable.
+/// </remarks>
 internal sealed class DialogMessageOrchestrator : IDisposable
 {
     private readonly IDisposable _subscription;
 
+    /// <exception cref="ArgumentNullException">Thrown when any argument is null.</exception>
     public DialogMessageOrchestrator(
         UiDispatcherQueue dispatcherQueue,
         Func<ShowDialogMessage, Task<DialogResult>> showDialogAsync,
@@ -24,6 +38,7 @@ internal sealed class DialogMessageOrchestrator : IDisposable
             .CreateObservable<ShowDialogMessage>()
             .Select(QueuedDialogMessage.Create)
             .ObserveOn(scheduler)
+            // Concat (not Merge) guarantees strictly one dialog at a time.
             .Select(request => Observable.FromAsync(() => ProcessAsync(request, showDialogAsync)))
             .Concat()
             .Subscribe(
@@ -31,8 +46,11 @@ internal sealed class DialogMessageOrchestrator : IDisposable
                 ex => logger.LogError(ex, "Dialog message queue failed."));
     }
 
+    /// <summary>Disposes the messenger subscription, stopping further dialog processing.</summary>
     public void Dispose() => _subscription.Dispose();
 
+    /// <summary>Shows one queued dialog and completes its reply task with the result, mapping
+    /// cancellation to <see cref="DialogResult.Dismissed"/> and surfacing other failures via the task.</summary>
     private static async Task ProcessAsync(
         QueuedDialogMessage request,
         Func<ShowDialogMessage, Task<DialogResult>> showDialogAsync)
@@ -51,14 +69,21 @@ internal sealed class DialogMessageOrchestrator : IDisposable
         }
     }
 
+    /// <summary>
+    /// Wraps a <see cref="ShowDialogMessage"/> with the <see cref="TaskCompletionSource{T}"/> that backs
+    /// the reply task handed to the sender. The reply is wired up at construction (when the message is
+    /// first observed) so the sender can await the result before the dialog has even been shown.
+    /// </summary>
     private sealed class QueuedDialogMessage
     {
+        // RunContinuationsAsynchronously avoids resuming the awaiter inline on the UI thread under lock.
         private readonly TaskCompletionSource<DialogResult> _completion =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         private QueuedDialogMessage(ShowDialogMessage message)
         {
             Message = message;
+            // Hand the awaitable result back to the requester immediately; completed later by the queue.
             message.Reply(_completion.Task);
         }
 
@@ -66,8 +91,10 @@ internal sealed class DialogMessageOrchestrator : IDisposable
 
         public static QueuedDialogMessage Create(ShowDialogMessage message) => new(message);
 
+        /// <summary>Completes the reply task with the dialog outcome.</summary>
         public void Complete(DialogResult result) => _completion.TrySetResult(result);
 
+        /// <summary>Faults the reply task with an unexpected error.</summary>
         public void Fail(Exception exception) => _completion.TrySetException(exception);
     }
 }

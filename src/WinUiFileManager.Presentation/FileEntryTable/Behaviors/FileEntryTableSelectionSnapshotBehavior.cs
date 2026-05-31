@@ -5,20 +5,45 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 using Application.FileEntries;
 using Application.Messages.RequestMessages.FileOperations;
 
+/// <summary>
+/// Preserves selection and active-row state across a file operation (e.g. a rename) that destroys and
+/// re-creates the affected row. On request it snapshots whether the renamed file was selected/active,
+/// then watches the items source for the new name to reappear and restores that state on the new row.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Known scoping gap:</b> unlike the other pane behaviors, this one registers
+/// <see cref="FileTableSelectionSnapshotRequestMessage"/> <i>globally</i> (no
+/// <c>IdentityFilter</c>) — both panes receive every request. It self-filters inside
+/// <see cref="OnSnapshotRequested"/> by comparing <see cref="FileTableSelectionSnapshotRequestMessage.DirectoryPath"/>
+/// to the view's current folder, which is why it still behaves correctly, but this is inconsistent with
+/// the AGENTS.md §4 pane-scoping convention. Documented here intentionally; not changed.
+/// </para>
+/// <para>
+/// The watch is a Rx subscription stored in <see cref="_snapshotSubscription"/>; it self-terminates
+/// after <see cref="SnapshotTimeout"/> via <c>TakeUntil</c> and is also disposed in
+/// <see cref="OnUnloaded"/> so it never outlives the behavior (AGENTS.md §5).
+/// </para>
+/// </remarks>
 public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBehaviorBase
 {
+    // Upper bound on how long we wait for the renamed entry to reappear before giving up.
     private static readonly TimeSpan SnapshotTimeout = TimeSpan.FromSeconds(30);
     private IDisposable? _snapshotSubscription;
 
     protected override void OnLoaded(FileEntryTableContext context)
     {
+        // NOTE: registered globally (no IdentityFilter) — see the class remarks. Self-filtered by folder.
         context.Messenger.Register<FileTableSelectionSnapshotRequestMessage>(this, OnSnapshotRequested);
     }
 
+    // Dispose the Rx watch on detach; messenger unregistration is handled by the base class.
     protected override void OnUnloaded(FileEntryTableContext context) => ClearSnapshotSubscription();
 
     private void OnSnapshotRequested(object recipient, FileTableSelectionSnapshotRequestMessage message)
     {
+        // Self-filter: ignore requests for a folder this pane is not currently showing (this is what
+        // substitutes for the missing IdentityFilter — see class remarks).
         if (message.DirectoryPath != Context.View.CurrentFolder ||
             Context.View.ItemsSource is not { } itemsSource)
         {
@@ -28,10 +53,12 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         var snapshot = CreateSnapshot(Context, message);
         if (snapshot is null)
         {
+            // Nothing relevant was selected/active; tell the requester there is nothing to restore.
             message.TryReply(response: false);
             return;
         }
 
+        // Replace any in-flight watch before starting a new one so we never hold two subscriptions.
         ClearSnapshotSubscription();
         _snapshotSubscription = Observable
             .FromEventPattern<NotifyCollectionChangedEventArgs>(itemsSource, nameof(INotifyCollectionChanged.CollectionChanged))
@@ -102,6 +129,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         }
     }
 
+    /// <summary>Disposes and clears the active items-source watch; safe to call repeatedly.</summary>
     private void ClearSnapshotSubscription()
     {
         _snapshotSubscription?.Dispose();
@@ -118,5 +146,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 
     private static string GetFileName(NormalizedPath path) => Path.GetFileName(path.DisplayPath);
 
+    /// <summary>Captured selection/active state for a single renamed entry, plus the new file name to
+    /// watch for so the state can be re-applied to the recreated row.</summary>
     private sealed record SelectionSnapshot(NormalizedPath DirectoryPath, string NewName, bool WasSelected, bool WasActive);
 }

@@ -2,6 +2,10 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Streams category. Requests alternate-data-stream diagnostics via
+/// <see cref="InspectorStreamsDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// </summary>
 internal sealed class InspectorStreamsDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileStreamDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> StreamFieldKeys =

@@ -10,12 +10,27 @@ using FileAttributes = System.IO.FileAttributes;
 
 namespace WinUiFileManager.Diagnostics.Inspector;
 
+/// <summary>
+/// Diagnostics-layer handler that answers <see cref="InspectorCloudDiagnosticsRequestMessage"/> with a
+/// path's cloud/placeholder state: provider name, sync-root identity, pin/hydration status, availability,
+/// and sync/transfer states, by combining file attributes, the CldApi placeholder state, and WinRT
+/// <see cref="StorageProviderSyncRootManager"/> / Shell sync properties.
+/// </summary>
+/// <remarks>
+/// Lifetime: DI singleton; registers in <see cref="Initialize"/>, unregisters in <see cref="Dispose"/>,
+/// which is effectively unreachable because the container is never disposed (AGENTS.md §5).
+/// Threading: answered via <c>message.Reply(Task.Run(...))</c>, so <see cref="LoadAsync"/> runs off the UI
+/// thread and awaits the WinRT Storage APIs with <c>ConfigureAwait(false)</c> (AGENTS.md §6); these WinRT
+/// calls are usable off the UI/STA thread. The work is bounded by <see cref="LoadTimeout"/>.
+/// </remarks>
 public sealed class InspectorCloudDiagnosticsHandler : IDisposable
 {
+    // Cloud-files attribute flags not exposed by System.IO.FileAttributes (FILE_ATTRIBUTE_PINNED, etc.).
     private const FileAttributes FileAttributePinned = (FileAttributes)0x00080000;
     private const FileAttributes FileAttributeUnpinned = (FileAttributes)0x00100000;
     private const FileAttributes FileAttributeRecallOnOpen = (FileAttributes)0x00040000;
     private const FileAttributes FileAttributeRecallOnDataAccess = (FileAttributes)0x00400000;
+    // CF_PLACEHOLDER_STATE bit flags returned by CfGetPlaceholderStateFromAttributeTag.
     private const uint PlaceholderStateNone = 0x00000000;
     private const uint PlaceholderStateInSync = 0x00000008;
     private const uint PlaceholderStatePartial = 0x00000010;
@@ -39,12 +54,14 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         _logger = logger;
     }
 
+    /// <summary>Registers the request handler. Not idempotent — call exactly once (AGENTS.md §4).</summary>
     public void Initialize()
     {
         _messenger.Register<InspectorCloudDiagnosticsRequestMessage>(this,
             (_, message) => message.Reply(Task.Run(() => LoadAsync(message))));
     }
 
+    /// <summary>Unregisters from the messenger (idempotent). See type remarks: effectively never called.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -56,6 +73,15 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         _messenger.UnregisterAll(this);
     }
 
+    /// <summary>
+    /// Gathers cloud/placeholder diagnostics for the requested path from several sources and merges them.
+    /// </summary>
+    /// <param name="message">The request carrying the target path and cancellation token.</param>
+    /// <returns>
+    /// Cloud details when the path is cloud-controlled (has a sync root, a provider, or a placeholder
+    /// state); otherwise <see cref="FileCloudDiagnosticsDetails.None"/>. Also returns <c>None</c> on failure.
+    /// </returns>
+    /// <remarks>Thread-pool bound. Real cancellation is rethrown; other errors are logged and degraded to None.</remarks>
     private async Task<FileCloudDiagnosticsDetails> LoadAsync(InspectorCloudDiagnosticsRequestMessage message)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
@@ -97,6 +123,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
         catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
         {
+            // Rethrow only for genuine caller cancellation; timeout cancellation degrades to None below.
             throw;
         }
         catch (Exception ex)
@@ -106,6 +133,10 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Maps the file's reparse tag + attributes to a CldApi placeholder-state bitmask, or
+    /// <see cref="PlaceholderStateNone"/> when no reparse tag is present.
+    /// </summary>
     private uint TryGetPlaceholderState(SafeFileHandle handle, FileAttributes attributes)
     {
         if (!_fileSystemMetadataInterop.TryGetFileAttributeReparseTag(handle, out var reparseTag))
@@ -116,6 +147,14 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         return _cloudFilesInterop.GetPlaceholderState((uint)attributes, reparseTag);
     }
 
+    /// <summary>
+    /// Walks up from the path looking for a folder that belongs to a registered sync root, returning its
+    /// <see cref="StorageProviderSyncRootInfo"/> or null if none is found.
+    /// </summary>
+    /// <remarks>
+    /// The sync root is usually registered on an ancestor folder, not the file itself, so this climbs the
+    /// directory chain. Each failed probe simply moves one level up; exhausting the chain yields null.
+    /// </remarks>
     private static async Task<StorageProviderSyncRootInfo?> TryGetSyncRootInfoAsync(string path)
     {
         var folderPath = Directory.Exists(path)
@@ -131,6 +170,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
             }
             catch
             {
+                // Not a sync root (or inaccessible): try the parent directory.
                 folderPath = Path.GetDirectoryName(folderPath);
             }
         }
@@ -138,6 +178,11 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         return null;
     }
 
+    /// <summary>
+    /// Opens the path as a WinRT <see cref="StorageFile"/> or <see cref="StorageFolder"/>, returning null
+    /// if it is neither or cannot be opened.
+    /// </summary>
+    /// <remarks>Best-effort: failures are swallowed; the caller treats null as "no cloud info".</remarks>
     private static async Task<IStorageItem?> TryGetStorageItemAsync(string path)
     {
         try
@@ -159,6 +204,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         return null;
     }
 
+    /// <summary>Returns the cloud provider's display name for the item, or empty if unavailable.</summary>
     private static string TryGetProviderDisplayName(IStorageItem? storageItem)
     {
         try
@@ -176,6 +222,8 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
     }
 
+    /// <summary>Reports whether a cloud file is locally available ("Yes"/"No"), or empty for folders/unknown.</summary>
+    /// <param name="cancellationToken">Honored before the (potentially blocking) availability probe.</param>
     private static string TryGetAvailability(IStorageItem? storageItem, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -192,6 +240,10 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Reads the Shell sync properties (<c>System.Sync.State</c>, <c>System.SyncTransferStatus</c>,
+    /// <c>System.Sync.Status</c>) and formats them, returning empties when unavailable.
+    /// </summary>
     private static async Task<(string SyncState, string TransferState, string CustomStatus)> TryGetCloudPropertyValuesAsync(IStorageItem? storageItem)
     {
         if (storageItem is null)
@@ -237,6 +289,15 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Composes a human-readable, comma-separated status from attributes, placeholder state, and the Shell
+    /// sync/transfer/custom values (e.g. "Pinned, Hydrated, Synced").
+    /// </summary>
+    /// <remarks>
+    /// Hydration is inferred from offline/recall attributes and the partial-placeholder bit; "Synced" is
+    /// derived from either the in-sync placeholder bit or the Shell sync state. Labels are de-duplicated
+    /// case-insensitively because the same state can be implied by more than one source.
+    /// </remarks>
     private static string BuildCloudStatus(
         FileAttributes attributes,
         uint placeholderState,
@@ -295,6 +356,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         return string.Join(", ", labels.Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
+    /// <summary>Maps the numeric <c>System.Sync.State</c> value to a label (empty if unrecognized).</summary>
     private static string TryFormatSyncState(object? rawValue)
     {
         return TryConvertToUInt32(rawValue) switch
@@ -309,6 +371,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         };
     }
 
+    /// <summary>Decodes the <c>System.SyncTransferStatus</c> bit flags into a comma-separated label list.</summary>
     private static string TryFormatTransferState(object? rawValue)
     {
         var value = TryConvertToUInt32(rawValue);
@@ -356,6 +419,11 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         return string.Join(", ", labels);
     }
 
+    /// <summary>
+    /// Coerces a boxed Shell property value (various integer types or a numeric string) to
+    /// <see cref="uint"/>, returning null when it cannot be represented.
+    /// </summary>
+    /// <remarks>Property values arrive boxed with a provider-dependent runtime type, hence the broad switch.</remarks>
     private static uint? TryConvertToUInt32(object? rawValue)
     {
         try

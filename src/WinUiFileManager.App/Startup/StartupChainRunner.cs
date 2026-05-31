@@ -23,6 +23,17 @@ public sealed class StartupChainRunner
         _logger = logger;
     }
 
+    /// <summary>
+    /// Schedules the startup chain to run once on the thread pool. Returns immediately.
+    /// </summary>
+    /// <remarks>
+    /// Called from the UI launch path, so it must not block. The <see cref="_started"/> guard makes this
+    /// idempotent — repeated calls are no-ops, which matters because <see cref="StartupChain"/>'s own
+    /// <c>Initialize()</c> calls are not idempotent and must run exactly once (AGENTS.md §4).
+    /// The <see cref="Task.Run(System.Action)"/> result is intentionally discarded (fire-and-forget);
+    /// failures are not surfaced to the caller but are caught and logged in <see cref="RunAsync"/>.
+    /// This field is only touched on the UI thread, so no synchronization is needed.
+    /// </remarks>
     public void Start()
     {
         if (_started)
@@ -34,6 +45,15 @@ public sealed class StartupChainRunner
         _ = Task.Run(RunAsync);
     }
 
+    /// <summary>
+    /// Resolves a fresh <see cref="StartupChain"/> and awaits it, logging any failure.
+    /// </summary>
+    /// <remarks>
+    /// Runs on a thread-pool thread. The top-level <c>try/catch</c> is mandatory: this task is not
+    /// awaited by anyone, so an unobserved exception would otherwise be swallowed silently (or crash on
+    /// finalization). The chain is obtained via a factory so a new instance is built at start time
+    /// rather than at runner-construction time.
+    /// </remarks>
     private async Task RunAsync()
     {
         try

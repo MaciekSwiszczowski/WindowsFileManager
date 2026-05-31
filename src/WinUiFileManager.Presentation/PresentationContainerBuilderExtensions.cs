@@ -9,18 +9,34 @@ using WinUiFileManager.Presentation.ViewModels.Panels;
 
 namespace WinUiFileManager.Presentation;
 
+/// <summary>
+/// Autofac registration extensions for the Presentation layer: registers the file-table services/data
+/// sources and all view models with their intended lifetimes. Called from the app composition root
+/// (AGENTS.md §1 — the <c>App</c> project owns the container; Presentation only contributes registrations).
+/// </summary>
+/// <remarks>
+/// Lifetime choices matter (AGENTS.md §5): the display-string cache is the shared process-lifetime
+/// singleton; the row reader/scanner are stateless singletons; the per-folder
+/// <see cref="FileEntryTableDataSource"/> and the view models are <c>InstancePerDependency</c> so each
+/// pane/window gets its own disposable instance whose teardown is the owner's responsibility.
+/// </remarks>
 public static class PresentationContainerBuilderExtensions
 {
+    /// <summary>Registers all Presentation-layer services and view models into the container.</summary>
     public static void AddPresentationServices(this ContainerBuilder builder)
     {
         builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
         builder.RegisterType<FileEntryRowFactory>().SingleInstance();
+        // Per-dependency: each folder/pane gets its own disposable data source pipeline.
         builder.RegisterType<FileEntryTableDataSource>().InstancePerDependency();
         builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
         builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
         builder.AddPresentationViewModels();
     }
 
+    /// <summary>Registers the Presentation view models. Inspector deferred-field loaders are all
+    /// registered against <see cref="IInspectorDeferredFieldLoader"/> so the inspector can resolve them
+    /// as a set.</summary>
     private static void AddPresentationViewModels(this ContainerBuilder builder)
     {
         builder.RegisterType<AppInitializationViewModel>().SingleInstance();

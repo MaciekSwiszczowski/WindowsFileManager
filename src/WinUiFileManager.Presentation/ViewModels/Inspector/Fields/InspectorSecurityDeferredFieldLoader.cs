@@ -2,6 +2,10 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Security category. Requests security-descriptor diagnostics via
+/// <see cref="InspectorSecurityDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// </summary>
 internal sealed class InspectorSecurityDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileSecurityDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> SecurityFieldKeys =

@@ -2,6 +2,10 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Locks category. Requests file-lock / in-use diagnostics via
+/// <see cref="InspectorLocksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// </summary>
 internal sealed class InspectorLocksDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileLockDiagnostics>
 {
     private static readonly IReadOnlyList<string> LockFieldKeys =

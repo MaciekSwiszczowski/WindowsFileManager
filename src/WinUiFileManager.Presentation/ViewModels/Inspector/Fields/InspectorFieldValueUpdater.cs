@@ -3,11 +3,21 @@ using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Writes diagnostics values into the inspector field view models. Builds a key-&gt;field lookup once from the
+/// category tree, then exposes typed <c>Show*Diagnostics</c> methods that the inspector and deferred loaders call
+/// to populate fields. The single owner of how each diagnostics record maps onto field <c>Key</c>s.
+/// </summary>
+/// <remarks>
+/// All writes here mutate observable field view models, so callers must invoke these on the UI thread. Diagnostics
+/// with "no evidence" are normalized to friendly placeholder text (e.g. "No alternate streams") rather than blanks.
+/// </remarks>
 internal sealed class InspectorFieldValueUpdater
 {
     private readonly FileEntryDisplayStringCache _displayStringCache;
     private readonly IReadOnlyDictionary<string, InspectorFieldViewModelBase> _fields;
 
+    /// <summary>Flattens all category fields into a case-insensitive key lookup used by <c>SetValue</c>.</summary>
     public InspectorFieldValueUpdater(
         IReadOnlyList<InspectorCategoryViewModel> categories,
         FileEntryDisplayStringCache displayStringCache)
@@ -18,6 +28,10 @@ internal sealed class InspectorFieldValueUpdater
             .ToDictionary(static field => field.Key, StringComparer.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Resets all fields and fills the synchronously-available basics (name, path, type, size, attributes, and the
+    /// fast NTFS timestamps) for the newly selected item. Parent-entry rows (null model) just clear the fields.
+    /// </summary>
     public void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
         ClearValues();
@@ -39,6 +53,7 @@ internal sealed class InspectorFieldValueUpdater
         SetAttributeFlags(model.Attributes);
     }
 
+    /// <summary>Populates the Streams category from alternate-data-stream diagnostics.</summary>
     public void ShowStreamsDiagnostics(FileStreamDiagnosticsDetails diagnostics)
     {
         var streamCount = string.IsNullOrWhiteSpace(diagnostics.AlternateStreamCount)
@@ -53,6 +68,7 @@ internal sealed class InspectorFieldValueUpdater
                 : "No alternate streams");
     }
 
+    /// <summary>Populates the Ids and (UTC-as-local) NTFS timestamp fields from identity diagnostics, overwriting the fast timestamps with authoritative NTFS values.</summary>
     public void ShowIdentityDiagnostics(InspectorIdentityDiagnosticsDetails diagnostics)
     {
         SetValue("Created", InspectorFieldFormatting.UtcAsLocal(diagnostics.NtfsMetadata.CreationTimeUtc));
@@ -67,6 +83,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Final Path", diagnostics.Identity.FinalPath);
     }
 
+    /// <summary>Populates the Locks category; when there is no positive lock evidence, marks "Is locked" False and blanks the detail fields.</summary>
     public void ShowLockDiagnostics(FileLockDiagnostics diagnostics)
     {
         if (!InspectorFieldFormatting.HasPositiveLockEvidence(diagnostics))
@@ -86,6 +103,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Lock Services", diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices));
     }
 
+    /// <summary>Populates the Links category; shows a "No link or reparse data" placeholder when no link evidence is present.</summary>
     public void ShowLinkDiagnostics(FileLinkDiagnosticsDetails diagnostics)
     {
         if (!InspectorFieldFormatting.HasLinkEvidence(diagnostics))
@@ -105,6 +123,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Object ID", diagnostics.ObjectId);
     }
 
+    /// <summary>Populates the Security category (owner/group, DACL/SACL summaries, inherited/protected flags).</summary>
     public void ShowSecurityDiagnostics(FileSecurityDiagnosticsDetails diagnostics)
     {
         SetValue("Owner", diagnostics.Owner);
@@ -115,6 +134,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Protected", InspectorFieldFormatting.OptionalBoolean(diagnostics.Protected));
     }
 
+    /// <summary>Populates the Cloud category; shows "Not cloud controlled" and blanks the rest when the item is not cloud-managed.</summary>
     public void ShowCloudDiagnostics(FileCloudDiagnosticsDetails diagnostics)
     {
         if (!diagnostics.IsCloudControlled)
@@ -140,6 +160,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Custom", diagnostics.Custom);
     }
 
+    /// <summary>Populates the Thumbnails category with the decoded image (built off-UI by the loader) plus availability/association text.</summary>
     public void ShowThumbnailDiagnostics(FileThumbnailDiagnosticsDetails diagnostics, ImageSource? thumbnailSource)
     {
         SetThumbnailSource(thumbnailSource);
@@ -148,6 +169,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Association", diagnostics.ProgId);
     }
 
+    /// <summary>Sets the loading flag on the fields addressed by <paramref name="keys"/>; unknown keys are ignored.</summary>
     public void SetLoading(IEnumerable<string> keys, bool isLoading)
     {
         foreach (var key in keys)
@@ -159,6 +181,7 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
+    /// <summary>Clears every field back to its empty/visible/not-loading default (and nulls any thumbnail) before a new selection is shown.</summary>
     private void ClearValues()
     {
         foreach (var field in _fields.Values)
@@ -174,6 +197,7 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
+    /// <summary>Sets the six attribute fields (incl. the writable toggles) from the model's <see cref="FileAttributes"/>.</summary>
     private void SetAttributeFlags(FileAttributes attributes)
     {
         SetValue("Read Only", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.ReadOnly)));
@@ -184,6 +208,7 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Reparse Point", InspectorFieldFormatting.Flag(attributes.HasFlag(FileAttributes.ReparsePoint)));
     }
 
+    /// <summary>Sets a field's value by key; no-op when the key is not present in the field set.</summary>
     private void SetValue(string key, string value)
     {
         if (_fields.TryGetValue(key, out var field))
@@ -192,6 +217,7 @@ internal sealed class InspectorFieldValueUpdater
         }
     }
 
+    /// <summary>Assigns the thumbnail image to the "Thumbnail" field when it is a thumbnail field.</summary>
     private void SetThumbnailSource(ImageSource? thumbnailSource)
     {
         if (_fields.TryGetValue("Thumbnail", out var field)

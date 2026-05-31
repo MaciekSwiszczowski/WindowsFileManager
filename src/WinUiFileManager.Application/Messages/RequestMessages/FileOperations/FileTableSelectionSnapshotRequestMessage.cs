@@ -35,6 +35,11 @@ public sealed class FileTableSelectionSnapshotRequestMessage : RequestMessage<bo
     /// </summary>
     public NormalizedPath NewPath { get; }
 
+    /// <summary>
+    /// Replies once, guarding against a double reply. Multiple tables may receive this request; only the
+    /// first matching table should answer, and <see cref="RequestMessage{T}.Reply"/> throws if called twice.
+    /// </summary>
+    /// <param name="response"><see langword="true"/> if this table accepted the snapshot request.</param>
     public void TryReply(bool response)
     {
         if (!HasReceivedResponse)

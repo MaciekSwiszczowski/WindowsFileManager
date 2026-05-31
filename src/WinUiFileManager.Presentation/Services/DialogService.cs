@@ -2,6 +2,25 @@ using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.Services;
 
+/// <summary>
+/// Presents <see cref="ContentDialog"/>s in response to <see cref="ShowDialogMessage"/>s. It is bound to
+/// a window via <see cref="Attach"/> (which supplies the <see cref="XamlRoot"/> and UI dispatcher) and
+/// delegates serialization of dialog requests to a <see cref="DialogMessageOrchestrator"/>; it itself is
+/// responsible for building the dialog from a message and mapping its outcome to a <see cref="DialogResult"/>.
+/// </summary>
+/// <remarks>
+/// Threading/UI affinity (AGENTS.md §6): dialogs require the UI thread and a live
+/// <see cref="XamlRoot"/>. <see cref="ShowDialogOnUiThreadAsync"/> asserts thread access and returns
+/// <see cref="DialogResult.Unavailable"/> if it is somehow invoked off-thread or before
+/// <see cref="Attach"/>. Cancellation is wired through: the message's token both throws before showing
+/// and registers a callback to hide the active dialog.
+/// <para>
+/// Lifetime: this is typically a process/window-lifetime service. <see cref="Attach"/> recreates (and
+/// disposes the previous) orchestrator, and <see cref="Dispose"/> tears it down; both are idempotent via
+/// <see cref="_disposed"/>. The dialog button handlers are attached to the per-call dialog instance, so
+/// they die with that dialog and need no explicit removal.
+/// </para>
+/// </remarks>
 public sealed class DialogService : IDisposable
 {
     private readonly ILogger<DialogService> _logger;
@@ -12,6 +31,7 @@ public sealed class DialogService : IDisposable
     private XamlRoot? _xamlRoot;
     private bool _disposed;
 
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="messenger"/> is null.</exception>
     public DialogService(ILogger<DialogService> logger, IMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(messenger);
@@ -19,6 +39,10 @@ public sealed class DialogService : IDisposable
         _messenger = messenger;
     }
 
+    /// <summary>Binds the service to a window's <see cref="XamlRoot"/> and UI dispatcher and starts (or
+    /// restarts) the message orchestrator. Must be called from the UI thread once the window's content
+    /// is loaded. Re-attaching disposes the previous orchestrator first.</summary>
+    /// <exception cref="ArgumentNullException">Thrown when either argument is null.</exception>
     public void Attach(XamlRoot xamlRoot, UiDispatcherQueue dispatcherQueue)
     {
         ArgumentNullException.ThrowIfNull(xamlRoot);
@@ -34,6 +58,7 @@ public sealed class DialogService : IDisposable
             _messenger);
     }
 
+    /// <summary>Disposes the orchestrator (and thus its messenger subscription). Idempotent.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -46,6 +71,9 @@ public sealed class DialogService : IDisposable
         _orchestrator = null;
     }
 
+    /// <summary>Builds and shows the dialog for one message on the UI thread and maps the result.
+    /// Returns <see cref="DialogResult.Unavailable"/> if not attached / off the UI thread, and honours
+    /// the message's cancellation token (throwing before show, hiding the dialog if cancelled while open).</summary>
     private async Task<DialogResult> ShowDialogOnUiThreadAsync(ShowDialogMessage message)
     {
         if (_xamlRoot is null || _dispatcherQueue is null || !_dispatcherQueue.HasThreadAccess)
@@ -60,6 +88,7 @@ public sealed class DialogService : IDisposable
             var dialog = CreateDialog(message);
             DialogButtonRole? invokedButton = null;
 
+            // Handlers attached to this per-call dialog instance; they are collected with the dialog.
             dialog.PrimaryButtonClick += (_, args) =>
                 OnDialogButtonClick(message, DialogButtonRole.Primary, args, role => invokedButton = role);
             dialog.SecondaryButtonClick += (_, args) =>
@@ -69,6 +98,8 @@ public sealed class DialogService : IDisposable
 
             _activeDialog = dialog;
 
+            // Hide the open dialog if the request is cancelled; the registration is disposed when the
+            // method returns so it does not outlive this dialog.
             using var cancellationRegistration = message
                 .CancellationToken
                 .Register(static state => ((DialogService)state!).HideActiveDialog(), this);
@@ -85,6 +116,8 @@ public sealed class DialogService : IDisposable
         }
     }
 
+    /// <summary>Creates a <see cref="ContentDialog"/> from a message: sets the XamlRoot/title/content,
+    /// resolves the default button, and adds the configured buttons by role.</summary>
     private ContentDialog CreateDialog(ShowDialogMessage message)
     {
         var dialog = new ContentDialog
@@ -114,6 +147,9 @@ public sealed class DialogService : IDisposable
         return dialog;
     }
 
+    /// <summary>Builds the dialog body: if the message names a <see cref="DataTemplate"/> resource key,
+    /// loads it and binds it to the message's view model; otherwise hosts the view model directly in a
+    /// <see cref="ContentControl"/>.</summary>
     private static object CreateContent(ShowDialogMessage message)
     {
         var template = ResolveContentTemplate(message.ContentTemplateKey);
@@ -139,6 +175,8 @@ public sealed class DialogService : IDisposable
         return content;
     }
 
+    /// <summary>Looks up a <see cref="DataTemplate"/> from application resources by key; null when the
+    /// key is blank or does not resolve to a template.</summary>
     private static DataTemplate? ResolveContentTemplate(string? templateKey)
     {
         if (string.IsNullOrWhiteSpace(templateKey))
@@ -152,6 +190,10 @@ public sealed class DialogService : IDisposable
                 : null;
     }
 
+    /// <summary>Handles a dialog button click. For dialog view models, it takes a deferral and awaits the
+    /// VM's async confirmation (which may veto the close); otherwise it records the button and lets the
+    /// dialog close. <c>async void</c> because it is a UI event handler — note the top-level try/catch
+    /// (AGENTS.md §6). Cancellation lets the dialog close; other exceptions are logged and keep it open.</summary>
     private async void OnDialogButtonClick(
         ShowDialogMessage message,
         DialogButtonRole role,
@@ -164,6 +206,7 @@ public sealed class DialogService : IDisposable
             return;
         }
 
+        // Deferral keeps the dialog open while the VM decides asynchronously whether the click closes it.
         var deferral = args.GetDeferral();
         try
         {
@@ -189,11 +232,15 @@ public sealed class DialogService : IDisposable
         }
     }
 
+    /// <summary>Hides the currently shown dialog, marshalling onto the UI thread (called from the
+    /// cancellation callback, which may run on an arbitrary thread).</summary>
     private void HideActiveDialog()
     {
         _ = _dispatcherQueue?.TryEnqueue(() => _activeDialog?.Hide());
     }
 
+    /// <summary>Picks the dialog's default (highlighted) button: an explicitly-marked default if present,
+    /// otherwise Primary → Close → Secondary by preference, else none.</summary>
     private static ContentDialogButton GetDefaultButton(IReadOnlyList<DialogButtonConfiguration> buttons)
     {
         var configured = buttons.FirstOrDefault(static button => button.IsDefault);
@@ -220,6 +267,7 @@ public sealed class DialogService : IDisposable
         return ContentDialogButton.None;
     }
 
+    /// <summary>Maps an app <see cref="DialogButtonRole"/> to the WinUI <see cref="ContentDialogButton"/>.</summary>
     private static ContentDialogButton ToContentDialogButton(DialogButtonRole role) =>
         role switch
         {

@@ -4,6 +4,10 @@ using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 
+/// <summary>
+/// Applies and toggles the window's element theme and keeps the custom title-bar colors in sync with it.
+/// App layer; UI-thread affine. Holds the current theme so <see cref="ToggleTheme"/> can flip it.
+/// </summary>
 internal sealed class WindowThemeManager
 {
     private static readonly TitleBarThemeColors DarkTitleBarColors = new(
@@ -30,6 +34,11 @@ internal sealed class WindowThemeManager
         _appWindow = appWindow;
     }
 
+    /// <summary>
+    /// Applies <paramref name="theme"/> to the window root and the title bar, and records it as current.
+    /// </summary>
+    /// <param name="theme">The element theme to apply. Title-bar colors track dark vs. non-dark.</param>
+    /// <remarks>Must run on the UI thread (mutates framework elements and the AppWindow title bar).</remarks>
     public void Apply(ElementTheme theme)
     {
         _currentTheme = theme;
@@ -42,6 +51,7 @@ internal sealed class WindowThemeManager
         ApplyTitleBarTheme(theme == ElementTheme.Dark);
     }
 
+    /// <summary>Flips between dark and light themes based on the currently applied theme.</summary>
     public void ToggleTheme()
     {
         var nextTheme = _currentTheme == ElementTheme.Dark
@@ -70,6 +80,7 @@ internal sealed class WindowThemeManager
         titleBar.ButtonInactiveForegroundColor = colors.InactiveForeground;
     }
 
+    /// <summary>Immutable palette for the custom title bar in one theme (dark or light).</summary>
     private sealed record TitleBarThemeColors(
         global::Windows.UI.Color Background,
         global::Windows.UI.Color ButtonHoverBackground,

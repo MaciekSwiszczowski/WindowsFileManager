@@ -2,6 +2,11 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Ids category and authoritative NTFS timestamps. Requests identity diagnostics via
+/// <see cref="InspectorIdentityDiagnosticsRequestMessage"/> and applies them; it overwrites the fast timestamps
+/// populated immediately by the basic fields with the precise NTFS values.
+/// </summary>
 internal sealed class InspectorIdentityDeferredFieldLoader : InspectorDeferredFieldLoaderBase<InspectorIdentityDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> IdentityFieldKeys =

@@ -75,10 +75,32 @@ public sealed class StartupChain
         _volumePolicyService = volumePolicyService;
     }
 
+    /// <summary>
+    /// Runs the one-shot startup sequence: register message handlers, load settings and volumes in
+    /// parallel, resolve the initial pane paths, and broadcast the results.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels startup; checked before work and flowed into the I/O loads.</param>
+    /// <returns>A task that completes once the startup messages have been sent.</returns>
+    /// <remarks>
+    /// Threading: invoked from a thread-pool thread by <see cref="StartupChainRunner"/> and awaits with
+    /// <c>ConfigureAwait(false)</c> (library-code convention, AGENTS.md §6); it must not touch WinUI
+    /// objects directly. Recipients of the messages sent at the end are responsible for marshalling to
+    /// the UI thread themselves.
+    /// <para>
+    /// <b>Ordering is significant.</b> All <c>Initialize()</c> calls run first so every recipient is
+    /// registered with the messenger <i>before</i> the startup messages below are sent; otherwise the
+    /// <see cref="AppStartupDataLoadedMessage"/> / navigation messages could be missed. These
+    /// <c>Initialize()</c> calls are <b>not idempotent</b> on this type — there is no guard, so calling
+    /// the chain twice would double-register handlers (and double-handle messages, AGENTS.md §4). The
+    /// chain is therefore expected to run exactly once; <see cref="StartupChainRunner"/> enforces that.
+    /// </para>
+    /// </remarks>
     public async Task StartupChainAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        // Register all message recipients before any startup message is sent (see remarks: ordering +
+        // non-idempotent Initialize).
         _activePanelsService.Initialize();
         _fileOperationRequestHandler.Initialize();
         _inspectorCloudDiagnosticsHandler.Initialize();
@@ -92,6 +114,7 @@ public sealed class StartupChain
         _renameService.Initialize();
         _panels.Initialize();
 
+        // Settings and volume enumeration are independent, so run them concurrently to cut startup latency.
         var settingsTask = _settingsRepository.LoadAsync(cancellationToken);
         var volumesTask = _volumePolicyService.GetNtfsVolumesAsync(cancellationToken);
 
@@ -102,6 +125,8 @@ public sealed class StartupChain
         var startupPaths = _startupPathResolver.Resolve(settings, volumes);
         var startupData = new AppStartupData(settings, volumes, startupPaths.LeftPath, startupPaths.RightPath);
 
+        // Broadcast loaded data first, then trigger initial navigation per pane. Pane identity is passed
+        // as the raw "Left"/"Right" literals the navigation messages key off.
         _messenger.Send(new AppStartupDataLoadedMessage(startupData));
         _messenger.Send(new FileTableNavigateToPathRequestedMessage("Left", startupData.LeftInitialPath));
         _messenger.Send(new FileTableNavigateToPathRequestedMessage("Right", startupData.RightInitialPath));

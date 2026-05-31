@@ -6,8 +6,27 @@ using static WinUiFileManager.Presentation.ViewModels.FileInspectorCategory;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 
+/// <summary>
+/// Builds the inspector's category/field tree once and constructs the Rx selection pipeline that
+/// <see cref="InspectorViewModel"/> subscribes to. Splits raw selection-change/refresh messages into three
+/// derived observables: non-single (empty/multi), immediate single, and a throttled deferred single stream.
+/// </summary>
+/// <remarks>
+/// <para>
+/// The source observables are cold (created from the messenger via <c>CreateObservable</c>): each subscriber owns
+/// its own subscription, and this type holds no subscriptions itself, so it owns nothing disposable. Disposal of
+/// the derived subscriptions is the consumer's responsibility (<see cref="InspectorViewModel"/> tracks them).
+/// </para>
+/// <para>
+/// Threading: selection messages are observed on the background scheduler for filtering/async fan-out, then the
+/// derived streams switch to <see cref="ISchedulerProvider.MainThread"/> so handlers run UI-affine. The deferred
+/// stream additionally throttles by <see cref="SelectionThrottle"/> so transient selections don't trigger
+/// expensive diagnostics.
+/// </para>
+/// </remarks>
 public sealed class InspectorInitializationViewModel
 {
+    /// <summary>Quiet period a single selection must persist before deferred diagnostics are requested.</summary>
     private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(300);
 
     private readonly IActivePanelsService _activePanelsService;
@@ -18,6 +37,10 @@ public sealed class InspectorInitializationViewModel
     private readonly Func<InspectorFieldCreationRequest, InspectorThumbnailFieldViewModel> _thumbnailFieldFactory;
     private readonly Func<InspectorFieldCreationRequest, InspectorToggleFieldViewModel> _toggleFieldFactory;
 
+    /// <summary>
+    /// Creates the category tree and the three derived selection observables. The field/category factories are
+    /// injected (DI) so each created view model is container-resolved.
+    /// </summary>
     public InspectorInitializationViewModel(
         IActivePanelsService activePanelsService,
         ISchedulerProvider schedulers,
@@ -56,14 +79,23 @@ public sealed class InspectorInitializationViewModel
             .ObserveOn(_schedulers.MainThread);
     }
 
+    /// <summary>Emits when the selection is empty or has more than one item (UI thread).</summary>
     public IObservable<IReadOnlyList<SpecFileEntryViewModel>> NonSingleSelectionObservable { get; }
 
+    /// <summary>Emits the single selected item immediately, for synchronously-available fields (UI thread).</summary>
     public IObservable<SpecFileEntryViewModel> ImmediateSelectionObservable { get; }
 
+    /// <summary>Emits the single selected item after <see cref="SelectionThrottle"/>, for expensive diagnostics (UI thread).</summary>
     public IObservable<SpecFileEntryViewModel> DeferredSelectionObservable { get; }
 
+    /// <summary>The fully-built category sections with their fields; shared with <see cref="InspectorViewModel"/>.</summary>
     public List<InspectorCategoryViewModel> Categories { get; }
 
+    /// <summary>
+    /// Builds the inspector's category/field tree. Local helpers (<c>Category</c>/<c>Field</c>/<c>ToggleField</c>/
+    /// <c>ThumbnailField</c>) keep the declarative layout readable; the field <c>Key</c> strings are the contract
+    /// used by <see cref="InspectorFieldValueUpdater"/> and the deferred loaders to address fields by name.
+    /// </summary>
     private List<InspectorCategoryViewModel> CreateCategories()
     {
         InspectorCategoryViewModel Category(
@@ -189,6 +221,11 @@ public sealed class InspectorInitializationViewModel
         ];
     }
 
+    /// <summary>
+    /// Merges two selection sources into one stream: live table selection changes scoped to the active pane, and
+    /// focus-driven refresh requests that synthesize a selection by querying the active pane on demand. Both run on
+    /// the background scheduler; downstream derived observables marshal to the UI thread.
+    /// </summary>
     private IObservable<FileTableSelectionChangedMessage> CreateSelectionChanges()
     {
         var tableSelectionObservable = _messenger
@@ -207,6 +244,10 @@ public sealed class InspectorInitializationViewModel
             .Merge(focusSelectionObservable);
     }
 
+    /// <summary>
+    /// Builds a selection-changed message for a focus refresh by requesting the active pane's selected items.
+    /// Library-style async (uses <c>ConfigureAwait(false)</c>).
+    /// </summary>
     private async Task<FileTableSelectionChangedMessage> CreateSelectionChangedMessageAsync(string identity)
     {
         var selectedItems = await RequestSelectedItemsAsync(identity).ConfigureAwait(false);
@@ -220,6 +261,10 @@ public sealed class InspectorInitializationViewModel
             ActiveItem: selectedItems.Count == 1 ? selectedItems[0] : null);
     }
 
+    /// <summary>
+    /// Sends a <see cref="FileTableSelectedItemsRequestMessage"/> and awaits the responder's reply, returning an
+    /// empty list when no recipient answers (or identity is blank). Library-style async.
+    /// </summary>
     private async Task<IReadOnlyList<SpecFileEntryViewModel>> RequestSelectedItemsAsync(string identity)
     {
         if (string.IsNullOrWhiteSpace(identity))
@@ -233,5 +278,6 @@ public sealed class InspectorInitializationViewModel
             : [];
     }
 
+    /// <summary>True when a selection-change message originates from the currently active pane.</summary>
     private bool IsSelectionFromActivePanel(string identity) => _activePanelsService.ActivePanelIdentity == identity;
 }

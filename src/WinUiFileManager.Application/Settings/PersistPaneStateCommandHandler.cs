@@ -3,6 +3,18 @@ using WinUiFileManager.Application.Abstractions;
 
 namespace WinUiFileManager.Application.Settings;
 
+/// <summary>
+/// Command handler that persists the current dual-pane UI state (pane paths, active pane, inspector
+/// visibility/width, pane width, column layouts, sort, window placement) into <see cref="AppSettings"/>.
+/// Typically invoked on shutdown / state-changing UI events.
+/// </summary>
+/// <remarks>
+/// The load-modify-write in <see cref="ExecuteAsync"/> is <b>non-transactional (TOCTOU)</b>: it reads the
+/// whole document, mutates a subset of fields, and writes it back. The current
+/// <see cref="WinUiFileManager.Application.Abstractions.ISettingsRepository"/> API has no partial update or
+/// concurrency token, so a concurrent writer (e.g. <see cref="SetParallelExecutionCommandHandler"/>) between
+/// load and save can be clobbered. Acceptable today because these writes are effectively serialized by the UI.
+/// </remarks>
 public sealed class PersistPaneStateCommandHandler
 {
     private readonly ISettingsRepository _settingsRepository;
@@ -16,6 +28,12 @@ public sealed class PersistPaneStateCommandHandler
         _logger = logger;
     }
 
+    /// <summary>
+    /// Loads the current settings, overlays the pane-state fields from <paramref name="request"/>, and
+    /// saves the result. See the TOCTOU note on the type — load and save are not atomic.
+    /// </summary>
+    /// <param name="request">The pane-state values to persist.</param>
+    /// <param name="ct">Cancels both the load and the save.</param>
     public async Task ExecuteAsync(PersistPaneStateRequest request, CancellationToken ct)
     {
         var current = await _settingsRepository.LoadAsync(ct);

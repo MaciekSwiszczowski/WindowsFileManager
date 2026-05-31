@@ -2,6 +2,10 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Links category. Requests link/reparse diagnostics via
+/// <see cref="InspectorLinksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// </summary>
 internal sealed class InspectorLinksDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileLinkDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> LinkFieldKeys =

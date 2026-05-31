@@ -8,6 +8,19 @@ using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.Services;
 
+/// <summary>
+/// Coordinates the interactive rename flow: on a rename key press it resolves the single selected entry in the
+/// active pane, shows the rename dialog, and (if confirmed) performs the file/directory move, reporting failures
+/// via a message dialog. Lives in Infrastructure because it performs real file-system I/O.
+/// </summary>
+/// <remarks>
+/// MESSENGER LIFETIME (AGENTS.md §4/§5): registers <see cref="RenameKeyPressedMessage"/> in <see cref="Initialize"/>
+/// against the shared messenger, rooting this instance until <see cref="Dispose"/> calls <c>UnregisterAll</c>; as a
+/// DI singleton that disposal only runs on container shutdown. <see cref="Dispose"/> is idempotent.
+/// THREADING/UI: the rename flow shows dialogs (UI work), so the message handler kicks off an async flow that uses
+/// the messenger's request/response dialogs; the actual <c>File.Move</c>/<c>Directory.Move</c> runs inline within
+/// that async flow. Failures are caught and logged rather than thrown, and surfaced to the user as a dialog.
+/// </remarks>
 public sealed class RenameService : IDisposable
 {
     private readonly IActivePanelsService _activePanels;
@@ -32,11 +45,13 @@ public sealed class RenameService : IDisposable
         _messageDialogFactory = messageDialogFactory;
     }
 
+    /// <summary>Subscribes to the rename-key message. Call exactly once (not guarded against double-registration; §4).</summary>
     public void Initialize()
     {
         _messenger.Register<RenameKeyPressedMessage>(this, OnRenameKeyPressed);
     }
 
+    /// <summary>Unregisters from the messenger. Idempotent; required to release the rooted recipient (§4).</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -48,11 +63,15 @@ public sealed class RenameService : IDisposable
         _messenger.UnregisterAll(this);
     }
 
+    // Message handlers must be synchronous, so the async rename flow is intentionally fire-and-forget. The discard
+    // is safe because HandleRenameAsync has its own top-level try/catch and never throws back into the messenger.
     private void OnRenameKeyPressed(object recipient, RenameKeyPressedMessage message)
     {
         _ = HandleRenameAsync();
     }
 
+    // Orchestrates the full interactive rename. Top-level try/catch is mandatory because this runs detached from
+    // the synchronous message handler (see OnRenameKeyPressed) — an unhandled exception here would otherwise be lost.
     private async Task HandleRenameAsync()
     {
         try
@@ -63,6 +82,7 @@ public sealed class RenameService : IDisposable
                 return;
             }
 
+            // Rename targets exactly one entry; bail if the active pane has zero or multiple selected.
             var request = _messenger.Send(
                 new FileTableSelectedEntriesRequestMessage(activePanelIdentity));
             if (!request.HasReceivedResponse || request.Response.Count != 1)
@@ -82,6 +102,7 @@ public sealed class RenameService : IDisposable
                     title: "Rename",
                     contentTemplateKey: DialogTemplateKeys.Rename));
 
+            // Only proceed on the primary ("Rename") button; Cancel/Close abort silently.
             var result = await dialogRequest.Response;
             if (result.ButtonRole is not DialogButtonRole.Primary)
             {
@@ -96,8 +117,11 @@ public sealed class RenameService : IDisposable
         }
     }
 
+    // Performs the actual move after validating the new name. Validation failures are raised as exceptions and
+    // then caught locally so both "bad name" and "move failed" paths report through the same error dialog.
     private async Task RenameAsync(FileSystemEntryModel item, string newName)
     {
+        // No-op rename (unchanged name) is a silent success — avoids a pointless move and potential self-conflict.
         if (string.Equals(newName, item.Name, StringComparison.Ordinal))
         {
             return;
@@ -115,6 +139,7 @@ public sealed class RenameService : IDisposable
                 throw new ArgumentException("New name contains invalid characters.", nameof(newName));
             }
 
+            // Rename stays within the same parent folder: combine the new leaf name onto the existing directory.
             var sourcePath = item.FullPath.DisplayPath;
             var parentPath = Path.GetDirectoryName(sourcePath);
             if (string.IsNullOrWhiteSpace(parentPath))
@@ -123,6 +148,7 @@ public sealed class RenameService : IDisposable
             }
 
             var destinationPath = Path.Combine(parentPath, newName);
+            // Directory.Move and File.Move are distinct APIs; pick by the entry kind.
             if (item.Kind is ItemKind.Directory)
             {
                 Directory.Move(sourcePath, destinationPath);
@@ -139,6 +165,7 @@ public sealed class RenameService : IDisposable
         }
     }
 
+    // Surfaces a rename failure to the user via a modal message dialog; the response is awaited but discarded.
     private async Task ShowRenameErrorAsync(string message)
     {
         var dialogRequest = _messenger.Send(

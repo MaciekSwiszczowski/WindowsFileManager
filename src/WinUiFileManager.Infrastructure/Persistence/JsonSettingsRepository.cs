@@ -6,18 +6,33 @@ using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.Persistence;
 
+/// <summary>
+/// Persists <see cref="AppSettings"/> to a JSON file under <c>%LocalAppData%\WinUiFileManager\settings.json</c>.
+/// Infrastructure implementation of <see cref="ISettingsRepository"/>. Maps between the domain
+/// <see cref="AppSettings"/> and the serialization-only <see cref="SettingsDto"/> graph so the on-disk schema can
+/// evolve independently of the domain model and tolerate missing/garbage values.
+/// </summary>
+/// <remarks>
+/// CONCURRENCY: a single <see cref="SemaphoreSlim"/> serializes all load/save operations so concurrent saves (or a
+/// load racing a save) cannot interleave reads/writes of the same file. RESILIENCE: a missing file or a
+/// <see cref="JsonException"/> on load yields default settings rather than throwing, so a corrupt settings file
+/// never blocks startup. Defaulting of individual fields (e.g. width &gt; 0 fallbacks) happens in the
+/// <c>ToDomain</c> mappers, keeping invalid persisted values from reaching the UI.
+/// </remarks>
 internal sealed class JsonSettingsRepository : ISettingsRepository
 {
     private readonly string _filePath;
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
-        WriteIndented = true,
+        WriteIndented = true, // human-readable on disk for debugging/support.
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
     private readonly ILogger<JsonSettingsRepository> _logger;
+    // Binary semaphore (1,1) acting as an async-friendly mutex over the settings file.
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
+    /// <summary>Production constructor: targets <c>%LocalAppData%\WinUiFileManager\settings.json</c>.</summary>
     public JsonSettingsRepository(ILogger<JsonSettingsRepository> logger)
         : this(logger, Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -26,12 +41,18 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
     {
     }
 
+    /// <summary>Constructor that allows overriding the file path (used by tests).</summary>
+    /// <param name="filePath">Absolute path to the settings file.</param>
     public JsonSettingsRepository(ILogger<JsonSettingsRepository> logger, string filePath)
     {
         _logger = logger;
         _filePath = filePath;
     }
 
+    /// <summary>Loads settings from disk, returning defaults when the file is absent or unreadable.</summary>
+    /// <param name="cancellationToken">Cancels the wait for the file lock and the read.</param>
+    /// <returns>The persisted settings, or a default <see cref="AppSettings"/> on missing/corrupt data.</returns>
+    /// <exception cref="OperationCanceledException">If cancelled while awaiting the lock or reading.</exception>
     public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
@@ -48,10 +69,12 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
                 var dto = await JsonSerializer.DeserializeAsync<SettingsDto>(
                     stream, JsonOptions, cancellationToken);
 
+                // A null DTO means the file contained the JSON literal `null`; treat as "no settings".
                 return dto is not null ? ToDomain(dto) : new AppSettings();
             }
             catch (JsonException ex)
             {
+                // Corrupt/incompatible JSON must not break startup — log and fall back to defaults.
                 _logger.LogWarning(ex, "Failed to deserialize settings from {Path}, returning defaults", _filePath);
                 return new AppSettings();
             }
@@ -62,15 +85,21 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
         }
     }
 
+    /// <summary>Serializes <paramref name="settings"/> to disk, creating the target directory if needed.</summary>
+    /// <param name="settings">The settings to persist.</param>
+    /// <param name="cancellationToken">Cancels the wait for the file lock and the write.</param>
+    /// <exception cref="OperationCanceledException">If cancelled while awaiting the lock or writing.</exception>
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
     {
         await _semaphore.WaitAsync(cancellationToken);
         try
         {
+            // Directory may not exist on first run; the production path is guaranteed to have a parent directory.
             var directory = Path.GetDirectoryName(_filePath)!;
             Directory.CreateDirectory(directory);
 
             var dto = ToDto(settings);
+            // File.Create truncates any existing file before the serializer writes the new content.
             await using var stream = File.Create(_filePath);
             await JsonSerializer.SerializeAsync(stream, dto, JsonOptions, cancellationToken);
         }
@@ -80,6 +109,9 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
         }
     }
 
+    // DTO -> domain. This is where persisted values are sanitized: empty path strings become null NormalizedPath?,
+    // non-positive widths fall back to sensible defaults, and an unknown active-pane defaults to "Left". This keeps
+    // a hand-edited or downgraded settings file from producing an invalid in-memory model.
     private static AppSettings ToDomain(SettingsDto dto) =>
         new(
             parallelExecutionEnabled: dto.ParallelExecutionEnabled,
@@ -113,6 +145,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
     private static SortState? ToDomain(SortStateDto? dto) =>
         dto is null
             ? null
+            // Persisted column is a free-form string; an unrecognized/renamed value falls back to Name rather than throwing.
             : new SortState(
                 Column: Enum.TryParse<SortColumn>(dto.Column, ignoreCase: true, out var column)
                     ? column
@@ -130,6 +163,8 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
                 IsMaximized: dto.IsMaximized,
                 DisplayDeviceName: dto.DisplayDeviceName);
 
+    // Domain -> DTO. NormalizedPath is stored as its DisplayPath (the \\?\ prefix is stripped) so the on-disk form
+    // stays human-readable; FromUserInput re-applies the prefix on load.
     private static SettingsDto ToDto(AppSettings settings) =>
         new()
         {

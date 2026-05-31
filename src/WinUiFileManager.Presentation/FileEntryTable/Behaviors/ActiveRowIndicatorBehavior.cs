@@ -2,6 +2,26 @@ using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
+/// <summary>
+/// Tracks the "active" row (the one the user last clicked or that selection moved to) and toggles the
+/// opacity of the per-row <c>ActiveRowIndicator</c> element so it is only visible on that row. Also
+/// turns an Enter press on the active row into an up/down navigation request.
+/// </summary>
+/// <remarks>
+/// Pane-scoped behavior: it listens for <see cref="FileTableSelectionChangedMessage"/> filtered by the
+/// view's pane <see cref="FileEntryTableContext.View"/> identity via <c>IdentityFilter</c> (AGENTS.md §4).
+/// <para>
+/// Event discipline (AGENTS.md §5): <see cref="OnLoaded"/> subscribes <c>PreviewKeyDown</c> and adds a
+/// <see cref="UIElement.PointerPressedEvent"/> handler (with <c>handledEventsToo</c> so it still sees
+/// presses the table marks handled); both are reversed in <see cref="OnUnloaded"/>. Messenger
+/// unregistration is handled by the base class.
+/// </para>
+/// <para>
+/// Indicator opacity is applied directly to the realised container, so it must be re-applied after
+/// virtualization recycles/realises rows — hence <see cref="QueueApplyActiveIndicator"/> re-runs the
+/// update on the dispatcher once layout has settled.
+/// </para>
+/// </remarks>
 public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 {
     private const string IndicatorName = "ActiveRowIndicator";
@@ -14,7 +34,10 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
     protected override void OnLoaded(FileEntryTableContext context)
     {
         context.View.PreviewKeyDown += OnPreviewKeyDown;
+        // Keep a field reference to the handler so the exact same delegate instance can be removed in
+        // OnUnloaded (AddHandler/RemoveHandler require delegate identity).
         _pointerPressedHandler = OnPointerPressed;
+        // handledEventsToo: true so we still observe presses even after the TableView marks them handled.
         context.View.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
         context.Messenger.Register(
             this,
@@ -23,6 +46,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     protected override void OnUnloaded(FileEntryTableContext context)
     {
+        // Reverse the AddHandler from OnLoaded using the stored delegate instance.
         if (_pointerPressedHandler is not null)
         {
             context.View.RemoveHandler(UIElement.PointerPressedEvent, _pointerPressedHandler);
@@ -113,6 +137,8 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void QueueApplyActiveIndicator()
     {
+        // Re-apply once the dispatcher drains: when selection changes the target row's container may
+        // not be realised yet (virtualization), and the IsLoaded guard avoids touching a detached view.
         Context.View.DispatcherQueue.TryEnqueue(() =>
         {
             if (IsLoaded)
@@ -132,6 +158,8 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
     {
+        // ContainerFromItem returns null for virtualized-away rows; in that case there is nothing to
+        // update and the indicator will be re-applied when the row is realised.
         if (table.ContainerFromItem(item) is not { } container)
         {
             return;
@@ -139,6 +167,10 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
         SetDescendantIndicatorOpacity(container, opacity);
     }
+
+    /// <summary>Walks the realised container's visual subtree to find the named indicator element(s)
+    /// and sets their opacity. Recurses because the indicator is nested several levels inside the row
+    /// template.</summary>
 
     private static void SetDescendantIndicatorOpacity(DependencyObject parent, double opacity)
     {

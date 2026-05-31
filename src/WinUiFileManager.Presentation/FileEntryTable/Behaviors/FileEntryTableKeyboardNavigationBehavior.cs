@@ -12,10 +12,17 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// and not already last; otherwise it moves down by the current visible row count.
 /// Page movement clamps at the list boundaries and scrolls the target row into view.
 /// </summary>
+/// <remarks>
+/// Handles only unmodified arrow/Home/End/Page keys; Shift-range selection lives in
+/// <see cref="FileEntryTableKeyboardSelectionBehavior"/>. Subscribes <c>PreviewKeyDown</c> on the
+/// table in <see cref="OnLoaded"/> and detaches it in <see cref="OnUnloaded"/> (AGENTS.md §5).
+/// </remarks>
 public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBehaviorBase
 {
     private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
     {
+        // Bail if already handled, if any modifier is held (those gestures belong to other behaviors),
+        // if the list is empty, or if the key does not map to a navigation target.
         var context = Context;
         if (e.Handled
             || WinUiViewHelper.HasAnyModifier(VirtualKey.Shift,VirtualKey.Control, VirtualKey.Menu)
@@ -36,6 +43,7 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
     protected override void OnLoaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
 
+    // Matching -= keeps the PreviewKeyDown subscription balanced when the behavior detaches.
     protected override void OnUnloaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
 }

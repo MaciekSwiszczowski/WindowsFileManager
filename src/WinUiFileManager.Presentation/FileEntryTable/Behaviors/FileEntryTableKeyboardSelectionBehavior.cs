@@ -10,9 +10,33 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// Shift+PageUp extends it to the first visible row when the cursor is inside the viewport and not already first; otherwise it extends up by the current visible row count,
 /// Shift+PageDown extends it to the last visible row when the cursor is inside the viewport and not already last; otherwise it extends down by the current visible row count.
 /// </summary>
+/// <remarks>
+/// Owns two responsibilities: (1) it is the publisher of <see cref="FileTableSelectionChangedMessage"/>
+/// for this pane and the responder to selection-request messages, and (2) it implements the
+/// anchor/cursor based Shift-range selection that the stock <see cref="TableView"/> does not provide.
+/// <para>
+/// Pane-scoped: request messages are registered through <c>IdentityFilter.For&lt;T&gt;</c> keyed on the
+/// view identity (AGENTS.md §4), so a request aimed at the other pane is ignored.
+/// </para>
+/// <para>
+/// <see cref="_syncingSelection"/> guards against re-entrancy: when we mutate
+/// <c>SelectedItems</c> ourselves the resulting <c>SelectionChanged</c> must not be treated as a
+/// user-driven change. <see cref="_shiftRangeActive"/> remembers that a Shift range is in progress so
+/// the anchor is preserved across repeated Shift presses.
+/// </para>
+/// <para>
+/// Event discipline (AGENTS.md §5): <c>PreviewKeyDown</c> and <c>SelectionChanged</c> are subscribed in
+/// <see cref="OnLoaded"/> and detached in <see cref="OnUnloaded"/>; messenger unregistration is done by
+/// the base class.
+/// </para>
+/// </remarks>
 public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBehaviorBase
 {
+    // True while we are programmatically rewriting SelectedItems, so the SelectionChanged handler
+    // ignores the echo and does not clobber the anchor/cursor we just set.
     private bool _syncingSelection;
+    // True once a Shift range has begun, so subsequent Shift presses extend from the original anchor
+    // instead of resetting it.
     private bool _shiftRangeActive;
 
     protected override void OnLoaded(FileEntryTableContext context)
@@ -29,6 +53,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     protected override void OnUnloaded(FileEntryTableContext context)
     {
+        // Reverse both UI event subscriptions; the base class drops the messenger registrations.
         context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
         context.Table.SelectionChanged -= EntryTable_SelectionChanged;
     }
@@ -204,6 +229,9 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             .ToList());
     }
 
+    /// <summary>Snapshots the selected rows, marshalling onto the UI thread first because
+    /// <c>SelectedItems</c> must only be read on the dispatcher (AGENTS.md §6). Returns synchronously
+    /// when already on the UI thread.</summary>
     private Task<IReadOnlyList<SpecFileEntryViewModel>> GetSelectedItemsSnapshotAsync()
     {
         var context = Context;

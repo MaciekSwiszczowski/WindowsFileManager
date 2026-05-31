@@ -4,6 +4,12 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
+/// <summary>
+/// Deferred loader for the Thumbnails category. Requests thumbnail diagnostics via
+/// <see cref="InspectorThumbnailDiagnosticsRequestMessage"/>, decodes the returned bytes into a
+/// <see cref="BitmapImage"/>, and applies both the image and the text fields.
+/// </summary>
+/// <remarks>Image decoding (<see cref="BitmapImage.SetSourceAsync"/>) is UI/WinRT-affine and runs in the apply step.</remarks>
 internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileThumbnailDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> ThumbnailFieldKeys =
@@ -38,6 +44,7 @@ internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredF
         FieldValueUpdater.ShowThumbnailDiagnostics(diagnostics, thumbnailSource);
     }
 
+    /// <summary>Decodes raw thumbnail bytes into a <see cref="BitmapImage"/>, or returns <c>null</c> when there are none.</summary>
     private static async Task<BitmapImage?> CreateThumbnailSourceAsync(byte[]? thumbnailBytes)
     {
         if (thumbnailBytes is null || thumbnailBytes.Length == 0)
@@ -51,6 +58,10 @@ internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredF
         return bitmap;
     }
 
+    /// <summary>
+    /// Wraps the bytes in a seek-reset <see cref="InMemoryRandomAccessStream"/> for <see cref="BitmapImage"/>.
+    /// Disposes the stream if writing fails so a partial stream isn't leaked; the caller owns the returned stream.
+    /// </summary>
     private static async Task<InMemoryRandomAccessStream> CreateThumbnailStreamAsync(byte[] thumbnailBytes)
     {
         var stream = new InMemoryRandomAccessStream();

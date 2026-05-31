@@ -82,7 +82,9 @@ public sealed class ViewModelTestBuilder
                 inspectorAttributes,
                 [
                     new InspectorIdentityDeferredFieldLoader(messenger),
+                    new InspectorLinksDeferredFieldLoader(messenger),
                     new InspectorLocksDeferredFieldLoader(messenger),
+                    new InspectorSecurityDeferredFieldLoader(messenger),
                     new InspectorStreamsDeferredFieldLoader(messenger),
                 ],
                 displayStringCache),

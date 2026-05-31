@@ -86,6 +86,35 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Lock Services", diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices));
     }
 
+    public void ShowLinkDiagnostics(FileLinkDiagnosticsDetails diagnostics)
+    {
+        if (!InspectorFieldFormatting.HasLinkEvidence(diagnostics))
+        {
+            SetValue("Link Target", "No link or reparse data");
+            SetValue("Link Status", string.Empty);
+            SetValue("Reparse Tag", string.Empty);
+            SetValue("Reparse Data", string.Empty);
+            SetValue("Object ID", string.Empty);
+            return;
+        }
+
+        SetValue("Link Target", diagnostics.LinkTarget);
+        SetValue("Link Status", diagnostics.LinkStatus);
+        SetValue("Reparse Tag", diagnostics.ReparseTag);
+        SetValue("Reparse Data", diagnostics.ReparseData);
+        SetValue("Object ID", diagnostics.ObjectId);
+    }
+
+    public void ShowSecurityDiagnostics(FileSecurityDiagnosticsDetails diagnostics)
+    {
+        SetValue("Owner", diagnostics.Owner);
+        SetValue("Group", diagnostics.Group);
+        SetValue("DACL Summary", diagnostics.DaclSummary);
+        SetValue("SACL Summary", diagnostics.SaclSummary);
+        SetValue("Inherited", InspectorFieldFormatting.OptionalBoolean(diagnostics.Inherited));
+        SetValue("Protected", InspectorFieldFormatting.OptionalBoolean(diagnostics.Protected));
+    }
+
     public void SetLoading(IEnumerable<string> keys, bool isLoading)
     {
         foreach (var key in keys)

@@ -6,4 +6,7 @@ public sealed record FileSecurityDiagnosticsDetails(
     string DaclSummary,
     string SaclSummary,
     bool? Inherited,
-    bool? Protected);
+    bool? Protected)
+{
+    public static FileSecurityDiagnosticsDetails Empty { get; } = new(string.Empty, string.Empty, string.Empty, string.Empty, null, null);
+}

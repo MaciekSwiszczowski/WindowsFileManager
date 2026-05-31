@@ -10,7 +10,9 @@ public static class DiagnosticsContainerBuilderExtensions
     {
         builder.RegisterType<FileOperationRequestHandler>().SingleInstance();
         builder.RegisterType<InspectorIdentityDiagnosticsHandler>().SingleInstance();
+        builder.RegisterType<InspectorLinksDiagnosticsHandler>().SingleInstance();
         builder.RegisterType<InspectorLocksDiagnosticsHandler>().SingleInstance();
+        builder.RegisterType<InspectorSecurityDiagnosticsHandler>().SingleInstance();
         builder.RegisterType<InspectorStreamsDiagnosticsHandler>().SingleInstance();
         return builder;
     }

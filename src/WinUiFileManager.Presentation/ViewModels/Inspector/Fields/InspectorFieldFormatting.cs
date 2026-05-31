@@ -33,6 +33,13 @@ internal static class InspectorFieldFormatting
         || diagnostics.LockPids.Count > 0
         || diagnostics.LockServices.Count > 0;
 
+    public static bool HasLinkEvidence(FileLinkDiagnosticsDetails diagnostics) =>
+        !string.IsNullOrWhiteSpace(diagnostics.LinkTarget)
+        || !string.IsNullOrWhiteSpace(diagnostics.LinkStatus)
+        || !string.IsNullOrWhiteSpace(diagnostics.ReparseTag)
+        || !string.IsNullOrWhiteSpace(diagnostics.ReparseData)
+        || !string.IsNullOrWhiteSpace(diagnostics.ObjectId);
+
     public static string FileId(NtfsFileId fileId) =>
         fileId == NtfsFileId.None ? "Unavailable" : fileId.HexDisplay;
 

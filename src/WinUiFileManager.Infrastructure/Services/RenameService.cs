@@ -13,16 +13,16 @@ public sealed class RenameService : IDisposable
     private readonly IActivePanelsService _activePanels;
     private readonly ILogger<RenameService> _logger;
     private readonly IMessenger _messenger;
-    private readonly RenameDialogViewModel.Factory _renameDialogFactory;
-    private readonly MessageDialogViewModel.Factory _messageDialogFactory;
+    private readonly Func<FileSystemEntryModel, RenameDialogViewModel> _renameDialogFactory;
+    private readonly Func<string, MessageDialogViewModel> _messageDialogFactory;
     private bool _disposed;
 
     public RenameService(
         IActivePanelsService activePanels,
         ILogger<RenameService> logger,
         IMessenger messenger,
-        RenameDialogViewModel.Factory renameDialogFactory,
-        MessageDialogViewModel.Factory messageDialogFactory)
+        Func<FileSystemEntryModel, RenameDialogViewModel> renameDialogFactory,
+        Func<string, MessageDialogViewModel> messageDialogFactory)
     {
         ArgumentNullException.ThrowIfNull(messenger);
         _activePanels = activePanels;

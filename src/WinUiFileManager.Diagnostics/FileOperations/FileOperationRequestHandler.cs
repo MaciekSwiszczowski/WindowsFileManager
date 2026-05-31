@@ -10,13 +10,13 @@ public sealed class FileOperationRequestHandler : IDisposable
 {
     private readonly ILogger<FileOperationRequestHandler> _logger;
     private readonly IMessenger _messenger;
-    private readonly MessageDialogViewModel.Factory _messageDialogFactory;
+    private readonly Func<string, MessageDialogViewModel> _messageDialogFactory;
     private bool _disposed;
 
     public FileOperationRequestHandler(
         IMessenger messenger,
         ILogger<FileOperationRequestHandler> logger,
-        MessageDialogViewModel.Factory messageDialogFactory)
+        Func<string, MessageDialogViewModel> messageDialogFactory)
     {
         _messenger = messenger;
         _logger = logger;

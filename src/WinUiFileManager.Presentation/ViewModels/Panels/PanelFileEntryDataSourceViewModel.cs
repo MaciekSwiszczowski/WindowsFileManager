@@ -5,10 +5,8 @@ namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
 public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
 {
-    public delegate PanelFileEntryDataSourceViewModel Factory(string identity);
-
     private readonly string _identity;
-    private readonly FileEntryTableDataSource.Factory _dataSourceFactory;
+    private readonly Func<string, NormalizedPath, FileEntryTableDataSource> _dataSourceFactory;
     private readonly IMessenger _messenger;
     private readonly ISchedulerProvider _schedulers;
     private FileEntryTableDataSource? _dataSource;
@@ -18,7 +16,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     public PanelFileEntryDataSourceViewModel(
         string identity,
         IMessenger messenger,
-        FileEntryTableDataSource.Factory dataSourceFactory,
+        Func<string, NormalizedPath, FileEntryTableDataSource> dataSourceFactory,
         ISchedulerProvider schedulers)
     {
         _identity = identity;

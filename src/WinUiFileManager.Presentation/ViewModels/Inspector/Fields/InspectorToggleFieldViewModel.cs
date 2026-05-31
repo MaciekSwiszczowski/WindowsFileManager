@@ -2,12 +2,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewModelBase
 {
-    public delegate InspectorToggleFieldViewModel ToggleFactory(FileInspectorCategory category, string key, string tooltip, string value);
-
-    public InspectorToggleFieldViewModel(FileInspectorCategory category, string key, string tooltip, string value = "")
-        : base(category, key, tooltip, value)
+    public InspectorToggleFieldViewModel(InspectorFieldCreationRequest request)
+        : base(request.Category, request.Key, request.Tooltip, request.Value)
     {
-        IsToggleOn = string.Equals(value, "Yes", StringComparison.OrdinalIgnoreCase);
+        IsToggleOn = string.Equals(request.Value, "Yes", StringComparison.OrdinalIgnoreCase);
     }
 
     public override InspectorFieldType FieldType => InspectorFieldType.Toggle;

@@ -2,6 +2,7 @@
 
 global using Microsoft.Extensions.Logging.Abstractions;
 global using TUnit.Core;
+global using AutoFixture;
 global using WinUiFileManager.Application.Abstractions;
 global using WinUiFileManager.Application.Diagnostics;
 global using WinUiFileManager.Application.Navigation;

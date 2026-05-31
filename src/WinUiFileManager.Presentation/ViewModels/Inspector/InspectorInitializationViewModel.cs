@@ -13,19 +13,19 @@ public sealed class InspectorInitializationViewModel
     private readonly IActivePanelsService _activePanelsService;
     private readonly ISchedulerProvider _schedulers;
     private readonly IMessenger _messenger;
-    private readonly InspectorCategoryViewModel.Factory _categoryFactory;
-    private readonly InspectorBasicFieldViewModel.Factory _fieldFactory;
-    private readonly InspectorThumbnailFieldViewModel.ThumbnailFactory _thumbnailFieldFactory;
-    private readonly InspectorToggleFieldViewModel.ToggleFactory _toggleFieldFactory;
+    private readonly Func<FileInspectorCategory, InspectorCategoryViewModel> _categoryFactory;
+    private readonly Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> _fieldFactory;
+    private readonly Func<InspectorFieldCreationRequest, InspectorThumbnailFieldViewModel> _thumbnailFieldFactory;
+    private readonly Func<InspectorFieldCreationRequest, InspectorToggleFieldViewModel> _toggleFieldFactory;
 
     public InspectorInitializationViewModel(
         IActivePanelsService activePanelsService,
         ISchedulerProvider schedulers,
         IMessenger messenger,
-        InspectorCategoryViewModel.Factory categoryFactory,
-        InspectorBasicFieldViewModel.Factory fieldFactory,
-        InspectorThumbnailFieldViewModel.ThumbnailFactory thumbnailFieldFactory,
-        InspectorToggleFieldViewModel.ToggleFactory toggleFieldFactory)
+        Func<FileInspectorCategory, InspectorCategoryViewModel> categoryFactory,
+        Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> fieldFactory,
+        Func<InspectorFieldCreationRequest, InspectorThumbnailFieldViewModel> thumbnailFieldFactory,
+        Func<InspectorFieldCreationRequest, InspectorToggleFieldViewModel> toggleFieldFactory)
     {
         _activePanelsService = activePanelsService;
         _schedulers = schedulers;
@@ -82,13 +82,13 @@ public sealed class InspectorInitializationViewModel
         }
 
         InspectorBasicFieldViewModel Field(FileInspectorCategory category, string key, string tooltip) =>
-            _fieldFactory(category, key, tooltip, string.Empty);
+            _fieldFactory(new InspectorFieldCreationRequest(category, key, tooltip, string.Empty));
 
         InspectorThumbnailFieldViewModel ThumbnailField(string key, string tooltip) =>
-            _thumbnailFieldFactory(Thumbnails, key, tooltip, string.Empty);
+            _thumbnailFieldFactory(new InspectorFieldCreationRequest(Thumbnails, key, tooltip, string.Empty));
 
         InspectorToggleFieldViewModel ToggleField(string key, string tooltip) =>
-            _toggleFieldFactory(Ntfs, key, tooltip, string.Empty);
+            _toggleFieldFactory(new InspectorFieldCreationRequest(Ntfs, key, tooltip, string.Empty));
 
         return
         [

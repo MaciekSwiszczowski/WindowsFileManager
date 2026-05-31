@@ -1,61 +1,44 @@
-using WinUiFileManager.Application.Settings;
-
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class AppInitializationViewModelTests
 {
     [Test]
-    public async Task Test_InitializeAsync_RestoresExistingSavedPanePaths()
+    public async Task Test_Initialize_CopiesStartupSettingsAndVolumes()
     {
-        var leftPath = Directory.CreateTempSubdirectory("wfm-left-");
-        var rightPath = Directory.CreateTempSubdirectory("wfm-right-");
-        try
+        var fixture = ApplicationAutoFixture.Create();
+        var sut = fixture.Create<AppInitializationViewModel>();
+        var settings = new AppSettings(inspectorVisible: false);
+        var volumes = new[]
         {
-            var sut = new AppInitializationViewModel(new FakeNtfsVolumePolicyService());
-            var settings = new AppSettings(
-                lastLeftPanePath: NormalizedPath.FromUserInput(leftPath.FullName),
-                lastRightPanePath: NormalizedPath.FromUserInput(rightPath.FullName));
+            Volume("C", @"C:\"),
+            Volume("D", @"D:\"),
+        };
 
-            await sut.InitializeAsync(settings, CancellationToken.None);
+        sut.Initialize(settings, volumes);
 
-            await Assert.That(sut.LeftInitialPath).IsEqualTo(leftPath.FullName);
-            await Assert.That(sut.RightInitialPath).IsEqualTo(rightPath.FullName);
-        }
-        finally
-        {
-            leftPath.Delete(recursive: true);
-            rightPath.Delete(recursive: true);
-        }
+        await Assert.That(sut.InspectorVisible).IsFalse();
+        await Assert.That(sut.AvailableVolumes.Count).IsEqualTo(2);
+        await Assert.That(string.Join("|", sut.AvailableVolumes.Select(static volume => volume.DriveLetter))).IsEqualTo("C|D");
     }
 
     [Test]
-    public async Task Test_InitializeAsync_FallsBackToExistingParentForMissingSavedPanePath()
+    public async Task Test_Initialize_IsSingleUse()
     {
-        var root = Directory.CreateTempSubdirectory("wfm-parent-");
-        try
-        {
-            var sut = new AppInitializationViewModel(new FakeNtfsVolumePolicyService());
-            var settings = new AppSettings(
-                lastLeftPanePath: NormalizedPath.FromUserInput(Path.Combine(root.FullName, "missing", "nested")));
+        var fixture = ApplicationAutoFixture.Create();
+        var sut = fixture.Create<AppInitializationViewModel>();
 
-            await sut.InitializeAsync(settings, CancellationToken.None);
+        sut.Initialize(new AppSettings(inspectorVisible: false), [Volume("C", @"C:\")]);
+        sut.Initialize(new AppSettings(inspectorVisible: true), [Volume("D", @"D:\")]);
 
-            await Assert.That(sut.LeftInitialPath).IsEqualTo(root.FullName);
-        }
-        finally
-        {
-            root.Delete(recursive: true);
-        }
+        await Assert.That(sut.InspectorVisible).IsFalse();
+        await Assert.That(sut.AvailableVolumes.Single().DriveLetter).IsEqualTo("C");
     }
 
-    [Test]
-    public async Task Test_InitializeAsync_UsesFirstAvailableRootWhenNoSavedPanePath()
-    {
-        var sut = new AppInitializationViewModel(new FakeNtfsVolumePolicyService());
-
-        await sut.InitializeAsync(new AppSettings(), CancellationToken.None);
-
-        await Assert.That(sut.LeftInitialPath).IsEqualTo(@"C:\");
-        await Assert.That(sut.RightInitialPath).IsEqualTo(@"C:\");
-    }
+    private static VolumeInfo Volume(string driveLetter, string path) =>
+        new(
+            driveLetter,
+            label: $"{driveLetter} Drive",
+            fileSystemName: "NTFS",
+            NormalizedPath.FromUserInput(path),
+            isNtfs: true);
 }

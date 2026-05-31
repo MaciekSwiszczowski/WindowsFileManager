@@ -10,8 +10,6 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 public sealed class FileEntryTableDataSource : IDisposable
 {
-    public delegate FileEntryTableDataSource Factory(string identity, NormalizedPath folderPath);
-
     private readonly CompositeDisposable _disposables;
     private readonly IFolderEntryScanner _folderEntryScanner;
     private readonly IFileEntryRowReader _fileEntryRowReader;

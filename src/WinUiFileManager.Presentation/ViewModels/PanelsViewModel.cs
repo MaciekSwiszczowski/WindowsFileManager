@@ -12,7 +12,7 @@ public sealed partial class PanelsViewModel : ObservableObject, IDisposable
     public PanelsViewModel(
         IActivePanelsService activePanelsService,
         IMessenger messenger,
-        PanelViewModel.Factory panelFactory)
+        Func<string, PanelViewModel> panelFactory)
     {
         _activePanelsService = activePanelsService;
         _messenger = messenger;

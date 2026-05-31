@@ -4,8 +4,6 @@ public sealed class SpecFileEntryViewModel
 {
     private static readonly FilePathKey ParentEntryPathKey = new FilePathKey(ParentEntryKey);
 
-    public delegate SpecFileEntryViewModel Factory(FileSystemEntryModel model);
-
     private const string ParentEntryKey = "\0..";
 
     // Keep this row model lean. Do not add presentation state or convenience properties here:

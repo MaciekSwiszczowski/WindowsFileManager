@@ -4,8 +4,6 @@ namespace WinUiFileManager.Presentation.ViewModels;
 
 public sealed partial class PanelViewModel : ObservableObject, IDisposable
 {
-    public delegate PanelViewModel Factory(string identity);
-
     private readonly AppInitializationViewModel _initialization;
     private readonly IMessenger _messenger;
     private bool _disposed;
@@ -14,7 +12,7 @@ public sealed partial class PanelViewModel : ObservableObject, IDisposable
         string identity,
         IMessenger messenger,
         AppInitializationViewModel initialization,
-        PanelFileEntryDataSourceViewModel.Factory fileEntriesFactory)
+        Func<string, PanelFileEntryDataSourceViewModel> fileEntriesFactory)
     {
         Identity = identity;
         _messenger = messenger;

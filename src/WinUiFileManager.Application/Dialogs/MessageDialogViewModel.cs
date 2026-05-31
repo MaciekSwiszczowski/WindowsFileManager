@@ -1,8 +1,11 @@
 namespace WinUiFileManager.Application.Dialogs;
 
-public sealed class MessageDialogViewModel(string message)
+public sealed class MessageDialogViewModel
 {
-    public delegate MessageDialogViewModel Factory(string message);
+    public MessageDialogViewModel(string message)
+    {
+        Message = message;
+    }
 
-    public string Message { get; } = message;
+    public string Message { get; }
 }

@@ -6,11 +6,11 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 internal sealed class FileEntryRowFactory
 {
-    private readonly SpecFileEntryViewModel.Factory _rowFactory;
+    private readonly Func<FileSystemEntryModel, SpecFileEntryViewModel> _rowFactory;
     private readonly FileEntryDisplayStringCache _displayStringCache;
 
     public FileEntryRowFactory(
-        SpecFileEntryViewModel.Factory rowFactory,
+        Func<FileSystemEntryModel, SpecFileEntryViewModel> rowFactory,
         FileEntryDisplayStringCache displayStringCache)
     {
         _rowFactory = rowFactory;

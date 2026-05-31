@@ -13,6 +13,7 @@ public sealed class PanelNavigationServiceTests
         var childPath = fixture.CreateDirectory("Child");
         var messenger = new StrongReferenceMessenger();
         using var sut = new PanelNavigationService(messenger);
+        sut.Initialize();
         FileTableNavigateToPathMessage? received = null;
         messenger.Register<object, FileTableNavigateToPathMessage>(
             this,
@@ -38,6 +39,7 @@ public sealed class PanelNavigationServiceTests
         var childPath = fixture.CreateDirectory("Child");
         var messenger = new StrongReferenceMessenger();
         using var sut = new PanelNavigationService(messenger);
+        sut.Initialize();
         FileTableNavigateToPathMessage? received = null;
         messenger.Register<object, FileTableNavigateToPathMessage>(
             this,

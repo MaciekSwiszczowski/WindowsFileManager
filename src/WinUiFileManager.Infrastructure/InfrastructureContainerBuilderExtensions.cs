@@ -18,7 +18,10 @@ public static class InfrastructureContainerBuilderExtensions
         builder.RegisterType<ShellInterop>().As<IShellInterop>().SingleInstance();
         builder.RegisterType<RestartManagerInterop>().As<IRestartManagerInterop>().SingleInstance();
         builder.RegisterType<CloudFilesInterop>().As<ICloudFilesInterop>().SingleInstance();
-        builder.RegisterType<FileSystemMetadataInterop>().As<IFileSystemMetadataInterop>().SingleInstance();
+        builder.RegisterType<FileSystemMetadataInterop>()
+            .As<IFileSystemMetadataInterop>()
+            .As<IAlternateDataStreamInterop>()
+            .SingleInstance();
         builder.RegisterType<VolumeInterop>().As<IVolumeInterop>().SingleInstance();
 
         builder.RegisterType<NtfsVolumePolicyService>().As<INtfsVolumePolicyService>().SingleInstance();

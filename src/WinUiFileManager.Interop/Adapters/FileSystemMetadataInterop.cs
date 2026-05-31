@@ -9,7 +9,7 @@ using WinUiFileManager.Interop.Types;
 
 namespace WinUiFileManager.Interop.Adapters;
 
-internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop
+internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IAlternateDataStreamInterop
 {
     private const uint FileReadAttributesAccess = 0x80;
     private const uint GetFinalPathNameNormalizedFlag = 0;

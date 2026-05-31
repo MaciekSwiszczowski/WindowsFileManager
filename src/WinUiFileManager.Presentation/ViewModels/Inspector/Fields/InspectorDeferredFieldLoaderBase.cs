@@ -14,6 +14,8 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
     protected InspectorFieldValueUpdater FieldValueUpdater =>
         _fieldValueUpdater ?? throw new InvalidOperationException($"{GetType().Name} must be initialized before loading.");
 
+    protected abstract IReadOnlyList<string> FieldKeys { get; }
+
     public void Initialize(InspectorFieldValueUpdater fieldValueUpdater)
     {
         if (_fieldValueUpdater is not null)
@@ -27,7 +29,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
     public void Load(SpecFileEntryViewModel selectedItem)
     {
         _ = FieldValueUpdater;
-        Cancel();
+        CancelCurrentLoad(clearLoading: false);
 
         if (selectedItem.Model is not { } model)
         {
@@ -37,18 +39,12 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         var cancellation = new CancellationTokenSource();
         var version = Interlocked.Increment(ref _loadVersion);
         _loadCancellation = cancellation;
+        FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
 
         _ = LoadAsync(model.FullPath, version, cancellation);
     }
 
-    public void Cancel()
-    {
-        Interlocked.Increment(ref _loadVersion);
-
-        var cancellation = _loadCancellation;
-        _loadCancellation = null;
-        cancellation?.Cancel();
-    }
+    public void Cancel() => CancelCurrentLoad(clearLoading: true);
 
     public void Dispose()
     {
@@ -58,7 +54,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         }
 
         _disposed = true;
-        Cancel();
+        CancelCurrentLoad(clearLoading: true);
     }
 
     protected abstract Task<TDiagnostics> LoadDiagnosticsAsync(NormalizedPath path, CancellationToken cancellationToken);
@@ -83,9 +79,24 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
             if (ReferenceEquals(_loadCancellation, cancellation))
             {
                 _loadCancellation = null;
+                FieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
             }
 
             cancellation.Dispose();
+        }
+    }
+
+    private void CancelCurrentLoad(bool clearLoading)
+    {
+        Interlocked.Increment(ref _loadVersion);
+
+        var cancellation = _loadCancellation;
+        _loadCancellation = null;
+        cancellation?.Cancel();
+
+        if (clearLoading && _fieldValueUpdater is not null)
+        {
+            _fieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
         }
     }
 

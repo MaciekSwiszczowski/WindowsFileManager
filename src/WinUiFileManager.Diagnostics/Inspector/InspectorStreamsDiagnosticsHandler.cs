@@ -1,31 +1,34 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 public sealed class InspectorStreamsDiagnosticsHandler : IDisposable
 {
-    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(20);
 
-    private readonly IFileIdentityService _fileIdentityService;
+    private readonly IAlternateDataStreamInterop _alternateDataStreamInterop;
     private readonly ILogger<InspectorStreamsDiagnosticsHandler> _logger;
     private readonly IMessenger _messenger;
     private bool _disposed;
 
-    public InspectorStreamsDiagnosticsHandler(IMessenger messenger, IFileIdentityService fileIdentityService, ILogger<InspectorStreamsDiagnosticsHandler> logger)
+    public InspectorStreamsDiagnosticsHandler(
+        IMessenger messenger,
+        IAlternateDataStreamInterop alternateDataStreamInterop,
+        ILogger<InspectorStreamsDiagnosticsHandler> logger)
     {
         _messenger = messenger;
-        _fileIdentityService = fileIdentityService;
+        _alternateDataStreamInterop = alternateDataStreamInterop;
         _logger = logger;
     }
 
     public void Initialize()
     {
         _messenger.Register<InspectorStreamsDiagnosticsRequestMessage>(this,
-            (_, message) => message.Reply(Task.Run(() => LoadAsync(message))));
+            (_, message) => message.Reply(Task.Run(() => Load(message))));
     }
 
     public void Dispose()
@@ -39,16 +42,16 @@ public sealed class InspectorStreamsDiagnosticsHandler : IDisposable
         _messenger.UnregisterAll(this);
     }
 
-    private async Task<FileStreamDiagnosticsDetails> LoadAsync(InspectorStreamsDiagnosticsRequestMessage message)
+    private FileStreamDiagnosticsDetails Load(InspectorStreamsDiagnosticsRequestMessage message)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
         timeoutCts.CancelAfter(LoadTimeout);
 
         try
         {
-            return await _fileIdentityService.GetStreamDiagnosticsAsync(
-                message.Path.DisplayPath,
-                timeoutCts.Token).ConfigureAwait(false);
+            timeoutCts.Token.ThrowIfCancellationRequested();
+            var streams = _alternateDataStreamInterop.EnumerateAlternateDataStreamDisplayLines(message.Path.DisplayPath);
+            return new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams);
         }
         catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
         {

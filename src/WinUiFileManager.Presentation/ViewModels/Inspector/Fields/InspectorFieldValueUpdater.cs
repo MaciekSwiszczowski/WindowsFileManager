@@ -55,6 +55,17 @@ internal sealed class InspectorFieldValueUpdater
                 : "No alternate streams");
     }
 
+    public void SetLoading(IEnumerable<string> keys, bool isLoading)
+    {
+        foreach (var key in keys)
+        {
+            if (_fields.TryGetValue(key, out var field))
+            {
+                field.IsLoading = isLoading;
+            }
+        }
+    }
+
     private void ClearValues()
     {
         foreach (var field in _fields.Values)

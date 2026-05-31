@@ -28,7 +28,6 @@ public static class InfrastructureContainerBuilderExtensions
         builder.RegisterType<WindowsPathNormalizationService>().As<IPathNormalizationService>().SingleInstance();
         builder.RegisterType<RxSchedulerProvider>().As<ISchedulerProvider>().SingleInstance();
         builder.RegisterType<WindowsDirectoryChangeStream>().As<IDirectoryChangeStream>().SingleInstance();
-        builder.RegisterType<NtfsFileIdentityService>().As<IFileIdentityService>().SingleInstance();
         builder.RegisterType<WindowsShellService>().As<IShellService>().SingleInstance();
 
         builder.RegisterType<JsonSettingsRepository>().As<ISettingsRepository>().SingleInstance();

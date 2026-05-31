@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Reflection;
-using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Presentation.FileEntryTable;
 using DispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
@@ -11,7 +10,7 @@ public sealed class MessageLogStore
     private const int MaxEntries = 500;
 
     private readonly List<MessageLogEntry> _allEntries = [];
-    private readonly object _gate = new();
+    private readonly Lock _gate = new();
     private readonly DispatcherQueue _dispatcherQueue;
     private readonly IMessenger _messenger;
     private bool _refreshScheduled;
@@ -60,10 +59,7 @@ public sealed class MessageLogStore
         ScheduleDisplayedEntriesRefresh();
     }
 
-    public void TogglePaused()
-    {
-        IsPaused = !IsPaused;
-    }
+    public void TogglePaused() => IsPaused = !IsPaused;
 
     private void RegisterMessages()
     {

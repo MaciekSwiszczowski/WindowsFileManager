@@ -564,7 +564,7 @@ Prefer clarity over novelty.
 
 ### Inspector Reactive Loading
 
-- The inspector selection pipeline lives in `MainShellViewModel`, not in `FileInspectorViewModel`.
+- The inspector selection pipeline lives in `InspectorInitializationViewModel` and feeds `InspectorViewModel`.
 - Do not use `Subject` for inspector selection state.
 - Convert pane selection changes into an `IObservable<Unit>` or equivalent signal stream, then derive two separate paths from it.
 - The basic inspector path updates immediately on the UI thread and may only touch already-available selected-entry data.
@@ -676,7 +676,6 @@ Create these interfaces in `Application/Abstractions`:
 - `IFileOperationPlanner`
 - `IPathNormalizationService`
 - `INtfsVolumePolicyService`
-- `IFileIdentityService`
 - `IFavouritesRepository`
 - `ISettingsRepository`
 - `IClipboardService` → `WinUiClipboardService` (Singleton in DI)
@@ -725,7 +724,6 @@ Create these concrete types in `Infrastructure`, one per file:
 - `WindowsFileOperationPlanner`
 - `WindowsPathNormalizationService`
 - `NtfsVolumePolicyService`
-- `NtfsFileIdentityService`
 - `JsonFavouritesRepository`
 - `JsonSettingsRepository`
 - `StructuredOperationLogger`

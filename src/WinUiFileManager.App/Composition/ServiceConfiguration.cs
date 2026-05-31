@@ -6,7 +6,6 @@ using WinUiFileManager.App.Startup;
 using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Dialogs;
-using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Navigation;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Diagnostics;
@@ -27,8 +26,6 @@ public static class ServiceConfiguration
         var services = new ServiceCollection();
         services.AddLogging();
         builder.Populate(services);
-
-        builder.RegisterInstance(new FileInspectorInteropOptions(FileInspectorInteropCategories.All));
 
         builder.AddInfrastructureServices();
         builder.AddDiagnosticsServices();

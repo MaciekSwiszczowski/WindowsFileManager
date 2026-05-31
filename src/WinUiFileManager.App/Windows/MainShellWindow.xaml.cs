@@ -43,7 +43,9 @@ public sealed partial class MainShellWindow
 
         _windowManager.Initialize(viewModel);
         ShellView.ToggleThemeAction = _themeManager.ToggleTheme;
-        ShellView.Initialize(viewModel, () => OpenMessageLogWindow());
+        Action? openMessageLogWindow = null;
+        ConfigureMessageLogWindowAction(ref openMessageLogWindow);
+        ShellView.Initialize(viewModel, openMessageLogWindow);
     }
 
     private void OnShellViewLoaded(object sender, RoutedEventArgs e)
@@ -83,6 +85,11 @@ public sealed partial class MainShellWindow
     }
 
     [Conditional("DEBUG")]
+    private void ConfigureMessageLogWindowAction(ref Action? openMessageLogWindow)
+    {
+        openMessageLogWindow = OpenMessageLogWindow;
+    }
+
     private void OpenMessageLogWindow()
     {
         var store = App.Services.GetRequiredService<MessageLogStore>();

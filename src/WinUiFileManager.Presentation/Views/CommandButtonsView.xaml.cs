@@ -27,6 +27,7 @@ public sealed partial class CommandButtonsView
     {
         OpenMessageLogWindow = openMessageLogWindow;
         ViewModel = viewModel;
+        TryInjectMessageLogButtonIfConfigured();
     }
 
     private void OnLoaded(object _, RoutedEventArgs e)

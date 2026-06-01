@@ -71,6 +71,7 @@ public sealed partial class App
     private void StartStartupChainAfterFirstRender()
     {
         CompositionTarget.Rendering += OnFirstRender;
+        return;
 
         void OnFirstRender(object? sender, object e)
         {

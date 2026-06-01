@@ -3,7 +3,6 @@ using Autofac;
 using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using WinUiFileManager.App.Startup;
-using WinUiFileManager.App.Windows;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.Dialogs;
 using WinUiFileManager.Application.Navigation;
@@ -44,9 +43,6 @@ public static class ServiceConfiguration
     /// consumer observes the same state and the same messenger registrations.</description></item>
     /// <item><description>Dialog view models are <c>InstancePerDependency</c>: each dialog invocation
     /// needs its own short-lived, independently-bound instance.</description></item>
-    /// <item><description><see cref="MainShellWindow"/> is <c>InstancePerDependency</c> because a Window
-    /// is single-use — once closed it cannot be reactivated, so a fresh instance is required per
-    /// resolve.</description></item>
     /// </list>
     /// Registration order matters only in that the per-layer extension methods register the
     /// abstractions these App-level registrations depend on; the explicit registrations here override or
@@ -83,8 +79,6 @@ public static class ServiceConfiguration
         builder.RegisterType<StartupChain>().SingleInstance();
         builder.RegisterType<StartupChainRunner>().SingleInstance();
         builder.RegisterType<StartupPathResolver>().SingleInstance();
-        // A Window cannot be reused after close, so the shell window is resolved fresh per request.
-        builder.RegisterType<MainShellWindow>().InstancePerDependency();
 
         var container = builder.Build();
         ApplyDevelopmentContainerValidation(container);

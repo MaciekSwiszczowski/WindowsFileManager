@@ -58,7 +58,7 @@ public sealed partial class App
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
         viewModel.ApplyStartupSettings(settings);
 
-        var mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
+        var mainWindow = new Windows.MainShellWindow();
         mainWindow.Initialize(viewModel);
 
         _mainWindow = mainWindow;

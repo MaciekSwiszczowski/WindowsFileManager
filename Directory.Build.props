@@ -12,7 +12,8 @@
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <DebugType>portable</DebugType>
-    <NuGetAudit>false</NuGetAudit>
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
     <RestoreDisableParallel>true</RestoreDisableParallel>
     <WarningsAsErrors>
       CA2007;CA2012;CA2016;CA1849;
@@ -37,6 +38,11 @@
       EPC13;AsyncFixer03;VSTHRD002;VSTHRD003;
       IDE0011
     </NoWarn>
+  </PropertyGroup>
+
+  <!-- Keep inner-loop Debug restore/build quick; audit remains enabled for Release and Debug_Analyzers. -->
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug_Analyzers'">

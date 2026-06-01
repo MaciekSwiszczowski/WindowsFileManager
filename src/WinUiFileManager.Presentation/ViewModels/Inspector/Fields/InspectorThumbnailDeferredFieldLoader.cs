@@ -53,7 +53,8 @@ internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredF
         }
 
         using var stream = await CreateThumbnailStreamAsync(thumbnailBytes);
-        var bitmap = new BitmapImage();
+        var bitmap = new BitmapImage { DecodePixelWidth = 256 };
+
         await bitmap.SetSourceAsync(stream);
         return bitmap;
     }

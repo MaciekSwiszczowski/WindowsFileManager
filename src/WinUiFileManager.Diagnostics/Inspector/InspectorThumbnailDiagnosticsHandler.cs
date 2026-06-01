@@ -24,6 +24,8 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 public sealed class InspectorThumbnailDiagnosticsHandler : IDisposable
 {
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
+    private const uint ThumbnailSize = 256;
+    private const int MaxThumbnailBytes = 4 * 1024 * 1024;
 
     private readonly ILogger<InspectorThumbnailDiagnosticsHandler> _logger;
     private readonly IMessenger _messenger;
@@ -81,19 +83,17 @@ public sealed class InspectorThumbnailDiagnosticsHandler : IDisposable
             }
 
             using var thumbnail = storageItem is StorageFile file
-                ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, 256).AsTask(timeoutCts.Token).ConfigureAwait(false)
-                : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, 256).AsTask(timeoutCts.Token).ConfigureAwait(false);
+                ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false)
+                : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false);
 
-            if (thumbnail is null)
+            if (thumbnail is null || thumbnail.Size == 0 || thumbnail.Size > MaxThumbnailBytes)
             {
                 return new FileThumbnailDiagnosticsDetails(null, progId);
             }
 
-            thumbnail.Seek(0);
-            using var input = thumbnail.AsStreamForRead();
-            using var output = new MemoryStream();
-            await input.CopyToAsync(output, timeoutCts.Token).ConfigureAwait(false);
-            return new FileThumbnailDiagnosticsDetails(output.ToArray(), progId);
+            return new FileThumbnailDiagnosticsDetails(
+                await CopyThumbnailBytesAsync(thumbnail, timeoutCts.Token).ConfigureAwait(false),
+                progId);
         }
         catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
         {
@@ -105,6 +105,15 @@ public sealed class InspectorThumbnailDiagnosticsHandler : IDisposable
             _logger.LogWarning(ex, "Failed to load inspector thumbnail diagnostics for {Path}", message.Path.DisplayPath);
             return FileThumbnailDiagnosticsDetails.Empty;
         }
+    }
+
+    private static async Task<byte[]> CopyThumbnailBytesAsync(StorageItemThumbnail thumbnail, CancellationToken cancellationToken)
+    {
+        thumbnail.Seek(0);
+        await using var input = thumbnail.AsStreamForRead();
+        using var output = new MemoryStream((int)thumbnail.Size);
+        await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
+        return output.ToArray();
     }
 
     /// <summary>
@@ -128,6 +137,7 @@ public sealed class InspectorThumbnailDiagnosticsHandler : IDisposable
         }
         catch
         {
+            // ignored
         }
 
         return null;

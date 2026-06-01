@@ -15,22 +15,10 @@
     <NuGetAudit>true</NuGetAudit>
     <NuGetAuditMode>all</NuGetAuditMode>
     <RestoreDisableParallel>true</RestoreDisableParallel>
-    <WarningsAsErrors>
-      CA2007;CA2012;CA2016;CA1849;
-      VSTHRD100;VSTHRD103;VSTHRD110;VSTHRD200;
-      MA0040;MA0041;MA0134;
-      AF0001;AF0004;
-      CS1998;
-      IDISP001;IDISP003;IDISP004;IDISP007;
-      RS0030
-    </WarningsAsErrors>
     <NoWarn>
       CA1848;IDE0005;IDE0040;EPC12;ERP022;MA0051;CA1838;
-      CA1711;CA1873;CA1707;CA2007;
-      VSTHRD100;VSTHRD103;VSTHRD110;VSTHRD200;
-      MA0004;MA0040;MA0041;MA0134;
-      AF0001;AF0004;
-      CS1998;
+      CA1711;CA1873;CA1707;
+      MA0004;
       MA0046;MA0006;MA0011;MA0099;MA0158;
       MA0049;
       CA1001;CA1068;CA1305;CA1712;CA1822;CA1826;CA1859;
@@ -53,6 +41,15 @@
     <AnalysisLevel>latest-recommended</AnalysisLevel>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <WarningsAsErrors>
+      CA2007;CA2012;CA2016;CA1849;
+      VSTHRD100;VSTHRD103;VSTHRD110;VSTHRD200;
+      MA0040;MA0041;MA0134;
+      AF0001;AF0004;
+      CS1998;
+      IDISP001;IDISP003;IDISP004;IDISP007;
+      RS0030
+    </WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup Condition="'$(Configuration)' == 'Debug_Analyzers'">

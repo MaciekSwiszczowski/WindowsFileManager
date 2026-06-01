@@ -22,12 +22,6 @@ namespace WinUiFileManager.Infrastructure.Persistence;
 internal sealed class JsonSettingsRepository : ISettingsRepository
 {
     private readonly string _filePath;
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        WriteIndented = true, // human-readable on disk for debugging/support.
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-    };
-
     private readonly ILogger<JsonSettingsRepository> _logger;
     // Binary semaphore (1,1) acting as an async-friendly mutex over the settings file.
     private readonly SemaphoreSlim _semaphore = new(1, 1);
@@ -67,7 +61,9 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             {
                 await using var stream = File.OpenRead(_filePath);
                 var dto = await JsonSerializer.DeserializeAsync<SettingsDto>(
-                    stream, JsonOptions, cancellationToken);
+                    stream,
+                    SettingsJsonContext.Default.SettingsDto,
+                    cancellationToken);
 
                 // A null DTO means the file contained the JSON literal `null`; treat as "no settings".
                 return dto is not null ? ToDomain(dto) : new AppSettings();
@@ -101,7 +97,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             var dto = ToDto(settings);
             // File.Create truncates any existing file before the serializer writes the new content.
             await using var stream = File.Create(_filePath);
-            await JsonSerializer.SerializeAsync(stream, dto, JsonOptions, cancellationToken);
+            await JsonSerializer.SerializeAsync(stream, dto, SettingsJsonContext.Default.SettingsDto, cancellationToken);
         }
         finally
         {
@@ -117,10 +113,10 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
             parallelExecutionEnabled: dto.ParallelExecutionEnabled,
             maxDegreeOfParallelism: dto.MaxDegreeOfParallelism,
             lastLeftPanePath: string.IsNullOrEmpty(dto.LastLeftPanePath)
-                ? (NormalizedPath?)null
+                ? null
                 : NormalizedPath.FromUserInput(dto.LastLeftPanePath),
             lastRightPanePath: string.IsNullOrEmpty(dto.LastRightPanePath)
-                ? (NormalizedPath?)null
+                ? null
                 : NormalizedPath.FromUserInput(dto.LastRightPanePath),
             lastActivePane: string.IsNullOrWhiteSpace(dto.LastActivePane) ? "Left" : dto.LastActivePane,
             inspectorVisible: dto.InspectorVisible,

@@ -52,7 +52,7 @@ public static class InfrastructureContainerBuilderExtensions
 
         builder.RegisterType<JsonSettingsRepository>().As<ISettingsRepository>().SingleInstance();
 
-        builder.RegisterType<SystemTimeProvider>().As<ITimeProvider>().SingleInstance();
+        builder.RegisterInstance(TimeProvider.System).SingleInstance();
         // ActivePanelsService is exposed both AsSelf and via its interface so the composition root can call its
         // Initialize() (which registers messenger handlers) on the same instance the interface consumers receive.
         builder.RegisterType<ActivePanelsService>().AsSelf().As<IActivePanelsService>().SingleInstance();

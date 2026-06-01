@@ -13,18 +13,15 @@ namespace WinUiFileManager.Infrastructure.Persistence;
 /// evolve independently of the domain model and tolerate missing/garbage values.
 /// </summary>
 /// <remarks>
-/// CONCURRENCY: a single <see cref="SemaphoreSlim"/> serializes all load/save operations so concurrent saves (or a
-/// load racing a save) cannot interleave reads/writes of the same file. RESILIENCE: a missing file or a
-/// <see cref="JsonException"/> on load yields default settings rather than throwing, so a corrupt settings file
-/// never blocks startup. Defaulting of individual fields (e.g. width &gt; 0 fallbacks) happens in the
+/// RESILIENCE: a missing file or a <see cref="JsonException"/> on load yields default settings rather than
+/// throwing, so a corrupt settings file never blocks startup. Defaulting of individual fields (e.g. width
+/// &gt; 0 fallbacks) happens in the
 /// <c>ToDomain</c> mappers, keeping invalid persisted values from reaching the UI.
 /// </remarks>
 internal sealed class JsonSettingsRepository : ISettingsRepository
 {
     private readonly string _filePath;
     private readonly ILogger<JsonSettingsRepository> _logger;
-    // Binary semaphore (1,1) acting as an async-friendly mutex over the settings file.
-    private readonly SemaphoreSlim _semaphore = new(1, 1);
 
     /// <summary>Production constructor: targets <c>%LocalAppData%\WinUiFileManager\settings.json</c>.</summary>
     public JsonSettingsRepository(ILogger<JsonSettingsRepository> logger)
@@ -41,66 +38,57 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
         _filePath = filePath;
     }
 
-    /// <summary>Loads settings from disk, returning defaults when the file is absent or unreadable.</summary>
-    /// <param name="cancellationToken">Cancels the wait for the file lock and the read.</param>
-    /// <returns>The persisted settings, or a default <see cref="AppSettings"/> on missing/corrupt data.</returns>
-    /// <exception cref="OperationCanceledException">If cancelled while awaiting the lock or reading.</exception>
-    public async Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
+    /// <summary>Loads settings from disk synchronously, returning defaults when the file is absent or unreadable.</summary>
+    public AppSettings Load()
     {
-        await _semaphore.WaitAsync(cancellationToken);
+        if (!File.Exists(_filePath))
+        {
+            return new AppSettings();
+        }
+
         try
         {
-            if (!File.Exists(_filePath))
-            {
-                return new AppSettings();
-            }
+            using var stream = File.OpenRead(_filePath);
+            var dto = JsonSerializer.Deserialize(stream, SettingsJsonContext.Default.SettingsDto);
 
-            try
-            {
-                await using var stream = File.OpenRead(_filePath);
-                var dto = await JsonSerializer.DeserializeAsync<SettingsDto>(
-                    stream,
-                    SettingsJsonContext.Default.SettingsDto,
-                    cancellationToken);
-
-                // A null DTO means the file contained the JSON literal `null`; treat as "no settings".
-                return dto is not null ? ToDomain(dto) : new AppSettings();
-            }
-            catch (JsonException ex)
-            {
-                // Corrupt/incompatible JSON must not break startup — log and fall back to defaults.
-                _logger.LogWarning(ex, "Failed to deserialize settings from {Path}, returning defaults", _filePath);
-                return new AppSettings();
-            }
+            // A null DTO means the file contained the JSON literal `null`; treat as "no settings".
+            return dto is not null ? ToDomain(dto) : new AppSettings();
         }
-        finally
+        catch (JsonException ex)
         {
-            _semaphore.Release();
+            // Corrupt/incompatible JSON must not break startup — log and fall back to defaults.
+            _logger.LogWarning(ex, "Failed to deserialize settings from {Path}, returning defaults", _filePath);
+            return new AppSettings();
         }
+    }
+
+    /// <summary>Loads settings from disk, returning defaults when the file is absent or unreadable.</summary>
+    /// <param name="cancellationToken">Checked before the synchronous read starts.</param>
+    /// <returns>The persisted settings, or a default <see cref="AppSettings"/> on missing/corrupt data.</returns>
+    /// <exception cref="OperationCanceledException">If cancelled before reading.</exception>
+    public Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult(Load());
     }
 
     /// <summary>Serializes <paramref name="settings"/> to disk, creating the target directory if needed.</summary>
     /// <param name="settings">The settings to persist.</param>
-    /// <param name="cancellationToken">Cancels the wait for the file lock and the write.</param>
-    /// <exception cref="OperationCanceledException">If cancelled while awaiting the lock or writing.</exception>
+    /// <param name="cancellationToken">Cancels the write.</param>
+    /// <exception cref="OperationCanceledException">If cancelled while writing.</exception>
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
     {
-        await _semaphore.WaitAsync(cancellationToken);
-        try
+        // Directory may not exist on first run; the production path is guaranteed to have a parent directory.
+        var directory = Path.GetDirectoryName(_filePath);
+        if (!string.IsNullOrWhiteSpace(directory))
         {
-            // Directory may not exist on first run; the production path is guaranteed to have a parent directory.
-            var directory = Path.GetDirectoryName(_filePath)!;
             Directory.CreateDirectory(directory);
+        }
 
-            var dto = ToDto(settings);
-            // File.Create truncates any existing file before the serializer writes the new content.
-            await using var stream = File.Create(_filePath);
-            await JsonSerializer.SerializeAsync(stream, dto, SettingsJsonContext.Default.SettingsDto, cancellationToken);
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
+        var dto = ToDto(settings);
+        // File.Create truncates any existing file before the serializer writes the new content.
+        await using var stream = File.Create(_filePath);
+        await JsonSerializer.SerializeAsync(stream, dto, SettingsJsonContext.Default.SettingsDto, cancellationToken);
     }
 
     // DTO -> domain. This is where persisted values are sanitized: empty path strings become null NormalizedPath?,

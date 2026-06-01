@@ -27,6 +27,7 @@ using Presentation.ViewModels;
 public sealed partial class App
 {
     private readonly AutofacServiceProvider _serviceProvider;
+    private readonly AppSettings _startupSettings;
 
     /// <summary>
     /// Initializes XAML resources and builds the service provider before any window exists.
@@ -40,6 +41,7 @@ public sealed partial class App
     {
         InitializeComponent();
         _serviceProvider = ServiceConfiguration.ConfigureServices();
+        _startupSettings = LoadStartupSettings();
         UnhandledException += OnUnhandledException;
     }
 
@@ -52,28 +54,25 @@ public sealed partial class App
     /// first shown window already has the persisted placement. The remaining startup work is
     /// delegated to <see cref="StartupChainRunner.Start(AppSettings)"/> as fire-and-forget background work.
     /// </remarks>
-    protected override async void OnLaunched(LaunchActivatedEventArgs args)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        var settings = await LoadStartupSettingsAsync();
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
-        viewModel.ApplyStartupSettings(settings);
+        viewModel.ApplyStartupSettings(_startupSettings);
 
-        var mainWindow = new Windows.MainShellWindow();
-        mainWindow.Initialize(viewModel);
-
-        _mainWindow = mainWindow;
+        _mainWindow = new Windows.MainShellWindow();
+        _mainWindow.Initialize(viewModel);
         _mainWindow.Activate();
 
-        _serviceProvider.GetRequiredService<StartupChainRunner>().Start(settings);
+        _serviceProvider.GetRequiredService<StartupChainRunner>().Start(_startupSettings);
     }
 
-    private async Task<AppSettings> LoadStartupSettingsAsync()
+    private AppSettings LoadStartupSettings()
     {
         try
         {
-            return await _serviceProvider
+            return _serviceProvider
                 .GetRequiredService<ISettingsRepository>()
-                .LoadAsync(CancellationToken.None);
+                .Load();
         }
         catch (Exception ex)
         {
@@ -99,7 +98,7 @@ public sealed partial class App
         e.Handled = true;
     }
 
-    private Window? _mainWindow;
+    private Windows.MainShellWindow? _mainWindow;
 
     /// <summary>
     /// Global access to the application's DI container, for code-behind that cannot receive

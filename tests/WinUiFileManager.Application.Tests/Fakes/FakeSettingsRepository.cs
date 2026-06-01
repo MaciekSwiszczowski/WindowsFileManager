@@ -6,6 +6,8 @@ public sealed class FakeSettingsRepository : ISettingsRepository
 {
     public AppSettings Current { get; set; } = new();
 
+    public AppSettings Load() => Current;
+
     public Task<AppSettings> LoadAsync(CancellationToken cancellationToken)
         => Task.FromResult(Current);
 

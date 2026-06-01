@@ -11,11 +11,14 @@ namespace WinUiFileManager.Application.Abstractions;
 /// Command handlers that do load-modify-write (e.g.
 /// <see cref="WinUiFileManager.Application.Settings.PersistPaneStateCommandHandler"/>,
 /// <see cref="WinUiFileManager.Application.Settings.SetParallelExecutionCommandHandler"/>) are therefore
-/// <b>non-transactional</b>: a concurrent writer between <see cref="LoadAsync"/> and <see cref="SaveAsync"/>
+/// <b>non-transactional</b>: a concurrent writer between <see cref="Load"/>/<see cref="LoadAsync"/> and <see cref="SaveAsync"/>
 /// can have its changes clobbered (a TOCTOU race).
 /// </remarks>
 public interface ISettingsRepository
 {
+    /// <summary>Loads the current settings synchronously, returning defaults when none are persisted yet.</summary>
+    public AppSettings Load();
+
     /// <summary>Loads the current settings, returning defaults when none are persisted yet.</summary>
     public Task<AppSettings> LoadAsync(CancellationToken cancellationToken);
 

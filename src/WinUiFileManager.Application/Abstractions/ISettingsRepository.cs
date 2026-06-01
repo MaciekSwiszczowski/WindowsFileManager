@@ -17,8 +17,8 @@ namespace WinUiFileManager.Application.Abstractions;
 public interface ISettingsRepository
 {
     /// <summary>Loads the current settings, returning defaults when none are persisted yet.</summary>
-    Task<AppSettings> LoadAsync(CancellationToken cancellationToken);
+    public Task<AppSettings> LoadAsync(CancellationToken cancellationToken);
 
     /// <summary>Overwrites the persisted settings with <paramref name="settings"/> in full.</summary>
-    Task SaveAsync(AppSettings settings, CancellationToken cancellationToken);
+    public Task SaveAsync(AppSettings settings, CancellationToken cancellationToken);
 }

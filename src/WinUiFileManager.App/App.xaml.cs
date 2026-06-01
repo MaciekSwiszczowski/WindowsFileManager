@@ -6,7 +6,9 @@ using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
 using Composition;
 using Startup;
-using WinUiFileManager.Presentation.ViewModels;
+using Application.Abstractions;
+using Application.Settings;
+using Presentation.ViewModels;
 
 /// <summary>
 /// WinUI application entry point and composition-root owner: builds the Autofac-backed service
@@ -15,7 +17,7 @@ using WinUiFileManager.Presentation.ViewModels;
 /// </summary>
 /// <remarks>
 /// Lifetime/disposal: the <see cref="AutofacServiceProvider"/> (and its underlying container) is held
-/// for the whole process lifetime and is deliberately <b>not</b> disposed on shutdown. Consequently
+/// for the whole process lifetime and is deliberately <b>not</b> disposed on shutdown. Consequently,
 /// singleton services that implement <see cref="IDisposable"/> are never released by the container
 /// (see AGENTS.md §5); they are treated as process-lifetime. Anything that must run cleanup on exit has
 /// to be driven explicitly (e.g. window-close persistence), not via container disposal.
@@ -46,20 +48,39 @@ public sealed partial class App
     /// </summary>
     /// <param name="args">Framework-supplied launch arguments (unused).</param>
     /// <remarks>
-    /// Runs on the UI thread. The view model and window are resolved from DI rather than newed up so the
-    /// app shares the singleton graph. <see cref="StartupChainRunner.Start"/> is fire-and-forget by
-    /// design: window activation must not block on background I/O.
+    /// Runs on the UI thread. Settings are loaded before the window/view model is initialized so the
+    /// first shown window already has the persisted placement. The remaining startup work is
+    /// delegated to <see cref="StartupChainRunner.Start(AppSettings)"/> as fire-and-forget background work.
     /// </remarks>
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    protected override async void OnLaunched(LaunchActivatedEventArgs args)
     {
+        var settings = await LoadStartupSettingsAsync();
         var viewModel = _serviceProvider.GetRequiredService<MainShellViewModel>();
+        viewModel.ApplyStartupSettings(settings);
+
         var mainWindow = _serviceProvider.GetRequiredService<Windows.MainShellWindow>();
         mainWindow.Initialize(viewModel);
 
         _mainWindow = mainWindow;
         _mainWindow.Activate();
 
-        _serviceProvider.GetRequiredService<StartupChainRunner>().Start();
+        _serviceProvider.GetRequiredService<StartupChainRunner>().Start(settings);
+    }
+
+    private async Task<AppSettings> LoadStartupSettingsAsync()
+    {
+        try
+        {
+            return await _serviceProvider
+                .GetRequiredService<ISettingsRepository>()
+                .LoadAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            var logger = _serviceProvider.GetService<ILoggerFactory>()?.CreateLogger<App>();
+            logger?.LogError(ex, "Loading startup settings failed; using defaults.");
+            return new AppSettings();
+        }
     }
 
     /// <summary>

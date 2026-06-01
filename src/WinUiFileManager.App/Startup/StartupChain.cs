@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Application.Abstractions;
 using Application.Messages.RequestMessages.Navigation;
 using Application.Navigation;
+using Application.Settings;
 using Application.Startup;
 using Diagnostics.FileOperations;
 using Diagnostics.Inspector;
@@ -16,6 +17,8 @@ using Presentation.ViewModels;
 /// <remarks>
 /// Allowed here: initializing singleton services and view models that own their own UI dispatching,
 /// starting background-safe I/O, and publishing startup results through messages.
+/// Settings loading is intentionally not allowed here: window placement must be known before the
+/// shell window is initialized and shown.
 /// Not allowed here: touching WinUI controls or XAML objects, accepting runtime view instances from
 /// code-behind, creating alternate view model instances instead of using DI-owned singletons, blocking
 /// the UI startup path, or mutating UI-bound state without dispatching inside the owning component.
@@ -35,7 +38,6 @@ public sealed class StartupChain
     private readonly PanelsViewModel _panels;
     private readonly PanelNavigationService _panelNavigationService;
     private readonly StartupPathResolver _startupPathResolver;
-    private readonly ISettingsRepository _settingsRepository;
     private readonly RenameService _renameService;
     private readonly INtfsVolumePolicyService _volumePolicyService;
 
@@ -53,7 +55,6 @@ public sealed class StartupChain
         PanelsViewModel panels,
         PanelNavigationService panelNavigationService,
         StartupPathResolver startupPathResolver,
-        ISettingsRepository settingsRepository,
         RenameService renameService,
         INtfsVolumePolicyService volumePolicyService)
     {
@@ -70,15 +71,15 @@ public sealed class StartupChain
         _panels = panels;
         _panelNavigationService = panelNavigationService;
         _startupPathResolver = startupPathResolver;
-        _settingsRepository = settingsRepository;
         _renameService = renameService;
         _volumePolicyService = volumePolicyService;
     }
 
     /// <summary>
-    /// Runs the one-shot startup sequence: register message handlers, load settings and volumes in
-    /// parallel, resolve the initial pane paths, and broadcast the results.
+    /// Runs the one-shot startup sequence: register message handlers, load volumes, resolve the initial
+    /// pane paths using already-loaded settings, and broadcast the results.
     /// </summary>
+    /// <param name="settings">Settings loaded on the launch path before the shell window is shown.</param>
     /// <param name="cancellationToken">Cancels startup; checked before work and flowed into the I/O loads.</param>
     /// <returns>A task that completes once the startup messages have been sent.</returns>
     /// <remarks>
@@ -95,8 +96,9 @@ public sealed class StartupChain
     /// chain is therefore expected to run exactly once; <see cref="StartupChainRunner"/> enforces that.
     /// </para>
     /// </remarks>
-    public async Task StartupChainAsync(CancellationToken cancellationToken = default)
+    public async Task StartupChainAsync(AppSettings settings, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         cancellationToken.ThrowIfCancellationRequested();
 
         // Register all message recipients before any startup message is sent (see remarks: ordering +
@@ -114,14 +116,7 @@ public sealed class StartupChain
         _renameService.Initialize();
         _panels.Initialize();
 
-        // Settings and volume enumeration are independent, so run them concurrently to cut startup latency.
-        var settingsTask = _settingsRepository.LoadAsync(cancellationToken);
-        var volumesTask = _volumePolicyService.GetNtfsVolumesAsync(cancellationToken);
-
-        await Task.WhenAll(settingsTask, volumesTask).ConfigureAwait(false);
-
-        var settings = await settingsTask.ConfigureAwait(false);
-        var volumes = await volumesTask.ConfigureAwait(false);
+        var volumes = await _volumePolicyService.GetNtfsVolumesAsync(cancellationToken).ConfigureAwait(false);
         var startupPaths = _startupPathResolver.Resolve(settings, volumes);
         var startupData = new AppStartupData(settings, volumes, startupPaths.LeftPath, startupPaths.RightPath);
 

@@ -212,6 +212,27 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     private Task RefreshActivePaneAsync() => Task.CompletedTask;
 
     /// <summary>
+    /// Applies the settings that must be known before the shell window is shown: window placement,
+    /// inspector layout, command toggle state, pane split, and active panel. UI-thread affine.
+    /// </summary>
+    public void ApplyStartupSettings(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+
+        _currentSettings = settings;
+        OnPropertyChanged(nameof(ParallelExecutionEnabled));
+        Commands.IsInspectorVisible = settings.InspectorVisible;
+        Commands.ParallelExecutionEnabled = settings.ParallelExecutionEnabled;
+        InspectorWidth = settings.InspectorWidth;
+        Panels.LeftPanelWidth = settings.LeftPaneWidth;
+        MainWindowPlacement = settings.MainWindowPlacement;
+
+        Panels.SetActivePanel(string.IsNullOrWhiteSpace(settings.LastActivePane)
+            ? "Left"
+            : settings.LastActivePane);
+    }
+
+    /// <summary>
     /// Handles <see cref="AppStartupDataLoadedMessage"/>. The message may arrive on a background thread, so this
     /// marshals <see cref="ApplyStartupData"/> onto the captured dispatcher when off-thread; failure to enqueue is
     /// logged rather than thrown.
@@ -239,18 +260,8 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     {
         try
         {
-            _currentSettings = startupData.Settings;
+            ApplyStartupSettings(startupData.Settings);
             Initialization.Initialize(_currentSettings, startupData.NtfsVolumes);
-            OnPropertyChanged(nameof(ParallelExecutionEnabled));
-            Commands.IsInspectorVisible = Initialization.InspectorVisible;
-            Commands.ParallelExecutionEnabled = _currentSettings.ParallelExecutionEnabled;
-            InspectorWidth = _currentSettings.InspectorWidth;
-            Panels.LeftPanelWidth = _currentSettings.LeftPaneWidth;
-            MainWindowPlacement = _currentSettings.MainWindowPlacement;
-
-            Panels.SetActivePanel(string.IsNullOrWhiteSpace(_currentSettings.LastActivePane)
-                ? "Left"
-                : _currentSettings.LastActivePane);
         }
         catch (Exception ex)
         {

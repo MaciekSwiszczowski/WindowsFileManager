@@ -28,9 +28,7 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
 
     /// <summary>Production constructor: targets <c>%LocalAppData%\WinUiFileManager\settings.json</c>.</summary>
     public JsonSettingsRepository(ILogger<JsonSettingsRepository> logger)
-        : this(logger, Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "WinUiFileManager",
+        : this(logger, Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinUiFileManager",
             "settings.json"))
     {
     }

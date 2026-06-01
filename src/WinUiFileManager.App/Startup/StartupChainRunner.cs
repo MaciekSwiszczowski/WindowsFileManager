@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Settings;
 
 namespace WinUiFileManager.App.Startup;
 
@@ -26,6 +27,7 @@ public sealed class StartupChainRunner
     /// <summary>
     /// Schedules the startup chain to run once on the thread pool. Returns immediately.
     /// </summary>
+    /// <param name="settings">Settings already loaded by the launch path before the shell window is shown.</param>
     /// <remarks>
     /// Called from the UI launch path, so it must not block. The <see cref="_started"/> guard makes this
     /// idempotent — repeated calls are no-ops, which matters because <see cref="StartupChain"/>'s own
@@ -34,15 +36,17 @@ public sealed class StartupChainRunner
     /// failures are not surfaced to the caller but are caught and logged in <see cref="RunAsync"/>.
     /// This field is only touched on the UI thread, so no synchronization is needed.
     /// </remarks>
-    public void Start()
+    public void Start(AppSettings settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
+
         if (_started)
         {
             return;
         }
 
         _started = true;
-        _ = Task.Run(RunAsync);
+        _ = Task.Run(() => RunAsync(settings));
     }
 
     /// <summary>
@@ -54,12 +58,12 @@ public sealed class StartupChainRunner
     /// finalization). The chain is obtained via a factory so a new instance is built at start time
     /// rather than at runner-construction time.
     /// </remarks>
-    private async Task RunAsync()
+    private async Task RunAsync(AppSettings settings)
     {
         try
         {
             var startupChain = _startupChainFactory();
-            await startupChain.StartupChainAsync().ConfigureAwait(false);
+            await startupChain.StartupChainAsync(settings).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

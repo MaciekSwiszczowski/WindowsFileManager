@@ -4,6 +4,8 @@ using Autofac.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
+
 using Composition;
 using Startup;
 using Application.Abstractions;
@@ -12,7 +14,7 @@ using Presentation.ViewModels;
 
 /// <summary>
 /// WinUI application entry point and composition-root owner: builds the Autofac-backed service
-/// provider, launches the main window, kicks off background startup, and acts as the process-wide
+/// provider, launches the main window, schedules background startup, and acts as the process-wide
 /// unhandled-exception sink. Sits in the <c>App</c> layer (see AGENTS.md §2).
 /// </summary>
 /// <remarks>
@@ -46,13 +48,13 @@ public sealed partial class App
     }
 
     /// <summary>
-    /// Resolves and shows the main window, then starts background startup work.
+    /// Resolves and shows the main window, then schedules background startup work after the first frame.
     /// </summary>
     /// <param name="args">Framework-supplied launch arguments (unused).</param>
     /// <remarks>
     /// Runs on the UI thread. Settings are loaded before the window/view model is initialized so the
-    /// first shown window already has the persisted placement. The remaining startup work is
-    /// delegated to <see cref="StartupChainRunner.Start(AppSettings)"/> as fire-and-forget background work.
+    /// first shown window already has the persisted placement. The remaining startup work is delayed
+    /// until the first render callback so the empty shell can paint before file enumeration/binding starts.
     /// </remarks>
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -63,7 +65,18 @@ public sealed partial class App
         _mainWindow.Initialize(viewModel);
         _mainWindow.Activate();
 
-        _serviceProvider.GetRequiredService<StartupChainRunner>().Start(_startupSettings);
+        StartStartupChainAfterFirstRender();
+    }
+
+    private void StartStartupChainAfterFirstRender()
+    {
+        CompositionTarget.Rendering += OnFirstRender;
+
+        void OnFirstRender(object? sender, object e)
+        {
+            CompositionTarget.Rendering -= OnFirstRender;
+            _serviceProvider.GetRequiredService<StartupChainRunner>().Start(_startupSettings);
+        }
     }
 
     private AppSettings LoadStartupSettings()

@@ -1,9 +1,11 @@
+using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+
 namespace WinUiFileManager.Application.Diagnostics;
 
 /// <summary>
 /// Immutable result describing a file's cloud/placeholder (OneDrive-style Cloud Files API) state, as
 /// surfaced in the inspector's Cloud section. Produced by the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorCloudDiagnosticsRequestMessage"/>.
+/// <see cref="InspectorCloudDiagnosticsRequestMessage"/>.
 /// </summary>
 public sealed record FileCloudDiagnosticsDetails(
     bool IsCloudControlled,

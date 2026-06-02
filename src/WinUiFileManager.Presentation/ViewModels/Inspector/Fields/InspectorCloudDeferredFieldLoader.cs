@@ -6,7 +6,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// Deferred loader for the Cloud category. Requests cloud/placeholder (sync-root) diagnostics via
 /// <see cref="InspectorCloudDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
-internal sealed class InspectorCloudDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileCloudDiagnosticsDetails>
+internal sealed class InspectorCloudDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorCloudDiagnosticsRequestMessage,
+        InspectorCloudDiagnosticsResponseMessage,
+        FileCloudDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> CloudFieldKeys =
     [
@@ -20,24 +24,14 @@ internal sealed class InspectorCloudDeferredFieldLoader : InspectorDeferredField
         "Custom",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorCloudDeferredFieldLoader(IMessenger messenger)
+    public InspectorCloudDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => CloudFieldKeys;
 
-    protected override async Task<FileCloudDiagnosticsDetails> LoadDiagnosticsAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorCloudDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileCloudDiagnosticsDetails.None;
-    }
+    protected override InspectorCloudDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileCloudDiagnosticsDetails diagnostics)
     {

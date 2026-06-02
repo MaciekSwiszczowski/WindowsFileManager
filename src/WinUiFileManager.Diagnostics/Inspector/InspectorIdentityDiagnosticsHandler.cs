@@ -14,94 +14,53 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// timestamps/attributes for the requested path.
 /// </summary>
 /// <remarks>
-/// Lifetime: DI singleton; <see cref="Initialize"/> registers with the messenger and <see cref="Dispose"/>
-/// unregisters, but the container is never disposed (AGENTS.md §5) so <see cref="Dispose"/> is effectively
-/// unreachable — treat as process-lifetime.
-/// Threading: the request is answered with <c>message.Reply(Task.Run(...))</c>, so <see cref="Load"/> runs
-/// on a thread-pool thread (library convention, AGENTS.md §6). The work uses a <see cref="SafeFileHandle"/>
-/// from the interop adapter and is bounded by a <see cref="LoadTimeout"/> linked to the request's token.
+/// The work uses a <see cref="SafeFileHandle"/> from the interop adapter. Failures degrade to an empty result
+/// that preserves the requested final path.
 /// </remarks>
-public sealed class InspectorIdentityDiagnosticsHandler : IDisposable
+public sealed class InspectorIdentityDiagnosticsHandler :
+    InspectorDiagnosticsHandlerBase<
+        InspectorIdentityDiagnosticsRequestMessage,
+        InspectorIdentityDiagnosticsDetails,
+        InspectorIdentityDiagnosticsResponseMessage>
 {
-    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
-
     private readonly IFileSystemMetadataInterop _fileSystemMetadataInterop;
-    private readonly ILogger<InspectorIdentityDiagnosticsHandler> _logger;
-    private readonly IMessenger _messenger;
-    private bool _disposed;
 
     public InspectorIdentityDiagnosticsHandler(
         IMessenger messenger,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
         ILogger<InspectorIdentityDiagnosticsHandler> logger)
+        : base(messenger, logger)
     {
-        _messenger = messenger;
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
-        _logger = logger;
-    }
-
-    /// <summary>
-    /// Registers the request handler, replying with a task that loads the details off-thread.
-    /// </summary>
-    /// <remarks>Not idempotent — must be called exactly once (AGENTS.md §4).</remarks>
-    public void Initialize()
-    {
-        _messenger.Register<InspectorIdentityDiagnosticsRequestMessage>(this,
-            (_, message) => message.Reply(Task.Run(() => Load(message))));
-    }
-
-    /// <summary>Unregisters from the messenger (idempotent). See type remarks: effectively never called.</summary>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _messenger.UnregisterAll(this);
     }
 
     /// <summary>
     /// Opens the path for metadata read and assembles its NTFS metadata + identity details.
     /// </summary>
-    /// <param name="message">The request carrying the target path and a cancellation token.</param>
+    /// <param name="message">The request carrying the target path.</param>
     /// <returns>The loaded details, or a near-empty result (with the final path filled in) on failure.</returns>
-    /// <remarks>
-    /// Runs on a thread-pool thread. A linked CTS adds the <see cref="LoadTimeout"/> on top of the
-    /// request's token. Genuine caller cancellation is rethrown; any other failure is logged and degraded
-    /// to an empty result rather than propagated, so the inspector UI shows blanks instead of an error.
-    /// </remarks>
-    private InspectorIdentityDiagnosticsDetails Load(InspectorIdentityDiagnosticsRequestMessage message)
+    /// <remarks>Runs on a thread-pool thread. Errors are logged and degraded by the base class.</remarks>
+    protected override Task<InspectorIdentityDiagnosticsDetails> LoadAsync(
+        InspectorIdentityDiagnosticsRequestMessage message,
+        CancellationToken cancellationToken)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
-        timeoutCts.CancelAfter(LoadTimeout);
+        cancellationToken.ThrowIfCancellationRequested();
+        var path = message.Path.DisplayPath;
+        using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
 
-        try
-        {
-            timeoutCts.Token.ThrowIfCancellationRequested();
-            var path = message.Path.DisplayPath;
-            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
-
-            var ntfsMetadata = LoadNtfsMetadata(handle);
-            var identity = LoadIdentity(path, handle);
-            return new InspectorIdentityDiagnosticsDetails(ntfsMetadata, identity);
-        }
-        catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
-        {
-            // Only rethrow for real caller cancellation; a timeout cancellation falls through to the
-            // general handler below and degrades to an empty result.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load inspector identity diagnostics for {Path}", message.Path.DisplayPath);
-            return InspectorIdentityDiagnosticsDetails.Empty with
-            {
-                Identity = InspectorIdentityDiagnosticsDetails.Empty.Identity with { FinalPath = message.Path.DisplayPath },
-            };
-        }
+        var ntfsMetadata = LoadNtfsMetadata(handle);
+        var identity = LoadIdentity(path, handle);
+        return Task.FromResult(new InspectorIdentityDiagnosticsDetails(ntfsMetadata, identity));
     }
+
+    protected override InspectorIdentityDiagnosticsResponseMessage CreateResponse(InspectorIdentityDiagnosticsDetails diagnostics) =>
+        new(diagnostics);
+
+    protected override InspectorIdentityDiagnosticsDetails GetEmptyDiagnostics(InspectorIdentityDiagnosticsRequestMessage request) =>
+        InspectorIdentityDiagnosticsDetails.Empty with
+        {
+            Identity = InspectorIdentityDiagnosticsDetails.Empty.Identity with { FinalPath = request.Path.DisplayPath },
+        };
 
     /// <summary>Reads basic NTFS info (attributes + the four timestamps) from an open handle.</summary>
     /// <exception cref="InvalidOperationException">The underlying GetFileInformationByHandleEx call failed.</exception>

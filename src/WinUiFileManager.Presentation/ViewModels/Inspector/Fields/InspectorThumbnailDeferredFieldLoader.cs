@@ -10,7 +10,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// <see cref="BitmapImage"/>, and applies both the image and the text fields.
 /// </summary>
 /// <remarks>Image decoding (<see cref="BitmapImage.SetSourceAsync"/>) is UI/WinRT-affine and runs in the apply step.</remarks>
-internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileThumbnailDiagnosticsDetails>
+internal sealed class InspectorThumbnailDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorThumbnailDiagnosticsRequestMessage,
+        InspectorThumbnailDiagnosticsResponseMessage,
+        FileThumbnailDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> ThumbnailFieldKeys =
     [
@@ -19,24 +23,14 @@ internal sealed class InspectorThumbnailDeferredFieldLoader : InspectorDeferredF
         "Association",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorThumbnailDeferredFieldLoader(IMessenger messenger)
+    public InspectorThumbnailDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => ThumbnailFieldKeys;
 
-    protected override async Task<FileThumbnailDiagnosticsDetails> LoadDiagnosticsAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorThumbnailDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileThumbnailDiagnosticsDetails.Empty;
-    }
+    protected override InspectorThumbnailDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override async Task ApplyAsync(FileThumbnailDiagnosticsDetails diagnostics)
     {

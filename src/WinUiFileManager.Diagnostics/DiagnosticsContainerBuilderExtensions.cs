@@ -20,8 +20,7 @@ public static class DiagnosticsContainerBuilderExtensions
     /// its <c>Initialize()</c> method and must remain the single live recipient for its message type. The
     /// startup chain resolves these singletons and calls <c>Initialize()</c> on them exactly once.
     /// Because the container is never disposed (AGENTS.md §5), their <see cref="System.IDisposable.Dispose"/>
-    /// (which performs <c>UnregisterAll</c>) is effectively never invoked — acceptable here since they
-    /// live for the whole process.
+    /// cleanup is effectively never invoked — acceptable here since they live for the whole process.
     /// </remarks>
     public static ContainerBuilder AddDiagnosticsServices(this ContainerBuilder builder)
     {

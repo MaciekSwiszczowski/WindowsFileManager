@@ -6,7 +6,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// Deferred loader for the Security category. Requests security-descriptor diagnostics via
 /// <see cref="InspectorSecurityDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
-internal sealed class InspectorSecurityDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileSecurityDiagnosticsDetails>
+internal sealed class InspectorSecurityDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorSecurityDiagnosticsRequestMessage,
+        InspectorSecurityDiagnosticsResponseMessage,
+        FileSecurityDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> SecurityFieldKeys =
     [
@@ -18,24 +22,14 @@ internal sealed class InspectorSecurityDeferredFieldLoader : InspectorDeferredFi
         "Protected",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorSecurityDeferredFieldLoader(IMessenger messenger)
+    public InspectorSecurityDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => SecurityFieldKeys;
 
-    protected override async Task<FileSecurityDiagnosticsDetails> LoadDiagnosticsAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorSecurityDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileSecurityDiagnosticsDetails.Empty;
-    }
+    protected override InspectorSecurityDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileSecurityDiagnosticsDetails diagnostics)
     {

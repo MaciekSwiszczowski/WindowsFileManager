@@ -17,13 +17,14 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// <see cref="StorageProviderSyncRootManager"/> / Shell sync properties.
 /// </summary>
 /// <remarks>
-/// Lifetime: DI singleton; registers in <see cref="Initialize"/>, unregisters in <see cref="Dispose"/>,
-/// which is effectively unreachable because the container is never disposed (AGENTS.md §5).
-/// Threading: answered via <c>message.Reply(Task.Run(...))</c>, so <see cref="LoadAsync"/> runs off the UI
-/// thread and awaits the WinRT Storage APIs with <c>ConfigureAwait(false)</c> (AGENTS.md §6); these WinRT
-/// calls are usable off the UI/STA thread. The work is bounded by <see cref="LoadTimeout"/>.
+/// <see cref="LoadAsync"/> runs off the UI thread and awaits WinRT Storage APIs with
+/// <c>ConfigureAwait(false)</c>; these WinRT calls are usable off the UI/STA thread.
 /// </remarks>
-public sealed class InspectorCloudDiagnosticsHandler : IDisposable
+public sealed class InspectorCloudDiagnosticsHandler :
+    InspectorDiagnosticsHandlerBase<
+        InspectorCloudDiagnosticsRequestMessage,
+        FileCloudDiagnosticsDetails,
+        InspectorCloudDiagnosticsResponseMessage>
 {
     // Cloud-files attribute flags not exposed by System.IO.FileAttributes (FILE_ATTRIBUTE_PINNED, etc.).
     private const FileAttributes FileAttributePinned = (FileAttributes)0x00080000;
@@ -38,100 +39,72 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
 
     private readonly ICloudFilesInterop _cloudFilesInterop;
     private readonly IFileSystemMetadataInterop _fileSystemMetadataInterop;
-    private readonly ILogger<InspectorCloudDiagnosticsHandler> _logger;
-    private readonly IMessenger _messenger;
-    private bool _disposed;
 
     public InspectorCloudDiagnosticsHandler(
         IMessenger messenger,
         ICloudFilesInterop cloudFilesInterop,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
         ILogger<InspectorCloudDiagnosticsHandler> logger)
+        : base(messenger, logger)
     {
-        _messenger = messenger;
         _cloudFilesInterop = cloudFilesInterop;
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
-        _logger = logger;
-    }
-
-    /// <summary>Registers the request handler. Not idempotent — call exactly once (AGENTS.md §4).</summary>
-    public void Initialize()
-    {
-        _messenger.Register<InspectorCloudDiagnosticsRequestMessage>(this,
-            (_, message) => message.Reply(Task.Run(() => LoadAsync(message))));
-    }
-
-    /// <summary>Unregisters from the messenger (idempotent). See type remarks: effectively never called.</summary>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _messenger.UnregisterAll(this);
     }
 
     /// <summary>
     /// Gathers cloud/placeholder diagnostics for the requested path from several sources and merges them.
     /// </summary>
-    /// <param name="message">The request carrying the target path and cancellation token.</param>
+    /// <param name="message">The request carrying the target path.</param>
     /// <returns>
     /// Cloud details when the path is cloud-controlled (has a sync root, a provider, or a placeholder
     /// state); otherwise <see cref="FileCloudDiagnosticsDetails.None"/>. Also returns <c>None</c> on failure.
     /// </returns>
-    /// <remarks>Thread-pool bound. Real cancellation is rethrown; other errors are logged and degraded to None.</remarks>
-    private async Task<FileCloudDiagnosticsDetails> LoadAsync(InspectorCloudDiagnosticsRequestMessage message)
+    /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
+    protected override async Task<FileCloudDiagnosticsDetails> LoadAsync(
+        InspectorCloudDiagnosticsRequestMessage message,
+        CancellationToken cancellationToken)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(LoadTimeout);
 
-        try
-        {
-            var path = message.Path.DisplayPath;
-            var attributes = File.GetAttributes(path);
-            var syncRoot = await TryGetSyncRootInfoAsync(path).ConfigureAwait(false);
-            var storageItem = await TryGetStorageItemAsync(path).ConfigureAwait(false);
-            var provider = TryGetProviderDisplayName(storageItem);
-            var available = TryGetAvailability(storageItem, timeoutCts.Token);
-            var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem).ConfigureAwait(false);
+        var path = message.Path.DisplayPath;
+        var attributes = File.GetAttributes(path);
+        var syncRoot = await TryGetSyncRootInfoAsync(path).ConfigureAwait(false);
+        var storageItem = await TryGetStorageItemAsync(path).ConfigureAwait(false);
+        var provider = TryGetProviderDisplayName(storageItem);
+        var available = TryGetAvailability(storageItem, timeoutCts.Token);
+        var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem).ConfigureAwait(false);
 
-            using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
-            var placeholderState = TryGetPlaceholderState(handle, attributes);
-            var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
-            var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
-            var syncRootId = syncRoot?.Id ?? string.Empty;
-            var providerId = syncRoot is null ? string.Empty : syncRoot.ProviderId.ToString();
-            var isCloudControlled =
-                !string.IsNullOrWhiteSpace(syncRootId)
-                || !string.IsNullOrWhiteSpace(provider)
-                || placeholderState != PlaceholderStateNone;
+        using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
+        var placeholderState = TryGetPlaceholderState(handle, attributes);
+        var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
+        var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
+        var syncRootId = syncRoot?.Id ?? string.Empty;
+        var providerId = syncRoot is null ? string.Empty : syncRoot.ProviderId.ToString();
+        var isCloudControlled =
+            !string.IsNullOrWhiteSpace(syncRootId)
+            || !string.IsNullOrWhiteSpace(provider)
+            || placeholderState != PlaceholderStateNone;
 
-            return isCloudControlled
-                ? new FileCloudDiagnosticsDetails(
-                    true,
-                    status,
-                    provider,
-                    syncRootPath,
-                    syncRootId,
-                    providerId,
-                    available,
-                    transferState,
-                    customStatus)
-                : FileCloudDiagnosticsDetails.None;
-        }
-        catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
-        {
-            // Rethrow only for genuine caller cancellation; timeout cancellation degrades to None below.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load inspector cloud diagnostics for {Path}", message.Path.DisplayPath);
-            return FileCloudDiagnosticsDetails.None;
-        }
+        return isCloudControlled
+            ? new FileCloudDiagnosticsDetails(
+                true,
+                status,
+                provider,
+                syncRootPath,
+                syncRootId,
+                providerId,
+                available,
+                transferState,
+                customStatus)
+            : FileCloudDiagnosticsDetails.None;
     }
+
+    protected override InspectorCloudDiagnosticsResponseMessage CreateResponse(FileCloudDiagnosticsDetails diagnostics) =>
+        new(diagnostics);
+
+    protected override FileCloudDiagnosticsDetails GetEmptyDiagnostics(InspectorCloudDiagnosticsRequestMessage request) =>
+        FileCloudDiagnosticsDetails.None;
 
     /// <summary>
     /// Maps the file's reparse tag + attributes to a CldApi placeholder-state bitmask, or
@@ -199,6 +172,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         }
         catch
         {
+            // ignored
         }
 
         return null;
@@ -298,12 +272,7 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
     /// derived from either the in-sync placeholder bit or the Shell sync state. Labels are de-duplicated
     /// case-insensitively because the same state can be implied by more than one source.
     /// </remarks>
-    private static string BuildCloudStatus(
-        FileAttributes attributes,
-        uint placeholderState,
-        string syncState,
-        string transferState,
-        string customStatus)
+    private static string BuildCloudStatus(FileAttributes attributes, uint placeholderState, string syncState, string transferState, string customStatus)
     {
         var labels = new List<string>();
 
@@ -327,14 +296,15 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
         {
             labels.Add("Dehydrated");
         }
-        else if (placeholderState != PlaceholderStateNone
-                 || (attributes & FileAttributes.ReparsePoint) != 0)
+        else
         {
-            labels.Add("Hydrated");
+            if (placeholderState != PlaceholderStateNone || (attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                labels.Add("Hydrated");
+            }
         }
 
-        if ((placeholderState & PlaceholderStateInSync) != 0
-            || string.Equals(syncState, "Synced", StringComparison.OrdinalIgnoreCase))
+        if ((placeholderState & PlaceholderStateInSync) != 0 || string.Equals(syncState, "Synced", StringComparison.OrdinalIgnoreCase))
         {
             labels.Add("Synced");
         }
@@ -434,8 +404,8 @@ public sealed class InspectorCloudDiagnosticsHandler : IDisposable
                 ushort value => value,
                 uint value => value,
                 ulong value => checked((uint)value),
-                int value when value >= 0 => (uint)value,
-                long value when value >= 0 => checked((uint)value),
+                int value and >= 0 => (uint)value,
+                long value and >= 0 => checked((uint)value),
                 string value when uint.TryParse(value, out var parsed) => parsed,
                 _ => null,
             };

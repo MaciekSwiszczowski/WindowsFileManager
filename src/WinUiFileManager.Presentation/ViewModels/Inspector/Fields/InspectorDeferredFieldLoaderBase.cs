@@ -1,34 +1,32 @@
+using System.Reactive.Linq;
+using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
-/// Base class for the deferred inspector field loaders. Implements the shared cancellation/superseding machinery
-/// (each <see cref="Load"/> cancels the previous one and stamps a monotonically increasing version), the loading
-/// flag lifecycle on the fields, and disposal. Subclasses only supply their field keys and the typed
-/// fetch (<see cref="LoadDiagnosticsAsync"/>) / apply (<see cref="ApplyAsync"/>) steps.
+/// Base class for deferred inspector field loaders using normal request/response messages. It owns the
+/// response subscription, loading-state lifecycle, request sending, and disposal. Concrete loaders only
+/// provide field keys, request creation, and diagnostics application.
 /// </summary>
-/// <typeparam name="TDiagnostics">The diagnostics record type this loader fetches and applies.</typeparam>
-/// <remarks>
-/// <para>
-/// Race handling: a load is identified by <see cref="_loadVersion"/> (bumped via <see cref="Interlocked"/>) and a
-/// dedicated <see cref="CancellationTokenSource"/>. Results are applied only if the load is still current
-/// (<see cref="CanApply"/>): not disposed, not cancelled, and the version matches. This guards against a stale
-/// async result overwriting fields after the selection has moved on.
-/// </para>
-/// <para>
-/// The async load is intentionally fire-and-forget (<c>_ = LoadAsync(...)</c>): there is no caller to await it, and
-/// the <c>finally</c> block clears the loading flag and disposes the CTS only when it is still the active one.
-/// </para>
-/// </remarks>
-internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
+internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TDiagnostics> :
     IInspectorDeferredFieldLoader,
     IInspectorDeferredFieldLoaderInitializer
+    where TRequest : class, IInspectorDiagnosticsRequestMessage
+    where TResponse : class, IInspectorDiagnosticsResponseMessage<TDiagnostics>
 {
+    private readonly IMessenger _messenger;
+    private readonly ISchedulerProvider _schedulers;
     private InspectorFieldValueUpdater? _fieldValueUpdater;
-    private CancellationTokenSource? _loadCancellation;
-    private long _loadVersion;
+    private IDisposable? _responseSubscription;
+    private bool _hasPendingRequest;
     private bool _disposed;
+
+    protected InspectorDeferredFieldLoaderBase(IMessenger messenger, ISchedulerProvider schedulers)
+    {
+        _messenger = messenger;
+        _schedulers = schedulers;
+    }
 
     /// <summary>The shared value updater; throws if accessed before <see cref="Initialize"/>.</summary>
     protected InspectorFieldValueUpdater FieldValueUpdater =>
@@ -37,8 +35,12 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
     /// <summary>The field keys this loader owns; used to drive their shared loading state.</summary>
     protected abstract IReadOnlyList<string> FieldKeys { get; }
 
-    /// <summary>Stores the value updater. Throws if called more than once (AGENTS.md idempotent-init expectation).</summary>
-    /// <exception cref="InvalidOperationException">Thrown when already initialized.</exception>
+    /// <summary>Creates the Diagnostics-layer request message for the selected path.</summary>
+    protected abstract TRequest CreateRequest(NormalizedPath path);
+
+    /// <summary>Writes the response payload into inspector fields. Runs UI-affine.</summary>
+    protected abstract Task ApplyAsync(TDiagnostics diagnostics);
+
     public void Initialize(InspectorFieldValueUpdater fieldValueUpdater)
     {
         if (_fieldValueUpdater is not null)
@@ -47,6 +49,10 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         }
 
         _fieldValueUpdater = fieldValueUpdater;
+        _responseSubscription = _messenger
+            .CreateObservable<TResponse>()
+            .ObserveOn(_schedulers.MainThread)
+            .Subscribe(response => _ = ApplyResponseAsync(response));
     }
 
     public void Prepare(SpecFileEntryViewModel selectedItem)
@@ -62,10 +68,6 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
     }
 
-    /// <summary>
-    /// Begins loading for the selection: cancels the previous load while preserving loading state, and kicks off the
-    /// async fetch/apply. Parent-entry rows (null model) just cancel and return.
-    /// </summary>
     public void Load(SpecFileEntryViewModel selectedItem)
     {
         _ = FieldValueUpdater;
@@ -76,18 +78,13 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
             return;
         }
 
-        var cancellation = new CancellationTokenSource();
-        var version = Interlocked.Increment(ref _loadVersion);
-        _loadCancellation = cancellation;
+        _hasPendingRequest = true;
         FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
-
-        _ = LoadAsync(model.FullPath, version, cancellation);
+        _messenger.Send(CreateRequest(model.FullPath));
     }
 
-    /// <summary>Cancels the in-flight load and clears the loading flag on the fields.</summary>
     public void Cancel() => CancelCurrentLoad(clearLoading: true);
 
-    /// <summary>Cancels any in-flight load and marks the loader disposed. Idempotent via <see cref="_disposed"/>.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -96,66 +93,36 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         }
 
         _disposed = true;
+        _responseSubscription?.Dispose();
+        _responseSubscription = null;
         CancelCurrentLoad(clearLoading: true);
     }
 
-    /// <summary>Subclass hook: fetches the diagnostics for <paramref name="path"/> (typically via a request message).</summary>
-    protected abstract Task<TDiagnostics> LoadDiagnosticsAsync(NormalizedPath path, CancellationToken cancellationToken);
-
-    /// <summary>Subclass hook: writes the fetched diagnostics into the inspector fields. Runs UI-affine.</summary>
-    protected abstract Task ApplyAsync(TDiagnostics diagnostics);
-
-    /// <summary>
-    /// Runs one fetch/apply cycle. Applies the result only if still current (<see cref="CanApply"/>); swallows
-    /// cancellation for this load; and in <c>finally</c> clears the loading flag and disposes the CTS, but only
-    /// when this load is still the active one (so a superseding load isn't clobbered).
-    /// </summary>
-    private async Task LoadAsync(NormalizedPath path, long version, CancellationTokenSource cancellation)
+    private async Task ApplyResponseAsync(TResponse response)
     {
+        if (_disposed || !_hasPendingRequest)
+        {
+            return;
+        }
+
+        _hasPendingRequest = false;
         try
         {
-            var diagnostics = await LoadDiagnosticsAsync(path, cancellation.Token);
-            if (CanApply(version, cancellation.Token))
-            {
-                await ApplyAsync(diagnostics);
-            }
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
-        {
+            await ApplyAsync(response.Diagnostics);
         }
         finally
         {
-            if (ReferenceEquals(_loadCancellation, cancellation))
-            {
-                _loadCancellation = null;
-                FieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
-            }
-
-            cancellation.Dispose();
+            FieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
         }
     }
 
-    /// <summary>
-    /// Invalidates the current load by bumping the version and cancelling its CTS; optionally clears the loading
-    /// flag. Bumping the version first ensures a racing <see cref="LoadAsync"/> sees itself as stale.
-    /// </summary>
     private void CancelCurrentLoad(bool clearLoading)
     {
-        Interlocked.Increment(ref _loadVersion);
-
-        var cancellation = _loadCancellation;
-        _loadCancellation = null;
-        cancellation?.Cancel();
+        _hasPendingRequest = false;
 
         if (clearLoading && _fieldValueUpdater is not null)
         {
             _fieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
         }
     }
-
-    /// <summary>True when results for <paramref name="version"/> may still be applied: not disposed, not cancelled, and still the current version.</summary>
-    private bool CanApply(long version, CancellationToken cancellationToken) =>
-        !_disposed
-        && !cancellationToken.IsCancellationRequested
-        && Interlocked.Read(ref _loadVersion) == version;
 }

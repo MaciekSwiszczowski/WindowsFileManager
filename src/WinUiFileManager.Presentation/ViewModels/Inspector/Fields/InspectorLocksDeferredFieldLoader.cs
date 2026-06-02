@@ -6,7 +6,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// Deferred loader for the Locks category. Requests file-lock / in-use diagnostics via
 /// <see cref="InspectorLocksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
-internal sealed class InspectorLocksDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileLockDiagnostics>
+internal sealed class InspectorLocksDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorLocksDiagnosticsRequestMessage,
+        InspectorLocksDiagnosticsResponseMessage,
+        FileLockDiagnostics>
 {
     private static readonly IReadOnlyList<string> LockFieldKeys =
     [
@@ -17,24 +21,14 @@ internal sealed class InspectorLocksDeferredFieldLoader : InspectorDeferredField
         "Lock Services",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorLocksDeferredFieldLoader(IMessenger messenger)
+    public InspectorLocksDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => LockFieldKeys;
 
-    protected override async Task<FileLockDiagnostics> LoadDiagnosticsAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorLocksDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileLockDiagnostics.None;
-    }
+    protected override InspectorLocksDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileLockDiagnostics diagnostics)
     {

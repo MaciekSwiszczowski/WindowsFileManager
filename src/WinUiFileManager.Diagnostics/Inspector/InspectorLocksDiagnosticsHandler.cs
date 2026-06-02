@@ -11,93 +11,61 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// the Windows Restart Manager which processes/services currently hold a handle to the requested path.
 /// </summary>
 /// <remarks>
-/// Lifetime: DI singleton; registers in <see cref="Initialize"/>, unregisters in <see cref="Dispose"/>,
-/// which is effectively unreachable because the container is never disposed (AGENTS.md §5).
-/// Threading: answered via <c>message.Reply(Task.Run(...))</c>; <see cref="Load"/> runs on the thread pool
-/// under <see cref="LoadTimeout"/>. The Restart Manager <i>session</i> is a native OS resource; here it is
-/// opened and released with a manual <c>try/finally</c> around <c>EndSession</c> rather than an
-/// <see cref="IDisposable"/> wrapper.
+/// The Restart Manager <i>session</i> is a native OS resource; here it is opened and released with a manual
+/// <c>try/finally</c> around <c>EndSession</c> rather than an <see cref="IDisposable"/> wrapper.
 /// </remarks>
-public sealed class InspectorLocksDiagnosticsHandler : IDisposable
+public sealed class InspectorLocksDiagnosticsHandler :
+    InspectorDiagnosticsHandlerBase<
+        InspectorLocksDiagnosticsRequestMessage,
+        FileLockDiagnostics,
+        InspectorLocksDiagnosticsResponseMessage>
 {
     // Win32 error codes from the Restart Manager API.
     private const int ErrorSuccess = 0;
     private const int ErrorMoreData = 234;
-    private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
 
-    private readonly ILogger<InspectorLocksDiagnosticsHandler> _logger;
-    private readonly IMessenger _messenger;
     private readonly IRestartManagerInterop _restartManagerInterop;
-    private bool _disposed;
 
     public InspectorLocksDiagnosticsHandler(
         IMessenger messenger,
         IRestartManagerInterop restartManagerInterop,
         ILogger<InspectorLocksDiagnosticsHandler> logger)
+        : base(messenger, logger)
     {
-        _messenger = messenger;
         _restartManagerInterop = restartManagerInterop;
-        _logger = logger;
-    }
-
-    /// <summary>Registers the request handler. Not idempotent — call exactly once (AGENTS.md §4).</summary>
-    public void Initialize()
-    {
-        _messenger.Register<InspectorLocksDiagnosticsRequestMessage>(this,
-            (_, message) => message.Reply(Task.Run(() => Load(message))));
-    }
-
-    /// <summary>Unregisters from the messenger (idempotent). See type remarks: effectively never called.</summary>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _messenger.UnregisterAll(this);
     }
 
     /// <summary>
     /// Determines whether the path is locked and by whom.
     /// </summary>
-    /// <param name="message">The request carrying the target path and cancellation token.</param>
+    /// <param name="message">The request carrying the target path.</param>
     /// <returns>
     /// Lock diagnostics (in-use flag is <see langword="null"/> when the Restart Manager could not be
     /// queried), or <see cref="FileLockDiagnostics.None"/> on failure.
     /// </returns>
-    /// <remarks>Thread-pool bound. Real cancellation is rethrown; other errors are logged and degraded to None.</remarks>
-    private FileLockDiagnostics Load(InspectorLocksDiagnosticsRequestMessage message)
+    /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
+    protected override Task<FileLockDiagnostics> LoadAsync(
+        InspectorLocksDiagnosticsRequestMessage message,
+        CancellationToken cancellationToken)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
-        timeoutCts.CancelAfter(LoadTimeout);
+        cancellationToken.ThrowIfCancellationRequested();
+        var lockBy = new List<string>();
+        var lockPids = new List<int>();
+        var lockServices = new List<string>();
+        var inUse = TryGetRestartManagerLocks(message.Path.DisplayPath, lockBy, lockPids, lockServices);
 
-        try
-        {
-            timeoutCts.Token.ThrowIfCancellationRequested();
-            var lockBy = new List<string>();
-            var lockPids = new List<int>();
-            var lockServices = new List<string>();
-            var inUse = TryGetRestartManagerLocks(message.Path.DisplayPath, lockBy, lockPids, lockServices);
-
-            return new FileLockDiagnostics(
-                inUse: inUse,
-                lockBy: lockBy,
-                lockPids: lockPids,
-                lockServices: lockServices);
-        }
-        catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
-        {
-            // Rethrow only for genuine caller cancellation; timeout cancellation degrades to None below.
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load inspector lock diagnostics for {Path}", message.Path.DisplayPath);
-            return FileLockDiagnostics.None;
-        }
+        return Task.FromResult(new FileLockDiagnostics(
+            inUse: inUse,
+            lockBy: lockBy,
+            lockPids: lockPids,
+            lockServices: lockServices));
     }
+
+    protected override InspectorLocksDiagnosticsResponseMessage CreateResponse(FileLockDiagnostics diagnostics) =>
+        new(diagnostics);
+
+    protected override FileLockDiagnostics GetEmptyDiagnostics(InspectorLocksDiagnosticsRequestMessage request) =>
+        FileLockDiagnostics.None;
 
     /// <summary>
     /// Runs a Restart Manager session against the path and fills the lock lists.

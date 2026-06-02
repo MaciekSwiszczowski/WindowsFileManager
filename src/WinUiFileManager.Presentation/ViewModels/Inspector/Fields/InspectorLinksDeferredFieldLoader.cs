@@ -6,7 +6,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// Deferred loader for the Links category. Requests link/reparse diagnostics via
 /// <see cref="InspectorLinksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
-internal sealed class InspectorLinksDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileLinkDiagnosticsDetails>
+internal sealed class InspectorLinksDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorLinksDiagnosticsRequestMessage,
+        InspectorLinksDiagnosticsResponseMessage,
+        FileLinkDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> LinkFieldKeys =
     [
@@ -17,24 +21,14 @@ internal sealed class InspectorLinksDeferredFieldLoader : InspectorDeferredField
         "Object ID",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorLinksDeferredFieldLoader(IMessenger messenger)
+    public InspectorLinksDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => LinkFieldKeys;
 
-    protected override async Task<FileLinkDiagnosticsDetails> LoadDiagnosticsAsync(
-        NormalizedPath path,
-        CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorLinksDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileLinkDiagnosticsDetails.Empty;
-    }
+    protected override InspectorLinksDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileLinkDiagnosticsDetails diagnostics)
     {

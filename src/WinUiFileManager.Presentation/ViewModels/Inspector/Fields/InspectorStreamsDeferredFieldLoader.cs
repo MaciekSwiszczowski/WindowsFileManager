@@ -6,7 +6,11 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 /// Deferred loader for the Streams category. Requests alternate-data-stream diagnostics via
 /// <see cref="InspectorStreamsDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
-internal sealed class InspectorStreamsDeferredFieldLoader : InspectorDeferredFieldLoaderBase<FileStreamDiagnosticsDetails>
+internal sealed class InspectorStreamsDeferredFieldLoader :
+    InspectorDeferredFieldLoaderBase<
+        InspectorStreamsDiagnosticsRequestMessage,
+        InspectorStreamsDiagnosticsResponseMessage,
+        FileStreamDiagnosticsDetails>
 {
     private static readonly IReadOnlyList<string> StreamFieldKeys =
     [
@@ -14,22 +18,14 @@ internal sealed class InspectorStreamsDeferredFieldLoader : InspectorDeferredFie
         "Alternate Streams",
     ];
 
-    private readonly IMessenger _messenger;
-
-    public InspectorStreamsDeferredFieldLoader(IMessenger messenger)
+    public InspectorStreamsDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
+        : base(messenger, schedulers)
     {
-        _messenger = messenger;
     }
 
     protected override IReadOnlyList<string> FieldKeys => StreamFieldKeys;
 
-    protected override async Task<FileStreamDiagnosticsDetails> LoadDiagnosticsAsync(NormalizedPath path, CancellationToken cancellationToken)
-    {
-        var request = _messenger.Send(new InspectorStreamsDiagnosticsRequestMessage(path, cancellationToken));
-        return request.HasReceivedResponse
-            ? await request.Response
-            : FileStreamDiagnosticsDetails.Empty;
-    }
+    protected override InspectorStreamsDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileStreamDiagnosticsDetails diagnostics)
     {

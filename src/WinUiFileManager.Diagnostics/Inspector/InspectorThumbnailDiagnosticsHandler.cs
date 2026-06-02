@@ -13,99 +13,70 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// requested path and returning it as raw bytes plus the file's ProgID/extension.
 /// </summary>
 /// <remarks>
-/// Lifetime: DI singleton; registers in <see cref="Initialize"/>, unregisters in <see cref="Dispose"/>,
-/// which is effectively unreachable because the container is never disposed (AGENTS.md §5).
-/// Threading: answered via <c>message.Reply(Task.Run(...))</c>, so <see cref="LoadAsync"/> begins on a
-/// thread-pool thread and awaits the WinRT Storage/thumbnail APIs with <c>ConfigureAwait(false)</c>
-/// (library convention, AGENTS.md §6). These particular WinRT APIs are usable off the UI/STA thread; note
-/// that other WinRT/STA-bound APIs are <i>not</i> (AGENTS.md §5) — this handler stays off the UI thread on
-/// purpose because thumbnail extraction can be slow.
+/// <see cref="LoadAsync"/> begins on a thread-pool thread and awaits the WinRT Storage/thumbnail APIs with
+/// <c>ConfigureAwait(false)</c>. These particular WinRT APIs are usable off the UI/STA thread; note that other
+/// WinRT/STA-bound APIs are <i>not</i> — this handler stays off the UI thread because thumbnail extraction can be slow.
 /// </remarks>
-public sealed class InspectorThumbnailDiagnosticsHandler : IDisposable
+public sealed class InspectorThumbnailDiagnosticsHandler :
+    InspectorDiagnosticsHandlerBase<
+        InspectorThumbnailDiagnosticsRequestMessage,
+        FileThumbnailDiagnosticsDetails,
+        InspectorThumbnailDiagnosticsResponseMessage>
 {
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
     private const uint ThumbnailSize = 256;
     private const int MaxThumbnailBytes = 4 * 1024 * 1024;
 
-    private readonly ILogger<InspectorThumbnailDiagnosticsHandler> _logger;
-    private readonly IMessenger _messenger;
-    private bool _disposed;
-
     public InspectorThumbnailDiagnosticsHandler(
         IMessenger messenger,
         ILogger<InspectorThumbnailDiagnosticsHandler> logger)
+        : base(messenger, logger)
     {
-        _messenger = messenger;
-        _logger = logger;
-    }
-
-    /// <summary>Registers the request handler. Not idempotent — call exactly once (AGENTS.md §4).</summary>
-    public void Initialize()
-    {
-        _messenger.Register<InspectorThumbnailDiagnosticsRequestMessage>(this,
-            (_, message) => message.Reply(Task.Run(() => LoadAsync(message))));
-    }
-
-    /// <summary>Unregisters from the messenger (idempotent). See type remarks: effectively never called.</summary>
-    public void Dispose()
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _disposed = true;
-        _messenger.UnregisterAll(this);
     }
 
     /// <summary>
     /// Retrieves a 256px single-item thumbnail for the path and copies it into a byte array.
     /// </summary>
-    /// <param name="message">The request carrying the target path and cancellation token.</param>
+    /// <param name="message">The request carrying the target path.</param>
     /// <returns>
     /// Thumbnail bytes (or null bytes with just the ProgID when none is available), or
     /// <see cref="FileThumbnailDiagnosticsDetails.Empty"/> on failure.
     /// </returns>
-    /// <remarks>Thread-pool bound. Real cancellation is rethrown; other errors are logged and degraded to empty.</remarks>
-    private async Task<FileThumbnailDiagnosticsDetails> LoadAsync(InspectorThumbnailDiagnosticsRequestMessage message)
+    /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
+    protected override async Task<FileThumbnailDiagnosticsDetails> LoadAsync(
+        InspectorThumbnailDiagnosticsRequestMessage message,
+        CancellationToken cancellationToken)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(message.CancellationToken);
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(LoadTimeout);
 
-        try
+        var path = message.Path.DisplayPath;
+        var progId = Path.GetExtension(path);
+        var storageItem = await TryGetStorageItemAsync(path).ConfigureAwait(false);
+        if (storageItem is null)
         {
-            var path = message.Path.DisplayPath;
-            var progId = Path.GetExtension(path);
-            var storageItem = await TryGetStorageItemAsync(path).ConfigureAwait(false);
-            if (storageItem is null)
-            {
-                return new FileThumbnailDiagnosticsDetails(null, progId);
-            }
-
-            using var thumbnail = storageItem is StorageFile file
-                ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false)
-                : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false);
-
-            if (thumbnail is null || thumbnail.Size == 0 || thumbnail.Size > MaxThumbnailBytes)
-            {
-                return new FileThumbnailDiagnosticsDetails(null, progId);
-            }
-
-            return new FileThumbnailDiagnosticsDetails(
-                await CopyThumbnailBytesAsync(thumbnail, timeoutCts.Token).ConfigureAwait(false),
-                progId);
+            return new FileThumbnailDiagnosticsDetails(null, progId);
         }
-        catch (OperationCanceledException) when (message.CancellationToken.IsCancellationRequested)
+
+        using var thumbnail = storageItem is StorageFile file
+            ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false)
+            : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false);
+
+        if (thumbnail is null || thumbnail.Size == 0 || thumbnail.Size > MaxThumbnailBytes)
         {
-            // Rethrow only for genuine caller cancellation; timeout cancellation degrades to empty below.
-            throw;
+            return new FileThumbnailDiagnosticsDetails(null, progId);
         }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to load inspector thumbnail diagnostics for {Path}", message.Path.DisplayPath);
-            return FileThumbnailDiagnosticsDetails.Empty;
-        }
+
+        return new FileThumbnailDiagnosticsDetails(
+            await CopyThumbnailBytesAsync(thumbnail, timeoutCts.Token).ConfigureAwait(false),
+            progId);
     }
+
+    protected override InspectorThumbnailDiagnosticsResponseMessage CreateResponse(FileThumbnailDiagnosticsDetails diagnostics) =>
+        new(diagnostics);
+
+    protected override FileThumbnailDiagnosticsDetails GetEmptyDiagnostics(InspectorThumbnailDiagnosticsRequestMessage request) =>
+        FileThumbnailDiagnosticsDetails.Empty;
 
     private static async Task<byte[]> CopyThumbnailBytesAsync(StorageItemThumbnail thumbnail, CancellationToken cancellationToken)
     {

@@ -26,8 +26,11 @@ internal sealed class InspectorIdentityDeferredFieldLoader :
         "Final Path",
     ];
 
-    public InspectorIdentityDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorIdentityDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorIdentityDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

@@ -18,8 +18,11 @@ internal sealed class InspectorStreamsDeferredFieldLoader :
         "Alternate Streams",
     ];
 
-    public InspectorStreamsDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorStreamsDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorStreamsDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

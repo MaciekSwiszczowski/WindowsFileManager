@@ -22,8 +22,11 @@ internal sealed class InspectorSecurityDeferredFieldLoader :
         "Protected",
     ];
 
-    public InspectorSecurityDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorSecurityDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorSecurityDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

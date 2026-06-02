@@ -21,8 +21,11 @@ internal sealed class InspectorLocksDeferredFieldLoader :
         "Lock Services",
     ];
 
-    public InspectorLocksDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorLocksDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorLocksDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

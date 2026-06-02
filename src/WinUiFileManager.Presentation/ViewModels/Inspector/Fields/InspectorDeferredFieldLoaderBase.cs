@@ -1,4 +1,5 @@
 using System.Reactive.Linq;
+using AsyncAwaitBestPractices;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Presentation.FileEntryTable;
 
@@ -15,6 +16,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
     where TRequest : class, IInspectorDiagnosticsRequestMessage
     where TResponse : class, IInspectorDiagnosticsResponseMessage<TDiagnostics>
 {
+    private readonly ILogger _logger;
     private readonly IMessenger _messenger;
     private readonly ISchedulerProvider _schedulers;
     private InspectorFieldValueUpdater? _fieldValueUpdater;
@@ -22,10 +24,11 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
     private bool _hasPendingRequest;
     private bool _disposed;
 
-    protected InspectorDeferredFieldLoaderBase(IMessenger messenger, ISchedulerProvider schedulers)
+    protected InspectorDeferredFieldLoaderBase(IMessenger messenger, ISchedulerProvider schedulers, ILogger logger)
     {
         _messenger = messenger;
         _schedulers = schedulers;
+        _logger = logger;
     }
 
     /// <summary>The shared value updater; throws if accessed before <see cref="Initialize"/>.</summary>
@@ -52,7 +55,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
         _responseSubscription = _messenger
             .CreateObservable<TResponse>()
             .ObserveOn(_schedulers.MainThread)
-            .Subscribe(response => _ = ApplyResponseAsync(response));
+            .Subscribe(response => ApplyResponseAsync(response).SafeFireAndForget(OnApplyException));
     }
 
     public void Prepare(SpecFileEntryViewModel selectedItem)
@@ -115,6 +118,9 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
             FieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
         }
     }
+
+    private void OnApplyException(Exception exception)
+        => _logger.LogWarning(exception, "Failed to apply {Loader} inspector diagnostics.", GetType().Name);
 
     private void CancelCurrentLoad(bool clearLoading)
     {

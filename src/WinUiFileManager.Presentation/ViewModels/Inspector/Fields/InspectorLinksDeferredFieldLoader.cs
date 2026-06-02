@@ -21,8 +21,11 @@ internal sealed class InspectorLinksDeferredFieldLoader :
         "Object ID",
     ];
 
-    public InspectorLinksDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorLinksDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorLinksDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

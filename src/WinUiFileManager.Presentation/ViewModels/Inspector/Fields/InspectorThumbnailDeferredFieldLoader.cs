@@ -23,8 +23,11 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
         "Association",
     ];
 
-    public InspectorThumbnailDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorThumbnailDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorThumbnailDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

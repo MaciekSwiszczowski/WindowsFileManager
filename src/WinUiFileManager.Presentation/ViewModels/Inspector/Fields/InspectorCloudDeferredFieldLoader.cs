@@ -24,8 +24,11 @@ internal sealed class InspectorCloudDeferredFieldLoader :
         "Custom",
     ];
 
-    public InspectorCloudDeferredFieldLoader(IMessenger messenger, ISchedulerProvider schedulers)
-        : base(messenger, schedulers)
+    public InspectorCloudDeferredFieldLoader(
+        IMessenger messenger,
+        ISchedulerProvider schedulers,
+        ILogger<InspectorCloudDeferredFieldLoader> logger)
+        : base(messenger, schedulers, logger)
     {
     }
 

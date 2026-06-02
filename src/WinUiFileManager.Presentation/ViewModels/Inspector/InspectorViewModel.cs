@@ -36,6 +36,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     private readonly InspectorFieldValueUpdater _fieldValueUpdater;
     private readonly InspectorAttributeToggleViewModel _attributeToggle;
     private readonly IReadOnlyList<IInspectorDeferredFieldLoader> _deferredFieldLoaders;
+    private NormalizedPath? _currentSelectedItemPath;
     private int _selectedItemCount;
     private volatile bool _inspectorPanelVisible = true;
     private bool _disposed;
@@ -168,6 +169,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// </summary>
     private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
     {
+        _currentSelectedItemPath = null;
         CancelDeferredFieldLoads();
         PropertiesButton.SetSelectedItem(null);
         _attributeToggle.SetSelectedItem(null);
@@ -178,18 +180,19 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Handles a single-item selection synchronously: cancels deferred loads, points the properties/attribute
-    /// view models at the model, fills the immediately-available fields, refreshes search, and switches to
-    /// <see cref="FileInspectorSelectionMode.SingleSelection"/>. The slower diagnostics arrive later via
+    /// Handles a single-item selection synchronously: points the properties/attribute view models at the model,
+    /// fills the immediately-available fields, marks deferred fields as loading, refreshes search, and switches
+    /// to <see cref="FileInspectorSelectionMode.SingleSelection"/>. The slower diagnostics arrive later via
     /// <see cref="LoadDeferredSelection"/>.
     /// </summary>
     private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
     {
-        CancelDeferredFieldLoads();
+        _currentSelectedItemPath = selectedItem.Model?.FullPath;
         PropertiesButton.SetSelectedItem(selectedItem.Model);
         _attributeToggle.SetSelectedItem(selectedItem.Model);
         SetSelectedItemCount(1);
         _fieldValueUpdater.ShowImmediateSelection(selectedItem);
+        PrepareDeferredFieldLoads(selectedItem);
         Search.Refresh();
         SelectionMode = FileInspectorSelectionMode.SingleSelection;
     }
@@ -200,9 +203,32 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// </summary>
     private void LoadDeferredSelection(SpecFileEntryViewModel selectedItem)
     {
+        if (!IsCurrentSelection(selectedItem))
+        {
+            return;
+        }
+
         foreach (var loader in _deferredFieldLoaders)
         {
             loader.Load(selectedItem);
+        }
+    }
+
+    private bool IsCurrentSelection(SpecFileEntryViewModel selectedItem) =>
+        _currentSelectedItemPath is { } currentPath
+        && selectedItem.Model is { } model
+        && currentPath == model.FullPath;
+
+    /// <summary>
+    /// Immediately shows pending state for deferred fields when a single selection is refreshed. The diagnostics
+    /// request remains throttled in <see cref="LoadDeferredSelection"/>, so rapid selection changes still avoid
+    /// spamming expensive diagnostics.
+    /// </summary>
+    private void PrepareDeferredFieldLoads(SpecFileEntryViewModel selectedItem)
+    {
+        foreach (var loader in _deferredFieldLoaders)
+        {
+            loader.Prepare(selectedItem);
         }
     }
 

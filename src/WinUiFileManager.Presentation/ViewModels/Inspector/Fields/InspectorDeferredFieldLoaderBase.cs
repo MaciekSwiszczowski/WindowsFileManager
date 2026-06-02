@@ -49,8 +49,21 @@ internal abstract class InspectorDeferredFieldLoaderBase<TDiagnostics> :
         _fieldValueUpdater = fieldValueUpdater;
     }
 
+    public void Prepare(SpecFileEntryViewModel selectedItem)
+    {
+        _ = FieldValueUpdater;
+        CancelCurrentLoad(clearLoading: false);
+
+        if (selectedItem.Model is null)
+        {
+            return;
+        }
+
+        FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
+    }
+
     /// <summary>
-    /// Begins loading for the selection: cancels the previous load, marks the fields loading, and kicks off the
+    /// Begins loading for the selection: cancels the previous load while preserving loading state, and kicks off the
     /// async fetch/apply. Parent-entry rows (null model) just cancel and return.
     /// </summary>
     public void Load(SpecFileEntryViewModel selectedItem)

@@ -39,11 +39,10 @@ public sealed class InspectorStreamsDiagnosticsHandler :
         cancellationToken.ThrowIfCancellationRequested();
         var streams = _alternateDataStreamInterop.EnumerateAlternateDataStreamDisplayLines(message.Path.DisplayPath);
 
-        // Common case (no alternate streams): reuse the shared sentinel so we allocate neither a count
-        // string ("0") nor a new details record. Only files that actually carry ADS pay for formatting.
+        // Common case (no alternate streams): reuse the shared sentinel so we avoid a new details record.
         var details = streams.Count == 0
             ? FileStreamDiagnosticsDetails.Empty
-            : new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams);
+            : new FileStreamDiagnosticsDetails(streams.Count, streams);
         return Task.FromResult(details);
     }
 

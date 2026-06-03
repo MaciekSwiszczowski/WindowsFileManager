@@ -56,11 +56,7 @@ internal sealed class InspectorFieldValueUpdater
     /// <summary>Populates the Streams category from alternate-data-stream diagnostics.</summary>
     public void ShowStreamsDiagnostics(FileStreamDiagnosticsDetails diagnostics)
     {
-        var streamCount = string.IsNullOrWhiteSpace(diagnostics.AlternateStreamCount)
-            ? "0"
-            : diagnostics.AlternateStreamCount;
-
-        SetValue("Alternate Stream Count", streamCount);
+        SetValue("Alternate Stream Count", diagnostics.AlternateStreamCount.ToString());
         SetValue(
             "Alternate Streams",
             diagnostics.AlternateStreams.Count > 0

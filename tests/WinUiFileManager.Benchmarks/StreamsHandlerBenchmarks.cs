@@ -148,13 +148,7 @@ public class StreamsHandlerBenchmarks
 
     private void OnResponse(InspectorStreamsDiagnosticsResponseMessage response)
     {
-        var alternateStreamCount = int.TryParse(
-            response.Diagnostics.AlternateStreamCount,
-            out var parsedCount)
-            ? parsedCount
-            : 0;
-
         // Unbounded + single-writer: always succeeds without allocating in steady state.
-        _responses.Writer.TryWrite(alternateStreamCount);
+        _responses.Writer.TryWrite(response.Diagnostics.AlternateStreamCount);
     }
 }

@@ -59,11 +59,9 @@ public sealed class InspectorCloudDiagnosticsHandler :
     /// state); otherwise <see cref="FileCloudDiagnosticsDetails.None"/>. Also returns <c>None</c> on failure.
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
-    protected override async Task<FileCloudDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override async Task<FileCloudDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var timeoutCts = new CancellationTokenSource();
         timeoutCts.CancelAfter(LoadTimeout);
 
         var path = message.Path.DisplayPath;

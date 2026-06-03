@@ -27,11 +27,8 @@ public sealed class InspectorLinksDiagnosticsHandler :
     /// <param name="message">The request carrying the target path.</param>
     /// <returns>Link details, or <see cref="FileLinkDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
-    protected override Task<FileLinkDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override Task<FileLinkDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var path = message.Path.DisplayPath;
         FileSystemInfo fileSystemInfo = File.Exists(path) ? new FileInfo(path) : new DirectoryInfo(path);
         var linkStatus = Path.GetExtension(path).Equals(".lnk", StringComparison.OrdinalIgnoreCase)

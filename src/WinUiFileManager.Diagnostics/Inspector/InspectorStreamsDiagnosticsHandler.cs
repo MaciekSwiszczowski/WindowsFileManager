@@ -32,11 +32,8 @@ public sealed class InspectorStreamsDiagnosticsHandler :
     /// <param name="message">The request carrying the target path.</param>
     /// <returns>Stream details, or <see cref="FileStreamDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty.</remarks>
-    protected override Task<FileStreamDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override Task<FileStreamDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var streams = _alternateDataStreamInterop.EnumerateAlternateDataStreamDisplayLines(message.Path.DisplayPath);
 
         // Common case (no alternate streams): reuse the shared sentinel so we avoid a new details record.

@@ -42,11 +42,9 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     /// <see cref="FileThumbnailDiagnosticsDetails.Empty"/> on failure.
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
-    protected override async Task<FileThumbnailDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override async Task<FileThumbnailDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var timeoutCts = new CancellationTokenSource();
         timeoutCts.CancelAfter(LoadTimeout);
 
         var path = message.Path.DisplayPath;

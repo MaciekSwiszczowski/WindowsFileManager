@@ -43,11 +43,8 @@ public sealed class InspectorLocksDiagnosticsHandler :
     /// queried), or <see cref="FileLockDiagnostics.None"/> on failure.
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
-    protected override Task<FileLockDiagnostics> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override Task<FileLockDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var lockBy = new List<string>();
         var lockPids = new List<int>();
         var lockServices = new List<string>();

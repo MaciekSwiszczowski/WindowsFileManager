@@ -33,11 +33,8 @@ public sealed class InspectorSecurityDiagnosticsHandler :
     /// <param name="message">The request carrying the target path.</param>
     /// <returns>Security summary, or <see cref="FileSecurityDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
-    protected override Task<FileSecurityDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override Task<FileSecurityDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var path = message.Path.DisplayPath;
         FileSystemSecurity security = Directory.Exists(path)
             ? new DirectoryInfo(path).GetAccessControl()

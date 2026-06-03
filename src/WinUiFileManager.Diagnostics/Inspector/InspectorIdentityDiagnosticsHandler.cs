@@ -39,11 +39,8 @@ public sealed class InspectorIdentityDiagnosticsHandler :
     /// <param name="message">The request carrying the target path.</param>
     /// <returns>The loaded details, or a near-empty result (with the final path filled in) on failure.</returns>
     /// <remarks>Runs on a thread-pool thread. Errors are logged and degraded by the base class.</remarks>
-    protected override Task<InspectorIdentityDiagnosticsDetails> LoadAsync(
-        InspectorDiagnosticsRequestMessage message,
-        CancellationToken cancellationToken)
+    protected override Task<InspectorIdentityDiagnosticsDetails> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
-        cancellationToken.ThrowIfCancellationRequested();
         var path = message.Path.DisplayPath;
         using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
 

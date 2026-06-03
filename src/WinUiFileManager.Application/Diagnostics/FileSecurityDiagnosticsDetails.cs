@@ -3,7 +3,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <summary>
 /// Immutable security-descriptor summary for a file (owner, group, DACL/SACL summaries, inheritance
 /// flags), shown in the inspector's Security section. Produced by the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorSecurityDiagnosticsRequestMessage"/>.
+/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 /// <param name="Owner">Owner principal, formatted for display.</param>
 /// <param name="Group">Primary group principal, formatted for display.</param>

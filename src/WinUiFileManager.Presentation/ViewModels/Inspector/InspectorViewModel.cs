@@ -1,5 +1,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
@@ -198,12 +199,12 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Kicks off the throttled, asynchronous diagnostics loads for the settled single selection (one per loader).
+    /// Marks all deferred loaders as waiting, then sends one shared diagnostics request for the settled single selection.
     /// Fed by the throttled <c>DeferredSelectionObservable</c> so rapid selection changes don't spam diagnostics.
     /// </summary>
     private void LoadDeferredSelection(SpecFileEntryViewModel selectedItem)
     {
-        if (!IsCurrentSelection(selectedItem))
+        if (!IsCurrentSelection(selectedItem) || selectedItem.Model is not { } model)
         {
             return;
         }
@@ -212,6 +213,8 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         {
             loader.Load(selectedItem);
         }
+
+        _messenger.Send(new InspectorDiagnosticsRequestMessage(model.FullPath));
     }
 
     private bool IsCurrentSelection(SpecFileEntryViewModel selectedItem) =>

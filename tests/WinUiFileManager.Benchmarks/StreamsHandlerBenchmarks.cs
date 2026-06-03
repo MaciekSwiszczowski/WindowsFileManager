@@ -1,15 +1,3 @@
-using Autofac;
-using Autofac.Extensions.DependencyInjection;
-using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Diagnostics.Windows.Configs;
-using CommunityToolkit.Mvvm.Messaging;
-using Microsoft.Extensions.DependencyInjection;
-using WinUiFileManager.Application.FileEntries;
-using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
-using WinUiFileManager.Diagnostics;
-using WinUiFileManager.Diagnostics.Inspector;
-using WinUiFileManager.Infrastructure;
-
 namespace WinUiFileManager.Benchmarks;
 
 [MemoryDiagnoser]
@@ -17,20 +5,31 @@ namespace WinUiFileManager.Benchmarks;
 // ReSharper disable once ClassCanBeSealed.Global
 public class StreamsHandlerBenchmarks
 {
-    private static readonly TimeSpan ResponseTimeout = TimeSpan.FromSeconds(30);
-
-    [Params(1_000)]
+    [Params(500, 2000)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _filePaths = [];
-    private InspectorStreamsDiagnosticsRequestMessage[] _requests = [];
-    private readonly ManualResetEventSlim _responseReceived = new();
+    private string[] _filesWithoutStreams = [];
+    private string[] _filesWithOneStream = [];
+    private string[] _filesWithTwoStreams = [];
+    private InspectorDiagnosticsRequestMessage[] _requests = [];
+
+    // Long-lived async hand-off between the (thread-pool) response publisher and the benchmark loop.
+    // The loop is strictly serial (send -> await -> send), so the channel never buffers more than one
+    // item and steady-state allocation is effectively zero. This is the template for further
+    // message-round-trip benchmarks under [MemoryDiagnoser].
+    private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
+        new UnboundedChannelOptions
+        {
+            SingleReader = true,
+            SingleWriter = true,
+            AllowSynchronousContinuations = false,
+        });
+
     private IContainer? _container;
     private IMessenger? _messenger;
     private IDisposable? _responseSubscription;
-    private int _lastAlternateStreamCount;
 
     [GlobalSetup]
     public void Setup()
@@ -46,14 +45,17 @@ public class StreamsHandlerBenchmarks
 
         Directory.CreateDirectory(_benchmarkDirectory);
 
-        for (var i = 0; i < FileCount; i++)
-        {
-            File.WriteAllText(Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin"), string.Empty);
-        }
+        _filesWithoutStreams = CreateFiles("no-streams", FileCount);
+        _filesWithOneStream = CreateFiles("one-stream", FileCount);
+        _filesWithTwoStreams = CreateFiles("two-streams", FileCount);
 
-        _filePaths = Directory.GetFiles(_benchmarkDirectory);
-        _requests = _filePaths
-            .Select(static filePath => new InspectorStreamsDiagnosticsRequestMessage(
+        AddAlternateStreams(_filesWithOneStream, streamCount: 1, streamSize: 1000);
+        AddAlternateStreams(_filesWithTwoStreams, streamCount: 2, streamSize: 2000);
+
+        _requests = _filesWithoutStreams
+            .Concat(_filesWithOneStream)
+            .Concat(_filesWithTwoStreams)
+            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
                 NormalizedPath.FromFullyQualifiedPath(filePath)))
             .ToArray();
 
@@ -66,23 +68,14 @@ public class StreamsHandlerBenchmarks
     }
 
     [Benchmark]
-    public int InspectorStreamsDiagnosticsHandler()
+    public async Task<int> InspectorStreamsDiagnosticsHandler()
     {
         var streamCount = 0;
 
         foreach (var request in _requests)
         {
-            _lastAlternateStreamCount = 0;
-            _responseReceived.Reset();
-
-            _messenger?.Send(request);
-
-            if (!_responseReceived.Wait(ResponseTimeout))
-            {
-                throw new TimeoutException("Timed out waiting for inspector streams diagnostics response.");
-            }
-
-            streamCount += _lastAlternateStreamCount;
+            Messenger.Send(request);
+            streamCount += await _responses.Reader.ReadAsync().ConfigureAwait(false);
         }
 
         return streamCount;
@@ -96,9 +89,10 @@ public class StreamsHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _filePaths = [];
+        _filesWithoutStreams = [];
+        _filesWithOneStream = [];
+        _filesWithTwoStreams = [];
         _requests = [];
-        _responseReceived.Reset();
 
         if (Directory.Exists(_benchmarkDirectory))
         {
@@ -119,14 +113,48 @@ public class StreamsHandlerBenchmarks
         return builder.Build();
     }
 
+    private IMessenger Messenger =>
+        _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
+
+    private string[] CreateFiles(string groupName, int fileCount)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var filePaths = new string[fileCount];
+
+        for (var i = 0; i < fileCount; i++)
+        {
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllText(filePath, string.Empty);
+            filePaths[i] = filePath;
+        }
+
+        return filePaths;
+    }
+
+    private static void AddAlternateStreams(string[] filePaths, int streamCount, int streamSize)
+    {
+        var streamContent = new byte[streamSize];
+
+        foreach (var filePath in filePaths)
+        {
+            for (var streamIndex = 1; streamIndex <= streamCount; streamIndex++)
+            {
+                File.WriteAllBytes($"{filePath}:stream-{streamIndex}", streamContent);
+            }
+        }
+    }
+
     private void OnResponse(InspectorStreamsDiagnosticsResponseMessage response)
     {
-        _lastAlternateStreamCount = int.TryParse(
+        var alternateStreamCount = int.TryParse(
             response.Diagnostics.AlternateStreamCount,
-            out var alternateStreamCount)
-            ? alternateStreamCount
+            out var parsedCount)
+            ? parsedCount
             : 0;
 
-        _responseReceived.Set();
+        // Unbounded + single-writer: always succeeds without allocating in steady state.
+        _responses.Writer.TryWrite(alternateStreamCount);
     }
 }

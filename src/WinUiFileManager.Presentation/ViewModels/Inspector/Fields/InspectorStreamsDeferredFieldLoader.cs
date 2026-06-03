@@ -4,11 +4,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Deferred loader for the Streams category. Requests alternate-data-stream diagnostics via
-/// <see cref="InspectorStreamsDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// <see cref="InspectorDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
 internal sealed class InspectorStreamsDeferredFieldLoader :
     InspectorDeferredFieldLoaderBase<
-        InspectorStreamsDiagnosticsRequestMessage,
         InspectorStreamsDiagnosticsResponseMessage,
         FileStreamDiagnosticsDetails>
 {
@@ -27,8 +26,6 @@ internal sealed class InspectorStreamsDeferredFieldLoader :
     }
 
     protected override IReadOnlyList<string> FieldKeys => StreamFieldKeys;
-
-    protected override InspectorStreamsDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileStreamDiagnosticsDetails diagnostics)
     {

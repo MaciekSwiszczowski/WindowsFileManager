@@ -136,7 +136,7 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IA
             // FileId.Identifier is a fixed 16-byte buffer; reinterpret it as a byte span and copy out so the
             // result outlives this stack frame (the native struct does not).
             var identifier = MemoryMarshal.CreateReadOnlySpan(
-                ref Unsafe.As<Windows.Win32.__byte_16, byte>(ref fileIdInfo.FileId.Identifier),
+                ref Unsafe.As<__byte_16, byte>(ref fileIdInfo.FileId.Identifier),
                 16);
             fileId16 = new byte[identifier.Length];
             identifier.CopyTo(fileId16);
@@ -237,7 +237,9 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IA
     /// <returns>Display lines for each ADS; empty (never <see langword="null"/>) when there are none or the open fails.</returns>
     public IReadOnlyList<string> EnumerateAlternateDataStreamDisplayLines(string path)
     {
-        var streams = new List<string>();
+        // Allocated lazily on the first *alternate* stream. Files without ADS (the overwhelmingly common case)
+        // therefore allocate no backing list and return a shared empty instance, keeping this path zero-GC.
+        List<string>? streams = null;
         unsafe
         {
             WIN32_FIND_STREAM_DATA data;
@@ -254,21 +256,21 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IA
                 using var handle = new SafeFindFilesHandle(findHandle);
                 if (handle.IsInvalid)
                 {
-                    return streams;
+                    return [];
                 }
 
-                AddStreamDisplayLine(streams, data);
+                AddStreamDisplayLine(ref streams, data);
                 while (handle.TryReadNextStream(ref data))
                 {
-                    AddStreamDisplayLine(streams, data);
+                    AddStreamDisplayLine(ref streams, data);
                 }
             }
         }
 
-        return streams;
+        return streams ?? (IReadOnlyList<string>)[];
     }
 
-    private static void AddStreamDisplayLine(ICollection<string> streams, WIN32_FIND_STREAM_DATA data)
+    private static void AddStreamDisplayLine(ref List<string>? streams, WIN32_FIND_STREAM_DATA data)
     {
         // cStreamName is a fixed 296-char buffer; read up to its null terminator.
         var streamName = GetNullTerminatedString(data.cStreamName, 296);
@@ -283,6 +285,7 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IA
             return;
         }
 
+        streams ??= [];
         streams.Add($"{streamName.Trim()} ({data.StreamSize} bytes)");
     }
 
@@ -290,9 +293,7 @@ internal sealed class FileSystemMetadataInterop : IFileSystemMetadataInterop, IA
     // can be reused. `buffer` is taken by value (a copy of the fixed array) which is acceptable for a one-shot read.
     private static string GetNullTerminatedString(__char_296 buffer, int length)
     {
-        var span = MemoryMarshal.CreateReadOnlySpan(
-            ref Unsafe.As<__char_296, char>(ref buffer),
-            length);
+        var span = MemoryMarshal.CreateReadOnlySpan(ref Unsafe.As<__char_296, char>(ref buffer), length);
         return GetNullTerminatedString(span);
     }
 

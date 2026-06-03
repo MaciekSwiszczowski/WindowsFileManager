@@ -3,7 +3,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <summary>
 /// Composite payload for the inspector's identity section, bundling the raw NTFS metadata with the
 /// resolved identity facts. Produced by the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorIdentityDiagnosticsRequestMessage"/>.
+/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 public sealed record InspectorIdentityDiagnosticsDetails(
     FileNtfsMetadataDetails NtfsMetadata,

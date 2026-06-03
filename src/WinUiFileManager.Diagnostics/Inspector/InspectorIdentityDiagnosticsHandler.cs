@@ -9,7 +9,7 @@ using WinUiFileManager.Interop.Adapters;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorIdentityDiagnosticsRequestMessage"/> with
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with
 /// NTFS identity details (file id, volume serial, legacy index, link count, final path) and basic NTFS
 /// timestamps/attributes for the requested path.
 /// </summary>
@@ -19,7 +19,6 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// </remarks>
 public sealed class InspectorIdentityDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorIdentityDiagnosticsRequestMessage,
         InspectorIdentityDiagnosticsDetails,
         InspectorIdentityDiagnosticsResponseMessage>
 {
@@ -41,7 +40,7 @@ public sealed class InspectorIdentityDiagnosticsHandler :
     /// <returns>The loaded details, or a near-empty result (with the final path filled in) on failure.</returns>
     /// <remarks>Runs on a thread-pool thread. Errors are logged and degraded by the base class.</remarks>
     protected override Task<InspectorIdentityDiagnosticsDetails> LoadAsync(
-        InspectorIdentityDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -56,7 +55,7 @@ public sealed class InspectorIdentityDiagnosticsHandler :
     protected override InspectorIdentityDiagnosticsResponseMessage CreateResponse(InspectorIdentityDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override InspectorIdentityDiagnosticsDetails GetEmptyDiagnostics(InspectorIdentityDiagnosticsRequestMessage request) =>
+    protected override InspectorIdentityDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         InspectorIdentityDiagnosticsDetails.Empty with
         {
             Identity = InspectorIdentityDiagnosticsDetails.Empty.Identity with { FinalPath = request.Path.DisplayPath },

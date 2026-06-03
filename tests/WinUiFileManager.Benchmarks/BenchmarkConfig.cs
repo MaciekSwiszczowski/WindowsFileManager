@@ -1,8 +1,3 @@
-using BenchmarkDotNet.Configs;
-using BenchmarkDotNet.Environments;
-using BenchmarkDotNet.Engines;
-using BenchmarkDotNet.Jobs;
-
 namespace WinUiFileManager.Benchmarks;
 
 public static class BenchmarkConfig

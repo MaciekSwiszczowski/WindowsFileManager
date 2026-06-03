@@ -7,12 +7,11 @@ using WinUiFileManager.Interop.Adapters;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorStreamsDiagnosticsRequestMessage"/> by
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by
 /// enumerating a file's NTFS alternate data streams (count plus per-stream display lines).
 /// </summary>
 public sealed class InspectorStreamsDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorStreamsDiagnosticsRequestMessage,
         FileStreamDiagnosticsDetails,
         InspectorStreamsDiagnosticsResponseMessage>
 {
@@ -34,17 +33,23 @@ public sealed class InspectorStreamsDiagnosticsHandler :
     /// <returns>Stream details, or <see cref="FileStreamDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty.</remarks>
     protected override Task<FileStreamDiagnosticsDetails> LoadAsync(
-        InspectorStreamsDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var streams = _alternateDataStreamInterop.EnumerateAlternateDataStreamDisplayLines(message.Path.DisplayPath);
-        return Task.FromResult(new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams));
+
+        // Common case (no alternate streams): reuse the shared sentinel so we allocate neither a count
+        // string ("0") nor a new details record. Only files that actually carry ADS pay for formatting.
+        var details = streams.Count == 0
+            ? FileStreamDiagnosticsDetails.Empty
+            : new FileStreamDiagnosticsDetails(streams.Count.ToString(), streams);
+        return Task.FromResult(details);
     }
 
     protected override InspectorStreamsDiagnosticsResponseMessage CreateResponse(FileStreamDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override FileStreamDiagnosticsDetails GetEmptyDiagnostics(InspectorStreamsDiagnosticsRequestMessage request) =>
+    protected override FileStreamDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileStreamDiagnosticsDetails.Empty;
 }

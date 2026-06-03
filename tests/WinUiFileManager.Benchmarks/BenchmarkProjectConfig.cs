@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace WinUiFileManager.Benchmarks;
 
 public static class BenchmarkProjectConfig

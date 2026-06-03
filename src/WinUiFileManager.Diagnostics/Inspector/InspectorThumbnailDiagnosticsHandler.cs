@@ -8,7 +8,7 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorThumbnailDiagnosticsRequestMessage"/> by
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by
 /// fetching a Shell thumbnail (via WinRT <see cref="StorageFile"/>/<see cref="StorageFolder"/>) for the
 /// requested path and returning it as raw bytes plus the file's ProgID/extension.
 /// </summary>
@@ -19,7 +19,6 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// </remarks>
 public sealed class InspectorThumbnailDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorThumbnailDiagnosticsRequestMessage,
         FileThumbnailDiagnosticsDetails,
         InspectorThumbnailDiagnosticsResponseMessage>
 {
@@ -44,7 +43,7 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
     protected override async Task<FileThumbnailDiagnosticsDetails> LoadAsync(
-        InspectorThumbnailDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -75,7 +74,7 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     protected override InspectorThumbnailDiagnosticsResponseMessage CreateResponse(FileThumbnailDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override FileThumbnailDiagnosticsDetails GetEmptyDiagnostics(InspectorThumbnailDiagnosticsRequestMessage request) =>
+    protected override FileThumbnailDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileThumbnailDiagnosticsDetails.Empty;
 
     private static async Task<byte[]> CopyThumbnailBytesAsync(StorageItemThumbnail thumbnail, CancellationToken cancellationToken)

@@ -4,11 +4,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Deferred loader for the Locks category. Requests file-lock / in-use diagnostics via
-/// <see cref="InspectorLocksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// <see cref="InspectorDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
 internal sealed class InspectorLocksDeferredFieldLoader :
     InspectorDeferredFieldLoaderBase<
-        InspectorLocksDiagnosticsRequestMessage,
         InspectorLocksDiagnosticsResponseMessage,
         FileLockDiagnostics>
 {
@@ -30,8 +29,6 @@ internal sealed class InspectorLocksDeferredFieldLoader :
     }
 
     protected override IReadOnlyList<string> FieldKeys => LockFieldKeys;
-
-    protected override InspectorLocksDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileLockDiagnostics diagnostics)
     {

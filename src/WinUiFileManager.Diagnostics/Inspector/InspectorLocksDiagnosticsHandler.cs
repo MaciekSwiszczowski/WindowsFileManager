@@ -7,7 +7,7 @@ using WinUiFileManager.Interop.Adapters;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorLocksDiagnosticsRequestMessage"/> by asking
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by asking
 /// the Windows Restart Manager which processes/services currently hold a handle to the requested path.
 /// </summary>
 /// <remarks>
@@ -16,7 +16,6 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// </remarks>
 public sealed class InspectorLocksDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorLocksDiagnosticsRequestMessage,
         FileLockDiagnostics,
         InspectorLocksDiagnosticsResponseMessage>
 {
@@ -45,7 +44,7 @@ public sealed class InspectorLocksDiagnosticsHandler :
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
     protected override Task<FileLockDiagnostics> LoadAsync(
-        InspectorLocksDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -64,7 +63,7 @@ public sealed class InspectorLocksDiagnosticsHandler :
     protected override InspectorLocksDiagnosticsResponseMessage CreateResponse(FileLockDiagnostics diagnostics) =>
         new(diagnostics);
 
-    protected override FileLockDiagnostics GetEmptyDiagnostics(InspectorLocksDiagnosticsRequestMessage request) =>
+    protected override FileLockDiagnostics GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileLockDiagnostics.None;
 
     /// <summary>

@@ -6,13 +6,12 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Deferred loader for the Thumbnails category. Requests thumbnail diagnostics via
-/// <see cref="InspectorThumbnailDiagnosticsRequestMessage"/>, decodes the returned bytes into a
+/// <see cref="InspectorDiagnosticsRequestMessage"/>, decodes the returned bytes into a
 /// <see cref="BitmapImage"/>, and applies both the image and the text fields.
 /// </summary>
 /// <remarks>Image decoding (<see cref="BitmapImage.SetSourceAsync"/>) is UI/WinRT-affine and runs in the apply step.</remarks>
 internal sealed class InspectorThumbnailDeferredFieldLoader :
     InspectorDeferredFieldLoaderBase<
-        InspectorThumbnailDiagnosticsRequestMessage,
         InspectorThumbnailDiagnosticsResponseMessage,
         FileThumbnailDiagnosticsDetails>
 {
@@ -32,8 +31,6 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
     }
 
     protected override IReadOnlyList<string> FieldKeys => ThumbnailFieldKeys;
-
-    protected override InspectorThumbnailDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override async Task ApplyAsync(FileThumbnailDiagnosticsDetails diagnostics)
     {

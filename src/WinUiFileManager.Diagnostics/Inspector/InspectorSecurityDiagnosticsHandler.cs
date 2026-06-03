@@ -8,7 +8,7 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorSecurityDiagnosticsRequestMessage"/> with a
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with a
 /// summary of a path's security descriptor: owner, group, DACL/SACL counts, and inheritance state.
 /// </summary>
 /// <remarks>
@@ -17,7 +17,6 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// </remarks>
 public sealed class InspectorSecurityDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorSecurityDiagnosticsRequestMessage,
         FileSecurityDiagnosticsDetails,
         InspectorSecurityDiagnosticsResponseMessage>
 {
@@ -35,7 +34,7 @@ public sealed class InspectorSecurityDiagnosticsHandler :
     /// <returns>Security summary, or <see cref="FileSecurityDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
     protected override Task<FileSecurityDiagnosticsDetails> LoadAsync(
-        InspectorSecurityDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -61,7 +60,7 @@ public sealed class InspectorSecurityDiagnosticsHandler :
     protected override InspectorSecurityDiagnosticsResponseMessage CreateResponse(FileSecurityDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override FileSecurityDiagnosticsDetails GetEmptyDiagnostics(InspectorSecurityDiagnosticsRequestMessage request) =>
+    protected override FileSecurityDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileSecurityDiagnosticsDetails.Empty;
 
     /// <summary>

@@ -3,7 +3,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <summary>
 /// Immutable result describing which processes/services currently hold a file open (via the Restart
 /// Manager), shown in the inspector's Locks section. Produced by the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorLocksDiagnosticsRequestMessage"/>.
+/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 public sealed record FileLockDiagnostics
 {

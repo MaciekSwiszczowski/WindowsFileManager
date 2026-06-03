@@ -1,5 +1,3 @@
-using BenchmarkDotNet.Running;
-
 namespace WinUiFileManager.Benchmarks;
 
 public static class Program

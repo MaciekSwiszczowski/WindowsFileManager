@@ -11,7 +11,7 @@ using FileAttributes = System.IO.FileAttributes;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorCloudDiagnosticsRequestMessage"/> with a
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with a
 /// path's cloud/placeholder state: provider name, sync-root identity, pin/hydration status, availability,
 /// and sync/transfer states, by combining file attributes, the CldApi placeholder state, and WinRT
 /// <see cref="StorageProviderSyncRootManager"/> / Shell sync properties.
@@ -22,7 +22,6 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// </remarks>
 public sealed class InspectorCloudDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorCloudDiagnosticsRequestMessage,
         FileCloudDiagnosticsDetails,
         InspectorCloudDiagnosticsResponseMessage>
 {
@@ -61,7 +60,7 @@ public sealed class InspectorCloudDiagnosticsHandler :
     /// </returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
     protected override async Task<FileCloudDiagnosticsDetails> LoadAsync(
-        InspectorCloudDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -103,7 +102,7 @@ public sealed class InspectorCloudDiagnosticsHandler :
     protected override InspectorCloudDiagnosticsResponseMessage CreateResponse(FileCloudDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override FileCloudDiagnosticsDetails GetEmptyDiagnostics(InspectorCloudDiagnosticsRequestMessage request) =>
+    protected override FileCloudDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileCloudDiagnosticsDetails.None;
 
     /// <summary>

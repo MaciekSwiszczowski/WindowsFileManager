@@ -6,12 +6,11 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Diagnostics-layer handler that answers <see cref="InspectorLinksDiagnosticsRequestMessage"/> with link
+/// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with link
 /// information for a path: reparse/link target, shell-shortcut detection, and reparse-point status.
 /// </summary>
 public sealed class InspectorLinksDiagnosticsHandler :
     InspectorDiagnosticsHandlerBase<
-        InspectorLinksDiagnosticsRequestMessage,
         FileLinkDiagnosticsDetails,
         InspectorLinksDiagnosticsResponseMessage>
 {
@@ -29,7 +28,7 @@ public sealed class InspectorLinksDiagnosticsHandler :
     /// <returns>Link details, or <see cref="FileLinkDiagnosticsDetails.Empty"/> on failure.</returns>
     /// <remarks>Thread-pool bound. Errors are logged and degraded to empty by the base class.</remarks>
     protected override Task<FileLinkDiagnosticsDetails> LoadAsync(
-        InspectorLinksDiagnosticsRequestMessage message,
+        InspectorDiagnosticsRequestMessage message,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -53,6 +52,6 @@ public sealed class InspectorLinksDiagnosticsHandler :
     protected override InspectorLinksDiagnosticsResponseMessage CreateResponse(FileLinkDiagnosticsDetails diagnostics) =>
         new(diagnostics);
 
-    protected override FileLinkDiagnosticsDetails GetEmptyDiagnostics(InspectorLinksDiagnosticsRequestMessage request) =>
+    protected override FileLinkDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileLinkDiagnosticsDetails.Empty;
 }

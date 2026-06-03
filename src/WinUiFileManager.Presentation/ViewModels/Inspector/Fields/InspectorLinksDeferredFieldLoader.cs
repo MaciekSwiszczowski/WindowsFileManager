@@ -4,11 +4,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Deferred loader for the Links category. Requests link/reparse diagnostics via
-/// <see cref="InspectorLinksDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// <see cref="InspectorDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
 internal sealed class InspectorLinksDeferredFieldLoader :
     InspectorDeferredFieldLoaderBase<
-        InspectorLinksDiagnosticsRequestMessage,
         InspectorLinksDiagnosticsResponseMessage,
         FileLinkDiagnosticsDetails>
 {
@@ -30,8 +29,6 @@ internal sealed class InspectorLinksDeferredFieldLoader :
     }
 
     protected override IReadOnlyList<string> FieldKeys => LinkFieldKeys;
-
-    protected override InspectorLinksDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileLinkDiagnosticsDetails diagnostics)
     {

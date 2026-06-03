@@ -4,11 +4,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Deferred loader for the Cloud category. Requests cloud/placeholder (sync-root) diagnostics via
-/// <see cref="InspectorCloudDiagnosticsRequestMessage"/> and applies them through the field-value updater.
+/// <see cref="InspectorDiagnosticsRequestMessage"/> and applies them through the field-value updater.
 /// </summary>
 internal sealed class InspectorCloudDeferredFieldLoader :
     InspectorDeferredFieldLoaderBase<
-        InspectorCloudDiagnosticsRequestMessage,
         InspectorCloudDiagnosticsResponseMessage,
         FileCloudDiagnosticsDetails>
 {
@@ -33,8 +32,6 @@ internal sealed class InspectorCloudDeferredFieldLoader :
     }
 
     protected override IReadOnlyList<string> FieldKeys => CloudFieldKeys;
-
-    protected override InspectorCloudDiagnosticsRequestMessage CreateRequest(NormalizedPath path) => new(path);
 
     protected override Task ApplyAsync(FileCloudDiagnosticsDetails diagnostics)
     {

@@ -3,7 +3,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <summary>
 /// Immutable description of a file's NTFS alternate data streams, shown in the inspector's Streams
 /// section. Produced by the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorStreamsDiagnosticsRequestMessage"/>.
+/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 /// <param name="AlternateStreamCount">Count of alternate streams, pre-formatted as a display string.</param>
 /// <param name="AlternateStreams">Names (and sizes) of the alternate streams, formatted for display.</param>

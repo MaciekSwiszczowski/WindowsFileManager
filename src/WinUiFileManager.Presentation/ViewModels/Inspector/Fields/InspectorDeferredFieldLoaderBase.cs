@@ -7,13 +7,12 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
 /// <summary>
 /// Base class for deferred inspector field loaders using normal request/response messages. It owns the
-/// response subscription, loading-state lifecycle, request sending, and disposal. Concrete loaders only
-/// provide field keys, request creation, and diagnostics application.
+/// response subscription, loading-state lifecycle, and disposal. Concrete loaders only
+/// provide field keys and diagnostics application.
 /// </summary>
-internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TDiagnostics> :
+internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics> :
     IInspectorDeferredFieldLoader,
     IInspectorDeferredFieldLoaderInitializer
-    where TRequest : class, IInspectorDiagnosticsRequestMessage
     where TResponse : class, IInspectorDiagnosticsResponseMessage<TDiagnostics>
 {
     private readonly ILogger _logger;
@@ -37,9 +36,6 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
 
     /// <summary>The field keys this loader owns; used to drive their shared loading state.</summary>
     protected abstract IReadOnlyList<string> FieldKeys { get; }
-
-    /// <summary>Creates the Diagnostics-layer request message for the selected path.</summary>
-    protected abstract TRequest CreateRequest(NormalizedPath path);
 
     /// <summary>Writes the response payload into inspector fields. Runs UI-affine.</summary>
     protected abstract Task ApplyAsync(TDiagnostics diagnostics);
@@ -76,14 +72,13 @@ internal abstract class InspectorDeferredFieldLoaderBase<TRequest, TResponse, TD
         _ = FieldValueUpdater;
         CancelCurrentLoad(clearLoading: false);
 
-        if (selectedItem.Model is not { } model)
+        if (selectedItem.Model is null)
         {
             return;
         }
 
         _hasPendingRequest = true;
         FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
-        _messenger.Send(CreateRequest(model.FullPath));
     }
 
     public void Cancel() => CancelCurrentLoad(clearLoading: true);

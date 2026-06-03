@@ -3,7 +3,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <summary>
 /// Immutable shell-thumbnail result for a file, shown in the inspector's Thumbnail section. Produced by
 /// the Diagnostics layer in reply to
-/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorThumbnailDiagnosticsRequestMessage"/>.
+/// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 /// <param name="ThumbnailBytes">Encoded thumbnail image bytes, or <see langword="null"/> when none is available.</param>
 /// <param name="ProgId">The shell ProgID of the handler that produced the thumbnail, for diagnostics.</param>

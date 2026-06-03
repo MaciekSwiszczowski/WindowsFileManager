@@ -9,8 +9,7 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// Base class for inspector diagnostics handlers. It owns messenger-to-Rx registration, latest-request-wins
 /// processing via <c>Switch()</c>, background execution, response publishing, and disposal.
 /// </summary>
-public abstract class InspectorDiagnosticsHandlerBase<TRequest, TDiagnostics, TResponse> : IDisposable
-    where TRequest : class, IInspectorDiagnosticsRequestMessage
+public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> : IDisposable
     where TResponse : class, IInspectorDiagnosticsResponseMessage<TDiagnostics>
 {
     private readonly ILogger _logger;
@@ -33,7 +32,7 @@ public abstract class InspectorDiagnosticsHandlerBase<TRequest, TDiagnostics, TR
         }
 
         _requestSubscription = _messenger
-            .CreateObservable<TRequest>()
+            .CreateObservable<InspectorDiagnosticsRequestMessage>()
             .Select(request => Observable.FromAsync(cancellationToken => LoadWithFallbackOnBackgroundAsync(request, cancellationToken)))
             .Switch()
             .Subscribe(
@@ -54,20 +53,20 @@ public abstract class InspectorDiagnosticsHandlerBase<TRequest, TDiagnostics, TR
     }
 
     /// <summary>Loads diagnostics for one request. Runs on a thread-pool thread.</summary>
-    protected abstract Task<TDiagnostics> LoadAsync(TRequest request, CancellationToken cancellationToken);
+    protected abstract Task<TDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage request, CancellationToken cancellationToken);
 
     /// <summary>Creates the response message published for the latest completed request.</summary>
     protected abstract TResponse CreateResponse(TDiagnostics diagnostics);
 
     /// <summary>Fallback diagnostics used when loading fails.</summary>
-    protected abstract TDiagnostics GetEmptyDiagnostics(TRequest request);
+    protected abstract TDiagnostics GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request);
 
-    private Task<TDiagnostics> LoadWithFallbackOnBackgroundAsync(TRequest request, CancellationToken cancellationToken)
+    private Task<TDiagnostics> LoadWithFallbackOnBackgroundAsync(InspectorDiagnosticsRequestMessage request, CancellationToken cancellationToken)
     {
         return Task.Run(() => LoadWithFallbackAsync(request, cancellationToken), cancellationToken);
     }
 
-    private async Task<TDiagnostics> LoadWithFallbackAsync(TRequest request, CancellationToken cancellationToken)
+    private async Task<TDiagnostics> LoadWithFallbackAsync(InspectorDiagnosticsRequestMessage request, CancellationToken cancellationToken)
     {
         try
         {

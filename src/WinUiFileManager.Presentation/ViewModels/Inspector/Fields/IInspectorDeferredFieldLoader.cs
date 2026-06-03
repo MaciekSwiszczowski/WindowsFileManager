@@ -21,7 +21,7 @@ public interface IInspectorDeferredFieldLoader : IDisposable
     /// </summary>
     public void Prepare(SpecFileEntryViewModel selectedItem);
 
-    /// <summary>Starts (or restarts) the asynchronous load for the given selection, superseding any in-flight load.</summary>
+    /// <summary>Marks this loader as waiting for the next category response, superseding any in-flight load.</summary>
     public void Load(SpecFileEntryViewModel selectedItem);
 
     /// <summary>Cancels any in-flight load and clears the loading state on its fields.</summary>

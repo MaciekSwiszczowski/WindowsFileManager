@@ -10,7 +10,10 @@ public class LinksHandlerBenchmarks
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _files = [];
+    private string[] _plainFilePaths = [];
+    private string[] _symlinkPaths = [];
+    private string[] _shortcutPaths = [];
+    private string[] _junctionPaths = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
 
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
@@ -38,10 +41,31 @@ public class LinksHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-        _files = CreateFiles(FileCount);
-        _requests = _files
-            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
-                NormalizedPath.FromFullyQualifiedPath(filePath)))
+
+        var plainDirectory = Path.Combine(_benchmarkDirectory, "plain");
+        Directory.CreateDirectory(plainDirectory);
+        _plainFilePaths = CreatePlainFiles(plainDirectory, FileCount);
+
+        _symlinkPaths = CreateSymlinks(
+            Path.Combine(_benchmarkDirectory, "symlink"),
+            _plainFilePaths,
+            FileCount);
+
+        _shortcutPaths = CreateShortcutExtensionFiles(
+            Path.Combine(_benchmarkDirectory, "shell-shortcut"),
+            FileCount);
+
+        _junctionPaths = CreateDirectoryJunctions(
+            Path.Combine(_benchmarkDirectory, "junction"),
+            plainDirectory,
+            FileCount);
+
+        _requests = _plainFilePaths
+            .Concat(_symlinkPaths)
+            .Concat(_shortcutPaths)
+            .Concat(_junctionPaths)
+            .Select(static path => new InspectorDiagnosticsRequestMessage(
+                NormalizedPath.FromFullyQualifiedPath(path)))
             .ToArray();
 
         _container = CreateContainer();
@@ -74,7 +98,10 @@ public class LinksHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _files = [];
+        _plainFilePaths = [];
+        _symlinkPaths = [];
+        _shortcutPaths = [];
+        _junctionPaths = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -99,22 +126,113 @@ public class LinksHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(int fileCount)
+    private static string[] CreatePlainFiles(string directory, int count)
     {
-        var filePaths = new string[fileCount];
+        var filePaths = new string[count];
 
-        for (var i = 0; i < fileCount; i++)
+        for (var i = 0; i < count; i++)
         {
-            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
-            File.WriteAllText(filePath, string.Empty);
+            var filePath = Path.Combine(directory, $"target-{i:D6}.txt");
+            File.WriteAllText(filePath, $"plain-{i}");
             filePaths[i] = filePath;
         }
 
         return filePaths;
     }
 
+    private static string[] CreateSymlinks(string directory, string[] targets, int count)
+    {
+        Directory.CreateDirectory(directory);
+        var linkPaths = new string[count];
+        var useSymlinks = true;
+
+        for (var i = 0; i < count; i++)
+        {
+            var linkPath = Path.Combine(directory, $"link-{i:D6}.txt");
+
+            if (useSymlinks)
+            {
+                try
+                {
+                    var target = targets[i % targets.Length];
+                    if (File.Exists(linkPath))
+                    {
+                        File.Delete(linkPath);
+                    }
+
+                    File.CreateSymbolicLink(linkPath, target);
+                    linkPaths[i] = linkPath;
+                    continue;
+                }
+                catch
+                {
+                    useSymlinks = false;
+                }
+            }
+
+            linkPaths[i] = targets[i % targets.Length];
+        }
+
+        return linkPaths;
+    }
+
+    private static string[] CreateShortcutExtensionFiles(string directory, int count)
+    {
+        Directory.CreateDirectory(directory);
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var filePath = Path.Combine(directory, $"shortcut-{i:D6}.lnk");
+            File.WriteAllText(filePath, $"shortcut-placeholder-{i}");
+            filePaths[i] = filePath;
+        }
+
+        return filePaths;
+    }
+
+    private static string[] CreateDirectoryJunctions(string directory, string targetDirectory, int count)
+    {
+        Directory.CreateDirectory(directory);
+        var junctionPaths = new string[count];
+        var created = 0;
+
+        for (var i = 0; i < count; i++)
+        {
+            var junctionPath = Path.Combine(directory, $"junction-{i:D6}");
+            junctionPaths[i] = junctionPath;
+
+            if (created < 0)
+            {
+                Directory.CreateDirectory(junctionPath);
+                continue;
+            }
+
+            try
+            {
+                if (Directory.Exists(junctionPath))
+                {
+                    Directory.Delete(junctionPath);
+                }
+
+                Directory.CreateSymbolicLink(junctionPath, targetDirectory);
+                created++;
+            }
+            catch
+            {
+                Directory.CreateDirectory(junctionPath);
+                created = -1;
+            }
+        }
+
+        return junctionPaths;
+    }
+
     private void OnResponse(InspectorLinksDiagnosticsResponseMessage response)
     {
-        _responses.Writer.TryWrite(response.Diagnostics.LinkTarget.Length);
+        var score = response.Diagnostics.LinkTarget.Length
+                    + response.Diagnostics.LinkStatus.Length
+                    + response.Diagnostics.ReparseTag.Length;
+        _responses.Writer.TryWrite(score);
     }
 }

@@ -5,12 +5,19 @@ namespace WinUiFileManager.Benchmarks.CloudHandler;
 // ReSharper disable once ClassCanBeSealed.Global
 public class CloudHandlerBenchmarks
 {
-    [Params(500, 2000)]
+    private const FileAttributes FileAttributePinned = (FileAttributes)0x00080000;
+    private const FileAttributes FileAttributeUnpinned = (FileAttributes)0x00100000;
+    private const FileAttributes FileAttributeRecallOnOpen = (FileAttributes)0x00040000;
+    private const FileAttributes FileAttributeRecallOnDataAccess = (FileAttributes)0x00400000;
+
+    [Params(10, 100)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _files = [];
+    private string[] _localFilePaths = [];
+    private string[] _cloudAttributeFilePaths = [];
+    private string[] _directoryPaths = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
 
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
@@ -38,10 +45,16 @@ public class CloudHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-        _files = CreateFiles(FileCount);
-        _requests = _files
-            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
-                NormalizedPath.FromFullyQualifiedPath(filePath)))
+
+        _localFilePaths = CreateLocalFiles("local", FileCount);
+        _cloudAttributeFilePaths = CreateCloudAttributeFiles("cloud-attributes", FileCount);
+        _directoryPaths = CreateDirectories("directories", FileCount);
+
+        _requests = _localFilePaths
+            .Concat(_cloudAttributeFilePaths)
+            .Concat(_directoryPaths)
+            .Select(static path => new InspectorDiagnosticsRequestMessage(
+                NormalizedPath.FromFullyQualifiedPath(path)))
             .ToArray();
 
         _container = CreateContainer();
@@ -74,7 +87,9 @@ public class CloudHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _files = [];
+        _localFilePaths = [];
+        _cloudAttributeFilePaths = [];
+        _directoryPaths = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -99,22 +114,73 @@ public class CloudHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(int fileCount)
+    private string[] CreateLocalFiles(string groupName, int count)
     {
-        var filePaths = new string[fileCount];
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
 
-        for (var i = 0; i < fileCount; i++)
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
         {
-            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
-            File.WriteAllText(filePath, string.Empty);
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllText(filePath, $"local-{i}");
             filePaths[i] = filePath;
         }
 
         return filePaths;
     }
 
+    private string[] CreateCloudAttributeFiles(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllText(filePath, $"cloud-attr-{i}");
+
+            var attributes = File.GetAttributes(filePath);
+            attributes |= (i % 4) switch
+            {
+                0 => FileAttributes.Offline | FileAttributePinned,
+                1 => FileAttributeUnpinned | FileAttributeRecallOnOpen,
+                2 => FileAttributeRecallOnDataAccess,
+                _ => FileAttributes.Normal,
+            };
+            File.SetAttributes(filePath, attributes);
+
+            filePaths[i] = filePath;
+        }
+
+        return filePaths;
+    }
+
+    private string[] CreateDirectories(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var directoryPaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var directoryPath = Path.Combine(groupDirectory, $"dir-{i:D6}");
+            Directory.CreateDirectory(directoryPath);
+            directoryPaths[i] = directoryPath;
+        }
+
+        return directoryPaths;
+    }
+
     private void OnResponse(InspectorCloudDiagnosticsResponseMessage response)
     {
-        _responses.Writer.TryWrite(response.Diagnostics.Status.Length);
+        var score = (response.Diagnostics.IsCloudControlled ? 1000 : 0)
+                    + response.Diagnostics.Status.Length
+                    + response.Diagnostics.Provider.Length;
+        _responses.Writer.TryWrite(score);
     }
 }

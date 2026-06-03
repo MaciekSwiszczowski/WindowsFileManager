@@ -37,10 +37,6 @@ A generic base (`InspectorFieldViewModelBase<T>`) is **not viable** and is **exp
 
 **Chosen approach instead:** keep the non-generic root, and for non-string values add **specialized concrete field view models** that consume the typed value directly (following the existing `InspectorToggleFieldViewModel` / `InspectorThumbnailFieldViewModel` pattern: a new `InspectorFieldType` value + a concrete VM + its own `DataTemplate`/view + a DI-registered factory). The View binds to a string `DisplayValue` projection, so producers stop calling `.ToString()` at the call site and each field formats itself once.
 
-### Related, but OUT OF SCOPE for this plan
-
-- The Diagnostics-layer `Switch` → `Interlocked` version-stamping change (handler side) is a **separate** track. This plan is presentation-side only. The phase-2 staleness gating (Work-stream 4) is the presentation analogue and is designed to complement it.
-
 ---
 
 ## Target Architecture (end state)

@@ -1,3 +1,6 @@
+using System.Security.AccessControl;
+using System.Security.Principal;
+
 namespace WinUiFileManager.Benchmarks.SecurityHandler;
 
 [MemoryDiagnoser]
@@ -10,7 +13,9 @@ public class SecurityHandlerBenchmarks
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _files = [];
+    private string[] _inheritedFilePaths = [];
+    private string[] _explicitAclFilePaths = [];
+    private string[] _directoryPaths = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
 
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
@@ -38,10 +43,16 @@ public class SecurityHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-        _files = CreateFiles(FileCount);
-        _requests = _files
-            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
-                NormalizedPath.FromFullyQualifiedPath(filePath)))
+
+        _inheritedFilePaths = CreateInheritedFiles("inherited", FileCount);
+        _explicitAclFilePaths = CreateExplicitAclFiles("explicit-acl", FileCount);
+        _directoryPaths = CreateDirectories("directories", FileCount);
+
+        _requests = _inheritedFilePaths
+            .Concat(_explicitAclFilePaths)
+            .Concat(_directoryPaths)
+            .Select(static path => new InspectorDiagnosticsRequestMessage(
+                NormalizedPath.FromFullyQualifiedPath(path)))
             .ToArray();
 
         _container = CreateContainer();
@@ -74,7 +85,9 @@ public class SecurityHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _files = [];
+        _inheritedFilePaths = [];
+        _explicitAclFilePaths = [];
+        _directoryPaths = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -99,13 +112,16 @@ public class SecurityHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(int fileCount)
+    private string[] CreateInheritedFiles(string groupName, int count)
     {
-        var filePaths = new string[fileCount];
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
 
-        for (var i = 0; i < fileCount; i++)
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
         {
-            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
             File.WriteAllText(filePath, string.Empty);
             filePaths[i] = filePath;
         }
@@ -113,8 +129,60 @@ public class SecurityHandlerBenchmarks
         return filePaths;
     }
 
+    private string[] CreateExplicitAclFiles(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var filePaths = new string[count];
+        var currentUser = WindowsIdentity.GetCurrent().User
+            ?? throw new InvalidOperationException("Current Windows user SID is unavailable.");
+
+        for (var i = 0; i < count; i++)
+        {
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllText(filePath, string.Empty);
+
+            var fileInfo = new FileInfo(filePath);
+            var security = fileInfo.GetAccessControl();
+            security.AddAccessRule(new FileSystemAccessRule(
+                currentUser,
+                FileSystemRights.ReadData,
+                AccessControlType.Deny));
+            security.AddAccessRule(new FileSystemAccessRule(
+                currentUser,
+                FileSystemRights.WriteData,
+                AccessControlType.Allow));
+            fileInfo.SetAccessControl(security);
+
+            filePaths[i] = filePath;
+        }
+
+        return filePaths;
+    }
+
+    private string[] CreateDirectories(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var directoryPaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var directoryPath = Path.Combine(groupDirectory, $"dir-{i:D6}");
+            Directory.CreateDirectory(directoryPath);
+            directoryPaths[i] = directoryPath;
+        }
+
+        return directoryPaths;
+    }
+
     private void OnResponse(InspectorSecurityDiagnosticsResponseMessage response)
     {
-        _responses.Writer.TryWrite(response.Diagnostics.Owner.Length);
+        var score = response.Diagnostics.Owner.Length
+                    + response.Diagnostics.DaclSummary.Length
+                    + response.Diagnostics.SaclSummary.Length;
+        _responses.Writer.TryWrite(score);
     }
 }

@@ -10,8 +10,10 @@ public class LocksHandlerBenchmarks
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _files = [];
+    private string[] _unlockedFilePaths = [];
+    private string[] _lockedFilePaths = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
+    private readonly List<FileStream> _lockHolders = [];
 
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
         new UnboundedChannelOptions
@@ -38,10 +40,15 @@ public class LocksHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-        _files = CreateFiles(FileCount);
-        _requests = _files
-            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
-                NormalizedPath.FromFullyQualifiedPath(filePath)))
+
+        _unlockedFilePaths = CreateFiles("unlocked", FileCount);
+        _lockedFilePaths = CreateFiles("locked", FileCount);
+        HoldExclusiveLocks(_lockedFilePaths);
+
+        _requests = _unlockedFilePaths
+            .Concat(_lockedFilePaths)
+            .Select(static path => new InspectorDiagnosticsRequestMessage(
+                NormalizedPath.FromFullyQualifiedPath(path)))
             .ToArray();
 
         _container = CreateContainer();
@@ -71,10 +78,18 @@ public class LocksHandlerBenchmarks
     {
         _responseSubscription?.Dispose();
         _responseSubscription = null;
+
+        foreach (var stream in _lockHolders)
+        {
+            stream.Dispose();
+        }
+
+        _lockHolders.Clear();
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _files = [];
+        _unlockedFilePaths = [];
+        _lockedFilePaths = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -99,22 +114,40 @@ public class LocksHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(int fileCount)
+    private string[] CreateFiles(string groupName, int count)
     {
-        var filePaths = new string[fileCount];
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
 
-        for (var i = 0; i < fileCount; i++)
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
         {
-            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
-            File.WriteAllText(filePath, string.Empty);
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllBytes(filePath, new byte[64]);
             filePaths[i] = filePath;
         }
 
         return filePaths;
     }
 
+    private void HoldExclusiveLocks(string[] filePaths)
+    {
+        foreach (var filePath in filePaths)
+        {
+            _lockHolders.Add(new FileStream(
+                filePath,
+                FileMode.Open,
+                FileAccess.ReadWrite,
+                FileShare.None));
+        }
+    }
+
     private void OnResponse(InspectorLocksDiagnosticsResponseMessage response)
     {
-        _responses.Writer.TryWrite(response.Diagnostics.LockBy.Count);
+        var score = (response.Diagnostics.InUse == true ? 100 : 0)
+                    + response.Diagnostics.LockBy.Count
+                    + response.Diagnostics.LockPids.Count;
+        _responses.Writer.TryWrite(score);
     }
 }

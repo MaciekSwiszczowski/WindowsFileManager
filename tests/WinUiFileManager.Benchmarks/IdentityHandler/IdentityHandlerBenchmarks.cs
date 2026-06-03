@@ -10,7 +10,9 @@ public class IdentityHandlerBenchmarks
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _files = [];
+    private string[] _filePaths = [];
+    private string[] _directoryPaths = [];
+    private string[] _deepFilePaths = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
 
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
@@ -38,10 +40,16 @@ public class IdentityHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-        _files = CreateFiles(FileCount);
-        _requests = _files
-            .Select(static filePath => new InspectorDiagnosticsRequestMessage(
-                NormalizedPath.FromFullyQualifiedPath(filePath)))
+
+        _filePaths = CreateRegularFiles("files", FileCount);
+        _directoryPaths = CreateDirectories("directories", FileCount);
+        _deepFilePaths = CreateDeepNestedFiles("deep-path", FileCount);
+
+        _requests = _filePaths
+            .Concat(_directoryPaths)
+            .Concat(_deepFilePaths)
+            .Select(static path => new InspectorDiagnosticsRequestMessage(
+                NormalizedPath.FromFullyQualifiedPath(path)))
             .ToArray();
 
         _container = CreateContainer();
@@ -74,7 +82,9 @@ public class IdentityHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _files = [];
+        _filePaths = [];
+        _directoryPaths = [];
+        _deepFilePaths = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -99,14 +109,65 @@ public class IdentityHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(int fileCount)
+    private string[] CreateRegularFiles(string groupName, int count)
     {
-        var filePaths = new string[fileCount];
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
 
-        for (var i = 0; i < fileCount; i++)
+        var filePaths = new string[count];
+        var utcNow = DateTime.UtcNow;
+
+        for (var i = 0; i < count; i++)
         {
-            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
-            File.WriteAllText(filePath, string.Empty);
+            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            File.WriteAllBytes(filePath, new byte[i % 256 + 1]);
+
+            var attributes = (FileAttributes)((i % 3) switch
+            {
+                0 => FileAttributes.ReadOnly,
+                1 => FileAttributes.Hidden,
+                _ => FileAttributes.Archive,
+            });
+            File.SetAttributes(filePath, attributes);
+            File.SetCreationTimeUtc(filePath, utcNow.AddMinutes(-i));
+            File.SetLastWriteTimeUtc(filePath, utcNow.AddSeconds(-i));
+
+            filePaths[i] = filePath;
+        }
+
+        return filePaths;
+    }
+
+    private string[] CreateDirectories(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var directoryPaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var directoryPath = Path.Combine(groupDirectory, $"dir-{i:D6}");
+            Directory.CreateDirectory(directoryPath);
+            directoryPaths[i] = directoryPath;
+        }
+
+        return directoryPaths;
+    }
+
+    private string[] CreateDeepNestedFiles(string groupName, int count)
+    {
+        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
+        Directory.CreateDirectory(groupDirectory);
+
+        var filePaths = new string[count];
+
+        for (var i = 0; i < count; i++)
+        {
+            var nestedDirectory = Path.Combine(groupDirectory, $"segment-{i % 8:D2}", $"nested-{i:D6}");
+            Directory.CreateDirectory(nestedDirectory);
+            var filePath = Path.Combine(nestedDirectory, "target.bin");
+            File.WriteAllText(filePath, new string('x', (i % 64) + 1));
             filePaths[i] = filePath;
         }
 
@@ -115,6 +176,9 @@ public class IdentityHandlerBenchmarks
 
     private void OnResponse(InspectorIdentityDiagnosticsResponseMessage response)
     {
-        _responses.Writer.TryWrite(response.Diagnostics.Identity.FinalPath.Length);
+        var score = (int)response.Diagnostics.NtfsMetadata.Attributes
+                    + response.Diagnostics.Identity.FinalPath.Length
+                    + response.Diagnostics.Identity.FileId.Bytes.Length;
+        _responses.Writer.TryWrite(score);
     }
 }

@@ -1,24 +1,18 @@
-namespace WinUiFileManager.Benchmarks;
+namespace WinUiFileManager.Benchmarks.LinksHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
 // ReSharper disable once ClassCanBeSealed.Global
-public class StreamsHandlerBenchmarks
+public class LinksHandlerBenchmarks
 {
     [Params(500, 2000)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
     private string _benchmarkDirectory = string.Empty;
-    private string[] _filesWithoutStreams = [];
-    private string[] _filesWithOneStream = [];
-    private string[] _filesWithTwoStreams = [];
+    private string[] _files = [];
     private InspectorDiagnosticsRequestMessage[] _requests = [];
 
-    // Long-lived async hand-off between the (thread-pool) response publisher and the benchmark loop.
-    // The loop is strictly serial (send -> await -> send), so the channel never buffers more than one
-    // item and steady-state allocation is effectively zero. This is the template for further
-    // message-round-trip benchmarks under [MemoryDiagnoser].
     private readonly Channel<int> _responses = Channel.CreateUnbounded<int>(
         new UnboundedChannelOptions
         {
@@ -36,7 +30,7 @@ public class StreamsHandlerBenchmarks
     {
         _benchmarkDirectory = Path.Combine(
             BenchmarkProjectConfig.BenchmarkDirectory,
-            nameof(StreamsHandlerBenchmarks));
+            nameof(LinksHandlerBenchmarks));
 
         if (Directory.Exists(_benchmarkDirectory))
         {
@@ -44,41 +38,32 @@ public class StreamsHandlerBenchmarks
         }
 
         Directory.CreateDirectory(_benchmarkDirectory);
-
-        _filesWithoutStreams = CreateFiles("no-streams", FileCount);
-        _filesWithOneStream = CreateFiles("one-stream", FileCount);
-        _filesWithTwoStreams = CreateFiles("two-streams", FileCount);
-
-        AddAlternateStreams(_filesWithOneStream, streamCount: 1, streamSize: 1000);
-        AddAlternateStreams(_filesWithTwoStreams, streamCount: 2, streamSize: 2000);
-
-        _requests = _filesWithoutStreams
-            .Concat(_filesWithOneStream)
-            .Concat(_filesWithTwoStreams)
+        _files = CreateFiles(FileCount);
+        _requests = _files
             .Select(static filePath => new InspectorDiagnosticsRequestMessage(
                 NormalizedPath.FromFullyQualifiedPath(filePath)))
             .ToArray();
 
         _container = CreateContainer();
-        _container.Resolve<InspectorStreamsDiagnosticsHandler>().Initialize();
+        _container.Resolve<InspectorLinksDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
         _responseSubscription = _messenger
-            .CreateObservable<InspectorStreamsDiagnosticsResponseMessage>()
+            .CreateObservable<InspectorLinksDiagnosticsResponseMessage>()
             .Subscribe(OnResponse);
     }
 
     [Benchmark]
-    public async Task<int> InspectorStreamsDiagnosticsHandler()
+    public async Task<int> InspectorLinksDiagnosticsHandler()
     {
-        var streamCount = 0;
+        var total = 0;
 
         foreach (var request in _requests)
         {
             Messenger.Send(request);
-            streamCount += await _responses.Reader.ReadAsync().ConfigureAwait(false);
+            total += await _responses.Reader.ReadAsync().ConfigureAwait(false);
         }
 
-        return streamCount;
+        return total;
     }
 
     [GlobalCleanup]
@@ -89,9 +74,7 @@ public class StreamsHandlerBenchmarks
         _container?.Dispose();
         _container = null;
         _messenger = null;
-        _filesWithoutStreams = [];
-        _filesWithOneStream = [];
-        _filesWithTwoStreams = [];
+        _files = [];
         _requests = [];
 
         if (Directory.Exists(_benchmarkDirectory))
@@ -116,16 +99,13 @@ public class StreamsHandlerBenchmarks
     private IMessenger Messenger =>
         _messenger ?? throw new InvalidOperationException("Benchmark messenger is not initialized.");
 
-    private string[] CreateFiles(string groupName, int fileCount)
+    private string[] CreateFiles(int fileCount)
     {
-        var groupDirectory = Path.Combine(_benchmarkDirectory, groupName);
-        Directory.CreateDirectory(groupDirectory);
-
         var filePaths = new string[fileCount];
 
         for (var i = 0; i < fileCount; i++)
         {
-            var filePath = Path.Combine(groupDirectory, $"file-{i:D6}.bin");
+            var filePath = Path.Combine(_benchmarkDirectory, $"file-{i:D6}.bin");
             File.WriteAllText(filePath, string.Empty);
             filePaths[i] = filePath;
         }
@@ -133,22 +113,8 @@ public class StreamsHandlerBenchmarks
         return filePaths;
     }
 
-    private static void AddAlternateStreams(string[] filePaths, int streamCount, int streamSize)
+    private void OnResponse(InspectorLinksDiagnosticsResponseMessage response)
     {
-        var streamContent = new byte[streamSize];
-
-        foreach (var filePath in filePaths)
-        {
-            for (var streamIndex = 1; streamIndex <= streamCount; streamIndex++)
-            {
-                File.WriteAllBytes($"{filePath}:stream-{streamIndex}", streamContent);
-            }
-        }
-    }
-
-    private void OnResponse(InspectorStreamsDiagnosticsResponseMessage response)
-    {
-        // Unbounded + single-writer: always succeeds without allocating in steady state.
-        _responses.Writer.TryWrite(response.Diagnostics.AlternateStreamCount);
+        _responses.Writer.TryWrite(response.Diagnostics.LinkTarget.Length);
     }
 }

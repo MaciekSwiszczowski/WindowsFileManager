@@ -8,7 +8,7 @@ using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
 using FileAttributes = System.IO.FileAttributes;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with a
@@ -43,8 +43,9 @@ public sealed class InspectorCloudDiagnosticsHandler :
         IMessenger messenger,
         ICloudFilesInterop cloudFilesInterop,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
-        ILogger<InspectorCloudDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorCloudDiagnosticsHandler> logger,
+        Func<FileCloudDiagnosticsDetails, InspectorCloudDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
         _cloudFilesInterop = cloudFilesInterop;
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
@@ -96,9 +97,6 @@ public sealed class InspectorCloudDiagnosticsHandler :
                 customStatus)
             : FileCloudDiagnosticsDetails.None;
     }
-
-    protected override InspectorCloudDiagnosticsResponseMessage CreateResponse(FileCloudDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override FileCloudDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileCloudDiagnosticsDetails.None;

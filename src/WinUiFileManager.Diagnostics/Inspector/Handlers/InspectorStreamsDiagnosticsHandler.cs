@@ -4,7 +4,7 @@ using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by
@@ -20,8 +20,9 @@ public sealed class InspectorStreamsDiagnosticsHandler :
     public InspectorStreamsDiagnosticsHandler(
         IMessenger messenger,
         IAlternateDataStreamInterop alternateDataStreamInterop,
-        ILogger<InspectorStreamsDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorStreamsDiagnosticsHandler> logger,
+        Func<FileStreamDiagnosticsDetails, InspectorStreamsDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
         _alternateDataStreamInterop = alternateDataStreamInterop;
     }
@@ -42,9 +43,6 @@ public sealed class InspectorStreamsDiagnosticsHandler :
             : new FileStreamDiagnosticsDetails(streams.Count, streams);
         return Task.FromResult(details);
     }
-
-    protected override InspectorStreamsDiagnosticsResponseMessage CreateResponse(FileStreamDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override FileStreamDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileStreamDiagnosticsDetails.Empty;

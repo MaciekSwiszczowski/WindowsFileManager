@@ -14,5 +14,5 @@ global using Microsoft.Extensions.DependencyInjection;
 global using WinUiFileManager.Application.FileEntries;
 global using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 global using WinUiFileManager.Diagnostics;
-global using WinUiFileManager.Diagnostics.Inspector;
+global using WinUiFileManager.Diagnostics.Inspector.Handlers;
 global using WinUiFileManager.Infrastructure;

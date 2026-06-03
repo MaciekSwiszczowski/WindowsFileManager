@@ -14,14 +14,19 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
 {
     private readonly ILogger _logger;
     private readonly IMessenger _messenger;
+    private readonly Func<TDiagnostics, TResponse> _responseFactory;
     private int _disposed;
     private int _initialized;
     private long _requestVersion;
 
-    protected InspectorDiagnosticsHandlerBase(IMessenger messenger, ILogger logger)
+    protected InspectorDiagnosticsHandlerBase(
+        IMessenger messenger,
+        ILogger logger,
+        Func<TDiagnostics, TResponse> responseFactory)
     {
         _messenger = messenger;
         _logger = logger;
+        _responseFactory = responseFactory;
     }
 
     /// <summary>Registers the request pipeline. Not idempotent; call exactly once from startup.</summary>
@@ -48,9 +53,6 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
     /// <summary>Loads diagnostics for one request. Runs on a thread-pool thread.</summary>
     protected abstract Task<TDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage request);
 
-    /// <summary>Creates the response message published for the latest completed request.</summary>
-    protected abstract TResponse CreateResponse(TDiagnostics diagnostics);
-
     /// <summary>Fallback diagnostics used when loading fails.</summary>
     protected abstract TDiagnostics GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request);
 
@@ -72,7 +74,7 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
         // Native/WinRT diagnostics loads are not reliably cancellable; stale completions are suppressed here.
         if (Volatile.Read(ref _disposed) == 0 && requestVersion == Volatile.Read(ref _requestVersion))
         {
-            _messenger.Send(CreateResponse(diagnostics));
+            _messenger.Send(_responseFactory(diagnostics));
         }
     }
 

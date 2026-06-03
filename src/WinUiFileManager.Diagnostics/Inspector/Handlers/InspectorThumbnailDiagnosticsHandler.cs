@@ -4,8 +4,9 @@ using Windows.Storage;
 using Windows.Storage.FileProperties;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Diagnostics.Inspector;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by
@@ -28,8 +29,9 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
 
     public InspectorThumbnailDiagnosticsHandler(
         IMessenger messenger,
-        ILogger<InspectorThumbnailDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorThumbnailDiagnosticsHandler> logger,
+        Func<FileThumbnailDiagnosticsDetails, InspectorThumbnailDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
     }
 
@@ -68,9 +70,6 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
             await CopyThumbnailBytesAsync(thumbnail, timeoutCts.Token).ConfigureAwait(false),
             progId);
     }
-
-    protected override InspectorThumbnailDiagnosticsResponseMessage CreateResponse(FileThumbnailDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override FileThumbnailDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileThumbnailDiagnosticsDetails.Empty;

@@ -2,9 +2,10 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Diagnostics.Inspector;
 using WinUiFileManager.Interop.Adapters;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> by asking
@@ -28,8 +29,9 @@ public sealed class InspectorLocksDiagnosticsHandler :
     public InspectorLocksDiagnosticsHandler(
         IMessenger messenger,
         IRestartManagerInterop restartManagerInterop,
-        ILogger<InspectorLocksDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorLocksDiagnosticsHandler> logger,
+        Func<FileLockDiagnostics, InspectorLocksDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
         _restartManagerInterop = restartManagerInterop;
     }
@@ -56,9 +58,6 @@ public sealed class InspectorLocksDiagnosticsHandler :
             lockPids: lockPids,
             lockServices: lockServices));
     }
-
-    protected override InspectorLocksDiagnosticsResponseMessage CreateResponse(FileLockDiagnostics diagnostics) =>
-        new(diagnostics);
 
     protected override FileLockDiagnostics GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileLockDiagnostics.None;

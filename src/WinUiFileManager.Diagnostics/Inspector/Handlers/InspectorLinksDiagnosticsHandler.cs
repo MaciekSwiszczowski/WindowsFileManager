@@ -2,8 +2,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Diagnostics.Inspector;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with link
@@ -16,8 +17,9 @@ public sealed class InspectorLinksDiagnosticsHandler :
 {
     public InspectorLinksDiagnosticsHandler(
         IMessenger messenger,
-        ILogger<InspectorLinksDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorLinksDiagnosticsHandler> logger,
+        Func<FileLinkDiagnosticsDetails, InspectorLinksDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
     }
 
@@ -45,9 +47,6 @@ public sealed class InspectorLinksDiagnosticsHandler :
             string.Empty,
             string.Empty));
     }
-
-    protected override InspectorLinksDiagnosticsResponseMessage CreateResponse(FileLinkDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override FileLinkDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileLinkDiagnosticsDetails.Empty;

@@ -4,9 +4,10 @@ using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Diagnostics.Inspector;
 using WinUiFileManager.Interop.Adapters;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with
@@ -27,8 +28,9 @@ public sealed class InspectorIdentityDiagnosticsHandler :
     public InspectorIdentityDiagnosticsHandler(
         IMessenger messenger,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
-        ILogger<InspectorIdentityDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorIdentityDiagnosticsHandler> logger,
+        Func<InspectorIdentityDiagnosticsDetails, InspectorIdentityDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
     }
@@ -48,9 +50,6 @@ public sealed class InspectorIdentityDiagnosticsHandler :
         var identity = LoadIdentity(path, handle);
         return Task.FromResult(new InspectorIdentityDiagnosticsDetails(ntfsMetadata, identity));
     }
-
-    protected override InspectorIdentityDiagnosticsResponseMessage CreateResponse(InspectorIdentityDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override InspectorIdentityDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         InspectorIdentityDiagnosticsDetails.Empty with

@@ -7,7 +7,7 @@ using Application.Navigation;
 using Application.Settings;
 using Application.Startup;
 using Diagnostics.FileOperations;
-using Diagnostics.Inspector;
+using Diagnostics.Inspector.Handlers;
 using Infrastructure.Services;
 using Presentation.ViewModels;
 

@@ -4,8 +4,9 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
+using WinUiFileManager.Diagnostics.Inspector;
 
-namespace WinUiFileManager.Diagnostics.Inspector;
+namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 /// <summary>
 /// Diagnostics-layer handler that answers <see cref="InspectorDiagnosticsRequestMessage"/> with a
@@ -22,8 +23,9 @@ public sealed class InspectorSecurityDiagnosticsHandler :
 {
     public InspectorSecurityDiagnosticsHandler(
         IMessenger messenger,
-        ILogger<InspectorSecurityDiagnosticsHandler> logger)
-        : base(messenger, logger)
+        ILogger<InspectorSecurityDiagnosticsHandler> logger,
+        Func<FileSecurityDiagnosticsDetails, InspectorSecurityDiagnosticsResponseMessage> responseFactory)
+        : base(messenger, logger, responseFactory)
     {
     }
 
@@ -53,9 +55,6 @@ public sealed class InspectorSecurityDiagnosticsHandler :
             !security.AreAccessRulesProtected,
             security.AreAccessRulesProtected));
     }
-
-    protected override InspectorSecurityDiagnosticsResponseMessage CreateResponse(FileSecurityDiagnosticsDetails diagnostics) =>
-        new(diagnostics);
 
     protected override FileSecurityDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileSecurityDiagnosticsDetails.Empty;

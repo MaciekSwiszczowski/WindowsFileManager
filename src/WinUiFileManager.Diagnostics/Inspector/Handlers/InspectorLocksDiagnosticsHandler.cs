@@ -23,6 +23,7 @@ public sealed class InspectorLocksDiagnosticsHandler :
     // Win32 error codes from the Restart Manager API.
     private const int ErrorSuccess = 0;
     private const int ErrorMoreData = 234;
+    private const int InitialProcessInfoCapacity = 8;
 
     private readonly IRestartManagerInterop _restartManagerInterop;
 
@@ -47,6 +48,15 @@ public sealed class InspectorLocksDiagnosticsHandler :
     /// <remarks>Thread-pool bound. Errors are logged and degraded to None by the base class.</remarks>
     protected override Task<FileLockDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage message)
     {
+        if (CanOpenFileExclusively(message.Path.DisplayPath))
+        {
+            return Task.FromResult(new FileLockDiagnostics(
+                inUse: false,
+                lockBy: [],
+                lockPids: [],
+                lockServices: []));
+        }
+
         var lockBy = new List<string>();
         var lockPids = new List<int>();
         var lockServices = new List<string>();
@@ -63,6 +73,37 @@ public sealed class InspectorLocksDiagnosticsHandler :
         FileLockDiagnostics.None;
 
     /// <summary>
+    /// Checks the cheap, definitive negative case before paying for a Restart Manager session.
+    /// </summary>
+    /// <remarks>
+    /// A successful <see cref="FileShare.None"/> open proves that no current handle conflicts with exclusive
+    /// access to this file, so Restart Manager cannot add useful lock-owner data. Failures are treated as
+    /// "unknown" rather than "locked": access-denied, cloud, or transient file-system states still fall through
+    /// to Restart Manager, which remains the authoritative owner lookup.
+    /// </remarks>
+    private static bool CanOpenFileExclusively(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            using var stream = new FileStream(
+                path,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.None);
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Runs a Restart Manager session against the path and fills the lock lists.
     /// </summary>
     /// <param name="path">The resource path to register.</param>
@@ -72,9 +113,9 @@ public sealed class InspectorLocksDiagnosticsHandler :
     /// <returns><see langword="true"/>/<see langword="false"/> for locked/not-locked, or <see langword="null"/>
     /// if the Restart Manager could not be queried.</returns>
     /// <remarks>
-    /// The session handle is always released in the <c>finally</c>. <c>RmGetList</c> uses the standard
-    /// two-call pattern: the first call (with a null buffer) returns the required count (and
-    /// <see cref="ErrorMoreData"/>), then a buffer of that size is allocated and the call repeated.
+    /// The session handle is always released in the <c>finally</c>. <c>RmGetList</c> is first called with a
+    /// small buffer because the usual lock-owner count is zero or one; only <see cref="ErrorMoreData"/> falls
+    /// back to allocating the exact OS-reported size and retrying.
     /// </remarks>
     private bool? TryGetRestartManagerLocks(
         string path,
@@ -96,29 +137,29 @@ public sealed class InspectorLocksDiagnosticsHandler :
                 return null;
             }
 
-            // First call: probe how many process-info records are needed (null buffer).
-            uint processInfo = 0;
+            var processInfos = new RestartManagerProcessInfo[InitialProcessInfoCapacity];
+            var processInfo = (uint)processInfos.Length;
             var listResult = _restartManagerInterop.GetList(
                 sessionHandle,
                 out var processInfoNeeded,
                 ref processInfo,
-                processInfos: null,
+                processInfos,
                 out _);
 
-            // ERROR_MORE_DATA is expected here (the buffer was empty); only other failures abort.
-            if (listResult != ErrorSuccess && listResult != ErrorMoreData)
+            if (listResult == ErrorSuccess)
+            {
+                AddLocks(processInfos, processInfo, lockBy, lockPids, lockServices);
+                return lockBy.Count > 0 || lockPids.Count > 0 || lockServices.Count > 0;
+            }
+
+            if (listResult != ErrorMoreData || processInfoNeeded == 0)
             {
                 return null;
             }
 
-            if (processInfoNeeded == 0)
-            {
-                return false;
-            }
-
-            // Second call: allocate to the reported size and fetch the records.
+            // Retry only when the common small buffer was not enough.
             processInfo = processInfoNeeded;
-            var processInfos = new RestartManagerProcessInfo[processInfoNeeded];
+            processInfos = new RestartManagerProcessInfo[processInfoNeeded];
             listResult = _restartManagerInterop.GetList(
                 sessionHandle,
                 out processInfoNeeded,

@@ -9,9 +9,7 @@ Intel Core i5-10210U CPU 1.60GHz (Max: 2.11GHz), 1 CPU, 8 logical and 4 physical
 Platform=X64  Arguments=/p:Platform=x64  RunStrategy=Monitoring  
 
 ```
-| Method                              | FileCount | Mean | Error |
-|------------------------------------ |---------- |-----:|------:|
-| InspectorIdentityDiagnosticsHandler | 500       |   NA |    NA |
-
-Benchmarks with issues:
-  IdentityHandlerBenchmarks.InspectorIdentityDiagnosticsHandler: Job-PNPGZA(Platform=X64, Arguments=/p:Platform=x64, RunStrategy=Monitoring) [FileCount=500]
+| Method                              | FileCount | Mean     | Error     | StdDev   | Allocated native memory | Native memory leak | Allocated  |
+|------------------------------------ |---------- |---------:|----------:|---------:|------------------------:|-------------------:|-----------:|
+| **InspectorIdentityDiagnosticsHandler** | **100**       | **110.1 ms** |  **32.07 ms** | **21.21 ms** |                  **757 KB** |              **20 KB** |  **422.29 KB** |
+| **InspectorIdentityDiagnosticsHandler** | **500**       | **510.8 ms** | **115.31 ms** | **76.27 ms** |                  **734 KB** |              **13 KB** | **2062.69 KB** |

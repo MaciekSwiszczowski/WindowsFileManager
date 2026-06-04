@@ -5,7 +5,7 @@ namespace WinUiFileManager.Benchmarks.StreamsHandler;
 // ReSharper disable once ClassCanBeSealed.Global
 public class StreamsHandlerBenchmarks
 {
-    [Params(500, 2000)]
+    [Params(100, 500)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 

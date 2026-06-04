@@ -2,6 +2,7 @@ using Autofac;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.FileOperations;
+using WinUiFileManager.Diagnostics.Inspector;
 using WinUiFileManager.Diagnostics.Inspector.Handlers;
 
 namespace WinUiFileManager.Diagnostics;
@@ -29,6 +30,7 @@ public static class DiagnosticsContainerBuilderExtensions
         RegisterInspectorResponseFactories(builder);
         builder.RegisterType<ForceDeleteDirectoryHelper>().SingleInstance();
         builder.RegisterType<FileOperationRequestHandler>().SingleInstance();
+        builder.RegisterType<StorageProviderSyncRootCache>().SingleInstance();
         builder.RegisterType<InspectorCloudDiagnosticsHandler>().SingleInstance();
         builder.RegisterType<InspectorIdentityDiagnosticsHandler>().SingleInstance();
         builder.RegisterType<InspectorLinksDiagnosticsHandler>().SingleInstance();

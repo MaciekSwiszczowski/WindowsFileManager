@@ -1,4 +1,3 @@
-using Microsoft.Win32.SafeHandles;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using Windows.Storage;
@@ -6,6 +5,7 @@ using Windows.Storage.Provider;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
+using WinUiFileManager.Diagnostics.Inspector;
 using FileAttributes = System.IO.FileAttributes;
 
 namespace WinUiFileManager.Diagnostics.Inspector.Handlers;
@@ -30,6 +30,11 @@ public sealed class InspectorCloudDiagnosticsHandler :
     private const FileAttributes FileAttributeUnpinned = (FileAttributes)0x00100000;
     private const FileAttributes FileAttributeRecallOnOpen = (FileAttributes)0x00040000;
     private const FileAttributes FileAttributeRecallOnDataAccess = (FileAttributes)0x00400000;
+    private const FileAttributes CloudEvidenceAttributes =
+        FileAttributePinned
+        | FileAttributeUnpinned
+        | FileAttributeRecallOnOpen
+        | FileAttributeRecallOnDataAccess;
     // CF_PLACEHOLDER_STATE bit flags returned by CfGetPlaceholderStateFromAttributeTag.
     private const uint PlaceholderStateNone = 0x00000000;
     private const uint PlaceholderStateInSync = 0x00000008;
@@ -38,17 +43,20 @@ public sealed class InspectorCloudDiagnosticsHandler :
 
     private readonly ICloudFilesInterop _cloudFilesInterop;
     private readonly IFileSystemMetadataInterop _fileSystemMetadataInterop;
+    private readonly StorageProviderSyncRootCache _syncRootCache;
 
     public InspectorCloudDiagnosticsHandler(
         IMessenger messenger,
         ICloudFilesInterop cloudFilesInterop,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
+        StorageProviderSyncRootCache syncRootCache,
         ILogger<InspectorCloudDiagnosticsHandler> logger,
         Func<FileCloudDiagnosticsDetails, InspectorCloudDiagnosticsResponseMessage> responseFactory)
         : base(messenger, logger, responseFactory)
     {
         _cloudFilesInterop = cloudFilesInterop;
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
+        _syncRootCache = syncRootCache;
     }
 
     /// <summary>
@@ -67,14 +75,23 @@ public sealed class InspectorCloudDiagnosticsHandler :
 
         var path = message.Path.DisplayPath;
         var attributes = File.GetAttributes(path);
-        var syncRoot = await TryGetSyncRootInfoAsync(path).ConfigureAwait(false);
-        var storageItem = await TryGetStorageItemAsync(path).ConfigureAwait(false);
-        var provider = TryGetProviderDisplayName(storageItem);
-        var available = TryGetAvailability(storageItem, timeoutCts.Token);
+        var syncRoot = _syncRootCache.FindForPath(path);
+        var hasCloudAttributeEvidence = (attributes & CloudEvidenceAttributes) != 0;
+        var isReparsePoint = (attributes & FileAttributes.ReparsePoint) != 0;
+
+        if (syncRoot is null && !hasCloudAttributeEvidence && !isReparsePoint)
+        {
+            return FileCloudDiagnosticsDetails.None;
+        }
+
+        var storageItem = syncRoot is null
+            ? null
+            : await TryGetStorageItemAsync(path).ConfigureAwait(false);
+        var provider = storageItem is null ? string.Empty : TryGetProviderDisplayName(storageItem);
+        var available = storageItem is null ? string.Empty : TryGetAvailability(storageItem, timeoutCts.Token);
         var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem).ConfigureAwait(false);
 
-        using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, Directory.Exists(path));
-        var placeholderState = TryGetPlaceholderState(handle, attributes);
+        var placeholderState = isReparsePoint ? TryGetPlaceholderState(path, attributes) : PlaceholderStateNone;
         var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
         var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
         var syncRootId = syncRoot?.Id ?? string.Empty;
@@ -82,7 +99,8 @@ public sealed class InspectorCloudDiagnosticsHandler :
         var isCloudControlled =
             !string.IsNullOrWhiteSpace(syncRootId)
             || !string.IsNullOrWhiteSpace(provider)
-            || placeholderState != PlaceholderStateNone;
+            || placeholderState != PlaceholderStateNone
+            || hasCloudAttributeEvidence;
 
         return isCloudControlled
             ? new FileCloudDiagnosticsDetails(
@@ -105,45 +123,15 @@ public sealed class InspectorCloudDiagnosticsHandler :
     /// Maps the file's reparse tag + attributes to a CldApi placeholder-state bitmask, or
     /// <see cref="PlaceholderStateNone"/> when no reparse tag is present.
     /// </summary>
-    private uint TryGetPlaceholderState(SafeFileHandle handle, FileAttributes attributes)
+    private uint TryGetPlaceholderState(string path, FileAttributes attributes)
     {
+        using var handle = _fileSystemMetadataInterop.OpenForMetadataRead(path, attributes.HasFlag(FileAttributes.Directory));
         if (!_fileSystemMetadataInterop.TryGetFileAttributeReparseTag(handle, out var reparseTag))
         {
             return PlaceholderStateNone;
         }
 
         return _cloudFilesInterop.GetPlaceholderState((uint)attributes, reparseTag);
-    }
-
-    /// <summary>
-    /// Walks up from the path looking for a folder that belongs to a registered sync root, returning its
-    /// <see cref="StorageProviderSyncRootInfo"/> or null if none is found.
-    /// </summary>
-    /// <remarks>
-    /// The sync root is usually registered on an ancestor folder, not the file itself, so this climbs the
-    /// directory chain. Each failed probe simply moves one level up; exhausting the chain yields null.
-    /// </remarks>
-    private static async Task<StorageProviderSyncRootInfo?> TryGetSyncRootInfoAsync(string path)
-    {
-        var folderPath = Directory.Exists(path)
-            ? path
-            : Path.GetDirectoryName(path);
-
-        while (!string.IsNullOrWhiteSpace(folderPath))
-        {
-            try
-            {
-                var folder = await StorageFolder.GetFolderFromPathAsync(folderPath);
-                return StorageProviderSyncRootManager.GetSyncRootInformationForFolder(folder);
-            }
-            catch
-            {
-                // Not a sync root (or inaccessible): try the parent directory.
-                folderPath = Path.GetDirectoryName(folderPath);
-            }
-        }
-
-        return null;
     }
 
     /// <summary>

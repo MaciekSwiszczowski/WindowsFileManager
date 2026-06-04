@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices.WindowsRuntime;
 using Windows.Storage.Streams;
 using Microsoft.UI.Xaml.Media.Imaging;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
@@ -38,8 +39,8 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
         FieldValueUpdater.ShowThumbnailDiagnostics(diagnostics, thumbnailSource);
     }
 
-    /// <summary>Decodes raw thumbnail bytes into a <see cref="BitmapImage"/>, or returns <c>null</c> when there are none.</summary>
-    private static async Task<BitmapImage?> CreateThumbnailSourceAsync(byte[]? thumbnailBytes)
+    /// <summary>Decodes owned thumbnail bytes into a <see cref="BitmapImage"/>, or returns <c>null</c> when there are none.</summary>
+    private static async Task<BitmapImage?> CreateThumbnailSourceAsync(PooledThumbnailBytes? thumbnailBytes)
     {
         if (thumbnailBytes is null || thumbnailBytes.Length == 0)
         {
@@ -54,18 +55,17 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
     }
 
     /// <summary>
-    /// Wraps the bytes in a seek-reset <see cref="InMemoryRandomAccessStream"/> for <see cref="BitmapImage"/>.
-    /// Disposes the stream if writing fails so a partial stream isn't leaked; the caller owns the returned stream.
+    /// Wraps the owned bytes in a seek-reset <see cref="InMemoryRandomAccessStream"/> for <see cref="BitmapImage"/>.
+    /// Writes the pooled buffer directly (single copy into the stream) and disposes the stream if writing fails so a
+    /// partial stream isn't leaked; the caller owns the returned stream.
     /// </summary>
-    private static async Task<InMemoryRandomAccessStream> CreateThumbnailStreamAsync(byte[] thumbnailBytes)
+    private static async Task<InMemoryRandomAccessStream> CreateThumbnailStreamAsync(PooledThumbnailBytes thumbnailBytes)
     {
         var stream = new InMemoryRandomAccessStream();
         try
         {
-            using var writer = new DataWriter();
-            writer.WriteBytes(thumbnailBytes);
-            var buffer = writer.DetachBuffer();
-            await stream.WriteAsync(buffer);
+            var segment = thumbnailBytes.Segment;
+            await stream.WriteAsync(segment.Array!.AsBuffer(segment.Offset, segment.Count));
             stream.Seek(0);
             return stream;
         }

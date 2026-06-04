@@ -190,8 +190,15 @@ public class ThumbnailHandlerBenchmarks
 
     private void OnResponse(InspectorThumbnailDiagnosticsResponseMessage response)
     {
-        var score = (response.Diagnostics.ThumbnailBytes?.Length ?? 0)
-                    + response.Diagnostics.ProgId.Length;
-        _responses.Writer.TryWrite(score);
+        try
+        {
+            var score = (response.Diagnostics.ThumbnailBytes?.Length ?? 0)
+                        + response.Diagnostics.ProgId.Length;
+            _responses.Writer.TryWrite(score);
+        }
+        finally
+        {
+            response.Diagnostics.Dispose();
+        }
     }
 }

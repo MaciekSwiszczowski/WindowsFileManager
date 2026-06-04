@@ -65,7 +65,7 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
 
         var requestVersion = Interlocked.Increment(ref _requestVersion);
         Task.Run(() => ProcessRequestAsync(message, requestVersion))
-            .SafeFireAndForget(OnProcessRequestException);
+            .SafeFireAndForget(exception => _logger.LogError(exception, "{Handler} diagnostics pipeline failed.", GetType().Name));
     }
 
     private async Task ProcessRequestAsync(InspectorDiagnosticsRequestMessage request, long requestVersion)
@@ -76,10 +76,13 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
         {
             _messenger.Send(_responseFactory(diagnostics));
         }
+        else
+        {
+            // A newer request superseded this one (or the handler was disposed): the response is never published,
+            // so release any pooled/native resources the abandoned diagnostics owns.
+            (diagnostics as IDisposable)?.Dispose();
+        }
     }
-
-    private void OnProcessRequestException(Exception exception)
-        => _logger.LogError(exception, "{Handler} diagnostics pipeline failed.", GetType().Name);
 
     private async Task<TDiagnostics> LoadWithFallbackAsync(InspectorDiagnosticsRequestMessage request)
     {

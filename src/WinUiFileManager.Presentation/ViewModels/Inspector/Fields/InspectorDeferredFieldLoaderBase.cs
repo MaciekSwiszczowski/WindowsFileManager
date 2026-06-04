@@ -100,6 +100,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
     {
         if (_disposed || !_hasPendingRequest)
         {
+            DisposeDiagnostics(response.Diagnostics);
             return;
         }
 
@@ -110,12 +111,21 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
         }
         finally
         {
+            DisposeDiagnostics(response.Diagnostics);
             FieldValueUpdater.SetLoading(FieldKeys, isLoading: false);
         }
     }
 
     private void OnApplyException(Exception exception)
         => _logger.LogWarning(exception, "Failed to apply {Loader} inspector diagnostics.", GetType().Name);
+
+    private static void DisposeDiagnostics(TDiagnostics diagnostics)
+    {
+        if (diagnostics is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+    }
 
     private void CancelCurrentLoad(bool clearLoading)
     {

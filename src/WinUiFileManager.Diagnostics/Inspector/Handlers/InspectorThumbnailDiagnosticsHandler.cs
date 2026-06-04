@@ -74,13 +74,22 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     protected override FileThumbnailDiagnosticsDetails GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request) =>
         FileThumbnailDiagnosticsDetails.Empty;
 
-    private static async Task<byte[]> CopyThumbnailBytesAsync(StorageItemThumbnail thumbnail, CancellationToken cancellationToken)
+    private static async Task<PooledThumbnailBytes> CopyThumbnailBytesAsync(StorageItemThumbnail thumbnail, CancellationToken cancellationToken)
     {
+        var expectedSize = checked((int)thumbnail.Size);
+        var buffer = PooledThumbnailBytes.Rent(expectedSize);
         thumbnail.Seek(0);
-        await using var input = thumbnail.AsStreamForRead();
-        using var output = new MemoryStream((int)thumbnail.Size);
-        await input.CopyToAsync(output, cancellationToken).ConfigureAwait(false);
-        return output.ToArray();
+        try
+        {
+            await using var input = thumbnail.AsStreamForRead();
+            await buffer.FillFromAsync(input, cancellationToken).ConfigureAwait(false);
+            return buffer;
+        }
+        catch
+        {
+            buffer.Dispose();
+            throw;
+        }
     }
 
     /// <summary>

@@ -36,6 +36,7 @@ public static class InfrastructureContainerBuilderExtensions
         // Interop adapters: the only types allowed to touch Windows.Win32.* directly.
         builder.RegisterType<ShellInterop>().As<IShellInterop>().SingleInstance();
         builder.RegisterType<RestartManagerInterop>().As<IRestartManagerInterop>().SingleInstance();
+        builder.RegisterType<FileLockProbeInterop>().SingleInstance();
         builder.RegisterType<CloudFilesInterop>().As<ICloudFilesInterop>().SingleInstance();
         builder.RegisterType<FileDeletionInterop>().As<IFileDeletionInterop>().SingleInstance();
         // FileSystemMetadataInterop satisfies two segregated interfaces from one shared instance.

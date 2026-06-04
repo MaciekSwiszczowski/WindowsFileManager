@@ -36,7 +36,7 @@ public class ThumbnailHandlerBenchmarks
         0x7F, 0x80, 0xFF, 0xD9,
     ];
 
-    [Params(100, 500)]
+    [Params(5, 20)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 

@@ -26,15 +26,18 @@ public sealed class InspectorLocksDiagnosticsHandler :
     private const int InitialProcessInfoCapacity = 8;
 
     private readonly IRestartManagerInterop _restartManagerInterop;
+    private readonly FileLockProbeInterop _fileLockProbeInterop;
 
     public InspectorLocksDiagnosticsHandler(
         IMessenger messenger,
         IRestartManagerInterop restartManagerInterop,
+        FileLockProbeInterop fileLockProbeInterop,
         ILogger<InspectorLocksDiagnosticsHandler> logger,
         Func<FileLockDiagnostics, InspectorLocksDiagnosticsResponseMessage> responseFactory)
         : base(messenger, logger, responseFactory)
     {
         _restartManagerInterop = restartManagerInterop;
+        _fileLockProbeInterop = fileLockProbeInterop;
     }
 
     /// <summary>
@@ -81,26 +84,14 @@ public sealed class InspectorLocksDiagnosticsHandler :
     /// "unknown" rather than "locked": access-denied, cloud, or transient file-system states still fall through
     /// to Restart Manager, which remains the authoritative owner lookup.
     /// </remarks>
-    private static bool CanOpenFileExclusively(string path)
+    private bool CanOpenFileExclusively(string path)
     {
         if (!File.Exists(path))
         {
             return false;
         }
 
-        try
-        {
-            using var stream = new FileStream(
-                path,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.None);
-            return true;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            return false;
-        }
+        return _fileLockProbeInterop.TryOpenExclusively(path) == ErrorSuccess;
     }
 
     /// <summary>

@@ -39,7 +39,6 @@ public class LocksHandlerBenchmarks
 
         _unlockedFilePaths = CreateFiles("unlocked", FileCount);
         _lockedFilePaths = CreateFiles("locked", FileCount);
-        HoldExclusiveLocks(_lockedFilePaths);
 
         _requests = _unlockedFilePaths
             .Concat(_lockedFilePaths)
@@ -53,6 +52,12 @@ public class LocksHandlerBenchmarks
         _responseSubscription = _messenger
             .CreateObservable<InspectorLocksDiagnosticsResponseMessage>()
             .Subscribe(OnResponse);
+    }
+
+    [IterationSetup]
+    public void IterationSetup()
+    {
+        HoldExclusiveLocks(_lockedFilePaths);
     }
 
     [Benchmark]
@@ -69,18 +74,19 @@ public class LocksHandlerBenchmarks
         return total;
     }
 
+    [IterationCleanup]
+    public void IterationCleanup()
+    {
+        ReleaseExclusiveLocks();
+    }
+
     [GlobalCleanup]
     public void Cleanup()
     {
         _responseSubscription?.Dispose();
         _responseSubscription = null;
 
-        foreach (var stream in _lockHolders)
-        {
-            stream.Dispose();
-        }
-
-        _lockHolders.Clear();
+        ReleaseExclusiveLocks();
         _container?.Dispose();
         _container = null;
         _messenger = null;
@@ -124,6 +130,14 @@ public class LocksHandlerBenchmarks
         return filePaths;
     }
 
+    /// <summary>
+    /// Holds benchmark files locked only for the measured iteration.
+    /// </summary>
+    /// <remarks>
+    /// Do not move these handles back to <see cref="GlobalSetup"/>. The native memory profiler intentionally stays
+    /// enabled for these benchmarks, and handles that survive the measured iteration can be reported as native
+    /// leaks even though <see cref="GlobalCleanup"/> would release them later.
+    /// </remarks>
     private void HoldExclusiveLocks(string[] filePaths)
     {
         foreach (var filePath in filePaths)
@@ -134,6 +148,16 @@ public class LocksHandlerBenchmarks
                 FileAccess.ReadWrite,
                 FileShare.None));
         }
+    }
+
+    private void ReleaseExclusiveLocks()
+    {
+        foreach (var stream in _lockHolders)
+        {
+            stream.Dispose();
+        }
+
+        _lockHolders.Clear();
     }
 
     private void OnResponse(InspectorLocksDiagnosticsResponseMessage response)

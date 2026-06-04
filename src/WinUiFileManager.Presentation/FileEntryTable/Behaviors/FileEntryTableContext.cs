@@ -3,20 +3,20 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// <summary>
 /// Immutable bundle of the moving parts a <see cref="FileEntryTableBehaviorBase"/> needs once its
 /// <see cref="SpecFileEntryTableView"/> has loaded: the view, the underlying <see cref="TableView"/>,
-/// the pane-scoped <see cref="IMessenger"/>, and the shared <see cref="FileEntryTableNavigationState"/>.
+/// the pane-scoped <see cref="IFileManagerMessenger"/>, and the shared <see cref="FileEntryTableNavigationState"/>.
 /// </summary>
 /// <remarks>
 /// Created via <see cref="Create"/> only after the view is loaded, because the bound
 /// <see cref="SpecFileEntryTableView.Table"/>/<see cref="SpecFileEntryTableView.Messenger"/> and the
 /// <see cref="SpecFileEntryTableView.Identity"/> must already be set. The <see cref="Identity"/> on the
-/// view is what lets pane-scoped behaviors filter messages via <c>IdentityFilter.For&lt;T&gt;</c>.
+/// view is what lets pane-scoped behaviors use identity-aware messenger registrations.
 /// </remarks>
 public sealed class FileEntryTableContext
 {
     private FileEntryTableContext(
         SpecFileEntryTableView view,
         TableView table,
-        IMessenger messenger,
+        IFileManagerMessenger messenger,
         FileEntryTableNavigationState navigationState)
     {
         View = view;
@@ -32,9 +32,9 @@ public sealed class FileEntryTableContext
     /// <summary>The virtualised <see cref="TableView"/> that actually renders the rows.</summary>
     public TableView Table { get; }
 
-    /// <summary>The pane-scoped messenger used for register/send; behaviors filter incoming
-    /// messages by <see cref="View"/> identity.</summary>
-    public IMessenger Messenger { get; }
+    /// <summary>The pane-scoped messenger wrapper used for register/send; behaviors filter incoming
+    /// messages by <see cref="View"/> identity through wrapper overloads.</summary>
+    public IFileManagerMessenger Messenger { get; }
 
     /// <summary>Shared selection/navigation cursor state used by the keyboard behaviors.</summary>
     public FileEntryTableNavigationState NavigationState { get; }

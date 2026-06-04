@@ -9,7 +9,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </summary>
 /// <remarks>
 /// Pane-scoped behavior: it listens for <see cref="FileTableSelectionChangedMessage"/> filtered by the
-/// view's pane <see cref="FileEntryTableContext.View"/> identity via <c>IdentityFilter</c> (AGENTS.md §4).
+/// view's pane <see cref="FileEntryTableContext.View"/> identity through the messenger wrapper (AGENTS.md §4).
 /// <para>
 /// Event discipline (AGENTS.md §5): <see cref="OnLoaded"/> subscribes <c>PreviewKeyDown</c> and adds a
 /// <see cref="UIElement.PointerPressedEvent"/> handler (with <c>handledEventsToo</c> so it still sees
@@ -39,9 +39,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         _pointerPressedHandler = OnPointerPressed;
         // handledEventsToo: true so we still observe presses even after the TableView marks them handled.
         context.View.AddHandler(UIElement.PointerPressedEvent, _pointerPressedHandler, handledEventsToo: true);
-        context.Messenger.Register(
-            this,
-            IdentityFilter.For<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
+        context.Messenger.Register<FileTableSelectionChangedMessage>(this, context.View.Identity, OnFileTableSelectionChanged);
     }
 
     protected override void OnUnloaded(FileEntryTableContext context)

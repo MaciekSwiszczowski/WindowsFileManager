@@ -6,8 +6,8 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// "everything below the parent" rather than highlighting a non-file navigation row at full strength.
 /// </summary>
 /// <remarks>
-/// Pane-scoped via <c>IdentityFilter.For&lt;FileTableSelectionChangedMessage&gt;</c> on the view
-/// identity (AGENTS.md §4). Opacity is set on the realised <see cref="TableViewRow"/> container, so it
+/// Pane-scoped through the messenger wrapper on the view identity (AGENTS.md §4).
+/// Opacity is set on the realised <see cref="TableViewRow"/> container, so it
 /// must be re-applied after virtualization — hence the queued retry in
 /// <see cref="QueueParentSelectionOpacityRetry"/>. <see cref="OnUnloaded"/> restores the parent row's
 /// opacity so a recycled container is not left dimmed.
@@ -22,9 +22,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private bool _isParentRowSelected;
 
     protected override void OnLoaded(FileEntryTableContext context) =>
-        context.Messenger.Register(
-            this,
-            IdentityFilter.For<FileTableSelectionChangedMessage>(context.View.Identity, OnFileTableSelectionChanged));
+        context.Messenger.Register<FileTableSelectionChangedMessage>(this, context.View.Identity, OnFileTableSelectionChanged);
 
     protected override void OnUnloaded(FileEntryTableContext context)
     {

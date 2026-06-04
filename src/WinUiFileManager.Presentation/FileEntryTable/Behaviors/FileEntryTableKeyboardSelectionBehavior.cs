@@ -15,8 +15,8 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// for this pane and the responder to selection-request messages, and (2) it implements the
 /// anchor/cursor based Shift-range selection that the stock <see cref="TableView"/> does not provide.
 /// <para>
-/// Pane-scoped: request messages are registered through <c>IdentityFilter.For&lt;T&gt;</c> keyed on the
-/// view identity (AGENTS.md §4), so a request aimed at the other pane is ignored.
+/// Pane-scoped: request messages are registered through the messenger wrapper keyed on the view identity
+/// (AGENTS.md §4), so a request aimed at the other pane is ignored.
 /// </para>
 /// <para>
 /// <see cref="_syncingSelection"/> guards against re-entrancy: when we mutate
@@ -41,12 +41,8 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
     protected override void OnLoaded(FileEntryTableContext context)
     {
-        context.Messenger.Register(
-            this,
-            IdentityFilter.For<FileTableSelectedItemsRequestMessage>(context.View.Identity, OnSelectedItemsRequested));
-        context.Messenger.Register(
-            this,
-            IdentityFilter.For<FileTableSelectedEntriesRequestMessage>(context.View.Identity, OnSelectedEntriesRequested));
+        context.Messenger.Register<FileTableSelectedItemsRequestMessage>(this, context.View.Identity, OnSelectedItemsRequested);
+        context.Messenger.Register<FileTableSelectedEntriesRequestMessage>(this, context.View.Identity, OnSelectedEntriesRequested);
         context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
         context.Table.SelectionChanged += EntryTable_SelectionChanged;
     }

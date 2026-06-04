@@ -1,0 +1,270 @@
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+
+namespace WinUiFileManager.Presentation.Messaging;
+
+/// <summary>
+/// Application-facing wrapper around <see cref="StrongReferenceMessenger"/> that keeps messenger-specific
+/// conveniences in one place for the WinUI composition root.
+/// </summary>
+/// <remarks>
+/// The underlying messenger uses strong references, so recipients are rooted until they call
+/// <see cref="UnregisterAll(object)"/> or otherwise unregister their handlers. The UI-dispatch option is intended
+/// only for fire-and-forget notifications; request/response messages should not use it because dispatching makes
+/// the handler asynchronous relative to the original send operation.
+/// </remarks>
+public sealed class FileManagerMessenger : IFileManagerMessenger
+{
+    private readonly IMessenger _innerMessenger;
+    private readonly UiDispatcherQueue _dispatcherQueue;
+
+    /// <summary>
+    /// Initializes a new messenger wrapper using the process-wide strong-reference messenger and the UI dispatcher.
+    /// </summary>
+    /// <param name="innerMessenger">The CommunityToolkit messenger instance that stores registrations and sends messages.</param>
+    /// <param name="dispatcherQueue">The WinUI dispatcher used by registrations that request UI-thread delivery.</param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="innerMessenger"/> or <paramref name="dispatcherQueue"/> is <see langword="null"/>.
+    /// </exception>
+    public FileManagerMessenger(StrongReferenceMessenger innerMessenger, UiDispatcherQueue dispatcherQueue)
+    {
+        _innerMessenger = innerMessenger;
+        _dispatcherQueue = dispatcherQueue;
+    }
+
+    /// <inheritdoc />
+    public void Cleanup() => _innerMessenger.Cleanup();
+
+    /// <inheritdoc />
+    public bool IsRegistered<TMessage, TToken>(object recipient, TToken token)
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        return _innerMessenger.IsRegistered<TMessage, TToken>(recipient, token);
+    }
+
+    /// <inheritdoc />
+    public void Register<TRecipient, TMessage, TToken>(
+        TRecipient recipient,
+        TToken token,
+        MessageHandler<TRecipient, TMessage> handler)
+        where TRecipient : class
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        _innerMessenger.Register(recipient, token, handler);
+    }
+
+    /// <summary>
+    /// Registers a message handler and optionally dispatches handler execution to the UI thread.
+    /// </summary>
+    /// <typeparam name="TRecipient">The recipient type rooted by the underlying strong-reference messenger.</typeparam>
+    /// <typeparam name="TMessage">The message type to handle.</typeparam>
+    /// <typeparam name="TToken">The messenger token type.</typeparam>
+    /// <param name="recipient">The recipient instance that owns the registration and must unregister during teardown.</param>
+    /// <param name="token">The token identifying the message channel.</param>
+    /// <param name="handler">The handler invoked for matching messages.</param>
+    /// <param name="options">Optional registration behaviors applied by this wrapper.</param>
+    public void Register<TRecipient, TMessage, TToken>(
+        TRecipient recipient,
+        TToken token,
+        MessageHandler<TRecipient, TMessage> handler,
+        Options options)
+        where TRecipient : class
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        _innerMessenger.Register<TRecipient, TMessage, TToken>(
+            recipient,
+            token,
+            (registeredRecipient, message) => InvokeHandler(registeredRecipient, message, handler, options));
+    }
+
+    /// <summary>
+    /// Registers a default-channel message handler and optionally dispatches handler execution to the UI thread.
+    /// </summary>
+    /// <typeparam name="TRecipient">The recipient type rooted by the underlying strong-reference messenger.</typeparam>
+    /// <typeparam name="TMessage">The message type to handle.</typeparam>
+    /// <param name="recipient">The recipient instance that owns the registration and must unregister during teardown.</param>
+    /// <param name="handler">The handler invoked for matching messages.</param>
+    /// <param name="options">Optional registration behaviors applied by this wrapper.</param>
+    public void Register<TRecipient, TMessage>(
+        TRecipient recipient,
+        MessageHandler<TRecipient, TMessage> handler,
+        Options options)
+        where TRecipient : class
+        where TMessage : class
+    {
+        this.Register<TRecipient, TMessage>(recipient,
+            (registeredRecipient, message) => InvokeHandler(registeredRecipient, message, handler, options));
+    }
+
+    /// <summary>
+    /// Registers an identity-filtered handler for messages scoped to a pane or another application identity.
+    /// </summary>
+    /// <typeparam name="TRecipient">The recipient type rooted by the underlying strong-reference messenger.</typeparam>
+    /// <typeparam name="TMessage">The identity-bearing message type to handle.</typeparam>
+    /// <param name="recipient">The recipient instance that owns the registration and must unregister during teardown.</param>
+    /// <param name="identity">The identity value that incoming messages must match.</param>
+    /// <param name="handler">The handler invoked for matching messages.</param>
+    /// <param name="options">Optional registration behaviors applied by this wrapper.</param>
+    public void Register<TRecipient, TMessage>(
+        TRecipient recipient,
+        Identity identity,
+        MessageHandler<TRecipient, TMessage> handler,
+        Options options = Options.None)
+        where TRecipient : class
+        where TMessage : class, IIdentityMessage
+    {
+        Register<TRecipient, TMessage>(
+            recipient,
+            (registeredRecipient, message) =>
+            {
+                if (message.Identity != identity)
+                {
+                    return;
+                }
+
+                handler(registeredRecipient, message);
+            },
+            options);
+    }
+
+    /// <summary>
+    /// Registers an identity-filtered handler when the handler does not need the recipient instance.
+    /// </summary>
+    /// <typeparam name="TMessage">The identity-bearing message type to handle.</typeparam>
+    /// <param name="recipient">The recipient instance that owns the registration and must unregister during teardown.</param>
+    /// <param name="identity">The identity value that incoming messages must match.</param>
+    /// <param name="handler">The handler invoked for matching messages.</param>
+    /// <param name="options">Optional registration behaviors applied by this wrapper.</param>
+    public void Register<TMessage>(
+        object recipient,
+        Identity identity,
+        Action<TMessage> handler,
+        Options options = Options.None)
+        where TMessage : class, IIdentityMessage
+    {
+        Register<object, TMessage>(
+            recipient,
+            identity,
+            (_, message) => handler(message),
+            options);
+    }
+
+    /// <inheritdoc />
+    public void Reset()
+    {
+        _innerMessenger.Reset();
+    }
+
+    /// <inheritdoc />
+    public TMessage Send<TMessage, TToken>(TMessage message, TToken token)
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        return _innerMessenger.Send(message, token);
+    }
+
+    /// <inheritdoc />
+    public void Unregister<TMessage, TToken>(object recipient, TToken token)
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        _innerMessenger.Unregister<TMessage, TToken>(recipient, token);
+    }
+
+    /// <inheritdoc />
+    public void UnregisterAll(object recipient)
+    {
+        _innerMessenger.UnregisterAll(recipient);
+    }
+
+    /// <inheritdoc />
+    public void UnregisterAll<TToken>(object recipient, TToken token)
+        where TToken : IEquatable<TToken>
+    {
+        _innerMessenger.UnregisterAll(recipient, token);
+    }
+
+    /// <summary>
+    /// Creates an observable sequence backed by a default-channel messenger registration.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
+    /// <returns>
+    /// A cold observable. Each subscription creates its own messenger registration and unregisters it on disposal.
+    /// </returns>
+    public IObservable<TMessage> CreateObservable<TMessage>()
+        where TMessage : class
+    {
+        return Observable.Create<TMessage>(
+            observer =>
+            {
+                var recipient = new object();
+
+                this.Register<TMessage>(recipient,
+                    (_, message) => observer.OnNext(message));
+
+                return Disposable.Create(this, vm => vm.Unregister<TMessage>(recipient));
+            });
+    }
+
+    /// <summary>
+    /// Creates an observable sequence backed by a token-scoped messenger registration.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
+    /// <typeparam name="TToken">The messenger token type.</typeparam>
+    /// <param name="token">The token identifying the message channel observed by each subscription.</param>
+    /// <returns>
+    /// A cold observable. Each subscription creates its own messenger registration and unregisters it on disposal.
+    /// </returns>
+    public IObservable<TMessage> CreateObservable<TMessage, TToken>(TToken token)
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        return Observable.Create<TMessage>(
+            observer =>
+            {
+                var recipient = new object();
+
+                Register<object, TMessage, TToken>(
+                    recipient,
+                    token,
+                    (_, message) => observer.OnNext(message));
+
+                return Disposable.Create(this, _ => UnregisterAll(recipient, token));
+            });
+    }
+
+    private void InvokeHandler<TRecipient, TMessage>(
+        TRecipient recipient,
+        TMessage message,
+        MessageHandler<TRecipient, TMessage> handler,
+        Options options)
+        where TRecipient : class
+        where TMessage : class
+    {
+        if (options == Options.None)
+        {
+            handler(recipient, message);
+            return;
+        }
+
+        if (options != Options.DispatchToUiThread)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options, "Unknown messenger registration option.");
+        }
+
+        if (_dispatcherQueue.HasThreadAccess)
+        {
+            handler(recipient, message);
+            return;
+        }
+
+        if (!_dispatcherQueue.TryEnqueue(() => handler(recipient, message)))
+        {
+            throw new InvalidOperationException("The UI dispatcher rejected a queued messenger handler invocation.");
+        }
+    }
+}

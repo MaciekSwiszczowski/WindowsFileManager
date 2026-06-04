@@ -14,14 +14,14 @@ namespace WinUiFileManager.Presentation.ViewModels;
 public sealed partial class PanelViewModel : ObservableObject, IDisposable
 {
     private readonly AppInitializationViewModel _initialization;
-    private readonly IMessenger _messenger;
+    private readonly IFileManagerMessenger _messenger;
     private bool _disposed;
 
     /// <param name="identity">Pane identity constant (<c>"Left"</c>/<c>"Right"</c>); see AGENTS.md §4.</param>
     /// <param name="fileEntriesFactory">Factory that builds the pane's data-source view model for this identity.</param>
     public PanelViewModel(
         string identity,
-        IMessenger messenger,
+        IFileManagerMessenger messenger,
         AppInitializationViewModel initialization,
         Func<string, PanelFileEntryDataSourceViewModel> fileEntriesFactory)
     {
@@ -35,7 +35,7 @@ public sealed partial class PanelViewModel : ObservableObject, IDisposable
     public string Identity { get; }
 
     /// <summary>App-wide messenger, exposed for behaviors/bindings bound to this pane.</summary>
-    public IMessenger Messenger => _messenger;
+    public IFileManagerMessenger Messenger => _messenger;
 
     /// <summary>The pane's file listing / navigation data source.</summary>
     public PanelFileEntryDataSourceViewModel FileEntries { get; }

@@ -11,8 +11,9 @@ namespace WinUiFileManager.Presentation.ViewModels.Panels;
 /// <remarks>
 /// <para>
 /// Messaging: <see cref="Initialize"/> registers a single recipient for <see cref="FileTableNavigateToPathMessage"/>,
-/// filtered to this pane via <see cref="IdentityFilter.For{T}"/> (pane-scoped — see AGENTS.md §4). Registration is
-/// idempotent (guarded by <see cref="_initialized"/>). <see cref="Dispose"/> unregisters and disposes the data source.
+/// filtered to this pane via the messenger wrapper's identity-aware registration (pane-scoped — see AGENTS.md §4).
+/// Registration is idempotent (guarded by <see cref="_initialized"/>). <see cref="Dispose"/> unregisters and
+/// disposes the data source.
 /// </para>
 /// <para>
 /// Ownership/lifetime: this view model owns the live <see cref="_dataSource"/>; the previous source is disposed
@@ -24,7 +25,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
 {
     private readonly string _identity;
     private readonly Func<string, NormalizedPath, FileEntryTableDataSource> _dataSourceFactory;
-    private readonly IMessenger _messenger;
+    private readonly IFileManagerMessenger _messenger;
     private readonly ISchedulerProvider _schedulers;
     private FileEntryTableDataSource? _dataSource;
     private bool _initialized;
@@ -34,7 +35,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     /// <param name="dataSourceFactory">Builds a data source for a (identity, path) pair.</param>
     public PanelFileEntryDataSourceViewModel(
         string identity,
-        IMessenger messenger,
+        IFileManagerMessenger messenger,
         Func<string, NormalizedPath, FileEntryTableDataSource> dataSourceFactory,
         ISchedulerProvider schedulers)
     {
@@ -77,7 +78,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
             return;
         }
 
-        _messenger.Register(this, IdentityFilter.For<FileTableNavigateToPathMessage>(_identity, OnNavigateToPath));
+        _messenger.Register<FileTableNavigateToPathMessage>(this, _identity, OnNavigateToPath);
         _initialized = true;
     }
 

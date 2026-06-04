@@ -19,9 +19,11 @@ namespace WinUiFileManager.Infrastructure;
 /// Lifetime: everything here is registered <c>SingleInstance</c> (process-lifetime singletons). Per AGENTS.md §5,
 /// singletons that implement <see cref="System.IDisposable"/> (e.g. <see cref="ActivePanelsService"/>,
 /// <see cref="RenameService"/>, <see cref="WindowsDirectoryChangeStream"/>) are only released if the container
-/// itself is disposed on shutdown. The app-wide <see cref="IMessenger"/> is the shared
-/// <see cref="StrongReferenceMessenger.Default"/>, so every recipient registered against it roots itself until it
-/// calls <c>UnregisterAll</c> (see §4) — missing cleanup is a leak.
+/// itself is disposed on shutdown. Non-UI containers get the shared <see cref="StrongReferenceMessenger.Default"/>
+/// as their <see cref="IMessenger"/> fallback; the App composition root overrides that registration with the
+/// Presentation messenger wrapper so UI-thread dispatch stays out of the Infrastructure layer. Both registrations
+/// use strong references, so every recipient registered against the messenger roots itself until it calls
+/// <c>UnregisterAll</c> (see §4) — missing cleanup is a leak.
 /// </remarks>
 public static class InfrastructureContainerBuilderExtensions
 {
@@ -30,7 +32,7 @@ public static class InfrastructureContainerBuilderExtensions
     /// <returns>The same <paramref name="builder"/> to allow fluent chaining.</returns>
     public static ContainerBuilder AddInfrastructureServices(this ContainerBuilder builder)
     {
-        // The single app-wide messenger. StrongReferenceMessenger roots every registered recipient — see remarks.
+        // Non-UI fallback. The App composition root replaces IMessenger with the DispatcherQueue-aware wrapper.
         builder.RegisterInstance(StrongReferenceMessenger.Default).As<IMessenger>();
 
         // Interop adapters: the only types allowed to touch Windows.Win32.* directly.

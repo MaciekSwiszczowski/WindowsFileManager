@@ -57,7 +57,7 @@ public sealed partial class SpecFileEntryTableView
 
     /// <summary>The pane-scoped messenger used by this view and its behaviors. Must be set by the host
     /// before load (plain CLR property, not a DP, because it is wired in code, not XAML data-binding).</summary>
-    public IMessenger? Messenger { get; set; }
+    public IFileManagerMessenger? Messenger { get; set; }
 
     /// <summary>The folder path currently displayed; compared by file-operation behaviors to decide
     /// whether a request targets this pane.</summary>
@@ -73,7 +73,7 @@ public sealed partial class SpecFileEntryTableView
     /// <summary>The shared navigation/selection cursor state for this pane's table.</summary>
     public FileEntryTableNavigationState NavigationState { get; } = new();
 
-    /// <summary>The pane identity (e.g. left/right) used to scope messages via <c>IdentityFilter</c>;
+    /// <summary>The pane identity (e.g. left/right) used by wrapper registrations to scope messages;
     /// must be assigned before the control loads.</summary>
     public string Identity { get; set; } = string.Empty;
 
@@ -115,7 +115,7 @@ public sealed partial class SpecFileEntryTableView
 
     /// <summary>Returns the assigned <see cref="Messenger"/>.</summary>
     /// <exception cref="InvalidOperationException">Thrown when the host did not assign a messenger.</exception>
-    private IMessenger GetRequiredMessenger() =>
+    private IFileManagerMessenger GetRequiredMessenger() =>
         Messenger
         ?? throw new InvalidOperationException($"{nameof(SpecFileEntryTableView)}.{nameof(Messenger)} must be set.");
 

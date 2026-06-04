@@ -5,17 +5,15 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// a <see cref="FileTableColumnLayoutMessage"/> arrives, keeping the two panes' column widths in sync.
 /// </summary>
 /// <remarks>
-/// Pane-scoped via <c>IdentityFilter.For&lt;FileTableColumnLayoutMessage&gt;</c> on the view identity
-/// (AGENTS.md §4). Registration-only behavior — there are no UI event subscriptions to reverse, so it
+/// Pane-scoped through the messenger wrapper on the view identity (AGENTS.md §4).
+/// Registration-only behavior — there are no UI event subscriptions to reverse, so it
 /// relies entirely on the base class's <c>UnregisterAll</c> for cleanup and does not override
 /// <c>OnUnloaded</c>.
 /// </remarks>
 public sealed class FileEntryTableLayoutBehavior : FileEntryTableBehaviorBase
 {
     protected override void OnLoaded(FileEntryTableContext context) =>
-        context.Messenger.Register(
-            this,
-            IdentityFilter.For<FileTableColumnLayoutMessage>(context.View.Identity, OnColumnLayoutMessage));
+        context.Messenger.Register<FileTableColumnLayoutMessage>(this, context.View.Identity, OnColumnLayoutMessage);
 
     private void OnColumnLayoutMessage(FileTableColumnLayoutMessage message)
     {

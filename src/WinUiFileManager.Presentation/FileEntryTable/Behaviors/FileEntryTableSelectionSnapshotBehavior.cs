@@ -13,8 +13,8 @@ using Application.Messages.RequestMessages.FileOperations;
 /// <remarks>
 /// <para>
 /// <b>Known scoping gap:</b> unlike the other pane behaviors, this one registers
-/// <see cref="FileTableSelectionSnapshotRequestMessage"/> <i>globally</i> (no
-/// <c>IdentityFilter</c>) — both panes receive every request. It self-filters inside
+/// <see cref="FileTableSelectionSnapshotRequestMessage"/> <i>globally</i> instead of using identity-aware
+/// registration — both panes receive every request. It self-filters inside
 /// <see cref="OnSnapshotRequested"/> by comparing <see cref="FileTableSelectionSnapshotRequestMessage.DirectoryPath"/>
 /// to the view's current folder, which is why it still behaves correctly, but this is inconsistent with
 /// the AGENTS.md §4 pane-scoping convention. Documented here intentionally; not changed.
@@ -33,7 +33,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 
     protected override void OnLoaded(FileEntryTableContext context)
     {
-        // NOTE: registered globally (no IdentityFilter) — see the class remarks. Self-filtered by folder.
+        // NOTE: registered globally — see the class remarks. Self-filtered by folder.
         context.Messenger.Register<FileTableSelectionSnapshotRequestMessage>(this, OnSnapshotRequested);
     }
 
@@ -42,8 +42,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
 
     private void OnSnapshotRequested(object recipient, FileTableSelectionSnapshotRequestMessage message)
     {
-        // Self-filter: ignore requests for a folder this pane is not currently showing (this is what
-        // substitutes for the missing IdentityFilter — see class remarks).
+        // Self-filter: ignore requests for a folder this pane is not currently showing.
         if (message.DirectoryPath != Context.View.CurrentFolder ||
             Context.View.ItemsSource is not { } itemsSource)
         {

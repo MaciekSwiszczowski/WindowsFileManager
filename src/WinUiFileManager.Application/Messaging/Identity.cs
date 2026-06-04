@@ -2,8 +2,8 @@ namespace WinUiFileManager.Application.Messaging;
 
 /// <summary>
 /// Identifies a pane/scope (e.g. left vs right pane) so that messages can be routed to the
-/// correct recipient. Pane-scoped behaviors must filter on this via
-/// <see cref="IdentityFilter.For{TMessage}"/> rather than registering globally (see AGENTS.md §4).
+/// correct recipient. Pane-scoped behaviors must filter on this through the messenger wrapper's
+/// identity-aware registration methods rather than registering globally (see AGENTS.md §4).
 /// </summary>
 /// <remarks>
 /// Equality is value-based (the record compares <see cref="Value"/>).

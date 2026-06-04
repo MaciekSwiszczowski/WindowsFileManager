@@ -36,7 +36,7 @@ public class ThumbnailHandlerBenchmarks
         0x7F, 0x80, 0xFF, 0xD9,
     ];
 
-    [Params(500, 2000)]
+    [Params(100, 500)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
@@ -66,11 +66,7 @@ public class ThumbnailHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(ThumbnailHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         _textFilePaths = CreateTextFiles("text", FileCount);
@@ -122,10 +118,7 @@ public class ThumbnailHandlerBenchmarks
         _directoryPaths = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

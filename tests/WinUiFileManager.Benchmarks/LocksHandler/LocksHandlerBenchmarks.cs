@@ -5,7 +5,7 @@ namespace WinUiFileManager.Benchmarks.LocksHandler;
 // ReSharper disable once ClassCanBeSealed.Global
 public class LocksHandlerBenchmarks
 {
-    [Params(500, 2000)]
+    [Params(10, 25)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
@@ -34,11 +34,7 @@ public class LocksHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(LocksHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         _unlockedFilePaths = CreateFiles("unlocked", FileCount);
@@ -92,10 +88,7 @@ public class LocksHandlerBenchmarks
         _lockedFilePaths = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

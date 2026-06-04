@@ -39,11 +39,7 @@ public class CloudHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(CloudHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         _localFilePaths = CreateLocalFiles("local", FileCount);
@@ -92,10 +88,7 @@ public class CloudHandlerBenchmarks
         _directoryPaths = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

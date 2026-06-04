@@ -38,11 +38,7 @@ public class StreamsHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(StreamsHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         _filesWithoutStreams = CreateFiles("no-streams", FileCount);
@@ -94,10 +90,7 @@ public class StreamsHandlerBenchmarks
         _filesWithTwoStreams = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

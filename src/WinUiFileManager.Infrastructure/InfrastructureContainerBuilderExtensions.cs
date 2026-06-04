@@ -37,6 +37,7 @@ public static class InfrastructureContainerBuilderExtensions
         builder.RegisterType<ShellInterop>().As<IShellInterop>().SingleInstance();
         builder.RegisterType<RestartManagerInterop>().As<IRestartManagerInterop>().SingleInstance();
         builder.RegisterType<CloudFilesInterop>().As<ICloudFilesInterop>().SingleInstance();
+        builder.RegisterType<FileDeletionInterop>().As<IFileDeletionInterop>().SingleInstance();
         // FileSystemMetadataInterop satisfies two segregated interfaces from one shared instance.
         builder.RegisterType<FileSystemMetadataInterop>()
             .As<IFileSystemMetadataInterop>()

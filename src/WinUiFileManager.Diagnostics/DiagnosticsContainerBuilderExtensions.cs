@@ -27,6 +27,7 @@ public static class DiagnosticsContainerBuilderExtensions
     public static ContainerBuilder AddDiagnosticsServices(this ContainerBuilder builder)
     {
         RegisterInspectorResponseFactories(builder);
+        builder.RegisterType<ForceDeleteDirectoryHelper>().SingleInstance();
         builder.RegisterType<FileOperationRequestHandler>().SingleInstance();
         builder.RegisterType<InspectorCloudDiagnosticsHandler>().SingleInstance();
         builder.RegisterType<InspectorIdentityDiagnosticsHandler>().SingleInstance();

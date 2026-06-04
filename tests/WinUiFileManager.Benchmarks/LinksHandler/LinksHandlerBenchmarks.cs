@@ -5,7 +5,7 @@ namespace WinUiFileManager.Benchmarks.LinksHandler;
 // ReSharper disable once ClassCanBeSealed.Global
 public class LinksHandlerBenchmarks
 {
-    [Params(500, 2000)]
+    [Params(100, 500)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
@@ -35,11 +35,7 @@ public class LinksHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(LinksHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         var plainDirectory = Path.Combine(_benchmarkDirectory, "plain");
@@ -104,10 +100,7 @@ public class LinksHandlerBenchmarks
         _junctionPaths = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

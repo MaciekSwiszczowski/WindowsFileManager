@@ -5,7 +5,7 @@ namespace WinUiFileManager.Benchmarks.IdentityHandler;
 // ReSharper disable once ClassCanBeSealed.Global
 public class IdentityHandlerBenchmarks
 {
-    [Params(500, 2000)]
+    [Params(100, 500)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
@@ -34,11 +34,7 @@ public class IdentityHandlerBenchmarks
             BenchmarkProjectConfig.BenchmarkDirectory,
             nameof(IdentityHandlerBenchmarks));
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
-
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
 
         _filePaths = CreateRegularFiles("files", FileCount);
@@ -87,10 +83,7 @@ public class IdentityHandlerBenchmarks
         _deepFilePaths = [];
         _requests = [];
 
-        if (Directory.Exists(_benchmarkDirectory))
-        {
-            Directory.Delete(_benchmarkDirectory, recursive: true);
-        }
+        BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
     private static IContainer CreateContainer()

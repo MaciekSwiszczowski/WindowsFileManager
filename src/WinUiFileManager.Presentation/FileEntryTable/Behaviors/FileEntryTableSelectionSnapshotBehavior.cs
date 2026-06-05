@@ -125,6 +125,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
             // SelectedItem is WinUI state; NavigationState is the table behavior state used by keyboard range
             // selection and active-row navigation, so both need to point at the restored active item.
             Context.NavigationState.SetCurrent(Context.Table, idx, resetSelectionAnchor: true);
+            TableViewKeyboardAnchorSynchronizer.Sync(Context.Table, idx);
         }
     }
 

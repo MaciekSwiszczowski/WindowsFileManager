@@ -161,9 +161,9 @@ The control does not expose any custom CLR events.
 |---|---|
 | `FileEntryTableLayoutBehavior` | Subscribes to `FileTableColumnLayoutMessage`; sets `EntryTable.RowHeight` and column widths. |
 | `FileEntryTableSortingBehavior` | Handles header sort clicks, updates the visible sort indicator, and publishes `FileTableSortRequestedMessage`; it does not sort `TableView` rows directly. |
-| `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Up`, `Down`, `Home`, `End`, `PageUp`, and `PageDown` navigation; selects one target row, updates `NavigationState`, and scrolls it into view. |
-| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
-| `FileEntryTableSelectionSnapshotBehavior` | Captures real-row selection plus the active real row around watcher-driven row replacement. It currently restores selection only; active-row restoration is intentionally left to the planned `TableView.CurrentRowIndex` / current-row rework. It remaps only paths present in the replacement message and observes collection additions so it does not scan large folders to find the changed row. |
+| `FileEntryTableKeyboardNavigationBehavior` | Handles plain `Home`, `End`, `PageUp`, and `PageDown` navigation; plain `Up` / `Down` stay on the native `TableView` path so held arrow-key navigation remains smooth. |
+| `FileEntryTableKeyboardSelectionBehavior` | Publishes `FileTableSelectionChangedMessage` for native `TableView` selection changes, keeps the native keyboard anchor synchronized after selection changes, responds to `FileTableSelectedItemsRequestMessage`, and handles shifted range extension for `Shift+Up/Down`, `Shift+Home/End`, and `Shift+PageUp/PageDown`. |
+| `FileEntryTableSelectionSnapshotBehavior` | Captures real-row selection plus the active real row around watcher-driven row replacement. It restores selection, active-row state, and the native keyboard anchor when the replacement row appears. It remaps only paths present in the replacement message and observes collection additions so it does not scan large folders to find the changed row. |
 | `ParentRowSelectionOpacityBehavior` | Dims the selected `..` row to show it is visually selected but not part of command-target selection. |
 | `ActiveRowIndicatorBehavior` | Tracks the active row independently from multi-selection, shows the active-row marker, and handles Enter activation. Pointer press moves the active row without changing selection itself; keyboard selection messages move it with the selection cursor. |
 
@@ -359,9 +359,11 @@ The shell attaches `KeyboardInputBehavior.Command` to the element that should ow
 
 `KeyboardManager` exposes the command consumed by the behavior. It has no reference to a root `UIElement`. It translates recognized application command keystrokes to intent messages through the messenger and marks the input handled. Unrecognized keys are ignored.
 
-Table row navigation and row selection are handled locally by table behaviors where `WinUI.TableView` does not keep enough public state synchronized. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
+Table row navigation and row selection are handled locally where `WinUI.TableView` does not keep enough public state synchronized. The table does not use messenger messages for `Up` / `Down` / `PageUp` / `PageDown` / `Home` / `End`, range extension, toggle, select-all, or clear-selection behavior.
 
-`FileEntryTableKeyboardNavigationBehavior` handles plain navigation keys that are expected to move the current row without extending selection:
+Plain `Up` / `Down` navigation is left to the native `TableView` keyboard engine. `FileEntryTableKeyboardSelectionBehavior` synchronizes the native row anchor after selection changes so held `Up` / `Down` movement starts from the row the user sees selected instead of jumping from stale internal state.
+
+Plain `Home`, `End`, `PageUp`, and `PageDown` navigation is handled by `FileEntryTableKeyboardNavigationBehavior`, because `TableView` does not provide those row movements consistently enough for the file-manager table:
 
 | Shortcut | Behavior |
 |---|---|
@@ -372,7 +374,7 @@ Table row navigation and row selection are handled locally by table behaviors wh
 | `PageUp` | If the current row is visible and not already the first visible row, select the first visible row; otherwise move up by the current visible row count. Clamp to the first row. |
 | `PageDown` | If the current row is visible and not already the last visible row, select the last visible row; otherwise move down by the current visible row count. Clamp to the last row. |
 
-All handled plain navigation updates `NavigationState` before changing `TableView.SelectedItems`, so later plain navigation and shifted range selection start from the same row.
+Selection and non-arrow navigation changes update `NavigationState` and the native `TableView` keyboard anchor before publishing `FileTableSelectionChangedMessage`, so later plain navigation and shifted range selection start from the same row.
 
 `FileEntryTableKeyboardSelectionBehavior` listens to native `TableView.SelectionChanged` and publishes `FileTableSelectionChangedMessage`. It also intercepts shifted row-range gestures:
 

@@ -1,8 +1,8 @@
 namespace WinUiFileManager.Presentation.FileEntryTable;
 
 /// <summary>
-/// Index/selection/scroll helpers on <see cref="TableView"/> shared by the keyboard navigation and
-/// selection behaviors. Centralises the arithmetic for arrow/Home/End/Page navigation, row lookup, and
+/// Index/selection/scroll helpers on <see cref="TableView"/> shared by the table keyboard behaviors.
+/// Centralises the arithmetic for non-arrow navigation, Shift-selection navigation, row lookup, and
 /// "scroll into view only when off-screen" so the behaviors stay focused on gesture handling.
 /// </summary>
 /// <remarks>
@@ -18,8 +18,7 @@ internal static class FileEntryTableExtensionMethods
 
     extension(TableView table)
     {
-        /// <summary>Clamps <paramref name="index"/> into the valid row range, or null when the index
-        /// is null or the table is empty.</summary>
+        /// Clamps <paramref name="index"/> into the valid row range, or null when the index is null or the table is empty.
         public int? ClampIndex(int? index)
         {
             if (table.Items.Count == 0 || index is null)
@@ -28,35 +27,6 @@ internal static class FileEntryTableExtensionMethods
             }
 
             return Math.Clamp(index.Value, 0, table.Items.Count - 1);
-        }
-        /// <summary>Best-effort index of the "current" selected row: prefers <c>SelectedIndex</c>,
-        /// then <c>SelectedItem</c>, then the last entry of <c>SelectedItems</c>; falls back to 0.</summary>
-        public int GetCurrentSelectedIndex()
-        {
-            if (table.SelectedIndex >= 0)
-            {
-                return table.SelectedIndex;
-            }
-
-            if (table.SelectedItem is not null)
-            {
-                var selectedItemIndex = table.Items.IndexOf(table.SelectedItem);
-                if (selectedItemIndex >= 0)
-                {
-                    return selectedItemIndex;
-                }
-            }
-
-            foreach (var item in table.SelectedItems.Reverse())
-            {
-                var selectedIndex = table.Items.IndexOf(item);
-                if (selectedIndex >= 0)
-                {
-                    return selectedIndex;
-                }
-            }
-
-            return 0;
         }
         /// <summary>Returns the row index of <paramref name="item"/>, or null if it is null or not
         /// present in the table.</summary>
@@ -71,39 +41,8 @@ internal static class FileEntryTableExtensionMethods
             return index >= 0 ? index : null;
         }
 
-        /// <summary>Computes the destination row for an unmodified navigation key (Up/Down/Home/End/
-        /// Page) relative to <paramref name="currentIndex"/>, clamped to the list. Returns false for
-        /// keys that are not navigation keys, leaving <paramref name="targetIndex"/> unchanged.</summary>
-        public bool TryGetNavigationTargetIndex(VirtualKey key,
-            int currentIndex,
-            out int targetIndex)
-        {
-            targetIndex = key switch
-            {
-                VirtualKey.Up => currentIndex - 1,
-                VirtualKey.Down => currentIndex + 1,
-                VirtualKey.Home => 0,
-                VirtualKey.End => table.Items.Count - 1,
-                VirtualKey.PageUp => GetPageTargetIndex(table, currentIndex, pageUp: true),
-                VirtualKey.PageDown => GetPageTargetIndex(table, currentIndex, pageUp: false),
-                _ => currentIndex,
-            };
-
-            if (key is not (VirtualKey.Up
-                or VirtualKey.Down
-                or VirtualKey.Home
-                or VirtualKey.End
-                or VirtualKey.PageUp
-                or VirtualKey.PageDown))
-            {
-                return false;
-            }
-
-            targetIndex = table.ClampIndex(targetIndex) ?? currentIndex;
-            return true;
-        }
-        /// <summary>Same key→index mapping as <see cref="TryGetNavigationTargetIndex"/> but relative to
-        /// the Shift-selection <paramref name="cursorIndex"/>; used to extend a selection range.</summary>
+        /// <summary>Computes the destination row for Shift-selection movement relative to
+        /// <paramref name="cursorIndex"/>.</summary>
         public bool TryGetRangeTargetIndex(VirtualKey key,
             int cursorIndex,
             out int targetIndex)
@@ -132,27 +71,26 @@ internal static class FileEntryTableExtensionMethods
             targetIndex = table.ClampIndex(targetIndex) ?? cursorIndex;
             return true;
         }
-        /// <summary>Makes the row at <paramref name="targetIndex"/> the sole selection, updates the
-        /// navigation state's anchor/cursor, and scrolls it into view. No-ops the selection rewrite
-        /// when it is already the only selected row to avoid a redundant <c>SelectionChanged</c>.</summary>
-        public void SelectSingleRow(FileEntryTableNavigationState navigationState,
-            int targetIndex)
+
+        /// <summary>Computes the destination row for non-arrow navigation keys handled outside native TableView.</summary>
+        public bool TryGetJumpNavigationTargetIndex(VirtualKey key, int currentIndex, out int targetIndex)
         {
-            if (table.Items[targetIndex] is not { } item)
+            targetIndex = key switch
             {
-                return;
+                VirtualKey.Home => 0,
+                VirtualKey.End => table.Items.Count - 1,
+                VirtualKey.PageUp => GetPageTargetIndex(table, currentIndex, pageUp: true),
+                VirtualKey.PageDown => GetPageTargetIndex(table, currentIndex, pageUp: false),
+                _ => currentIndex,
+            };
+
+            if (key is not (VirtualKey.Home or VirtualKey.End or VirtualKey.PageUp or VirtualKey.PageDown))
+            {
+                return false;
             }
 
-            navigationState.SetCurrent(table, targetIndex, resetSelectionAnchor: true);
-            if (table.SelectedItems.Count == 1 && ReferenceEquals(table.SelectedItems[0], item))
-            {
-                table.ScrollRowIntoViewIfNeeded(targetIndex);
-                return;
-            }
-
-            table.SelectedItems.Clear();
-            table.SelectedItems.Add(item);
-            table.ScrollRowIntoViewIfNeeded(targetIndex);
+            targetIndex = table.ClampIndex(targetIndex) ?? currentIndex;
+            return true;
         }
 
         /// <summary>Scrolls the row into view only when it is currently outside the visible range,

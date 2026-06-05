@@ -4,15 +4,15 @@ using WinUiFileManager.Presentation.Threading;
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 /// <summary>
-/// Publishes table selection state and patches shifted row-range selection:
+/// Publishes table selection state, keeps native keyboard anchors synchronized, and patches shifted row-range selection:
 /// Shift+Up extends the range one row up, Shift+Down extends it one row down,
 /// Shift+Home extends it to the first visible row, Shift+End extends it to the last visible row,
 /// Shift+PageUp extends it to the first visible row when the cursor is inside the viewport and not already first; otherwise it extends up by the current visible row count,
 /// Shift+PageDown extends it to the last visible row when the cursor is inside the viewport and not already last; otherwise it extends down by the current visible row count.
 /// </summary>
 /// <remarks>
-/// Owns two responsibilities: (1) it is the publisher of <see cref="FileTableSelectionChangedMessage"/>
-/// for this pane and the responder to selection-request messages, and (2) it implements the
+/// Owns table selection coordination: it publishes selection changes, answers selection snapshot requests,
+/// keeps WinUI.TableView's native keyboard anchor aligned with the selected row, and implements the
 /// anchor/cursor based Shift-range selection that the stock <see cref="TableView"/> does not provide.
 /// <para>
 /// Pane-scoped: request messages are registered through the messenger wrapper keyed on the view identity
@@ -83,6 +83,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
                 e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
         {
             context.NavigationState.SetCurrent(context.Table, addedIndex, resetSelectionAnchor: true);
+            TableViewKeyboardAnchorSynchronizer.Sync(context.Table, addedIndex);
             PublishSelectionChanged();
             return;
         }
@@ -90,6 +91,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         if (GetCurrentSelectedIndex(context) is { } selectedIndex)
         {
             context.NavigationState.SetCurrent(context.Table, selectedIndex, resetSelectionAnchor: true);
+            TableViewKeyboardAnchorSynchronizer.Sync(context.Table, selectedIndex);
         }
 
         PublishSelectionChanged();
@@ -149,6 +151,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
 
         _shiftRangeActive = true;
         context.NavigationState.SetSelectionRange(context.Table, anchorIndex, targetIndex);
+        TableViewKeyboardAnchorSynchronizer.Sync(context.Table, targetIndex);
         context.Table.ScrollRowIntoViewIfNeeded(targetIndex);
         PublishSelectionChanged();
     }

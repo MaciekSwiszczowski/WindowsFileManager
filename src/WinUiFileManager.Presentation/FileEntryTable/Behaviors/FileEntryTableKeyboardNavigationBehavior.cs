@@ -1,49 +1,83 @@
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
 /// <summary>
-/// Handles plain table keyboard navigation with the shared table navigation state:
-/// Up selects the previous row,
-/// Down selects the next row,
-/// Home selects the first visible row,
-/// End selects the last visible row,
-/// PageUp selects the first visible row when the current row is inside the viewport
-/// and not already first; otherwise it moves up by the current visible row count,
-/// PageDown selects the last visible row when the current row is inside the viewport
-/// and not already last; otherwise it moves down by the current visible row count.
-/// Page movement clamps at the list boundaries and scrolls the target row into view.
+/// Handles non-arrow table keyboard navigation that WinUI.TableView does not provide consistently.
 /// </summary>
 /// <remarks>
-/// Handles only unmodified arrow/Home/End/Page keys; Shift-range selection lives in
-/// <see cref="FileEntryTableKeyboardSelectionBehavior"/>. Subscribes <c>PreviewKeyDown</c> on the
-/// table in <see cref="OnLoaded"/> and detaches it in <see cref="OnUnloaded"/> (AGENTS.md §5).
+/// Plain <c>Up</c>/<c>Down</c> are intentionally left to native <see cref="TableView"/> keyboard handling.
+/// Replacing those keys here fights the control's internal repeat/cursor logic and can make held arrow-key
+/// navigation visually skip rows. This behavior only handles <c>Home</c>, <c>End</c>, <c>PageUp</c>, and
+/// <c>PageDown</c>, then synchronizes the native keyboard anchor so the next arrow key starts from the row
+/// the user sees selected.
 /// </remarks>
 public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBehaviorBase
 {
-    private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        // Bail if already handled, if any modifier is held (those gestures belong to other behaviors),
-        // if the list is empty, or if the key does not map to a navigation target.
-        var context = Context;
-        if (e.Handled
-            || WinUiViewHelper.HasAnyModifier(VirtualKey.Shift,VirtualKey.Control, VirtualKey.Menu)
-            || context.Table.Items.Count == 0
-            || !context.Table.TryGetNavigationTargetIndex(e.Key, GetCurrentIndex(context), out var targetIndex))
-        {
-            return;
-        }
-
-        context.Table.SelectSingleRow(context.NavigationState, targetIndex);
-        e.Handled = true;
-    }
-
-    private static int GetCurrentIndex(FileEntryTableContext context) =>
-        context.NavigationState.GetCurrentIndex(context.Table)
-        ?? context.Table.GetCurrentSelectedIndex();
-
     protected override void OnLoaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown += EntryTable_PreviewKeyDown;
 
     // Matching -= keeps the PreviewKeyDown subscription balanced when the behavior detaches.
     protected override void OnUnloaded(FileEntryTableContext context)
         => context.Table.PreviewKeyDown -= EntryTable_PreviewKeyDown;
+
+    private void EntryTable_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        var context = Context;
+        if (e.Handled
+            || WinUiViewHelper.HasAnyModifier(VirtualKey.Shift, VirtualKey.Control, VirtualKey.Menu)
+            || context.Table.Items.Count == 0
+            || !context.Table.TryGetJumpNavigationTargetIndex(e.Key, GetCurrentIndex(context), out var targetIndex))
+        {
+            return;
+        }
+
+        SelectSingleRow(context, targetIndex);
+        e.Handled = true;
+    }
+
+    private static int GetCurrentIndex(FileEntryTableContext context)
+    {
+        if (context.NavigationState.GetCurrentIndex(context.Table) is { } currentIndex)
+        {
+            return currentIndex;
+        }
+
+        if (context.Table.SelectedIndex >= 0)
+        {
+            return context.Table.SelectedIndex;
+        }
+
+        if (context.Table.GetRowIndex(context.Table.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
+        {
+            return selectedItemIndex;
+        }
+
+        foreach (var item in context.Table.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
+        {
+            if (context.Table.GetRowIndex(item) is { } selectedIndex)
+            {
+                return selectedIndex;
+            }
+        }
+
+        return 0;
+    }
+
+    private static void SelectSingleRow(FileEntryTableContext context, int targetIndex)
+    {
+        if (context.Table.Items[targetIndex] is not { } item)
+        {
+            return;
+        }
+
+        context.NavigationState.SetCurrent(context.Table, targetIndex, resetSelectionAnchor: true);
+        TableViewKeyboardAnchorSynchronizer.Sync(context.Table, targetIndex);
+
+        if (context.Table.SelectedItems.Count != 1 || !ReferenceEquals(context.Table.SelectedItems[0], item))
+        {
+            context.Table.SelectedItems.Clear();
+            context.Table.SelectedItems.Add(item);
+        }
+
+        context.Table.ScrollRowIntoViewIfNeeded(targetIndex);
+    }
 }

@@ -1,4 +1,4 @@
-using System.Reactive.Concurrency;
+using ObservableCollections;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
@@ -18,7 +18,7 @@ namespace WinUiFileManager.Presentation.ViewModels.Panels;
 /// <para>
 /// Ownership/lifetime: this view model owns the live <see cref="_dataSource"/>; the previous source is disposed
 /// whenever a new one is applied, and the final one on <see cref="Dispose"/>. Navigation can arrive on a background
-/// thread, so the new source's rows/path are published on <see cref="ISchedulerProvider.MainThread"/>.
+/// thread, so the new source's rows/path are published on the UI thread via <see cref="IUiThreadDispatcher"/>.
 /// </para>
 /// </remarks>
 public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
@@ -26,7 +26,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     private readonly string _identity;
     private readonly Func<string, NormalizedPath, FileEntryTableDataSource> _dataSourceFactory;
     private readonly IFileManagerMessenger _messenger;
-    private readonly ISchedulerProvider _schedulers;
+    private readonly IUiThreadDispatcher _uiDispatcher;
     private FileEntryTableDataSource? _dataSource;
     private bool _initialized;
     private bool _disposed;
@@ -37,12 +37,12 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         string identity,
         IFileManagerMessenger messenger,
         Func<string, NormalizedPath, FileEntryTableDataSource> dataSourceFactory,
-        ISchedulerProvider schedulers)
+        IUiThreadDispatcher uiDispatcher)
     {
         _identity = identity;
         _messenger = messenger;
         _dataSourceFactory = dataSourceFactory;
-        _schedulers = schedulers;
+        _uiDispatcher = uiDispatcher;
     }
 
     /// <summary>The committed current directory path of this pane (display form).</summary>
@@ -62,7 +62,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     /// lean <see cref="SpecFileEntryViewModel"/> (see its leanness invariant) to keep large folders cheap.
     /// </summary>
     [ObservableProperty]
-    public partial ObservableCollection<SpecFileEntryViewModel> Items { get; set; } = [];
+    public partial NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>? Items { get; set; }
 
     /// <summary>
     /// Registers the pane-scoped navigation recipient. Idempotent (guarded by <see cref="_initialized"/>) per
@@ -97,32 +97,37 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     }
 
     /// <summary>Handles a pane-scoped navigate request by building and applying a data source for the target path.</summary>
-    private void OnNavigateToPath(FileTableNavigateToPathMessage message)
-    {
-        var dataSource = _dataSourceFactory(_identity, message.Path);
-        ApplyDataSource(dataSource);
-    }
+    private void OnNavigateToPath(FileTableNavigateToPathMessage message) => ApplyDataSource(message.Path);
 
     /// <summary>
-    /// Swaps in a new data source, disposing the previous one, and publishes its rows/path on the UI thread.
+    /// Builds a data source for <paramref name="path"/> and swaps it in, disposing the previous one, publishing
+    /// its rows/path on the UI thread.
     /// </summary>
     /// <remarks>
-    /// If disposal raced ahead of this call, the incoming <paramref name="dataSource"/> is disposed immediately to
-    /// avoid leaking the just-created (background-watching) source. The rows/path assignment is marshalled to
-    /// <see cref="ISchedulerProvider.MainThread"/> because navigation may run off the UI thread.
+    /// The new source is created here (this view model owns its lifetime). The whole swap — dispose the previous
+    /// source, adopt the new one, rebind rows/path — runs in one callback on the UI thread (navigation may arrive
+    /// off it). Keeping it a single synchronous callback matters now that <see cref="FileEntryTableDataSource.Items"/>
+    /// is a disposable adapter bound to the table: the table never observes the old adapter after disposal because
+    /// the rebind happens in the same callback. If disposal races ahead, the new source is disposed instead of leaked.
     /// </remarks>
-    private void ApplyDataSource(FileEntryTableDataSource dataSource)
+    private void ApplyDataSource(NormalizedPath path)
     {
         if (_disposed)
         {
-            dataSource.Dispose();
             return;
         }
 
-        _dataSource?.Dispose();
-        _dataSource = dataSource;
-        _schedulers.MainThread.Schedule(() =>
+        var dataSource = _dataSourceFactory(_identity, path);
+        _uiDispatcher.Post(() =>
         {
+            if (_disposed)
+            {
+                dataSource.Dispose();
+                return;
+            }
+
+            _dataSource?.Dispose();
+            _dataSource = dataSource;
             Items = dataSource.Items;
             CurrentPath = dataSource.CurrentPath;
         });

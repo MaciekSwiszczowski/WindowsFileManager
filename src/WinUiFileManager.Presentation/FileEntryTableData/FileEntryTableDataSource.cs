@@ -1,7 +1,5 @@
-using System.Reactive.Concurrency;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using DynamicData.Binding;
+using ObservableCollections;
+using R3;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
 
@@ -10,41 +8,41 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// <summary>
 /// The reactive data pipeline behind one pane's file table: it performs the initial folder scan, keeps the
 /// row set live by reacting to filesystem watcher changes, applies the requested sort, and exposes the
-/// result as the observable <see cref="Items"/> collection bound to the table.
+/// result as the bindable <see cref="Items"/> list bound to the table.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Built on <see cref="FileEntryObservableRowStore"/> (the R3/ObservableCollections successor to the former
-/// DynamicData <c>SourceCache</c> + <c>SortAndBind</c>): the store is the authoritative keyed, sorted row
-/// set, keyed by normalised full path so a scan row and a later watcher update for the same file collapse
-/// onto one entry. Each store mutation reports a <see cref="RowMutation"/> (or removed index) which is
-/// mirrored onto <see cref="Items"/> with a single granular operation, so the bound table updates
-/// incrementally instead of rebuilding - what keeps large folders responsive.
+/// Built on <see cref="FileEntryObservableRowStore"/> (R3 + ObservableCollections, the successor to the
+/// former DynamicData <c>SourceCache</c> + <c>SortAndBind</c>). The store is the authoritative keyed, sorted
+/// row set, keyed by normalised full path so a scan row and a later watcher update for the same file collapse
+/// onto one entry. <see cref="Items"/> is a thin <c>INotifyCollectionChanged</c> adapter over the store's
+/// <see cref="FileEntryObservableRowStore.Rows"/> (<see cref="ObservableList{T}.ToNotifyCollectionChangedSlim()"/>):
+/// there is no second copy of the rows and no hand-written mirror — each granular store mutation surfaces to
+/// the table directly.
 /// </para>
 /// <para>
-/// Threading: the folder enumeration runs on the background scheduler, but every store and
-/// <see cref="Items"/> mutation is marshalled onto the UI scheduler (<c>ObserveOn</c>). The store is
-/// single-writer, and here that single writer is the UI thread; the seed, watcher changes, and sort
-/// requests are funnelled through one serialized, UI-thread subscription so they never race. (Moving the
-/// writer to a dedicated background thread with a synchronized view is the planned next step.)
+/// Pipeline: the folder enumeration runs on the thread pool; the watcher and pane-scoped sort requests are
+/// merged after it (<c>Concat</c> so the seed always applies first) and the whole stream is marshalled onto
+/// the UI thread (<c>ObserveOn</c>) before touching the store. The store is single-writer and that writer is
+/// the UI thread, so the seed, watcher changes, and sort requests never race. (Moving the writer to a
+/// dedicated background thread with a dispatcher-backed adapter is the planned next step.)
 /// </para>
 /// <para>
-/// Lifetime/disposal: the pipeline subscription and the scan
-/// <see cref="CancellationTokenSource"/> are owned by a single <see cref="CompositeDisposable"/>; the store
-/// is disposed after the subscription is torn down (so nothing mutates it concurrently). This instance is
-/// created and disposed by the owning pane view model - if that <see cref="Dispose"/> is not reached, the
-/// watcher subscription leaks.
+/// Lifetime/disposal: the scan <see cref="CancellationTokenSource"/> and the pipeline subscription are
+/// cancelled/disposed first so nothing mutates the store concurrently, then the adapter and the store are
+/// disposed. This instance is created and disposed by the owning pane view model — if that
+/// <see cref="Dispose"/> is not reached, the watcher subscription leaks.
 /// </para>
 /// </remarks>
 public sealed class FileEntryTableDataSource : IDisposable
 {
-    // Owns the pipeline subscription plus the scan CTS; disposed once in Dispose().
-    private readonly CompositeDisposable _disposables;
     private readonly IFolderEntryScanner _folderEntryScanner;
     private readonly IFileEntryRowReader _fileEntryRowReader;
     private readonly CancellationTokenSource _scanCancellation = new();
     private readonly FileEntryDisplayStringCache _displayStringCache;
     private readonly FileEntryObservableRowStore _store = new();
+    private readonly NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel> _rows;
+    private readonly IDisposable _subscription;
     private readonly NormalizedPath _folderPath;
     private readonly Identity _identity;
 
@@ -57,11 +55,11 @@ public sealed class FileEntryTableDataSource : IDisposable
     public FileEntryTableDataSource(
         string identity,
         NormalizedPath folderPath,
-        ISchedulerProvider schedulers,
+        SynchronizationContext uiSynchronizationContext,
         IFolderEntryScanner folderEntryScanner,
         IFileEntryRowReader fileEntryRowReader,
         IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger,
+        IFileManagerMessenger messenger,
         FileEntryDisplayStringCache displayStringCache)
     {
         _identity = identity;
@@ -73,29 +71,28 @@ public sealed class FileEntryTableDataSource : IDisposable
         _sortState = SortState.Default;
         _comparer = CreateComparer(_sortState);
 
-        _disposables = Initialize(schedulers, directoryChangeStream, messenger);
-        _disposables.Add(_scanCancellation);
+        // A slim adapter: bindable INotifyCollectionChanged over the store's rows with no extra copy. Store
+        // writes happen on the UI thread, so the adapter needs no dispatcher (same-thread notifications).
+        _rows = _store.Rows.ToNotifyCollectionChangedSlim();
+        _subscription = Initialize(uiSynchronizationContext, directoryChangeStream, messenger);
     }
 
     /// <summary>The display path of the folder this source represents.</summary>
     public string CurrentPath { get; }
 
-    /// <summary>The sorted, UI-bound row collection. Mutated only on the UI thread; bound to the table's
-    /// <see cref="SpecFileEntryTableView.ItemsSource"/>. Kept in exact lockstep with the store's row list
-    /// by mirroring each store mutation.</summary>
-    public ObservableCollectionExtended<SpecFileEntryViewModel> Items { get; } = [];
+    /// <summary>The sorted, UI-bound row list — a thin adapter over the store's rows. Mutated only on the UI
+    /// thread; bound to the table's <see cref="SpecFileEntryTableView.ItemsSource"/>.</summary>
+    public NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel> Items => _rows;
 
     /// <summary>Builds the pipeline: an off-thread initial scan that seeds the store, the filesystem watcher
-    /// that mutates it incrementally, and the pane-scoped sort-request stream - all merged into one
-    /// UI-thread subscription so the single-writer store and the bound collection are touched on one thread.</summary>
-    private CompositeDisposable Initialize(
-        ISchedulerProvider schedulers,
+    /// that mutates it incrementally, and the pane-scoped sort-request stream — all merged into one UI-thread
+    /// subscription so the single-writer store is only ever touched on one thread.</summary>
+    private IDisposable Initialize(
+        SynchronizationContext uiSynchronizationContext,
         IDirectoryChangeStream directoryChangeStream,
-        IMessenger messenger)
+        IFileManagerMessenger messenger)
     {
-        var uiScheduler = schedulers.MainThread;
-
-        // Initial folder scan: enumerate off the UI thread, then publish a single seed (Reset) action.
+        // Initial folder scan: enumerate on the thread pool, then publish a single seed (Reset) action.
         // Cancellation (navigation/disposal) ends the scan quietly rather than faulting the pipeline.
         var seed = Observable
             .Defer(() =>
@@ -109,31 +106,30 @@ public sealed class FileEntryTableDataSource : IDisposable
                     return Observable.Empty<IReadOnlyList<SpecFileEntryViewModel>>();
                 }
             })
-            .SubscribeOn(schedulers.Background)
+            .SubscribeOnThreadPool()
             .Select(rows => new Action(() => ResetRows(rows)));
 
-        // Filesystem watcher -> one incremental action per change. Subscribed (via Concat) only after the
-        // seed completes, so a watcher update can never be applied before the initial rows exist.
+        // Filesystem watcher → one incremental action per change. Concat'd after the seed so a watcher update
+        // can never be applied before the initial rows exist.
         var changes = directoryChangeStream
-            .Watch(_folderPath)
+            .WatchR3(_folderPath)
             .Select(change => new Action(() => ApplyDirectoryChange(change)));
 
-        // Sort requests scoped to this pane -> re-sort action.
+        // Sort requests scoped to this pane → re-sort action. Bridged from the messenger's cold observable to
+        // R3, then filtered by pane identity with a static (allocation-free) predicate.
         var sorts = messenger
             .CreateObservable<FileTableSortRequestedMessage>()
-            .Where(message => message.Identity == _identity)
+            .ToObservable()
+            .Where(_identity, static (message, identity) => message.Identity == identity)
             .Select(message => new Action(() => ApplySort(new SortState(message.Column, message.Ascending))));
 
-        return
-        [
-            seed.Concat(changes)
-                .Merge(sorts)
-                .ObserveOn(uiScheduler)
-                .Subscribe(static action => action()),
-        ];
+        return seed.Concat(changes)
+            .Merge(sorts)
+            .ObserveOn(uiSynchronizationContext)
+            .Subscribe(static action => action());
     }
 
-    /// <summary>Cancels the in-flight scan and tears down the pipeline, then the store. Idempotent.</summary>
+    /// <summary>Cancels the in-flight scan, tears down the pipeline, then the adapter and store. Idempotent.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -143,14 +139,16 @@ public sealed class FileEntryTableDataSource : IDisposable
 
         _disposed = true;
         _scanCancellation.Cancel();
-        // Dispose the subscription first so no seed/change/sort action can run concurrently with the store
-        // teardown below (the store is not thread-safe).
-        _disposables.Dispose();
+        // Stop the pipeline first so no seed/change/sort action can run concurrently with the teardown below
+        // (the store is not thread-safe). Then detach the adapter and clear the store.
+        _subscription.Dispose();
+        _scanCancellation.Dispose();
+        _rows.Dispose();
         _store.Dispose();
     }
 
-    /// <summary>Seeds the store with the scan result under the active comparer and batch-loads the bound
-    /// collection from the sorted rows.</summary>
+    /// <summary>Seeds the store with the scan result under the active comparer; the adapter surfaces the
+    /// batched change to the table.</summary>
     private void ResetRows(IReadOnlyList<SpecFileEntryViewModel> rows)
     {
         if (_disposed)
@@ -159,11 +157,10 @@ public sealed class FileEntryTableDataSource : IDisposable
         }
 
         _store.Reset(rows, _comparer);
-        Items.Load(_store.Rows);
     }
 
-    /// <summary>Adopts a new sort state, re-sorts the store, and batch-reloads the bound collection (a sort
-    /// is a full reorder, so a single rebuild is the cheapest projection).</summary>
+    /// <summary>Adopts a new sort state and re-sorts the store; the adapter surfaces the reorder to the table.
+    /// No-op when the sort is unchanged or the store is still empty (the seed will apply the new order).</summary>
     private void ApplySort(SortState sortState)
     {
         if (_disposed || sortState == _sortState)
@@ -179,12 +176,10 @@ public sealed class FileEntryTableDataSource : IDisposable
         }
 
         _store.Sort(_comparer);
-        Items.Load(_store.Rows);
     }
 
     /// <summary>Translates a watcher <see cref="DirectoryChange"/> into add/update/remove operations on the
-    /// store and mirrors them onto <see cref="Items"/>. Guarded against running after disposal (the watcher
-    /// may emit late).</summary>
+    /// store. Guarded against running after disposal (the watcher may emit late).</summary>
     private void ApplyDirectoryChange(DirectoryChange change)
     {
         if (_disposed)
@@ -199,12 +194,12 @@ public sealed class FileEntryTableDataSource : IDisposable
                 AddOrRemove(change.Path);
                 break;
             case DirectoryChangeKind.Deleted:
-                RemoveByKey(GetPathCacheKey(change.Path));
+                _store.Remove(GetPathCacheKey(change.Path));
                 break;
             case DirectoryChangeKind.Renamed:
                 if (change.OldPath is { } oldPath)
                 {
-                    RemoveByKey(GetPathCacheKey(oldPath));
+                    _store.Remove(GetPathCacheKey(oldPath));
                 }
 
                 AddOrRemove(change.Path);
@@ -220,42 +215,11 @@ public sealed class FileEntryTableDataSource : IDisposable
         var model = _fileEntryRowReader.TryRead(normalizedPath, _scanCancellation.Token);
         if (model is null)
         {
-            RemoveByKey(GetPathCacheKey(path));
+            _store.Remove(GetPathCacheKey(path));
             return;
         }
 
-        ApplyMutation(_store.AddOrUpdate(model), model);
-    }
-
-    /// <summary>Removes a row by key from the store and mirrors the removal onto <see cref="Items"/>.</summary>
-    private void RemoveByKey(FilePathKey key)
-    {
-        var index = _store.Remove(key);
-        if (index >= 0)
-        {
-            Items.RemoveAt(index);
-        }
-    }
-
-    /// <summary>Applies one store <see cref="RowMutation"/> to <see cref="Items"/>, which is held in lockstep
-    /// with the store's row list (so indices match exactly).</summary>
-    private void ApplyMutation(RowMutation mutation, SpecFileEntryViewModel row)
-    {
-        switch (mutation.Kind)
-        {
-            case RowMutationKind.Inserted:
-                Items.Insert(mutation.Index, row);
-                break;
-            case RowMutationKind.Replaced:
-                Items[mutation.Index] = row;
-                break;
-            case RowMutationKind.Moved:
-                // The row instance itself changed (a fresh re-read), so remove the old and insert the new
-                // rather than Move (which would keep the stale instance).
-                Items.RemoveAt(mutation.FromIndex);
-                Items.Insert(mutation.Index, row);
-                break;
-        }
+        _store.AddOrUpdate(model);
     }
 
     /// <summary>Computes the row key for a raw path string, matching the shape produced by

@@ -38,7 +38,9 @@ public static class PresentationContainerBuilderExtensions
         builder.AddPresentationViewModels();
     }
 
-    /// <summary>Registers Presentation-owned UI dispatch services captured from the current WinUI thread.</summary>
+    /// <summary>Registers Presentation-owned UI dispatch services captured from the current WinUI thread:
+    /// the <see cref="IUiThreadDispatcher"/> for fire-and-forget UI work and the UI
+    /// <see cref="SynchronizationContext"/> that R3 pipelines marshal onto via <c>ObserveOn</c>.</summary>
     private static void RegisterPresentationThreading(this ContainerBuilder builder)
     {
         var dispatcherQueue = UiDispatcherQueue.GetForCurrentThread()
@@ -46,6 +48,10 @@ public static class PresentationContainerBuilderExtensions
 
         builder.RegisterInstance(new DispatcherQueueUiThreadDispatcher(dispatcherQueue))
             .As<IUiThreadDispatcher>()
+            .SingleInstance();
+
+        builder.RegisterInstance(new Microsoft.UI.Dispatching.DispatcherQueueSynchronizationContext(dispatcherQueue))
+            .As<SynchronizationContext>()
             .SingleInstance();
     }
 

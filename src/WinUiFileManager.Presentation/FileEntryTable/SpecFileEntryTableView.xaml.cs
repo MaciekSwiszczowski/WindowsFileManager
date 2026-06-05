@@ -1,3 +1,4 @@
+using ObservableCollections;
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
 
 namespace WinUiFileManager.Presentation.FileEntryTable;
@@ -27,7 +28,7 @@ public sealed partial class SpecFileEntryTableView
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(
             nameof(ItemsSource),
-            typeof(ObservableCollection<SpecFileEntryViewModel>),
+            typeof(NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>),
             typeof(SpecFileEntryTableView), new PropertyMetadata(null));
 
     /// <summary>Backing DP for <see cref="CurrentFolder"/>, the display path currently shown.</summary>
@@ -47,11 +48,11 @@ public sealed partial class SpecFileEntryTableView
         AddHandler(DoubleTappedEvent, new DoubleTappedEventHandler(EntryTable_DoubleTapped), handledEventsToo: true);
     }
 
-    /// <summary>The rows to display. Bound from the pane view model; an
-    /// <see cref="ObservableCollection{T}"/> so the table reacts to scan/watcher updates.</summary>
-    public ObservableCollection<SpecFileEntryViewModel>? ItemsSource
+    /// <summary>The rows to display. Bound from the pane view model; a synchronized notify-adapter over the
+    /// data source's row store so the table reacts to scan/watcher/sort updates.</summary>
+    public NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>? ItemsSource
     {
-        get => (ObservableCollection<SpecFileEntryViewModel>?)GetValue(ItemsSourceProperty);
+        get => (NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>?)GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
     }
 

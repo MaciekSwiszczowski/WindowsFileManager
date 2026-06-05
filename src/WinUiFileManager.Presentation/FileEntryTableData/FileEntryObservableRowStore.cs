@@ -87,13 +87,11 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// <summary>
     /// Inserts a new row in sorted position, or replaces the existing row with the same key and moves it
     /// only if its sort key changed. Maintains the order established by the last <see cref="Reset"/>/
-    /// <see cref="Sort"/>; emits a single granular change.
+    /// <see cref="Sort"/>; the mutation surfaces to bindings as a single granular change on <see cref="Rows"/>.
     /// </summary>
-    /// <returns>What changed and where, so a bound collection kept in lockstep with <see cref="Rows"/> can
-    /// apply one matching operation.</returns>
     /// <exception cref="InvalidOperationException">No sort order has been established yet (call
     /// <see cref="Reset"/> or <see cref="Sort"/> first).</exception>
-    public RowMutation AddOrUpdate(SpecFileEntryViewModel row)
+    public void AddOrUpdate(SpecFileEntryViewModel row)
     {
         AssertSingleWriter();
         var comparer = _comparer
@@ -103,24 +101,22 @@ internal sealed class FileEntryObservableRowStore : IDisposable
         if (_rowsByKey.TryGetValue(key, out var existingRow))
         {
             _rowsByKey[key] = row;
-            return ReplaceSorted(existingRow, row, comparer);
+            ReplaceSorted(existingRow, row, comparer);
+            return;
         }
 
         _rowsByKey.Add(key, row);
-        var index = LowerBound(row, comparer);
-        Rows.Insert(index, row);
-        return RowMutation.Inserted(index);
+        Rows.Insert(LowerBound(row, comparer), row);
     }
 
     /// <summary>Removes the row with the given key.</summary>
-    /// <returns>The row's former index in <see cref="Rows"/>, or -1 if no row had that key (so a bound
-    /// collection can mirror the removal by index).</returns>
-    public int Remove(FilePathKey key)
+    /// <returns>True when a row was found and removed; false when no row had that key.</returns>
+    public bool Remove(FilePathKey key)
     {
         AssertSingleWriter();
         if (!_rowsByKey.Remove(key, out var row))
         {
-            return -1;
+            return false;
         }
 
         var index = _comparer is { } comparer ? IndexOfSorted(row, comparer) : Rows.IndexOf(row);
@@ -128,11 +124,11 @@ internal sealed class FileEntryObservableRowStore : IDisposable
         {
             // Key map and list diverged; should not happen under the single-writer contract.
             Debug.Fail("Row removed from key map was absent from the row list.");
-            return -1;
+            return false;
         }
 
         Rows.RemoveAt(index);
-        return index;
+        return true;
     }
 
     /// <summary>
@@ -172,9 +168,9 @@ internal sealed class FileEntryObservableRowStore : IDisposable
 
     /// <summary>Replaces <paramref name="existingRow"/> with <paramref name="newRow"/>, keeping sort order.
     /// Stays in place with a single Replace when the changed row still sorts between its neighbours
-    /// (the common case where the edited field is not the active sort key); otherwise moves it.</summary>
-    /// <returns>The granular change applied, for mirroring to a bound collection.</returns>
-    private RowMutation ReplaceSorted(
+    /// (the common case where the edited field is not the active sort key); otherwise removes and re-inserts
+    /// it. Each path emits one granular change on <see cref="Rows"/> for bindings to mirror.</summary>
+    private void ReplaceSorted(
         SpecFileEntryViewModel existingRow,
         SpecFileEntryViewModel newRow,
         IComparer<SpecFileEntryViewModel> comparer)
@@ -183,21 +179,18 @@ internal sealed class FileEntryObservableRowStore : IDisposable
         if (oldIndex < 0)
         {
             Debug.Fail("Existing row tracked by key was absent from the row list.");
-            var insertIndex = LowerBound(newRow, comparer);
-            Rows.Insert(insertIndex, newRow);
-            return RowMutation.Inserted(insertIndex);
+            Rows.Insert(LowerBound(newRow, comparer), newRow);
+            return;
         }
 
         if (StaysInPlace(oldIndex, newRow, comparer))
         {
             Rows[oldIndex] = newRow;
-            return RowMutation.Replaced(oldIndex);
+            return;
         }
 
         Rows.RemoveAt(oldIndex);
-        var newIndex = LowerBound(newRow, comparer);
-        Rows.Insert(newIndex, newRow);
-        return RowMutation.Moved(oldIndex, newIndex);
+        Rows.Insert(LowerBound(newRow, comparer), newRow);
     }
 
     /// <summary>True when a row substituted at <paramref name="index"/> would still be correctly ordered

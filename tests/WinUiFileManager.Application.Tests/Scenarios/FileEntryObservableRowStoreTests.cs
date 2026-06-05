@@ -34,10 +34,9 @@ public sealed class FileEntryObservableRowStoreTests
         sut.Reset([File("b.txt", size: 1), File("a.txt", size: 1)], CreateNameComparer());
 
         // Act
-        var mutation = sut.AddOrUpdate(File("b.txt", size: 5));
+        sut.AddOrUpdate(File("b.txt", size: 5));
 
         // Assert
-        await Assert.That(mutation).IsEqualTo(RowMutation.Replaced(1));
         await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt");
         await Assert.That(sut.Rows[1].Model!.Size).IsEqualTo(5);
     }
@@ -50,10 +49,9 @@ public sealed class FileEntryObservableRowStoreTests
         sut.Reset([File("a.txt", size: 1), File("c.txt", size: 1)], CreateNameComparer());
 
         // Act
-        var mutation = sut.AddOrUpdate(File("b.txt", size: 1));
+        sut.AddOrUpdate(File("b.txt", size: 1));
 
         // Assert
-        await Assert.That(mutation).IsEqualTo(RowMutation.Inserted(1));
         await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt|c.txt");
     }
 
@@ -67,16 +65,15 @@ public sealed class FileEntryObservableRowStoreTests
             CreateSizeComparer());
 
         // Act
-        var mutation = sut.AddOrUpdate(File("a.txt", size: 0));
+        sut.AddOrUpdate(File("a.txt", size: 0));
 
         // Assert
-        await Assert.That(mutation).IsEqualTo(RowMutation.Moved(fromIndex: 2, toIndex: 0));
         await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt|c.txt");
         await Assert.That(sut.Rows[0].Model!.Size).IsEqualTo(0);
     }
 
     [Test]
-    public async Task Test_Remove_RemovesMatchingKeyAndReturnsItsIndex()
+    public async Task Test_Remove_RemovesMatchingKey()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -84,25 +81,25 @@ public sealed class FileEntryObservableRowStoreTests
         sut.Reset([File("a.txt", size: 1), removeTarget, File("c.txt", size: 1)], CreateNameComparer());
 
         // Act
-        var removedIndex = sut.Remove(removeTarget.GetKey());
+        var removed = sut.Remove(removeTarget.GetKey());
 
         // Assert
-        await Assert.That(removedIndex).IsEqualTo(1);
+        await Assert.That(removed).IsTrue();
         await Assert.That(GetNames(sut)).IsEqualTo("a.txt|c.txt");
     }
 
     [Test]
-    public async Task Test_Remove_ReturnsNegativeWhenKeyAbsent()
+    public async Task Test_Remove_ReturnsFalseWhenKeyAbsent()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
         sut.Reset([File("a.txt", size: 1)], CreateNameComparer());
 
         // Act
-        var removedIndex = sut.Remove(File("missing.txt", size: 1).GetKey());
+        var removed = sut.Remove(File("missing.txt", size: 1).GetKey());
 
         // Assert
-        await Assert.That(removedIndex).IsEqualTo(-1);
+        await Assert.That(removed).IsFalse();
         await Assert.That(GetNames(sut)).IsEqualTo("a.txt");
     }
 

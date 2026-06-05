@@ -3,41 +3,43 @@ using Windows.Storage.Provider;
 namespace WinUiFileManager.Diagnostics.Inspector;
 
 /// <summary>
-/// Process-local cache of registered Windows cloud sync roots used by the cloud diagnostics handler.
+/// Process-local cache of registered Windows cloud sync-root snapshots used by the cloud diagnostics handler.
 /// </summary>
 /// <remarks>
 /// Looking up a sync root by repeatedly opening <c>StorageFolder</c> instances for a path and each ancestor is
 /// expensive, especially in benchmarks that send many requests under the same few parent folders. This cache reads
 /// the registered sync-root list once per short interval and performs ordinal-insensitive path-prefix matching in
-/// managed code. The short expiry keeps the main application responsive to provider registration changes without
-/// reintroducing per-file WinRT ancestor probes.
+/// managed code. The cache stores only managed strings, not <see cref="StorageProviderSyncRootInfo"/> WinRT
+/// objects, so refreshes do not retain native provider-registration objects for the container lifetime. The
+/// short expiry keeps the main application responsive to provider registration changes without reintroducing
+/// per-file WinRT ancestor probes.
 /// </remarks>
 public sealed class StorageProviderSyncRootCache
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
 
     private readonly object _syncRootGate = new();
-    private StorageProviderSyncRootInfo[] _syncRoots = [];
+    private StorageProviderSyncRootSnapshot[] _syncRoots = [];
     private DateTimeOffset _syncRootsLoadedAt = DateTimeOffset.MinValue;
 
     /// <summary>
     /// Finds the deepest registered sync root that contains <paramref name="path"/>, or null when no root matches.
     /// </summary>
     /// <param name="path">File or directory path to classify.</param>
-    /// <returns>The nearest registered sync root for <paramref name="path"/>, or null.</returns>
-    public StorageProviderSyncRootInfo? FindForPath(string path)
+    /// <returns>The nearest registered sync-root snapshot for <paramref name="path"/>, or null.</returns>
+    internal StorageProviderSyncRootSnapshot? FindForPath(string path)
     {
         if (!TryNormalizePath(path, out var normalizedPath))
         {
             return null;
         }
 
-        StorageProviderSyncRootInfo? bestMatch = null;
+        StorageProviderSyncRootSnapshot? bestMatch = null;
         var bestMatchLength = -1;
 
         foreach (var syncRoot in GetSyncRoots())
         {
-            var rootPath = TryGetSyncRootPath(syncRoot);
+            var rootPath = syncRoot.Path;
             if (string.IsNullOrWhiteSpace(rootPath)
                 || !TryNormalizePath(rootPath, out var normalizedRootPath)
                 || !IsSameOrChildPath(normalizedPath, normalizedRootPath)
@@ -53,7 +55,7 @@ public sealed class StorageProviderSyncRootCache
         return bestMatch;
     }
 
-    private StorageProviderSyncRootInfo[] GetSyncRoots()
+    private StorageProviderSyncRootSnapshot[] GetSyncRoots()
     {
         lock (_syncRootGate)
         {
@@ -69,11 +71,20 @@ public sealed class StorageProviderSyncRootCache
         }
     }
 
-    private static StorageProviderSyncRootInfo[] LoadSyncRoots()
+    private static StorageProviderSyncRootSnapshot[] LoadSyncRoots()
     {
         try
         {
-            return [.. StorageProviderSyncRootManager.GetCurrentSyncRoots()];
+            var snapshots = new List<StorageProviderSyncRootSnapshot>();
+            foreach (var syncRoot in StorageProviderSyncRootManager.GetCurrentSyncRoots())
+            {
+                if (TryCreateSnapshot(syncRoot) is { } snapshot)
+                {
+                    snapshots.Add(snapshot);
+                }
+            }
+
+            return [.. snapshots];
         }
         catch
         {
@@ -81,11 +92,20 @@ public sealed class StorageProviderSyncRootCache
         }
     }
 
-    private static string? TryGetSyncRootPath(StorageProviderSyncRootInfo syncRoot)
+    private static StorageProviderSyncRootSnapshot? TryCreateSnapshot(StorageProviderSyncRootInfo syncRoot)
     {
         try
         {
-            return syncRoot.Path?.Path;
+            var path = syncRoot.Path?.Path;
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            return new StorageProviderSyncRootSnapshot(
+                path,
+                syncRoot.Id ?? string.Empty,
+                syncRoot.ProviderId.ToString());
         }
         catch
         {

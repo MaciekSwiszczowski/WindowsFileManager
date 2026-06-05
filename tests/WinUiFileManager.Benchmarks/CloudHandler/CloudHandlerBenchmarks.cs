@@ -10,7 +10,7 @@ public class CloudHandlerBenchmarks
     private const FileAttributes FileAttributeRecallOnOpen = (FileAttributes)0x00040000;
     private const FileAttributes FileAttributeRecallOnDataAccess = (FileAttributes)0x00400000;
 
-    [Params(2, 10)]
+    [Params(10, 200)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 

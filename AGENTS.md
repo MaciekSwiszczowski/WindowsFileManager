@@ -94,6 +94,7 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
 - Build/sandbox notes:
   - Prefer serial builds (`-m:1`) for repo-wide verification; never run parallel builds against the same workspace (shared `obj`/`bin` race).
   - If an IDE holds locks, build with `-p:UseCodexIsolatedBuild=true` to redirect intermediates to `codex-artifacts\`.
+  - Do not run BenchmarkDotNet native-memory/ETL benchmarks by default. Benchmarks using `NativeMemoryProfiler` require elevated access for ETW/ETL collection; treat existing benchmark reports as input unless the user explicitly asks for an elevated benchmark run.
 - Tests use **TUnit**.
 
 ---

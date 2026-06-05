@@ -93,9 +93,16 @@ public sealed class InspectorCloudDiagnosticsHandler :
 
         var placeholderState = isReparsePoint ? TryGetPlaceholderState(path, attributes) : PlaceholderStateNone;
         var status = BuildCloudStatus(attributes, placeholderState, syncState, transferState, customStatus);
-        var syncRootPath = syncRoot?.Path?.Path ?? string.Empty;
-        var syncRootId = syncRoot?.Id ?? string.Empty;
-        var providerId = syncRoot is null ? string.Empty : syncRoot.ProviderId.ToString();
+        var syncRootPath = string.Empty;
+        var syncRootId = string.Empty;
+        var providerId = string.Empty;
+        if (syncRoot is { } matchedSyncRoot)
+        {
+            syncRootPath = matchedSyncRoot.Path;
+            syncRootId = matchedSyncRoot.Id;
+            providerId = matchedSyncRoot.ProviderId;
+        }
+
         var isCloudControlled =
             !string.IsNullOrWhiteSpace(syncRootId)
             || !string.IsNullOrWhiteSpace(provider)

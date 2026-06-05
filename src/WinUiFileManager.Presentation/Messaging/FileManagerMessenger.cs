@@ -1,5 +1,7 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using R3Disposable = R3.Disposable;
+using R3Observable = R3.Observable;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation.Messaging;
@@ -235,6 +237,72 @@ public sealed class FileManagerMessenger : IFileManagerMessenger
 
                 return Disposable.Create(this, _ => UnregisterAll(recipient, token));
             });
+    }
+
+    /// <summary>
+    /// Creates an R3 observable sequence backed by a default-channel messenger registration.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
+    /// <returns>
+    /// A cold observable. Each subscription creates its own messenger registration and unregisters it on disposal.
+    /// </returns>
+    public R3.Observable<TMessage> CreateR3Observable<TMessage>()
+        where TMessage : class
+    {
+        return R3Observable.Create<TMessage, FileManagerMessenger>(this, static (observer, vm) =>
+        {
+            var recipient = new R3ObservableRecipient<TMessage>(observer);
+
+            vm.Register<R3ObservableRecipient<TMessage>, TMessage>(
+                recipient,
+                static (recipient, message) => recipient.Observer.OnNext(message));
+
+            return R3Disposable.Create(
+                (Messenger: vm, Recipient: recipient),
+                static state => state.Messenger.UnregisterAll(state.Recipient));
+        });
+    }
+
+    /// <summary>
+    /// Creates an R3 observable sequence backed by a token-scoped messenger registration.
+    /// </summary>
+    /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
+    /// <typeparam name="TToken">The messenger token type.</typeparam>
+    /// <param name="token">The token identifying the message channel observed by each subscription.</param>
+    /// <returns>
+    /// A cold observable. Each subscription creates its own messenger registration and unregisters it on disposal.
+    /// </returns>
+    public R3.Observable<TMessage> CreateR3Observable<TMessage, TToken>(TToken token)
+        where TMessage : class
+        where TToken : IEquatable<TToken>
+    {
+        return R3Observable.Create<TMessage, (FileManagerMessenger Messenger, TToken Token)>(
+            (this, token),
+            static (observer, vm) =>
+            {
+                var recipient = new R3ObservableRecipient<TMessage>(observer);
+
+                vm.Messenger.Register<R3ObservableRecipient<TMessage>, TMessage, TToken>(
+                    recipient,
+                    vm.Token,
+                    static (recipient, message) => recipient.Observer.OnNext(message));
+
+                return R3Disposable.Create(
+                    (Messenger: vm.Messenger, Recipient: recipient),
+                    static state => state.Messenger.UnregisterAll(state.Recipient));
+            });
+    }
+
+    /// <summary>Messenger recipient that forwards delivered messages to one R3 observer.</summary>
+    private sealed class R3ObservableRecipient<TMessage>
+        where TMessage : class
+    {
+        public R3ObservableRecipient(R3.Observer<TMessage> observer)
+        {
+            Observer = observer;
+        }
+
+        public R3.Observer<TMessage> Observer { get; }
     }
 
     private void InvokeHandler<TRecipient, TMessage>(

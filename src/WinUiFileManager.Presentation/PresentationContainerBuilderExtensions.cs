@@ -1,21 +1,24 @@
 using Autofac;
+using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Presentation.Threading;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Buttons;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Search;
 using WinUiFileManager.Presentation.ViewModels.Panels;
+using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
 namespace WinUiFileManager.Presentation;
 
 /// <summary>
 /// Autofac registration extensions for the Presentation layer: registers the file-table services/data
 /// sources and all view models with their intended lifetimes. Called from the app composition root
-/// (AGENTS.md §1 — the <c>App</c> project owns the container; Presentation only contributes registrations).
+/// the <c>App</c> project owns the container; Presentation only contributes registrations.
 /// </summary>
 /// <remarks>
-/// Lifetime choices matter (AGENTS.md §5): the display-string cache is the shared process-lifetime
+/// Lifetime choices matter: the display-string cache is the shared process-lifetime
 /// singleton; the row reader/scanner are stateless singletons; the per-folder
 /// <see cref="FileEntryTableDataSource"/> and the view models are <c>InstancePerDependency</c> so each
 /// pane/window gets its own disposable instance whose teardown is the owner's responsibility.
@@ -25,6 +28,7 @@ public static class PresentationContainerBuilderExtensions
     /// <summary>Registers all Presentation-layer services and view models into the container.</summary>
     public static void AddPresentationServices(this ContainerBuilder builder)
     {
+        builder.RegisterPresentationThreading();
         builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
         builder.RegisterType<FileEntryRowFactory>().SingleInstance();
         // Per-dependency: each folder/pane gets its own disposable data source pipeline.
@@ -32,6 +36,17 @@ public static class PresentationContainerBuilderExtensions
         builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
         builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
         builder.AddPresentationViewModels();
+    }
+
+    /// <summary>Registers Presentation-owned UI dispatch services captured from the current WinUI thread.</summary>
+    private static void RegisterPresentationThreading(this ContainerBuilder builder)
+    {
+        var dispatcherQueue = UiDispatcherQueue.GetForCurrentThread()
+            ?? throw new InvalidOperationException("Presentation threading services must be registered from the UI thread.");
+
+        builder.RegisterInstance(new DispatcherQueueUiThreadDispatcher(dispatcherQueue))
+            .As<IUiThreadDispatcher>()
+            .SingleInstance();
     }
 
     /// <summary>Registers the Presentation view models. Inspector deferred-field loaders are all

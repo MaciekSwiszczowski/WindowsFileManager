@@ -105,6 +105,10 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
 - Mark non-capturing lambdas `static`.
 - Prefer `is null` / `is not null` / typed patterns over older idioms when clearer.
 - Prefer toolkit generators (`[ObservableProperty]`, `[RelayCommand]`, `[NotifyPropertyChangedFor]`) over hand-rolled `INotifyPropertyChanged`/`ICommand`.
+- Do not add mechanical `ArgumentNullException.ThrowIfNull` guards to every parameter. Check nulls where null can realistically appear: public/user-input boundaries, optional values, external framework callbacks, interop edges, and places where a targeted exception materially improves diagnostics.
+- Do not use the null-forgiving operator (`!`) in production code as a shortcut around nullable analysis. Model the invariant in the type shape or control flow instead.
+- When using R3 operators that offer state overloads, prefer those overloads with `static` delegates over closure-capturing lambdas.
+- In interfaces, write explicit access modifiers on members, such as `public`, instead of relying on implicit interface member accessibility.
 
 ---
 

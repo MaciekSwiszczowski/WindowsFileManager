@@ -86,6 +86,5 @@ public sealed class PooledThumbnailBytes : IDisposable
         _pool.Return(buffer);
     }
 
-    private byte[] Buffer =>
-        _buffer ?? throw new ObjectDisposedException(nameof(PooledThumbnailBytes));
+    private byte[] Buffer => _buffer ?? throw new ObjectDisposedException(nameof(PooledThumbnailBytes));
 }

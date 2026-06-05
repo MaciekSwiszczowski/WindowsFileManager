@@ -10,18 +10,19 @@ using Composition;
 using Startup;
 using Application.Abstractions;
 using Application.Settings;
+using Presentation.Scheduling;
 using Presentation.ViewModels;
 
 /// <summary>
 /// WinUI application entry point and composition-root owner: builds the Autofac-backed service
 /// provider, launches the main window, schedules background startup, and acts as the process-wide
-/// unhandled-exception sink. Sits in the <c>App</c> layer (see AGENTS.md §2).
+/// unhandled-exception sink. Sits in the <c>App</c> layer.
 /// </summary>
 /// <remarks>
 /// Lifetime/disposal: the <see cref="AutofacServiceProvider"/> (and its underlying container) is held
 /// for the whole process lifetime and is deliberately <b>not</b> disposed on shutdown. Consequently,
 /// singleton services that implement <see cref="IDisposable"/> are never released by the container
-/// (see AGENTS.md §5); they are treated as process-lifetime. Anything that must run cleanup on exit has
+/// they are treated as process-lifetime. Anything that must run cleanup on exit has
 /// to be driven explicitly (e.g. window-close persistence), not via container disposal.
 /// Threading: this type lives on the UI/STA thread; <see cref="OnLaunched"/> and
 /// <see cref="OnUnhandledException"/> are raised by the framework on that thread.
@@ -37,11 +38,12 @@ public sealed partial class App
     /// <remarks>
     /// The container is built eagerly here so that <see cref="Services"/> is usable as soon as the app
     /// instance exists. The <see cref="Microsoft.UI.Xaml.Application.UnhandledException"/> hook is wired
-    /// once and never removed — this object lives for the whole process, so there is no leak concern.
+    /// once and never removed - this object lives for the whole process, so there is no leak concern.
     /// </remarks>
     public App()
     {
         InitializeComponent();
+        R3WinUiObservableSystem.Initialize();
         _serviceProvider = ServiceConfiguration.ConfigureServices();
         _startupSettings = LoadStartupSettings();
         UnhandledException += OnUnhandledException;

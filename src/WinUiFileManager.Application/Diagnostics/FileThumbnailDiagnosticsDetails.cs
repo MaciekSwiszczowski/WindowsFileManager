@@ -12,9 +12,7 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// </remarks>
 /// <param name="ThumbnailBytes">Owned encoded thumbnail image bytes, or <see langword="null"/> when none is available.</param>
 /// <param name="ProgId">The shell ProgID of the handler that produced the thumbnail, for diagnostics.</param>
-public sealed record FileThumbnailDiagnosticsDetails(
-    PooledThumbnailBytes? ThumbnailBytes,
-    string ProgId) : IDisposable
+public sealed record FileThumbnailDiagnosticsDetails(PooledThumbnailBytes? ThumbnailBytes, string ProgId) : IDisposable
 {
     /// <summary>Sentinel for "no thumbnail available" (null bytes, empty ProgID).</summary>
     public static FileThumbnailDiagnosticsDetails Empty { get; } = new(null, string.Empty);

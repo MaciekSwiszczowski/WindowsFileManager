@@ -17,12 +17,12 @@ using Application.Messages.RequestMessages.FileOperations;
 /// registration — both panes receive every request. It self-filters inside
 /// <see cref="OnSnapshotRequested"/> by comparing <see cref="FileTableSelectionSnapshotRequestMessage.DirectoryPath"/>
 /// to the view's current folder, which is why it still behaves correctly, but this is inconsistent with
-/// the AGENTS.md §4 pane-scoping convention. Documented here intentionally; not changed.
+/// the pane-scoping convention. Documented here intentionally; not changed.
 /// </para>
 /// <para>
 /// The watch is an R3 subscription stored in <see cref="_snapshotSubscription"/>; it self-terminates
 /// after <see cref="SnapshotTimeout"/> via <c>TakeUntil</c> and is also disposed in
-/// <see cref="OnUnloaded"/> so it never outlives the behavior (AGENTS.md §5).
+/// <see cref="OnUnloaded"/> so it never outlives the behavior.
 /// </para>
 /// </remarks>
 public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBehaviorBase

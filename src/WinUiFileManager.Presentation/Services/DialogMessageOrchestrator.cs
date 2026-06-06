@@ -11,11 +11,11 @@ namespace WinUiFileManager.Presentation.Services;
 /// </summary>
 /// <remarks>
 /// Built as a cold R3 pipeline: dialog messages are observed on the UI thread (a
-/// <see cref="DispatcherQueueSynchronizationContext"/>, AGENTS.md §6) and processed with
+/// <see cref="DispatcherQueueSynchronizationContext"/>) and processed with
 /// <see cref="AwaitOperation.Sequential"/> so each dialog's task completes before the next begins (strict
 /// FIFO, no concurrency). Each request replies its own <see cref="TaskCompletionSource{T}"/> task back to the
 /// sender immediately, and the pipeline completes it with the dialog result. The single subscription is owned
-/// here and disposed in <see cref="Dispose"/> (AGENTS.md §5), which unsubscribes from the messenger observable.
+/// here and disposed in <see cref="Dispose"/>, which unsubscribes from the messenger observable.
 /// </remarks>
 internal sealed class DialogMessageOrchestrator : IDisposable
 {

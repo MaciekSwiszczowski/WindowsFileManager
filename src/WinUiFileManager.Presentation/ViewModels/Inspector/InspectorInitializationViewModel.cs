@@ -31,6 +31,7 @@ public sealed class InspectorInitializationViewModel
 
     private readonly IActivePanelsService _activePanelsService;
     private readonly SynchronizationContext _uiSynchronizationContext;
+    private readonly TimeProvider _timeProvider;
     private readonly IFileManagerMessenger _messenger;
     private readonly Func<FileInspectorCategory, InspectorCategoryViewModel> _categoryFactory;
     private readonly Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> _fieldFactory;
@@ -44,6 +45,7 @@ public sealed class InspectorInitializationViewModel
     public InspectorInitializationViewModel(
         IActivePanelsService activePanelsService,
         SynchronizationContext uiSynchronizationContext,
+        TimeProvider timeProvider,
         IFileManagerMessenger messenger,
         Func<FileInspectorCategory, InspectorCategoryViewModel> categoryFactory,
         Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> fieldFactory,
@@ -52,6 +54,7 @@ public sealed class InspectorInitializationViewModel
     {
         _activePanelsService = activePanelsService;
         _uiSynchronizationContext = uiSynchronizationContext;
+        _timeProvider = timeProvider;
         _messenger = messenger;
         _categoryFactory = categoryFactory;
         _fieldFactory = fieldFactory;
@@ -75,7 +78,7 @@ public sealed class InspectorInitializationViewModel
         DeferredSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count == 1)
             .Select(static message => message.SelectedItems.First())
-            .Debounce(SelectionThrottle)
+            .Debounce(SelectionThrottle, _timeProvider)
             .ObserveOn(_uiSynchronizationContext);
     }
 

@@ -1,6 +1,7 @@
 using AutoFixture.Kernel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Presentation.Messaging;
 using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.Services;
@@ -24,6 +25,7 @@ public static class ApplicationAutoFixture
         fixture.Inject<IMessenger>(messenger);
         fixture.Inject<IFileManagerMessenger>(messenger);
         fixture.Inject(new SynchronizationContext());
+        fixture.Inject(TimeProvider.System);
         fixture.Inject(FileEntryDisplayStringCache.Shared);
         fixture.Inject<ILogger<MainShellViewModel>>(NullLogger<MainShellViewModel>.Instance);
         fixture.Inject<ILogger<SetParallelExecutionCommandHandler>>(

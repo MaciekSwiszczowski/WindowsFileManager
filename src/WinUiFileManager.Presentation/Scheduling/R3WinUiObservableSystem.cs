@@ -7,9 +7,8 @@ namespace WinUiFileManager.Presentation.Scheduling;
 /// Initializes R3's process-wide observable system with WinUI dispatcher-backed time and frame providers.
 /// </summary>
 /// <remarks>
-/// Phase two will rely on R3 time-based operators and ObservableCollections.R3 streams. Initializing the
-/// provider at application startup keeps those operators UI-aware without exposing R3 platform setup to
-/// view models or table data-source classes.
+    /// Initializing the provider at application startup keeps time-based operators UI-aware without exposing
+    /// R3 platform setup to view models or table data-source classes.
 /// </remarks>
 public static class R3WinUiObservableSystem
 {

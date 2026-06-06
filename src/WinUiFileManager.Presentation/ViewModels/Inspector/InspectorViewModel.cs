@@ -17,7 +17,7 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 /// <remarks>
 /// <para>
 /// Subscriptions: all R3 subscriptions and the deferred-field loaders are added to <see cref="_subscriptions"/>
-/// (a <see cref="CompositeDisposable"/>) and released in <see cref="Dispose"/> (AGENTS.md §5). The three selection
+/// (a <see cref="CompositeDisposable"/>) and released in <see cref="Dispose"/>. The three selection
 /// streams are gated by <c>Where(_ =&gt; _inspectorPanelVisible)</c> so a hidden inspector does no work.
 /// </para>
 /// <para>

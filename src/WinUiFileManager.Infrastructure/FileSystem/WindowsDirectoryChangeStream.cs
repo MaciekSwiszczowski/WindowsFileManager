@@ -44,7 +44,7 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Observable.Create runs this factory per subscriber, so each subscriber gets its own watcher subscription;
-        // the returned subscription IS the unsubscribe/dispose handle. The state overload avoids a closure (AGENTS.md §10).
+        // the returned subscription IS the unsubscribe/dispose handle. The state overload avoids a closure.
         return Observable.Create<DirectoryChange, (string Path, ILogger Logger)>(
             (path.DisplayPath, _logger),
             static (observer, state) =>
@@ -78,8 +78,9 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
         private readonly ILogger _logger;
         private readonly Observer<DirectoryChange> _observer;
         private readonly Lock _gate = new();
-        // The current watcher; assigning a replacement disposes the previous one (the recreation case).
+        // The current watcher; assigning a replacement disposes the previous one.
         private FileSystemWatcher? _watcher;
+        private readonly Lock _emitGate = new();
         private bool _disposed;
 
         public DirectoryWatcherSubscription(string path, ILogger logger, Observer<DirectoryChange> observer)
@@ -106,6 +107,11 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 _disposed = true;
                 _watcher?.Dispose();
                 _watcher = null;
+            }
+
+            lock (_emitGate)
+            {
+                // Wait for an event handler that entered before disposal to finish publishing.
             }
         }
 
@@ -172,15 +178,18 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
         private void OnRenamed(object? sender, RenamedEventArgs e)
         {
-            if (IsDisposed())
+            lock (_emitGate)
             {
-                return;
-            }
+                if (IsDisposed())
+                {
+                    return;
+                }
 
-            _observer.OnNext(new DirectoryChange(
-                DirectoryChangeKind.Renamed,
-                e.FullPath,
-                e.OldFullPath));
+                _observer.OnNext(new DirectoryChange(
+                    DirectoryChangeKind.Renamed,
+                    e.FullPath,
+                    e.OldFullPath));
+            }
         }
 
         // FileSystemWatcher raises Error when its internal buffer overflows or the directory becomes inaccessible.
@@ -206,12 +215,15 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
 
         private void Emit(DirectoryChangeKind kind, string fullPath)
         {
-            if (IsDisposed())
+            lock (_emitGate)
             {
-                return;
-            }
+                if (IsDisposed())
+                {
+                    return;
+                }
 
-            _observer.OnNext(new DirectoryChange(kind, fullPath));
+                _observer.OnNext(new DirectoryChange(kind, fullPath));
+            }
         }
 
         private bool IsDisposed()

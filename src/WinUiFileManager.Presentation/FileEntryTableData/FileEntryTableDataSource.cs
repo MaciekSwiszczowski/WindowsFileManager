@@ -91,7 +91,7 @@ public sealed class FileEntryTableDataSource : IDisposable
         IDirectoryChangeStream directoryChangeStream,
         IFileManagerMessenger messenger)
     {
-        // Initial folder scan: enumerate on the thread pool, then publish a single seed (Reset) action.
+        // Initial folder scan: enumerate on the thread pool, then publish a single seed command.
         // Cancellation (navigation/disposal) ends the scan quietly rather than faulting the pipeline.
         var seed = Observable
             .Defer(() =>
@@ -106,25 +106,25 @@ public sealed class FileEntryTableDataSource : IDisposable
                 }
             })
             .SubscribeOnThreadPool()
-            .Select(rows => new Action(() => ResetRows(rows)));
+            .Select(static rows => DataSourceCommand.Seed(rows));
 
         // Filesystem watcher → one incremental action per change. Concat'd after the seed so a watcher update
         // can never be applied before the initial rows exist.
         var changes = directoryChangeStream
             .Watch(_folderPath)
-            .Select(change => new Action(() => ApplyDirectoryChange(change)));
+            .Select(static change => DataSourceCommand.Change(change));
 
         // Sort requests scoped to this pane → re-sort action, filtered by pane identity with a static
         // (allocation-free) predicate.
         var sorts = messenger
             .CreateObservable<FileTableSortRequestedMessage>()
             .Where(_identity, static (message, identity) => message.Identity == identity)
-            .Select(message => new Action(() => ApplySort(new SortState(message.Column, message.Ascending))));
+            .Select(static message => DataSourceCommand.Sort(new SortState(message.Column, message.Ascending)));
 
         return seed.Concat(changes)
             .Merge(sorts)
             .ObserveOn(uiSynchronizationContext)
-            .Subscribe(static action => action());
+            .Subscribe(this, static (command, source) => source.ApplyCommand(command));
     }
 
     /// <summary>Cancels the in-flight scan, tears down the pipeline, then the adapter and store. Idempotent.
@@ -228,4 +228,66 @@ public sealed class FileEntryTableDataSource : IDisposable
 
     private IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
         new SpecFileEntryComparer(sortState.Column, sortState.Ascending, _displayStringCache);
+
+    private void ApplyCommand(DataSourceCommand command)
+    {
+        switch (command.Kind)
+        {
+            case DataSourceCommandKind.Seed:
+                ResetRows(command.Rows);
+                break;
+            case DataSourceCommandKind.Change:
+                ApplyDirectoryChange(command.DirectoryChange);
+                break;
+            case DataSourceCommandKind.Sort:
+                ApplySort(command.SortState);
+                break;
+            default:
+                throw new InvalidOperationException($"Unknown data-source command: {command.Kind}.");
+        }
+    }
+
+    private enum DataSourceCommandKind
+    {
+        Seed,
+        Change,
+        Sort,
+    }
+
+    private readonly struct DataSourceCommand
+    {
+        private readonly IReadOnlyList<SpecFileEntryViewModel>? _rows;
+        private readonly DirectoryChange? _change;
+
+        private DataSourceCommand(
+            DataSourceCommandKind kind,
+            IReadOnlyList<SpecFileEntryViewModel>? rows,
+            DirectoryChange? change,
+            SortState sortState)
+        {
+            Kind = kind;
+            _rows = rows;
+            _change = change;
+            SortState = sortState;
+        }
+
+        public DataSourceCommandKind Kind { get; }
+
+        public IReadOnlyList<SpecFileEntryViewModel> Rows =>
+            _rows ?? throw new InvalidOperationException("Seed command requires rows.");
+
+        public DirectoryChange DirectoryChange =>
+            _change ?? throw new InvalidOperationException("Change command requires a directory change.");
+
+        public SortState SortState { get; }
+
+        public static DataSourceCommand Seed(IReadOnlyList<SpecFileEntryViewModel> rows) =>
+            new(DataSourceCommandKind.Seed, rows, change: null, SortState.Default);
+
+        public static DataSourceCommand Change(DirectoryChange change) =>
+            new(DataSourceCommandKind.Change, rows: null, change, SortState.Default);
+
+        public static DataSourceCommand Sort(SortState sortState) =>
+            new(DataSourceCommandKind.Sort, rows: null, change: null, sortState);
+    }
 }

@@ -15,6 +15,7 @@ using WinUiFileManager.Presentation;
 using WinUiFileManager.Presentation.Messaging;
 using WinUiFileManager.Presentation.MessageLogging;
 using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Presentation.Threading;
 using WinUiFileManager.Presentation.ViewModels;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
 
@@ -95,7 +96,8 @@ public static class ServiceConfiguration
     /// </summary>
     /// <param name="builder">The Autofac container builder being configured by the composition root.</param>
     /// <remarks>
-    /// The wrapper lives in Presentation because UI-thread dispatch needs WinUI's <see cref="UiDispatcherQueue"/>.
+    /// The messenger wrapper consumes <see cref="IUiThreadDispatcher"/> so production can use the WinUI dispatcher
+    /// while tests can inject immediate or queueing fakes.
     /// Registration happens immediately after Infrastructure registration so every App container consumer resolving
     /// <see cref="IMessenger"/> or <see cref="IFileManagerMessenger"/> receives the wrapper.
     /// </remarks>
@@ -104,7 +106,9 @@ public static class ServiceConfiguration
         var dispatcherQueue = UiDispatcherQueue.GetForCurrentThread()
             ?? throw new InvalidOperationException("The application messenger must be registered from the UI thread.");
 
-        builder.RegisterInstance(new FileManagerMessenger(StrongReferenceMessenger.Default, dispatcherQueue))
+        builder.RegisterInstance(new FileManagerMessenger(
+                StrongReferenceMessenger.Default,
+                new DispatcherQueueUiThreadDispatcher(dispatcherQueue)))
             .As<IFileManagerMessenger>()
             .As<IMessenger>()
             .SingleInstance();

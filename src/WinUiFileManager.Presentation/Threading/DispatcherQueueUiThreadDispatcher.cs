@@ -10,7 +10,7 @@ namespace WinUiFileManager.Presentation.Threading;
 /// The dispatcher queue is captured by the composition root on the UI thread and reused for the application
 /// lifetime. This type only owns marshalling; it does not own reactive timing or collection projection.
 /// </remarks>
-internal sealed class DispatcherQueueUiThreadDispatcher : IUiThreadDispatcher
+public sealed class DispatcherQueueUiThreadDispatcher : IUiThreadDispatcher
 {
     private readonly UiDispatcherQueue _dispatcherQueue;
 

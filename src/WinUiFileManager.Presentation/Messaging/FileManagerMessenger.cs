@@ -1,5 +1,5 @@
 using R3;
-using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+using WinUiFileManager.Application.Abstractions;
 
 namespace WinUiFileManager.Presentation.Messaging;
 
@@ -16,30 +16,17 @@ namespace WinUiFileManager.Presentation.Messaging;
 public sealed class FileManagerMessenger : IFileManagerMessenger
 {
     private readonly IMessenger _innerMessenger;
-    private readonly UiDispatcherQueue? _dispatcherQueue;
+    private readonly IUiThreadDispatcher? _uiDispatcher;
 
     /// <summary>
-    /// Initializes a new messenger wrapper using the process-wide strong-reference messenger and the UI dispatcher.
+    /// Initializes a new messenger wrapper using the process-wide strong-reference messenger and optional UI dispatcher.
     /// </summary>
     /// <param name="innerMessenger">The CommunityToolkit messenger instance that stores registrations and sends messages.</param>
-    /// <param name="dispatcherQueue">The WinUI dispatcher used by registrations that request UI-thread delivery.</param>
-    /// <exception cref="ArgumentNullException">
-    /// Thrown when <paramref name="innerMessenger"/> or <paramref name="dispatcherQueue"/> is <see langword="null"/>.
-    /// </exception>
-    public FileManagerMessenger(StrongReferenceMessenger innerMessenger, UiDispatcherQueue dispatcherQueue)
+    /// <param name="uiDispatcher">Optional UI dispatcher used by registrations that request UI-thread delivery.</param>
+    public FileManagerMessenger(StrongReferenceMessenger innerMessenger, IUiThreadDispatcher? uiDispatcher = null)
     {
         _innerMessenger = innerMessenger;
-        _dispatcherQueue = dispatcherQueue;
-    }
-
-    /// <summary>
-    /// Initializes a messenger wrapper without a UI dispatcher. Intended for non-UI tests that do not use
-    /// <see cref="Options.DispatchToUiThread"/>.
-    /// </summary>
-    /// <param name="innerMessenger">The CommunityToolkit messenger instance that stores registrations and sends messages.</param>
-    public FileManagerMessenger(StrongReferenceMessenger innerMessenger)
-    {
-        _innerMessenger = innerMessenger;
+        _uiDispatcher = uiDispatcher;
     }
 
     /// <inheritdoc />
@@ -281,20 +268,17 @@ public sealed class FileManagerMessenger : IFileManagerMessenger
             throw new ArgumentOutOfRangeException(nameof(options), options, "Unknown messenger registration option.");
         }
 
-        if (_dispatcherQueue is not { } dispatcherQueue)
+        if (_uiDispatcher is not { } uiDispatcher)
         {
             throw new InvalidOperationException("UI-dispatched messenger registrations require a UI dispatcher.");
         }
 
-        if (dispatcherQueue.HasThreadAccess)
+        if (uiDispatcher.HasThreadAccess)
         {
             handler(recipient, message);
             return;
         }
 
-        if (!dispatcherQueue.TryEnqueue(() => handler(recipient, message)))
-        {
-            throw new InvalidOperationException("The UI dispatcher rejected a queued messenger handler invocation.");
-        }
+        uiDispatcher.Post(() => handler(recipient, message));
     }
 }

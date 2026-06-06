@@ -1,4 +1,4 @@
-﻿using R3;
+using R3;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
@@ -83,13 +83,13 @@ public sealed class InspectorInitializationViewModel
     }
 
     /// <summary>Emits when the selection is empty or has more than one item (UI thread).</summary>
-    public Observable<IReadOnlyList<SpecFileEntryViewModel>> NonSingleSelectionObservable { get; }
+    public Observable<IReadOnlyList<FileListingRow>> NonSingleSelectionObservable { get; }
 
     /// <summary>Emits the single selected item immediately, for synchronously-available fields (UI thread).</summary>
-    public Observable<SpecFileEntryViewModel> ImmediateSelectionObservable { get; }
+    public Observable<FileListingRow> ImmediateSelectionObservable { get; }
 
     /// <summary>Emits the single selected item after <see cref="SelectionThrottle"/>, for expensive diagnostics (UI thread).</summary>
-    public Observable<SpecFileEntryViewModel> DeferredSelectionObservable { get; }
+    public Observable<FileListingRow> DeferredSelectionObservable { get; }
 
     /// <summary>The fully-built category sections with their fields; shared with <see cref="InspectorViewModel"/>.</summary>
     public List<InspectorCategoryViewModel> Categories { get; }
@@ -267,7 +267,7 @@ public sealed class InspectorInitializationViewModel
     /// Sends a <see cref="FileTableSelectedItemsRequestMessage"/> and awaits the responder's reply, returning an
     /// empty list when no recipient answers (or identity is blank). Library-style async.
     /// </summary>
-    private async Task<IReadOnlyList<SpecFileEntryViewModel>> RequestSelectedItemsAsync(string identity)
+    private async Task<IReadOnlyList<FileListingRow>> RequestSelectedItemsAsync(string identity)
     {
         if (string.IsNullOrWhiteSpace(identity))
         {

@@ -40,10 +40,10 @@ public sealed class FileEntryTableContext
     public FileEntryTableNavigationState NavigationState { get; }
 
     /// <summary>Snapshots the current rows as a new list (UI thread; allocates per call).</summary>
-    public IReadOnlyList<SpecFileEntryViewModel> GetItems() => Table.Items.OfType<SpecFileEntryViewModel>().ToList();
+    public IReadOnlyList<FileListingRow> GetItems() => Table.Items.OfType<FileListingRow>().ToList();
 
     /// <summary>Snapshots the currently selected rows as a new list (UI thread; allocates per call).</summary>
-    public IReadOnlyList<SpecFileEntryViewModel> GetSelectedItems() => Table.SelectedItems.OfType<SpecFileEntryViewModel>().ToList();
+    public IReadOnlyList<FileListingRow> GetSelectedItems() => Table.SelectedItems.OfType<FileListingRow>().ToList();
 
     /// <summary>
     /// Builds a context from a loaded view, validating that identity, table, and messenger are all set.

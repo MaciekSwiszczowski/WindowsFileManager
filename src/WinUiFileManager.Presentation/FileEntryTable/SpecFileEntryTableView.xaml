@@ -5,6 +5,7 @@
     xmlns:behaviors="using:WinUiFileManager.Presentation.FileEntryTable.Behaviors"
     xmlns:converters="using:CommunityToolkit.WinUI.Converters"
     xmlns:presentationConverters="using:WinUiFileManager.Presentation.Converters"
+    xmlns:fileListing="using:WinUiFileManager.FileListingEngine"
     xmlns:fileEntryTable="using:WinUiFileManager.Presentation.FileEntryTable"
     xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
     xmlns:tv="using:WinUI.TableView">
@@ -31,7 +32,7 @@
         <Style x:Key="RightAlignEllipsisCellStyle" TargetType="TextBlock" BasedOn="{StaticResource EllipsisTextCellStyle}">
             <Setter Property="HorizontalAlignment" Value="Right" />
         </Style>
-        <DataTemplate x:Key="NameColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+        <DataTemplate x:Key="NameColumnTemplate" x:DataType="fileListing:FileListingRow">
             <Grid HorizontalAlignment="Left">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="8" />
@@ -55,7 +56,7 @@
                     HorizontalAlignment="Left" />
             </Grid>
         </DataTemplate>
-        <DataTemplate x:Key="ModifiedColumnTemplate" x:DataType="fileEntryTable:SpecFileEntryViewModel">
+        <DataTemplate x:Key="ModifiedColumnTemplate" x:DataType="fileListing:FileListingRow">
             <TextBlock Text="{x:Bind fileEntryTable:SpecFileEntryDisplay.GetModified(Model), Mode=OneWay}"
                        Style="{StaticResource EllipsisTextCellStyle}" />
         </DataTemplate>

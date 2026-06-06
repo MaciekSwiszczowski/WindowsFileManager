@@ -4,7 +4,7 @@ using WinUiFileManager.Presentation.FileEntryTable;
 namespace WinUiFileManager.Presentation.ViewModels.Panels;
 
 /// <summary>
-/// Per-pane view model that owns the current <see cref="FileEntryTableDataSource"/> and exposes its rows
+/// Per-pane view model that owns the current <see cref="FileListingDataSource"/> and exposes its rows
 /// (<see cref="Items"/>) and path state to the table view. Responds to pane-scoped navigation requests by building
 /// a fresh data source for the target directory and swapping it in.
 /// </summary>
@@ -24,10 +24,10 @@ namespace WinUiFileManager.Presentation.ViewModels.Panels;
 public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject, IDisposable
 {
     private readonly string _identity;
-    private readonly Func<string, NormalizedPath, FileEntryTableDataSource> _dataSourceFactory;
+    private readonly Func<string, NormalizedPath, FileListingDataSource> _dataSourceFactory;
     private readonly IFileManagerMessenger _messenger;
     private readonly IUiThreadDispatcher _uiDispatcher;
-    private FileEntryTableDataSource? _dataSource;
+    private FileListingDataSource? _dataSource;
     private bool _initialized;
     private bool _disposed;
 
@@ -36,7 +36,7 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     public PanelFileEntryDataSourceViewModel(
         string identity,
         IFileManagerMessenger messenger,
-        Func<string, NormalizedPath, FileEntryTableDataSource> dataSourceFactory,
+        Func<string, NormalizedPath, FileListingDataSource> dataSourceFactory,
         IUiThreadDispatcher uiDispatcher)
     {
         _identity = identity;
@@ -59,10 +59,10 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
 
     /// <summary>
     /// The bound row collection for the table. Replaced wholesale when a new data source is applied; each row is a
-    /// lean <see cref="SpecFileEntryViewModel"/> (see its leanness invariant) to keep large folders cheap.
+    /// lean <see cref="FileListingRow"/> (see its leanness invariant) to keep large folders cheap.
     /// </summary>
     [ObservableProperty]
-    public partial NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>? Items { get; set; }
+    public partial NotifyCollectionChangedSynchronizedViewList<FileListingRow>? Items { get; set; }
 
     /// <summary>
     /// Registers the pane-scoped navigation recipient. Idempotent (guarded by <see cref="_initialized"/>) per

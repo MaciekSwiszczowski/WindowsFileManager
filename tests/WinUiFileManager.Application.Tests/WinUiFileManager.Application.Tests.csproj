@@ -8,6 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\WinUiFileManager.Application\WinUiFileManager.Application.csproj" />
     <ProjectReference Include="..\..\src\WinUiFileManager.Diagnostics\WinUiFileManager.Diagnostics.csproj" />
+    <ProjectReference Include="..\..\src\WinUiFileManager.FileListingEngine\WinUiFileManager.FileListingEngine.csproj" />
     <ProjectReference Include="..\..\src\WinUiFileManager.Infrastructure\WinUiFileManager.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\WinUiFileManager.Interop\WinUiFileManager.Interop.csproj" />
     <ProjectReference Include="..\..\src\WinUiFileManager.Presentation\WinUiFileManager.Presentation.csproj" />

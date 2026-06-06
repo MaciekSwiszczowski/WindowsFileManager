@@ -20,6 +20,7 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
 - **Single Responsibility Principle is paramount.** Before delivering a changeset, check that each touched type still has one reason to change. Split god classes; do not bolt unrelated behavior onto an existing type.
 - **Layered architecture, strict dependency direction.** Dependencies point inward only:
   - `Application` — domain contracts, messages, value objects, command handlers. **No** WinUI, no Autofac wiring beyond abstractions. Keep it framework-light (it should not depend on Rx for convenience — see §6).
+  - `FileListingEngine` — file-listing data pipeline: listing row, row store, scanner/reader abstractions, sorting, and specialized listing messages such as `FileTableSortRequestedMessage`. Depends on `Application`, R3, ObservableCollections, and Autofac (composition extension only). **No** WinUI, XAML, TableView, Presentation services, behaviors, converters, or view models. Register engine services via `AddFileListingEngineServices()`; Presentation must not take `InternalsVisibleTo` access to engine internals. Presentation may publish/consume its specialized messages; do not generalize them into broad, weakly-typed input messages.
   - `Interop` — all Win32/COM via **CsWin32**. No hand-rolled `[DllImport]`. Banned symbols enforced via `BannedSymbols.Interop.txt`.
   - `Infrastructure` — implements `Application` abstractions using `Interop` + the BCL.
   - `Diagnostics` — file-diagnostics request handlers (inspector, file operations).
@@ -28,13 +29,13 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
 - **No primary constructors.** Use regular constructors with explicit fields/properties.
 - **Always use braces** for `if`/`else`/`for`/`foreach`/`while`/`do`/`using`/`lock`/`fixed`, even single statements.
 - **Narrowest accessibility.** Prefer `private` → `internal` → `public`. Do not widen for tests or speculative reuse; use `InternalsVisibleTo`.
-- **Keep `SpecFileEntryViewModel` lean.** No display helpers, no per-row UI state, no cached formatting on the row VM. The table targets very large row counts; every field multiplies across rows. Display formatting happens on demand in cell templates / converters via `FileEntryDisplayStringCache`.
+- **Keep `FileListingRow` lean.** No display helpers, no per-row UI state, no cached formatting on the row model. The table targets very large row counts; every field multiplies across rows. Display formatting happens on demand in cell templates / converters via `FileEntryDisplayStringCache` / `IFileListingStringCache`.
 
 ---
 
 ## 3. Memory & performance (this app must scale to ~10k+ rows)
 
-- The row VM (`SpecFileEntryViewModel`) is a thin wrapper over `FileSystemEntryModel`. Do not add `INotifyPropertyChanged`, derived strings, or extra fields to it.
+- The row model (`FileListingRow`) is a thin wrapper over `FileSystemEntryModel`. Do not add `INotifyPropertyChanged`, derived strings, or extra fields to it.
 - Keep `TableView` virtualization **on**; `CacheLength="1.0"` in the table XAML is intentional — do not remove it.
 - Avoid per-access allocation on domain hot paths. `NormalizedPath.DisplayPath` and `FileSystemEntryModel.FullPath` are read by every row binding/key/log line — memoize, don't recompute.
 - Workstation concurrent GC is correct here; do **not** switch to server GC. `System.GC.RetainVM=false` is set intentionally.
@@ -48,6 +49,7 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
 - **Every recipient that registers must `UnregisterAll(this)` on `Dispose`/teardown**, and that `Dispose` must actually be reachable from a lifecycle event (window close, behavior `OnDetaching`, panel teardown). A `Dispose` that is never called is a latent leak.
 - Behaviors register/unregister against `context.Messenger` in `OnAttached`/`OnDetaching` (`FileEntryTableBehaviorBase` centralizes this).
 - Pane-scoped messages must be filtered by pane identity via `IdentityFilter.For<T>(identity, handler)` — do not register pane behaviors globally.
+- Listing messages can be specialized and owned by `FileListingEngine` when they drive listing data behavior (for example sort requests). Presentation-only messages such as table selection, active row, parent-row visual state, and column layout stay in `Presentation`.
 - `Initialize()`-style deferred registration must be **idempotent** (guard with an `_initialized` flag); double registration double-handles messages.
 - Prefer pane `Identity` constants over raw `"Left"`/`"Right"` string literals.
 

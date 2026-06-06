@@ -1,16 +1,15 @@
-using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
-public sealed class SpecFileEntryComparerTests
+public sealed class FileListingRowComparerTests
 {
     [Fact]
     public void SizeSort_KeepsDirectoriesSortedByName()
     {
         // Arrange
-        var comparer = new SpecFileEntryComparer(SortColumn.Size, ascending: false, FileEntryDisplayStringCache.Shared);
-        var items = new List<SpecFileEntryViewModel>
+        var comparer = new FileListingRowComparer(SortColumn.Size, ascending: false, FileEntryDisplayStringCache.Shared);
+        var items = new List<FileListingRow>
         {
             File("small.txt", 1),
             Directory("zeta"),
@@ -29,8 +28,8 @@ public sealed class SpecFileEntryComparerTests
     public void NameSort_AppliesDirectionInsideDirectoryGroup()
     {
         // Arrange
-        var comparer = new SpecFileEntryComparer(SortColumn.Name, ascending: false, FileEntryDisplayStringCache.Shared);
-        var items = new List<SpecFileEntryViewModel>
+        var comparer = new FileListingRowComparer(SortColumn.Name, ascending: false, FileEntryDisplayStringCache.Shared);
+        var items = new List<FileListingRow>
         {
             File("a.txt", 1),
             Directory("alpha"),
@@ -45,7 +44,7 @@ public sealed class SpecFileEntryComparerTests
         Assert.Equal("zeta|alpha|z.txt|a.txt", string.Join("|", items.Select(static item => item.Model?.Name)));
     }
 
-    private static SpecFileEntryViewModel Directory(string name) =>
+    private static FileListingRow Directory(string name) =>
         new(new FileSystemEntryModel(
             NormalizedPath.FromUserInput(@"C:\Temp"),
             name,
@@ -56,7 +55,7 @@ public sealed class SpecFileEntryComparerTests
             DateTime.Today,
             FileAttributes.Directory));
 
-    private static SpecFileEntryViewModel File(string name, long size) =>
+    private static FileListingRow File(string name, long size) =>
         new(new FileSystemEntryModel(
             NormalizedPath.FromUserInput(@"C:\Temp"),
             name,

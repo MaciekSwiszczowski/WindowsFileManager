@@ -23,6 +23,7 @@ global using WinUiFileManager.Application.Messages;
 global using WinUiFileManager.Application.Messaging;
 global using WinUiFileManager.Application.Navigation;
 global using WinUiFileManager.Application.Settings;
-global using WinUiFileManager.Presentation.FileEntryTableData;
+global using WinUiFileManager.FileListingEngine;
+global using WinUiFileManager.FileListingEngine.Messages;
 global using WinUiFileManager.Presentation.FileEntryTable.Messages;
 global using WinUiFileManager.Presentation.ViewModels;

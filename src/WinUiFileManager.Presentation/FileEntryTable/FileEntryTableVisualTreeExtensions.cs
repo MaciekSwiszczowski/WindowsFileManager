@@ -26,13 +26,13 @@ internal static class FileEntryTableVisualTreeExtensions
     extension(DependencyObject? source)
     {
         /// <summary>Walks up the visual tree from this node and returns the first
-        /// <see cref="SpecFileEntryViewModel"/> found as a <see cref="FrameworkElement.DataContext"/>,
+        /// <see cref="FileListingRow"/> found as a <see cref="FrameworkElement.DataContext"/>,
         /// i.e. the row the event originated in; null if the node is not inside a row.</summary>
-        public SpecFileEntryViewModel? FindItem()
+        public FileListingRow? FindItem()
         {
             for (var current = source; current is not null; current = VisualTreeHelper.GetParent(current))
             {
-                if (current is FrameworkElement { DataContext: SpecFileEntryViewModel item })
+                if (current is FrameworkElement { DataContext: FileListingRow item })
                 {
                     return item;
                 }

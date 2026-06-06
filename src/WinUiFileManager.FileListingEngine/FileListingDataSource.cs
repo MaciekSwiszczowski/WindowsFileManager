@@ -1,9 +1,12 @@
 using ObservableCollections;
 using R3;
-using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.Application.Messaging;
+using WinUiFileManager.Application.Settings;
+using WinUiFileManager.FileListingEngine.Messages;
 
-namespace WinUiFileManager.Presentation.FileEntryTableData;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
 /// The reactive data pipeline behind one pane's file table: it performs the initial folder scan, keeps the
@@ -12,10 +15,10 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Built on <see cref="FileEntryObservableRowStore"/> (R3 + ObservableCollections). The store is the authoritative keyed, sorted
+/// Built on <see cref="FileListingRowStore"/> (R3 + ObservableCollections). The store is the authoritative keyed, sorted
 /// row set, keyed by normalised full path so a scan row and a later watcher update for the same file collapse
 /// onto one entry. <see cref="Items"/> is a thin <c>INotifyCollectionChanged</c> adapter over the store's
-/// <see cref="FileEntryObservableRowStore.Rows"/> (<see cref="ObservableList{T}.ToNotifyCollectionChangedSlim()"/>):
+/// <see cref="FileListingRowStore.Rows"/> (<see cref="ObservableList{T}.ToNotifyCollectionChangedSlim()"/>):
 /// there is no second copy of the rows and no hand-written mirror — each granular store mutation surfaces to
 /// the table directly.
 /// </para>
@@ -33,14 +36,14 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// <see cref="Dispose"/> is not reached, the watcher subscription leaks.
 /// </para>
 /// </remarks>
-public sealed class FileEntryTableDataSource : IDisposable
+public sealed class FileListingDataSource : IDisposable
 {
-    private readonly IFolderEntryScanner _folderEntryScanner;
-    private readonly IFileEntryRowReader _fileEntryRowReader;
+    private readonly IFolderListingScanner _folderListingScanner;
+    private readonly IFileListingRowReader _fileListingRowReader;
     private readonly CancellationTokenSource _scanCancellation = new();
-    private readonly FileEntryDisplayStringCache _displayStringCache;
-    private readonly FileEntryObservableRowStore _store = new();
-    private readonly NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel> _rows;
+    private readonly IFileListingStringCache _displayStringCache;
+    private readonly FileListingRowStore _store = new();
+    private readonly NotifyCollectionChangedSynchronizedViewList<FileListingRow> _rows;
     private readonly IDisposable _subscription;
     private readonly NormalizedPath _folderPath;
     private readonly Identity _identity;
@@ -48,24 +51,24 @@ public sealed class FileEntryTableDataSource : IDisposable
     // The order the store currently maintains. Established to the default at construction so the seed is
     // sorted before the first sort request arrives; thereafter mutated only on the UI thread.
     private SortState _sortState;
-    private IComparer<SpecFileEntryViewModel> _comparer;
+    private IComparer<FileListingRow> _comparer;
     private bool _disposed;
 
-    public FileEntryTableDataSource(
+    public FileListingDataSource(
         string identity,
         NormalizedPath folderPath,
         SynchronizationContext uiSynchronizationContext,
-        IFolderEntryScanner folderEntryScanner,
-        IFileEntryRowReader fileEntryRowReader,
+        IFolderListingScanner folderListingScanner,
+        IFileListingRowReader fileListingRowReader,
         IDirectoryChangeStream directoryChangeStream,
         IFileManagerMessenger messenger,
-        FileEntryDisplayStringCache displayStringCache)
+        IFileListingStringCache displayStringCache)
     {
         _identity = identity;
         _folderPath = folderPath;
         CurrentPath = folderPath.DisplayPath;
-        _folderEntryScanner = folderEntryScanner;
-        _fileEntryRowReader = fileEntryRowReader;
+        _folderListingScanner = folderListingScanner;
+        _fileListingRowReader = fileListingRowReader;
         _displayStringCache = displayStringCache;
         _sortState = SortState.Default;
         _comparer = CreateComparer(_sortState);
@@ -80,8 +83,8 @@ public sealed class FileEntryTableDataSource : IDisposable
     public string CurrentPath { get; }
 
     /// <summary>The sorted, UI-bound row list — a thin adapter over the store's rows. Mutated only on the UI
-    /// thread; bound to the table's <see cref="SpecFileEntryTableView.ItemsSource"/>.</summary>
-    public NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel> Items => _rows;
+    /// thread and consumed by the presentation table's item source.</summary>
+    public NotifyCollectionChangedSynchronizedViewList<FileListingRow> Items => _rows;
 
     /// <summary>Builds the pipeline: an off-thread initial scan that seeds the store, the filesystem watcher
     /// that mutates it incrementally, and the pane-scoped sort-request stream — all merged into one UI-thread
@@ -98,11 +101,11 @@ public sealed class FileEntryTableDataSource : IDisposable
             {
                 try
                 {
-                    return Observable.Return(_folderEntryScanner.Scan(_folderPath, _scanCancellation.Token));
+                    return Observable.Return(_folderListingScanner.Scan(_folderPath, _scanCancellation.Token));
                 }
                 catch (OperationCanceledException)
                 {
-                    return Observable.Empty<IReadOnlyList<SpecFileEntryViewModel>>();
+                    return Observable.Empty<IReadOnlyList<FileListingRow>>();
                 }
             })
             .SubscribeOnThreadPool()
@@ -149,7 +152,7 @@ public sealed class FileEntryTableDataSource : IDisposable
 
     /// <summary>Seeds the store with the scan result under the active comparer; the adapter surfaces the
     /// batched change to the table.</summary>
-    private void ResetRows(IReadOnlyList<SpecFileEntryViewModel> rows)
+    private void ResetRows(IReadOnlyList<FileListingRow> rows)
     {
         if (_disposed)
         {
@@ -212,7 +215,7 @@ public sealed class FileEntryTableDataSource : IDisposable
     private void AddOrRemove(string path)
     {
         var normalizedPath = NormalizedPath.FromFullyQualifiedPath(path);
-        var model = _fileEntryRowReader.TryRead(normalizedPath, _scanCancellation.Token);
+        var model = _fileListingRowReader.TryRead(normalizedPath, _scanCancellation.Token);
         if (model is null)
         {
             _store.Remove(GetPathCacheKey(path));
@@ -223,11 +226,11 @@ public sealed class FileEntryTableDataSource : IDisposable
     }
 
     /// <summary>Computes the row key for a raw path string, matching the shape produced by
-    /// <see cref="SpecFileEntryViewModel.GetKey"/> so removals line up with the seeded rows.</summary>
-    private static FilePathKey GetPathCacheKey(string path) => new(Path.GetFullPath(NormalizedPath.FromUserInput(path).DisplayPath));
+    /// <see cref="FileListingRow.GetKey"/> so removals line up with the seeded rows.</summary>
+    private static FileListingPathKey GetPathCacheKey(string path) => new(Path.GetFullPath(NormalizedPath.FromUserInput(path).DisplayPath));
 
-    private IComparer<SpecFileEntryViewModel> CreateComparer(SortState sortState) =>
-        new SpecFileEntryComparer(sortState.Column, sortState.Ascending, _displayStringCache);
+    private IComparer<FileListingRow> CreateComparer(SortState sortState) =>
+        new FileListingRowComparer(sortState.Column, sortState.Ascending, _displayStringCache);
 
     private void ApplyCommand(DataSourceCommand command)
     {
@@ -256,12 +259,12 @@ public sealed class FileEntryTableDataSource : IDisposable
 
     private readonly struct DataSourceCommand
     {
-        private readonly IReadOnlyList<SpecFileEntryViewModel>? _rows;
+        private readonly IReadOnlyList<FileListingRow>? _rows;
         private readonly DirectoryChange? _change;
 
         private DataSourceCommand(
             DataSourceCommandKind kind,
-            IReadOnlyList<SpecFileEntryViewModel>? rows,
+            IReadOnlyList<FileListingRow>? rows,
             DirectoryChange? change,
             SortState sortState)
         {
@@ -273,7 +276,7 @@ public sealed class FileEntryTableDataSource : IDisposable
 
         public DataSourceCommandKind Kind { get; }
 
-        public IReadOnlyList<SpecFileEntryViewModel> Rows =>
+        public IReadOnlyList<FileListingRow> Rows =>
             _rows ?? throw new InvalidOperationException("Seed command requires rows.");
 
         public DirectoryChange DirectoryChange =>
@@ -281,7 +284,7 @@ public sealed class FileEntryTableDataSource : IDisposable
 
         public SortState SortState { get; }
 
-        public static DataSourceCommand Seed(IReadOnlyList<SpecFileEntryViewModel> rows) =>
+        public static DataSourceCommand Seed(IReadOnlyList<FileListingRow> rows) =>
             new(DataSourceCommandKind.Seed, rows, change: null, SortState.Default);
 
         public static DataSourceCommand Change(DirectoryChange change) =>

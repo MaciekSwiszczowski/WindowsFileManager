@@ -1,10 +1,10 @@
-﻿namespace WinUiFileManager.Application.FileEntries;
+namespace WinUiFileManager.Application.FileEntries;
 
 /// <summary>
 /// Immutable domain model for a single file-system entry (file or directory) shown in a pane.
 /// </summary>
 /// <remarks>
-/// This is the source of truth that the lean row view model (<c>SpecFileEntryViewModel</c>) wraps;
+/// This is the source of truth that the lean row view model (<c>FileListingRow</c>) wraps;
 /// the table targets ~10k+ rows, so this type intentionally stores only raw NTFS facts and derives
 /// nothing eagerly (see AGENTS.md §3). Display formatting happens on demand in converters/cell templates.
 /// </remarks>

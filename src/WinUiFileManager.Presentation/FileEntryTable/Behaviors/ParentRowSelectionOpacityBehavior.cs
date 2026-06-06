@@ -18,7 +18,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
     private const double DefaultSelectionOpacity = 1d;
 
     // The parent row we last dimmed, so we know which container to restore.
-    private SpecFileEntryViewModel? _dimmedParentItem;
+    private FileListingRow? _dimmedParentItem;
     private bool _isParentRowSelected;
 
     protected override void OnLoaded(FileEntryTableContext context) =>
@@ -50,7 +50,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
         }
 
         if (table.GetParentItem() is not { } parentItem
-            || !SpecFileEntryViewModel.IsParentEntry(parentItem))
+            || !FileListingRow.IsParentEntry(parentItem))
         {
             ResetParentSelectionOpacity(table);
             return;
@@ -95,7 +95,7 @@ public sealed class ParentRowSelectionOpacityBehavior : FileEntryTableBehaviorBa
         _dimmedParentItem = null;
     }
 
-    private static void SetItemSelectionOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
+    private static void SetItemSelectionOpacity(TableView table, FileListingRow item, double opacity)
     {
         if (table.ContainerFromItem(item) is TableViewRow row)
         {

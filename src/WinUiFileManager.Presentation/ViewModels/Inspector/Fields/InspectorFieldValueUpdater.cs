@@ -32,7 +32,7 @@ internal sealed class InspectorFieldValueUpdater
     /// Resets all fields and fills the synchronously-available basics (name, path, type, size, attributes, and the
     /// fast NTFS timestamps) for the newly selected item. Parent-entry rows (null model) just clear the fields.
     /// </summary>
-    public void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
+    public void ShowImmediateSelection(FileListingRow selectedItem)
     {
         ClearValues();
 

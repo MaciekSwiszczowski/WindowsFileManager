@@ -1,28 +1,28 @@
-using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Presentation.FileEntryTable;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
-/// Orders <see cref="SpecFileEntryViewModel"/> rows for the file table according to the active
+/// Orders <see cref="FileListingRow"/> rows for the file table according to the active
 /// <see cref="SortColumn"/> and direction, applying the file-manager ordering rules: the ".." parent
 /// row always sorts first, directories always group before files, directories sort by name regardless
 /// of the chosen column, and a stable name-based tiebreak is used when the primary key compares equal.
 /// </summary>
 /// <remarks>
 /// Implements both the non-generic <see cref="System.Collections.IComparer"/> (required by the
-/// <see cref="TableView"/> integration) and the typed <see cref="IComparer{T}"/>. Attribute
-/// comparison reuses the process-wide <see cref="FileEntryDisplayStringCache"/> so it sorts by the same
+/// presentation table integration) and the typed <see cref="IComparer{T}"/>. Attribute
+/// comparison reuses the injected <see cref="IFileListingStringCache"/> so it sorts by the same
 /// text the UI displays without re-deriving it per comparison.
 /// </remarks>
-internal sealed class SpecFileEntryComparer : System.Collections.IComparer, IComparer<SpecFileEntryViewModel>
+internal sealed class FileListingRowComparer : System.Collections.IComparer, IComparer<FileListingRow>
 {
     private static readonly StringComparer TextComparer = StringComparer.CurrentCultureIgnoreCase;
 
-    private readonly FileEntryDisplayStringCache _displayStringCache;
+    private readonly IFileListingStringCache _displayStringCache;
     private readonly SortColumn _column;
     private readonly bool _ascending;
 
-    public SpecFileEntryComparer(SortColumn column, bool ascending, FileEntryDisplayStringCache displayStringCache)
+    public FileListingRowComparer(SortColumn column, bool ascending, IFileListingStringCache displayStringCache)
     {
         _column = column;
         _ascending = ascending;
@@ -36,12 +36,12 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
             return CompareNullable(x, y);
         }
 
-        return x is SpecFileEntryViewModel left && y is SpecFileEntryViewModel right
+        return x is FileListingRow left && y is FileListingRow right
             ? Compare(left, right)
             : CompareNullable(x, y);
     }
 
-    public int Compare(SpecFileEntryViewModel? x, SpecFileEntryViewModel? y)
+    public int Compare(FileListingRow? x, FileListingRow? y)
     {
         if (ReferenceEquals(x, y))
         {
@@ -59,12 +59,12 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
         }
 
         // The ".." row is pinned to the top regardless of column/direction.
-        if (SpecFileEntryViewModel.IsParentEntry(left))
+        if (FileListingRow.IsParentEntry(left))
         {
-            return SpecFileEntryViewModel.IsParentEntry(right) ? 0 : -1;
+            return FileListingRow.IsParentEntry(right) ? 0 : -1;
         }
 
-        if (SpecFileEntryViewModel.IsParentEntry(right))
+        if (FileListingRow.IsParentEntry(right))
         {
             return 1;
         }
@@ -109,7 +109,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
             : 0;
     }
 
-    private int CompareByColumn(SpecFileEntryViewModel x, SpecFileEntryViewModel y) =>
+    private int CompareByColumn(FileListingRow x, FileListingRow y) =>
         _column switch
         {
             SortColumn.Name => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
@@ -120,7 +120,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
             _ => TextComparer.Compare(x.Model?.Name, y.Model?.Name),
         };
 
-    private int CompareDirectoryNames(SpecFileEntryViewModel x, SpecFileEntryViewModel y)
+    private int CompareDirectoryNames(FileListingRow x, FileListingRow y)
     {
         var result = TextComparer.Compare(x.Model?.Name, y.Model?.Name);
         return _column == SortColumn.Name && !_ascending ? -result : result;
@@ -131,7 +131,7 @@ internal sealed class SpecFileEntryComparer : System.Collections.IComparer, ICom
             ? _displayStringCache.GetTableAttributes(value)
             : null;
 
-    private static int CompareEntryKind(SpecFileEntryViewModel x, SpecFileEntryViewModel y)
+    private static int CompareEntryKind(FileListingRow x, FileListingRow y)
     {
         var xKind = x.Model?.Kind;
         var yKind = y.Model?.Kind;

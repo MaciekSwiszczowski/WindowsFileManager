@@ -19,10 +19,10 @@ public interface IInspectorDeferredFieldLoader : IDisposable
     /// Cancels any in-flight load and marks this loader's fields as waiting for refreshed diagnostics.
     /// The diagnostics request itself may still be throttled by the inspector selection pipeline.
     /// </summary>
-    public void Prepare(SpecFileEntryViewModel selectedItem);
+    public void Prepare(FileListingRow selectedItem);
 
     /// <summary>Marks this loader as waiting for the next category response, superseding any in-flight load.</summary>
-    public void Load(SpecFileEntryViewModel selectedItem);
+    public void Load(FileListingRow selectedItem);
 
     /// <summary>Cancels any in-flight load and clears the loading state on its fields.</summary>
     public void Cancel();

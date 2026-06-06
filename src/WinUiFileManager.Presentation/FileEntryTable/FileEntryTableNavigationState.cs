@@ -15,7 +15,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 public sealed class FileEntryTableNavigationState
 {
     // The focused row's last-known item and index. _currentItem survives index shifts (re-sort/refresh).
-    private SpecFileEntryViewModel? _currentItem;
+    private FileListingRow? _currentItem;
     private int? _currentIndex;
     // Shift-range endpoints: anchor is where the range started, cursor is the moving end.
     private int? _selectionAnchorIndex;
@@ -41,10 +41,10 @@ public sealed class FileEntryTableNavigationState
             return;
         }
 
-        SetCurrent(table.Items[currentIndex.Value] as SpecFileEntryViewModel, currentIndex, resetSelectionAnchor);
+        SetCurrent(table.Items[currentIndex.Value] as FileListingRow, currentIndex, resetSelectionAnchor);
     }
 
-    private void SetCurrent(SpecFileEntryViewModel? item, int? index, bool resetSelectionAnchor)
+    private void SetCurrent(FileListingRow? item, int? index, bool resetSelectionAnchor)
     {
         _currentItem = item;
         _currentIndex = index;
@@ -70,7 +70,7 @@ public sealed class FileEntryTableNavigationState
         _selectionAnchorIndex = ClampIndex(table, anchorIndex) ?? currentIndex;
         _selectionCursorIndex = currentIndex;
         _currentIndex = currentIndex;
-        _currentItem = table.Items[currentIndex.Value] as SpecFileEntryViewModel;
+        _currentItem = table.Items[currentIndex.Value] as FileListingRow;
     }
 
     /// <summary>Resolves the current row index against the live table: uses the clamped stored index,
@@ -100,11 +100,11 @@ public sealed class FileEntryTableNavigationState
 
     /// <summary>The current focused row resolved against the live table; falls back to the stored item
     /// reference when the index can no longer be resolved.</summary>
-    public SpecFileEntryViewModel? GetCurrentItem(TableView table)
+    public FileListingRow? GetCurrentItem(TableView table)
     {
         if (GetCurrentIndex(table) is { } currentIndex)
         {
-            return table.Items[currentIndex] as SpecFileEntryViewModel;
+            return table.Items[currentIndex] as FileListingRow;
         }
 
         return _currentItem;

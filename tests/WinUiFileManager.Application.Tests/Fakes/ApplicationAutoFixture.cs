@@ -3,7 +3,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Presentation.Messaging;
-using WinUiFileManager.Presentation.FileEntryTableData;
+using WinUiFileManager.FileListingEngine;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 
@@ -54,8 +54,8 @@ public static class ApplicationAutoFixture
         fixture.Inject<IShellService>(shell);
 
         fixture.Inject<IActivePanelsService>(new FakeActivePanelsService());
-        fixture.Inject<IFolderEntryScanner>(new FakeFolderEntryScanner());
-        fixture.Inject<IFileEntryRowReader>(new FakeFileEntryRowReader());
+        fixture.Inject<IFolderListingScanner>(new FakeFolderEntryScanner());
+        fixture.Inject<IFileListingRowReader>(new FakeFileListingRowReader());
         fixture.Inject<IDirectoryChangeStream>(new FakeDirectoryChangeStream());
     }
 

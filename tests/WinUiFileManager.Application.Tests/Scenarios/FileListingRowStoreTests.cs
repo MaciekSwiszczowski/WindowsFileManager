@@ -1,16 +1,14 @@
-using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.Services;
 
 namespace WinUiFileManager.Application.Tests.Scenarios;
 
-public sealed class FileEntryObservableRowStoreTests
+public sealed class FileListingRowStoreTests
 {
     [Fact]
     public void Reset_DeduplicatesByPathAndSortsRows()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
 
         // Act
         sut.Reset(
@@ -30,7 +28,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void AddOrUpdate_ReplacesExistingRowAndKeepsSort()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         sut.Reset([File("b.txt", size: 1), File("a.txt", size: 1)], CreateNameComparer());
 
         // Act
@@ -45,7 +43,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void AddOrUpdate_InsertsNewRowInSortedPosition()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         sut.Reset([File("a.txt", size: 1), File("c.txt", size: 1)], CreateNameComparer());
 
         // Act
@@ -59,7 +57,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void AddOrUpdate_MovesRowWhenSortKeyChanges()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         sut.Reset(
             [File("a.txt", size: 3), File("b.txt", size: 1), File("c.txt", size: 2)],
             CreateSizeComparer());
@@ -76,7 +74,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void Remove_RemovesMatchingKey()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         var removeTarget = File("b.txt", size: 1);
         sut.Reset([File("a.txt", size: 1), removeTarget, File("c.txt", size: 1)], CreateNameComparer());
 
@@ -92,7 +90,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void Remove_ReturnsFalseWhenKeyAbsent()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         sut.Reset([File("a.txt", size: 1)], CreateNameComparer());
 
         // Act
@@ -107,7 +105,7 @@ public sealed class FileEntryObservableRowStoreTests
     public void Sort_ReordersRowsUnderNewComparer()
     {
         // Arrange
-        using var sut = new FileEntryObservableRowStore();
+        using var sut = new FileListingRowStore();
         sut.Reset([File("a.txt", size: 1), File("b.txt", size: 1), File("c.txt", size: 1)], CreateNameComparer());
 
         // Act
@@ -117,16 +115,16 @@ public sealed class FileEntryObservableRowStoreTests
         Assert.Equal("c.txt|b.txt|a.txt", GetNames(sut));
     }
 
-    private static IComparer<SpecFileEntryViewModel> CreateNameComparer(bool ascending = true) =>
-        new SpecFileEntryComparer(SortColumn.Name, ascending, FileEntryDisplayStringCache.Shared);
+    private static IComparer<FileListingRow> CreateNameComparer(bool ascending = true) =>
+        new FileListingRowComparer(SortColumn.Name, ascending, FileEntryDisplayStringCache.Shared);
 
-    private static IComparer<SpecFileEntryViewModel> CreateSizeComparer(bool ascending = true) =>
-        new SpecFileEntryComparer(SortColumn.Size, ascending, FileEntryDisplayStringCache.Shared);
+    private static IComparer<FileListingRow> CreateSizeComparer(bool ascending = true) =>
+        new FileListingRowComparer(SortColumn.Size, ascending, FileEntryDisplayStringCache.Shared);
 
-    private static string GetNames(FileEntryObservableRowStore store) =>
+    private static string GetNames(FileListingRowStore store) =>
         string.Join("|", store.Rows.Select(static row => row.Model?.Name));
 
-    private static SpecFileEntryViewModel File(string name, long size) =>
+    private static FileListingRow File(string name, long size) =>
         new(new FileSystemEntryModel(
             NormalizedPath.FromUserInput(@"C:\Temp"),
             name,

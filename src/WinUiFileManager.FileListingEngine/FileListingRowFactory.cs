@@ -1,30 +1,29 @@
 using System.IO.Enumeration;
-using WinUiFileManager.Presentation.FileEntryTable;
-using WinUiFileManager.Presentation.Services;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Presentation.FileEntryTableData;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
-/// Builds <see cref="SpecFileEntryViewModel"/> rows from the various filesystem sources used by the
+/// Builds <see cref="FileListingRow"/> rows from the various filesystem sources used by the
 /// scanner and reader: a native <see cref="FileSystemEntry"/> (bulk enumeration), a
 /// <see cref="FileInfo"/>, or a <see cref="DirectoryInfo"/> (single-entry refresh). Centralises the
 /// mapping from raw metadata to a <see cref="FileSystemEntryModel"/> so all three paths produce
 /// identical rows.
 /// </summary>
 /// <remarks>
-/// Extension strings are interned through <see cref="FileEntryDisplayStringCache"/> so the same handful
+/// Extension strings are interned through <see cref="IFileListingStringCache"/> so the same handful
 /// of extension values are shared across many rows instead of allocating per row (AGENTS.md §3). The
 /// injected <see cref="Func{T,TResult}"/> is the actual row constructor (supplied by DI), keeping this
 /// factory independent of how rows are instantiated.
 /// </remarks>
-internal sealed class FileEntryRowFactory
+internal sealed class FileListingRowFactory
 {
-    private readonly Func<FileSystemEntryModel, SpecFileEntryViewModel> _rowFactory;
-    private readonly FileEntryDisplayStringCache _displayStringCache;
+    private readonly Func<FileSystemEntryModel, FileListingRow> _rowFactory;
+    private readonly IFileListingStringCache _displayStringCache;
 
-    public FileEntryRowFactory(
-        Func<FileSystemEntryModel, SpecFileEntryViewModel> rowFactory,
-        FileEntryDisplayStringCache displayStringCache)
+    public FileListingRowFactory(
+        Func<FileSystemEntryModel, FileListingRow> rowFactory,
+        IFileListingStringCache displayStringCache)
     {
         _rowFactory = rowFactory;
         _displayStringCache = displayStringCache;
@@ -33,7 +32,7 @@ internal sealed class FileEntryRowFactory
     /// <summary>Builds a row from a native enumeration record. Taken by <c>ref</c> because
     /// <see cref="FileSystemEntry"/> is a large ref struct yielded during enumeration; values are copied
     /// out into the model immediately. Directories report no size.</summary>
-    public SpecFileEntryViewModel Create(NormalizedPath directoryPath, ref FileSystemEntry entry)
+    public FileListingRow Create(NormalizedPath directoryPath, ref FileSystemEntry entry)
     {
         var isDirectory = entry.IsDirectory;
         var name = entry.FileName.ToString();
@@ -51,7 +50,7 @@ internal sealed class FileEntryRowFactory
     }
 
     /// <summary>Builds a file row from a <see cref="FileInfo"/> (single-entry refresh path).</summary>
-    public SpecFileEntryViewModel Create(NormalizedPath directoryPath, FileInfo fileInfo)
+    public FileListingRow Create(NormalizedPath directoryPath, FileInfo fileInfo)
     {
         var model = new FileSystemEntryModel(
             directoryPath,
@@ -68,7 +67,7 @@ internal sealed class FileEntryRowFactory
 
     /// <summary>Builds a directory row from a <see cref="DirectoryInfo"/> (single-entry refresh path);
     /// directories carry no size and an empty extension.</summary>
-    public SpecFileEntryViewModel Create(NormalizedPath directoryPath, DirectoryInfo directoryInfo)
+    public FileListingRow Create(NormalizedPath directoryPath, DirectoryInfo directoryInfo)
     {
         var model = new FileSystemEntryModel(
             directoryPath,

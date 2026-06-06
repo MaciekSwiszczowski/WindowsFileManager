@@ -28,7 +28,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
     private const double ActiveOpacity = 1d;
     private const double InactiveOpacity = 0d;
 
-    private SpecFileEntryViewModel? _activeItem;
+    private FileListingRow? _activeItem;
     private PointerEventHandler? _pointerPressedHandler;
 
     protected override void OnLoaded(FileEntryTableContext context)
@@ -92,7 +92,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         SetActiveRow(item);
     }
 
-    private void SetActiveRow(SpecFileEntryViewModel item)
+    private void SetActiveRow(FileListingRow item)
     {
         if (ReferenceEquals(_activeItem, item))
         {
@@ -106,9 +106,9 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         QueueApplyActiveIndicator();
     }
 
-    private bool TrySendNavigationMessage(SpecFileEntryViewModel item)
+    private bool TrySendNavigationMessage(FileListingRow item)
     {
-        if (SpecFileEntryViewModel.IsParentEntry(item))
+        if (FileListingRow.IsParentEntry(item))
         {
             Context.Messenger.Send(new FileTableNavigateUpRequestedMessage(Context.View.Identity));
             return true;
@@ -154,7 +154,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
         }
     }
 
-    private static void SetItemIndicatorOpacity(TableView table, SpecFileEntryViewModel item, double opacity)
+    private static void SetItemIndicatorOpacity(TableView table, FileListingRow item, double opacity)
     {
         // ContainerFromItem returns null for virtualized-away rows; in that case there is nothing to
         // update and the indicator will be re-applied when the row is realised.

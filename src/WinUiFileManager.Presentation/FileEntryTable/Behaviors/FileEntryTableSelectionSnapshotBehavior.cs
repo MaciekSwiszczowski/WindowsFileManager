@@ -92,22 +92,22 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         // so file-operation snapshots only inspect real file rows.
         return context
             .GetSelectedItems()
-            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
+            .Where(static item => !FileListingRow.IsParentEntry(item))
             .Any(item => HasEqualFileName(item, name));
     }
 
     private static bool IsFileActive(FileEntryTableContext context, string name)
     {
         var activeItem = context.NavigationState.GetCurrentItem(context.Table)
-            ?? context.Table.SelectedItem as SpecFileEntryViewModel;
+            ?? context.Table.SelectedItem as FileListingRow;
 
         // The parent row can be active for navigation, but file operations never replace it.
         return activeItem is not null
-            && !SpecFileEntryViewModel.IsParentEntry(activeItem)
+            && !FileListingRow.IsParentEntry(activeItem)
             && HasEqualFileName(activeItem, name);
     }
 
-    private void RestoreChangedItem(SelectionSnapshot snapshot, SpecFileEntryViewModel changedItem)
+    private void RestoreChangedItem(SelectionSnapshot snapshot, FileListingRow changedItem)
     {
         if (snapshot.WasSelected)
         {
@@ -122,7 +122,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         ClearSnapshotSubscription();
     }
 
-    private void RestoreActiveItem(SpecFileEntryViewModel item)
+    private void RestoreActiveItem(FileListingRow item)
     {
         Context.Table.SelectedItem = item;
         if (Context.Table.GetRowIndex(item) is not { } idx)
@@ -142,12 +142,12 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         _snapshotSubscription = null;
     }
 
-    private static IEnumerable<SpecFileEntryViewModel> FindChangedItems(System.Collections.IList? items, string name) =>
+    private static IEnumerable<FileListingRow> FindChangedItems(System.Collections.IList? items, string name) =>
         items is null
             ? []
-            : items.OfType<SpecFileEntryViewModel>().Where(item => HasEqualFileName(item, name)).Take(1);
+            : items.OfType<FileListingRow>().Where(item => HasEqualFileName(item, name)).Take(1);
 
-    private static bool HasEqualFileName(SpecFileEntryViewModel item, string name) =>
+    private static bool HasEqualFileName(FileListingRow item, string name) =>
         item.Model is { } model && string.Equals(model.Name, name, StringComparison.OrdinalIgnoreCase);
 
     private static string GetFileName(NormalizedPath path) => Path.GetFileName(path.DisplayPath);

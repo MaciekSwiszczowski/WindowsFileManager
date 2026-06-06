@@ -1,15 +1,14 @@
 using System.Diagnostics;
 using ObservableCollections;
-using WinUiFileManager.Presentation.FileEntryTable;
 
-namespace WinUiFileManager.Presentation.FileEntryTableData;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
 /// Keyed, comparer-sorted row store backed by <see cref="ObservableList{T}"/> for the file-entry table data pipeline.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Responsibility is deliberately narrow: in-memory row identity (dedup by <see cref="FilePathKey"/>) and
+/// Responsibility is deliberately narrow: in-memory row identity (dedup by <see cref="FileListingPathKey"/>) and
 /// sort order, nothing else. Folder scanning, watcher translation, UI binding, and dispatcher marshalling
 /// stay in separate types so this remains a plain data structure.
 /// </para>
@@ -32,13 +31,13 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// the one reset point, so it may run on a different thread once writing has stopped.
 /// </para>
 /// </remarks>
-internal sealed class FileEntryObservableRowStore : IDisposable
+internal sealed class FileListingRowStore : IDisposable
 {
-    private readonly Dictionary<FilePathKey, SpecFileEntryViewModel> _rowsByKey = [];
+    private readonly Dictionary<FileListingPathKey, FileListingRow> _rowsByKey = [];
 
     // The order the list is currently maintained in. Established by Reset/Sort; AddOrUpdate/Remove rely on
     // the list already being ordered by it to binary-search insert/locate positions.
-    private IComparer<SpecFileEntryViewModel>? _comparer;
+    private IComparer<FileListingRow>? _comparer;
     private bool _disposed;
 
     // Single-writer affinity state for AssertSingleWriter/ResetWriterAffinity. Both are
@@ -51,15 +50,15 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// this via <see cref="ObservableList{T}"/>'s notify-adapter, so each mutation surfaces as one
     /// <c>INotifyCollectionChanged</c> event.
     /// </summary>
-    public ObservableList<SpecFileEntryViewModel> Rows { get; } = [];
+    public ObservableList<FileListingRow> Rows { get; } = [];
 
     /// <summary>
     /// Clears the store and seeds it with a de-duplicated, sorted row set, establishing
     /// <paramref name="comparer"/> as the order maintained by subsequent <see cref="AddOrUpdate"/> calls.
     /// </summary>
-    /// <param name="rows">The rows to seed; duplicates by <see cref="FilePathKey"/> resolve last-wins.</param>
+    /// <param name="rows">The rows to seed; duplicates by <see cref="FileListingPathKey"/> resolve last-wins.</param>
     /// <param name="comparer">The order to maintain. Becomes the store's active comparer.</param>
-    public void Reset(IEnumerable<SpecFileEntryViewModel> rows, IComparer<SpecFileEntryViewModel> comparer)
+    public void Reset(IEnumerable<FileListingRow> rows, IComparer<FileListingRow> comparer)
     {
         AssertSingleWriter();
 
@@ -71,7 +70,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
             _rowsByKey[row.GetKey()] = row;
         }
 
-        var sorted = new SpecFileEntryViewModel[_rowsByKey.Count];
+        var sorted = new FileListingRow[_rowsByKey.Count];
         _rowsByKey.Values.CopyTo(sorted, 0);
         Array.Sort(sorted, comparer);
 
@@ -90,7 +89,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// </summary>
     /// <exception cref="InvalidOperationException">No sort order has been established yet (call
     /// <see cref="Reset"/> or <see cref="Sort"/> first).</exception>
-    public void AddOrUpdate(SpecFileEntryViewModel row)
+    public void AddOrUpdate(FileListingRow row)
     {
         AssertSingleWriter();
         var comparer = _comparer
@@ -110,7 +109,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
 
     /// <summary>Removes the row with the given key.</summary>
     /// <returns>True when a row was found and removed; false when no row had that key.</returns>
-    public bool Remove(FilePathKey key)
+    public bool Remove(FileListingPathKey key)
     {
         AssertSingleWriter();
         if (!_rowsByKey.Remove(key, out var row))
@@ -135,7 +134,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// user-initiated sort-column change; it emits a sort/reset, so it is intentionally distinct from the
     /// incremental <see cref="AddOrUpdate"/> path.
     /// </summary>
-    public void Sort(IComparer<SpecFileEntryViewModel> comparer)
+    public void Sort(IComparer<FileListingRow> comparer)
     {
         AssertSingleWriter();
 
@@ -171,9 +170,9 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// re-inserts it, which surfaces as a Remove followed by an Insert (two notifications) on
     /// <see cref="Rows"/>.</summary>
     private void ReplaceSorted(
-        SpecFileEntryViewModel existingRow,
-        SpecFileEntryViewModel newRow,
-        IComparer<SpecFileEntryViewModel> comparer)
+        FileListingRow existingRow,
+        FileListingRow newRow,
+        IComparer<FileListingRow> comparer)
     {
         var oldIndex = IndexOfSorted(existingRow, comparer);
         if (oldIndex < 0)
@@ -195,7 +194,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
 
     /// <summary>True when a row substituted at <paramref name="index"/> would still be correctly ordered
     /// relative to its immediate neighbours, so no move is needed.</summary>
-    private bool StaysInPlace(int index, SpecFileEntryViewModel row, IComparer<SpecFileEntryViewModel> comparer)
+    private bool StaysInPlace(int index, FileListingRow row, IComparer<FileListingRow> comparer)
     {
         if (index > 0 && comparer.Compare(Rows[index - 1], row) > 0)
         {
@@ -207,7 +206,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
 
     /// <summary>First index at which <paramref name="row"/> can be inserted to keep the list ordered by
     /// <paramref name="comparer"/> (the lower bound of its sort position).</summary>
-    private int LowerBound(SpecFileEntryViewModel row, IComparer<SpecFileEntryViewModel> comparer)
+    private int LowerBound(FileListingRow row, IComparer<FileListingRow> comparer)
     {
         var lo = 0;
         var hi = Rows.Count;
@@ -230,7 +229,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     /// <summary>Locates the exact row instance in the sorted list by binary-searching to its sort band and
     /// matching by reference (within one folder, equal comparison implies the same key, hence the same
     /// instance). Falls back to a linear scan if the list is not ordered by this comparer.</summary>
-    private int IndexOfSorted(SpecFileEntryViewModel row, IComparer<SpecFileEntryViewModel> comparer)
+    private int IndexOfSorted(FileListingRow row, IComparer<FileListingRow> comparer)
     {
         for (var i = LowerBound(row, comparer); i < Rows.Count && comparer.Compare(Rows[i], row) == 0; i++)
         {
@@ -257,7 +256,7 @@ internal sealed class FileEntryObservableRowStore : IDisposable
 
         Debug.Assert(
             _ownerThreadId == current,
-            "FileEntryObservableRowStore is single-writer: all mutations must occur on the owning writer thread.");
+            "FileListingRowStore is single-writer: all mutations must occur on the owning writer thread.");
     }
 
     /// <summary>Clears the captured writer thread so the next mutation re-establishes affinity, letting a

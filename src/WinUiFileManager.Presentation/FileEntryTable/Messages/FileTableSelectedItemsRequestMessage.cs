@@ -8,7 +8,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// for one table. Answered by <see cref="Behaviors.FileEntryTableKeyboardSelectionBehavior"/>, which
 /// marshals the snapshot onto the UI thread before replying.
 /// </summary>
-public sealed class FileTableSelectedItemsRequestMessage : AsyncRequestMessage<IReadOnlyList<SpecFileEntryViewModel>>, IIdentityMessage
+public sealed class FileTableSelectedItemsRequestMessage : AsyncRequestMessage<IReadOnlyList<FileListingRow>>, IIdentityMessage
 {
     /// <param name="identity">The pane whose selection is being requested.</param>
     public FileTableSelectedItemsRequestMessage(Identity identity) => Identity = identity;

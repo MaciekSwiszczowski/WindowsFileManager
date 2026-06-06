@@ -1,22 +1,22 @@
-using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Presentation.FileEntryTableData;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
-/// Default <see cref="IFileEntryRowReader"/>: reads a single filesystem entry on demand (used to refresh
-/// one row in response to a watcher change) and builds a row via <see cref="FileEntryRowFactory"/>.
+/// Default <see cref="IFileListingRowReader"/>: reads a single filesystem entry on demand (used to refresh
+/// one row in response to a watcher change) and builds a row via <see cref="FileListingRowFactory"/>.
 /// </summary>
 /// <remarks>
 /// Any read failure other than cancellation is swallowed and surfaced as a null result, which the data
 /// source treats as "the entry is gone, remove its row" — watcher notifications routinely race the
 /// filesystem (e.g. a temp file created and deleted before we read it).
 /// </remarks>
-internal sealed class WindowsFileEntryRowReader : IFileEntryRowReader
+internal sealed class WindowsFileListingRowReader : IFileListingRowReader
 {
-    private readonly FileEntryRowFactory _rowFactory;
+    private readonly FileListingRowFactory _rowFactory;
 
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="rowFactory"/> is null.</exception>
-    public WindowsFileEntryRowReader(FileEntryRowFactory rowFactory)
+    public WindowsFileListingRowReader(FileListingRowFactory rowFactory)
     {
         ArgumentNullException.ThrowIfNull(rowFactory);
         _rowFactory = rowFactory;
@@ -26,7 +26,7 @@ internal sealed class WindowsFileEntryRowReader : IFileEntryRowReader
     /// read (missing/inaccessible). Cancellation propagates; all other exceptions yield null.</summary>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is
     /// signalled.</exception>
-    public SpecFileEntryViewModel? TryRead(NormalizedPath path, CancellationToken cancellationToken)
+    public FileListingRow? TryRead(NormalizedPath path, CancellationToken cancellationToken)
     {
         try
         {

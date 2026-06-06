@@ -46,12 +46,12 @@ public sealed class FileEntryTableKeyboardNavigationBehavior : FileEntryTableBeh
             return context.Table.SelectedIndex;
         }
 
-        if (context.Table.GetRowIndex(context.Table.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
+        if (context.Table.GetRowIndex(context.Table.SelectedItem as FileListingRow) is { } selectedItemIndex)
         {
             return selectedItemIndex;
         }
 
-        foreach (var item in context.Table.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
+        foreach (var item in context.Table.SelectedItems.OfType<FileListingRow>().Reverse())
         {
             if (context.Table.GetRowIndex(item) is { } selectedIndex)
             {

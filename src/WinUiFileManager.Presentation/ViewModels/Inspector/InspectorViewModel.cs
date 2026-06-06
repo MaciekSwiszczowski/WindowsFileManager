@@ -167,7 +167,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// targets, updates the count, and switches to <see cref="FileInspectorSelectionMode.NoSelection"/> or
     /// <see cref="FileInspectorSelectionMode.MultiSelection"/>.
     /// </summary>
-    private void ShowNonSingleSelection(IReadOnlyList<SpecFileEntryViewModel> selectedItems)
+    private void ShowNonSingleSelection(IReadOnlyList<FileListingRow> selectedItems)
     {
         _currentSelectedItemPath = null;
         CancelDeferredFieldLoads();
@@ -185,7 +185,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// to <see cref="FileInspectorSelectionMode.SingleSelection"/>. The slower diagnostics arrive later via
     /// <see cref="LoadDeferredSelection"/>.
     /// </summary>
-    private void ShowImmediateSelection(SpecFileEntryViewModel selectedItem)
+    private void ShowImmediateSelection(FileListingRow selectedItem)
     {
         _currentSelectedItemPath = selectedItem.Model?.FullPath;
         PropertiesButton.SetSelectedItem(selectedItem.Model);
@@ -201,7 +201,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// Marks all deferred loaders as waiting, then sends one shared diagnostics request for the settled single selection.
     /// Fed by the throttled <c>DeferredSelectionObservable</c> so rapid selection changes don't spam diagnostics.
     /// </summary>
-    private void LoadDeferredSelection(SpecFileEntryViewModel selectedItem)
+    private void LoadDeferredSelection(FileListingRow selectedItem)
     {
         if (!IsCurrentSelection(selectedItem) || selectedItem.Model is not { } model)
         {
@@ -216,7 +216,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         _messenger.Send(new InspectorDiagnosticsRequestMessage(model.FullPath));
     }
 
-    private bool IsCurrentSelection(SpecFileEntryViewModel selectedItem) =>
+    private bool IsCurrentSelection(FileListingRow selectedItem) =>
         _currentSelectedItemPath is { } currentPath
         && selectedItem.Model is { } model
         && currentPath == model.FullPath;
@@ -226,7 +226,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     /// request remains throttled in <see cref="LoadDeferredSelection"/>, so rapid selection changes still avoid
     /// spamming expensive diagnostics.
     /// </summary>
-    private void PrepareDeferredFieldLoads(SpecFileEntryViewModel selectedItem)
+    private void PrepareDeferredFieldLoads(FileListingRow selectedItem)
     {
         foreach (var loader in _deferredFieldLoaders)
         {

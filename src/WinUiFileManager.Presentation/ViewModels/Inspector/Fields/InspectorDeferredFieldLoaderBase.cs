@@ -54,7 +54,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
             .Subscribe(response => ApplyResponseAsync(response).SafeFireAndForget(OnApplyException));
     }
 
-    public void Prepare(SpecFileEntryViewModel selectedItem)
+    public void Prepare(FileListingRow selectedItem)
     {
         _ = FieldValueUpdater;
         CancelCurrentLoad(clearLoading: false);
@@ -67,7 +67,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
         FieldValueUpdater.SetLoading(FieldKeys, isLoading: true);
     }
 
-    public void Load(SpecFileEntryViewModel selectedItem)
+    public void Load(FileListingRow selectedItem)
     {
         _ = FieldValueUpdater;
         CancelCurrentLoad(clearLoading: false);

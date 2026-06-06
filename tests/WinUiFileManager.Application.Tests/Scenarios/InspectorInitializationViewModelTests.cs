@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using R3;
 using WinUiFileManager.Application.Messaging;
-using WinUiFileManager.Presentation.FileEntryTable.Messages;
 using WinUiFileManager.Presentation.Messaging;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
@@ -17,7 +16,7 @@ public sealed class InspectorInitializationViewModelTests
         var activePanels = new FakeActivePanelsService();
         var timeProvider = new ManualTimeProvider();
         var sut = CreateSut(activePanels, messenger, timeProvider);
-        var received = new List<SpecFileEntryViewModel>();
+        var received = new List<FileListingRow>();
 
         using var subscription = sut.DeferredSelectionObservable.Subscribe(received.Add);
 
@@ -55,7 +54,7 @@ public sealed class InspectorInitializationViewModelTests
             static request => new InspectorToggleFieldViewModel(request));
     }
 
-    private static SpecFileEntryViewModel File(string name) =>
+    private static FileListingRow File(string name) =>
         new(new FileSystemEntryModel(
             NormalizedPath.FromUserInput(@"C:\Temp"),
             name,

@@ -22,7 +22,7 @@ namespace WinUiFileManager.Presentation.Services;
 /// are read from both the UI thread (templates) and scan/reader threads.
 /// </para>
 /// </remarks>
-public sealed class FileEntryDisplayStringCache
+public sealed class FileEntryDisplayStringCache : IFileListingStringCache
 {
     // Upper bound on distinct extensions cached, since extensions are user-controlled (untrusted size).
     private const int MaxCachedExtensions = 512;

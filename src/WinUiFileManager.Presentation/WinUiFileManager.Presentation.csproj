@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WinUiFileManager.Application\WinUiFileManager.Application.csproj" />
+    <ProjectReference Include="..\WinUiFileManager.FileListingEngine\WinUiFileManager.FileListingEngine.csproj" />
   </ItemGroup>
 
   <ItemGroup>

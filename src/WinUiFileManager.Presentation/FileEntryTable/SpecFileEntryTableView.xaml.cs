@@ -28,7 +28,7 @@ public sealed partial class SpecFileEntryTableView
     public static readonly DependencyProperty ItemsSourceProperty =
         DependencyProperty.Register(
             nameof(ItemsSource),
-            typeof(NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>),
+            typeof(NotifyCollectionChangedSynchronizedViewList<FileListingRow>),
             typeof(SpecFileEntryTableView), new PropertyMetadata(null));
 
     /// <summary>Backing DP for <see cref="CurrentFolder"/>, the display path currently shown.</summary>
@@ -50,9 +50,9 @@ public sealed partial class SpecFileEntryTableView
 
     /// <summary>The rows to display. Bound from the pane view model; a synchronized notify-adapter over the
     /// data source's row store so the table reacts to scan/watcher/sort updates.</summary>
-    public NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>? ItemsSource
+    public NotifyCollectionChangedSynchronizedViewList<FileListingRow>? ItemsSource
     {
-        get => (NotifyCollectionChangedSynchronizedViewList<SpecFileEntryViewModel>?)GetValue(ItemsSourceProperty);
+        get => (NotifyCollectionChangedSynchronizedViewList<FileListingRow>?)GetValue(ItemsSourceProperty);
         set => SetValue(ItemsSourceProperty, value);
     }
 
@@ -100,7 +100,7 @@ public sealed partial class SpecFileEntryTableView
 
         var messenger = GetRequiredMessenger();
 
-        if (SpecFileEntryViewModel.IsParentEntry(item))
+        if (FileListingRow.IsParentEntry(item))
         {
             messenger.Send(new FileTableNavigateUpRequestedMessage(Identity));
             e.Handled = true;

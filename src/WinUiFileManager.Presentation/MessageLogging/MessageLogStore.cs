@@ -265,16 +265,16 @@ public sealed class MessageLogStore
         value switch
         {
             null => "null",
-            SpecFileEntryViewModel item => SpecFileEntryDisplay.GetName(item.Model),
+            FileListingRow item => SpecFileEntryDisplay.GetName(item.Model),
             FileSystemEntryModel item => item.Name,
             string text => text,
-            IEnumerable<SpecFileEntryViewModel> items => $"[{string.Join(", ", items.Select(static item => SpecFileEntryDisplay.GetName(item.Model)))}]",
+            IEnumerable<FileListingRow> items => $"[{string.Join(", ", items.Select(static item => SpecFileEntryDisplay.GetName(item.Model)))}]",
             IEnumerable<FileSystemEntryModel> items => $"[{string.Join(", ", items.Select(static item => item.Name))}]",
             IEnumerable values => $"[{string.Join(", ", values.Cast<object>())}]",
             _ => value.ToString() ?? string.Empty,
         };
 
     /// <summary>Formats a selection list as a bracketed, comma-joined list of display names.</summary>
-    private static string FormatSelectedItems(IEnumerable<SpecFileEntryViewModel> items) =>
+    private static string FormatSelectedItems(IEnumerable<FileListingRow> items) =>
         $"[{string.Join(", ", items.Select(static item => SpecFileEntryDisplay.GetName(item.Model)))}]";
 }

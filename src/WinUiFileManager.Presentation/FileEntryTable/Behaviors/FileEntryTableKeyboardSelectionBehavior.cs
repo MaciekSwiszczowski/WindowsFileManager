@@ -80,7 +80,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         _shiftRangeActive = false;
 
         if (context.Table.GetRowIndex(
-                e.AddedItems.OfType<SpecFileEntryViewModel>().LastOrDefault()) is { } addedIndex)
+                e.AddedItems.OfType<FileListingRow>().LastOrDefault()) is { } addedIndex)
         {
             context.NavigationState.SetCurrent(context.Table, addedIndex, resetSelectionAnchor: true);
             TableViewKeyboardAnchorSynchronizer.Sync(context.Table, addedIndex);
@@ -165,23 +165,23 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     private FileTableSelectionChangedMessage CreateSelectionChangedMessage(FileEntryTableContext context)
     {
         var selectedRows = context.Table.SelectedItems
-            .OfType<SpecFileEntryViewModel>()
+            .OfType<FileListingRow>()
             .ToList();
         var selectedItems = selectedRows
-            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
+            .Where(static item => !FileListingRow.IsParentEntry(item))
             .ToList();
 
         return new FileTableSelectionChangedMessage(
             context.View.Identity,
             selectedItems,
-            selectedRows.Any(static item => SpecFileEntryViewModel.IsParentEntry(item)),
+            selectedRows.Any(static item => FileListingRow.IsParentEntry(item)),
             GetActiveItem(context));
     }
 
-    private static SpecFileEntryViewModel? GetActiveItem(FileEntryTableContext context) =>
+    private static FileListingRow? GetActiveItem(FileEntryTableContext context) =>
         context.NavigationState.GetSelectionCursorIndex(context.Table) is { } cursorIndex
-            ? context.Table.Items[cursorIndex] as SpecFileEntryViewModel
-            : context.NavigationState.GetCurrentItem(context.Table) ?? context.Table.SelectedItem as SpecFileEntryViewModel;
+            ? context.Table.Items[cursorIndex] as FileListingRow
+            : context.NavigationState.GetCurrentItem(context.Table) ?? context.Table.SelectedItem as FileListingRow;
 
     private int? GetCurrentIndex(FileEntryTableContext context) =>
         context.NavigationState.GetSelectionCursorIndex(context.Table)
@@ -197,12 +197,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         }
 
         if (context.Table.GetRowIndex(
-                context.Table.SelectedItem as SpecFileEntryViewModel) is { } selectedItemIndex)
+                context.Table.SelectedItem as FileListingRow) is { } selectedItemIndex)
         {
             return selectedItemIndex;
         }
 
-        foreach (var item in context.Table.SelectedItems.OfType<SpecFileEntryViewModel>().Reverse())
+        foreach (var item in context.Table.SelectedItems.OfType<FileListingRow>().Reverse())
         {
             if (context.Table.GetRowIndex(item) is { } selectedIndex)
             {
@@ -231,7 +231,7 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
     /// <summary>Snapshots the selected rows, marshalling onto the UI thread first because
     /// <c>SelectedItems</c> must only be read on the dispatcher (AGENTS.md §6). Returns synchronously
     /// when already on the UI thread.</summary>
-    private Task<IReadOnlyList<SpecFileEntryViewModel>> GetSelectedItemsSnapshotAsync()
+    private Task<IReadOnlyList<FileListingRow>> GetSelectedItemsSnapshotAsync()
     {
         var context = Context;
         return context.View.DispatcherQueue.HasThreadAccess ?
@@ -239,11 +239,11 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             context.View.DispatcherQueue.RunAsync(() => CreateSelectedItemsSnapshot(context));
     }
 
-    private static IReadOnlyList<SpecFileEntryViewModel> CreateSelectedItemsSnapshot(FileEntryTableContext context)
+    private static IReadOnlyList<FileListingRow> CreateSelectedItemsSnapshot(FileEntryTableContext context)
     {
         return context.Table.SelectedItems
-            .OfType<SpecFileEntryViewModel>()
-            .Where(static item => !SpecFileEntryViewModel.IsParentEntry(item))
+            .OfType<FileListingRow>()
+            .Where(static item => !FileListingRow.IsParentEntry(item))
             .ToList();
     }
 }

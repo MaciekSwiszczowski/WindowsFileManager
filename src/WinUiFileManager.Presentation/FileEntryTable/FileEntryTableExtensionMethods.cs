@@ -30,7 +30,7 @@ internal static class FileEntryTableExtensionMethods
         }
         /// <summary>Returns the row index of <paramref name="item"/>, or null if it is null or not
         /// present in the table.</summary>
-        public int? GetRowIndex(SpecFileEntryViewModel? item)
+        public int? GetRowIndex(FileListingRow? item)
         {
             if (item is null)
             {
@@ -105,8 +105,8 @@ internal static class FileEntryTableExtensionMethods
         }
 
         /// <summary>Returns the first row when it is the synthetic ".." parent row, else null.</summary>
-        public SpecFileEntryViewModel? GetParentItem() =>
-            table.Items.Count > 0 && table.Items[0] is SpecFileEntryViewModel parentItem
+        public FileListingRow? GetParentItem() =>
+            table.Items.Count > 0 && table.Items[0] is FileListingRow parentItem
                 ? parentItem
                 : null;
     }

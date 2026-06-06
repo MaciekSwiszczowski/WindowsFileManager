@@ -1,6 +1,5 @@
 using Autofac;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.Threading;
 using WinUiFileManager.Presentation.ViewModels.Inspector;
@@ -20,7 +19,7 @@ namespace WinUiFileManager.Presentation;
 /// <remarks>
 /// Lifetime choices matter: the display-string cache is the shared process-lifetime
 /// singleton; the row reader/scanner are stateless singletons; the per-folder
-/// <see cref="FileEntryTableDataSource"/> and the view models are <c>InstancePerDependency</c> so each
+/// <see cref="FileListingDataSource"/> and the view models are <c>InstancePerDependency</c> so each
 /// pane/window gets its own disposable instance whose teardown is the owner's responsibility.
 /// </remarks>
 public static class PresentationContainerBuilderExtensions
@@ -29,12 +28,11 @@ public static class PresentationContainerBuilderExtensions
     public static void AddPresentationServices(this ContainerBuilder builder)
     {
         builder.RegisterPresentationThreading();
-        builder.RegisterInstance(FileEntryDisplayStringCache.Shared).SingleInstance();
-        builder.RegisterType<FileEntryRowFactory>().SingleInstance();
-        // Per-dependency: each folder/pane gets its own disposable data source pipeline.
-        builder.RegisterType<FileEntryTableDataSource>().InstancePerDependency();
-        builder.RegisterType<WindowsFileEntryRowReader>().As<IFileEntryRowReader>().SingleInstance();
-        builder.RegisterType<WindowsFolderEntryScanner>().As<IFolderEntryScanner>().SingleInstance();
+        builder.RegisterInstance(FileEntryDisplayStringCache.Shared)
+            .AsSelf()
+            .As<IFileListingStringCache>()
+            .SingleInstance();
+        builder.AddFileListingEngineServices();
         builder.AddPresentationViewModels();
     }
 
@@ -86,7 +84,5 @@ public static class PresentationContainerBuilderExtensions
         builder.RegisterType<InspectorBasicFieldViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorThumbnailFieldViewModel>().InstancePerDependency();
         builder.RegisterType<InspectorToggleFieldViewModel>().InstancePerDependency();
-
-        builder.RegisterType<SpecFileEntryViewModel>().InstancePerDependency();
     }
 }

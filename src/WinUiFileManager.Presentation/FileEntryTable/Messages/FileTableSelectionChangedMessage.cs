@@ -19,6 +19,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Messages;
 /// </param>
 public sealed record FileTableSelectionChangedMessage(
     Identity Identity,
-    IReadOnlyList<SpecFileEntryViewModel> SelectedItems,
+    IReadOnlyList<FileListingRow> SelectedItems,
     bool IsParentRowSelected,
-    SpecFileEntryViewModel? ActiveItem = null) : IIdentityMessage;
+    FileListingRow? ActiveItem = null) : IIdentityMessage;

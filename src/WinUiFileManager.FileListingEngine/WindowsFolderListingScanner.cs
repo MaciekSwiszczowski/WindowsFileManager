@@ -1,12 +1,12 @@
 using System.IO.Enumeration;
-using WinUiFileManager.Presentation.FileEntryTable;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Presentation.FileEntryTableData;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
-/// Default <see cref="IFolderEntryScanner"/>: enumerates a directory with
+/// Default <see cref="IFolderListingScanner"/>: enumerates a directory with
 /// <see cref="FileSystemEnumerable{TResult}"/>, prepends the synthetic ".." parent row when the folder
-/// has a parent, and projects each native entry into a row via <see cref="FileEntryRowFactory"/>.
+/// has a parent, and projects each native entry into a row via <see cref="FileListingRowFactory"/>.
 /// </summary>
 /// <remarks>
 /// <see cref="FileSystemEnumerable{TResult}"/> is used (rather than <c>Directory.GetFiles</c>) so each
@@ -14,7 +14,7 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// entries are skipped (<see cref="EnumerationOptions.IgnoreInaccessible"/>) and the cancellation token
 /// is honoured between entries so a folder change can abandon a large scan promptly.
 /// </remarks>
-internal sealed class WindowsFolderEntryScanner : IFolderEntryScanner
+internal sealed class WindowsFolderListingScanner : IFolderListingScanner
 {
     private static readonly EnumerationOptions EnumerationOptions = new()
     {
@@ -23,10 +23,10 @@ internal sealed class WindowsFolderEntryScanner : IFolderEntryScanner
         ReturnSpecialDirectories = false,
     };
 
-    private readonly FileEntryRowFactory _rowFactory;
+    private readonly FileListingRowFactory _rowFactory;
 
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="rowFactory"/> is null.</exception>
-    public WindowsFolderEntryScanner(FileEntryRowFactory rowFactory)
+    public WindowsFolderListingScanner(FileListingRowFactory rowFactory)
     {
         ArgumentNullException.ThrowIfNull(rowFactory);
         _rowFactory = rowFactory;
@@ -36,7 +36,7 @@ internal sealed class WindowsFolderEntryScanner : IFolderEntryScanner
     /// exist. The ".." row is included only when the folder has a parent (i.e. not a drive root).</summary>
     /// <exception cref="OperationCanceledException">Thrown when <paramref name="cancellationToken"/> is
     /// signalled before or during enumeration.</exception>
-    public IReadOnlyList<SpecFileEntryViewModel> Scan(NormalizedPath path, CancellationToken cancellationToken)
+    public IReadOnlyList<FileListingRow> Scan(NormalizedPath path, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -46,10 +46,10 @@ internal sealed class WindowsFolderEntryScanner : IFolderEntryScanner
             return [];
         }
 
-        var entries = new List<SpecFileEntryViewModel>();
+        var entries = new List<FileListingRow>();
         if (Directory.GetParent(displayPath) is not null)
         {
-            entries.Add(SpecFileEntryViewModel.CreateParentEntry());
+            entries.Add(FileListingRow.CreateParentEntry());
         }
 
         foreach (var entry in EnumerateEntries(path))
@@ -63,9 +63,9 @@ internal sealed class WindowsFolderEntryScanner : IFolderEntryScanner
 
     /// <summary>Lazily enumerates the directory, transforming each native entry into a row via the
     /// factory directly from the enumeration record (no second filesystem hit per entry).</summary>
-    private FileSystemEnumerable<SpecFileEntryViewModel> EnumerateEntries(NormalizedPath directoryPath)
+    private FileSystemEnumerable<FileListingRow> EnumerateEntries(NormalizedPath directoryPath)
     {
-        return new FileSystemEnumerable<SpecFileEntryViewModel>(
+        return new FileSystemEnumerable<FileListingRow>(
             directoryPath.DisplayPath,
             (ref entry) => _rowFactory.Create(directoryPath, ref entry),
             EnumerationOptions);

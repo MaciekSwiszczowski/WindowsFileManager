@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <RootNamespace>WinUiFileManager.Application.Tests</RootNamespace>
-    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,7 +17,12 @@
     <PackageReference Include="Autofac" />
     <PackageReference Include="Autofac.Extensions.DependencyInjection" />
     <PackageReference Include="AutoFixture" />
-    <PackageReference Include="TUnit" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 </Project>

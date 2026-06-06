@@ -4,29 +4,29 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class FileEntryDisplayStringCacheTests
 {
-    [Test]
-    public async Task Test_TableAttributes_UseCompactShortcuts()
+    [Fact]
+    public void TableAttributes_UseCompactShortcuts()
     {
         var cache = FileEntryDisplayStringCache.Shared;
 
         var result = cache.GetTableAttributes(FileAttributes.Hidden | FileAttributes.ReadOnly);
 
-        await Assert.That(result).IsEqualTo("F H R");
+        Assert.Equal("F H R", result);
     }
 
-    [Test]
-    public async Task Test_InspectorAttributes_UseFullFrameworkText()
+    [Fact]
+    public void InspectorAttributes_UseFullFrameworkText()
     {
         var cache = FileEntryDisplayStringCache.Shared;
         var attributes = FileAttributes.Directory | FileAttributes.Hidden;
 
         var result = cache.GetInspectorAttributes(attributes);
 
-        await Assert.That(result).IsEqualTo(attributes.ToString());
+        Assert.Equal(attributes.ToString(), result);
     }
 
-    [Test]
-    public async Task Test_Extensions_CacheOnlyShortLetterExtensions()
+    [Fact]
+    public void Extensions_CacheOnlyShortLetterExtensions()
     {
         var cache = FileEntryDisplayStringCache.Shared;
 
@@ -37,8 +37,8 @@ public sealed class FileEntryDisplayStringCacheTests
         var numericExtension = cache.GetExtension(new string(['.', '1', '2', '3']));
         var sameNumericExtension = cache.GetExtension(new string(['.', '1', '2', '3']));
 
-        await Assert.That(ReferenceEquals(shortExtension, sameShortExtension)).IsTrue();
-        await Assert.That(ReferenceEquals(longExtension, sameLongExtension)).IsFalse();
-        await Assert.That(ReferenceEquals(numericExtension, sameNumericExtension)).IsFalse();
+        Assert.True(ReferenceEquals(shortExtension, sameShortExtension));
+        Assert.False(ReferenceEquals(longExtension, sameLongExtension));
+        Assert.False(ReferenceEquals(numericExtension, sameNumericExtension));
     }
 }

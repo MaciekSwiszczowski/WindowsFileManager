@@ -1,6 +1,5 @@
 using R3;
 using Microsoft.Extensions.Logging.Abstractions;
-using TUnit.Core;
 using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Tests.Fixtures;
@@ -11,8 +10,8 @@ public sealed class WindowsDirectoryChangeStreamTests
 {
     private static readonly TimeSpan EventTimeout = TimeSpan.FromSeconds(5);
 
-    [Test]
-    public async Task Test_Watch_EmitsCreated_ForNewFile()
+    [Fact]
+    public async Task Watch_EmitsCreated_ForNewFile()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -29,11 +28,11 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path).Contains("created.txt");
+        Assert.Contains("created.txt", signalled.Path);
     }
 
-    [Test]
-    public async Task Test_Watch_EmitsDeleted_ForRemovedFile()
+    [Fact]
+    public async Task Watch_EmitsDeleted_ForRemovedFile()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -51,11 +50,11 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path).Contains("to-delete.txt");
+        Assert.Contains("to-delete.txt", signalled.Path);
     }
 
-    [Test]
-    public async Task Test_Watch_EmitsRenamed_WithOldAndNewPath()
+    [Fact]
+    public async Task Watch_EmitsRenamed_WithOldAndNewPath()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -74,13 +73,13 @@ public sealed class WindowsDirectoryChangeStreamTests
 
         // Assert
         var signalled = await ready.Task.WaitAsync(EventTimeout);
-        await Assert.That(signalled.Path).Contains("new.txt");
-        await Assert.That(signalled.OldPath).IsNotNull();
-        await Assert.That(signalled.OldPath!).Contains("old.txt");
+        Assert.Contains("new.txt", signalled.Path);
+        Assert.NotNull(signalled.OldPath);
+        Assert.Contains("old.txt", signalled.OldPath!);
     }
 
-    [Test]
-    public async Task Test_Watch_StopsEmitting_AfterDispose()
+    [Fact]
+    public async Task Watch_StopsEmitting_AfterDispose()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -105,7 +104,7 @@ public sealed class WindowsDirectoryChangeStreamTests
         await Task.Delay(TimeSpan.FromMilliseconds(500));
 
         // Assert
-        await Assert.That(count).IsEqualTo(1);
+        Assert.Equal(1, count);
     }
 
     private static WindowsDirectoryChangeStream CreateStream()

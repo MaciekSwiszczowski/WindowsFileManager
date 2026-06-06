@@ -1,5 +1,4 @@
 using System.Runtime.InteropServices;
-using TUnit.Core;
 using Windows.Win32.Foundation;
 using Windows.Win32.Storage.CloudFilters;
 using WinUiFileManager.Interop.Adapters;
@@ -8,8 +7,8 @@ namespace WinUiFileManager.Interop.Tests.Scenarios;
 
 public sealed class InteropAdapterTests
 {
-    [Test]
-    public async Task Test_RestartManagerInterop_StartSessionCore_UsesWritableZeroedBuffer()
+    [Fact]
+    public void RestartManagerInterop_StartSessionCore_UsesWritableZeroedBuffer()
     {
         static unsafe (int Result, uint SessionHandle) Execute()
         {
@@ -28,12 +27,12 @@ public sealed class InteropAdapterTests
 
         var (result, sessionHandle) = Execute();
 
-        await Assert.That(result).IsEqualTo(7);
-        await Assert.That(sessionHandle).IsEqualTo((uint)42);
+        Assert.Equal(7, result);
+        Assert.Equal((uint)42, sessionHandle);
     }
 
-    [Test]
-    public async Task Test_RestartManagerInterop_RegisterResourcesCore_PinsAndPassesPaths()
+    [Fact]
+    public void RestartManagerInterop_RegisterResourcesCore_PinsAndPassesPaths()
     {
         static unsafe (int Result, string? FirstPath, string? SecondPath) Execute()
         {
@@ -60,19 +59,19 @@ public sealed class InteropAdapterTests
 
         var (result, firstPath, secondPath) = Execute();
 
-        await Assert.That(result).IsEqualTo(19);
-        await Assert.That(firstPath).IsEqualTo(@"C:\temp\a.txt");
-        await Assert.That(secondPath).IsEqualTo(@"C:\temp\b.txt");
+        Assert.Equal(19, result);
+        Assert.Equal(@"C:\temp\a.txt", firstPath);
+        Assert.Equal(@"C:\temp\b.txt", secondPath);
     }
 
-    [Test]
-    public async Task Test_CloudFilesInterop_GetPlaceholderStateCore_ReturnsUnderlyingFlags()
+    [Fact]
+    public void CloudFilesInterop_GetPlaceholderStateCore_ReturnsUnderlyingFlags()
     {
         var result = CloudFilesInterop.GetPlaceholderStateCore(
             static (_, _) => (CF_PLACEHOLDER_STATE)0x0018u,
             0x20,
             0x9000001A);
 
-        await Assert.That(result).IsEqualTo((uint)0x0018);
+        Assert.Equal((uint)0x0018, result);
     }
 }

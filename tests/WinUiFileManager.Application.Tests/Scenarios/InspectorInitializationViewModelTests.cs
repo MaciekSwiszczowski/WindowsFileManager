@@ -10,8 +10,8 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class InspectorInitializationViewModelTests
 {
-    [Test]
-    public async Task Test_DeferredSelectionObservable_DebouncesWithInjectedTimeProvider()
+    [Fact]
+    public void DeferredSelectionObservable_DebouncesWithInjectedTimeProvider()
     {
         var messenger = new FileManagerMessenger(new StrongReferenceMessenger());
         var activePanels = new FakeActivePanelsService();
@@ -26,17 +26,17 @@ public sealed class InspectorInitializationViewModelTests
         messenger.Send(new FileTableSelectionChangedMessage("Left", [first], IsParentRowSelected: false, first));
         timeProvider.Advance(TimeSpan.FromMilliseconds(299));
 
-        await Assert.That(received.Count).IsEqualTo(0);
+        Assert.Empty(received);
 
         messenger.Send(new FileTableSelectionChangedMessage("Left", [second], IsParentRowSelected: false, second));
         timeProvider.Advance(TimeSpan.FromMilliseconds(299));
 
-        await Assert.That(received.Count).IsEqualTo(0);
+        Assert.Empty(received);
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(1));
 
-        await Assert.That(received.Count).IsEqualTo(1);
-        await Assert.That(ReferenceEquals(received[0], second)).IsTrue();
+        Assert.Single(received);
+        Assert.True(ReferenceEquals(received[0], second));
     }
 
     private static InspectorInitializationViewModel CreateSut(

@@ -5,8 +5,8 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class SpecFileEntryComparerTests
 {
-    [Test]
-    public async Task Test_SizeSort_KeepsDirectoriesSortedByName()
+    [Fact]
+    public void SizeSort_KeepsDirectoriesSortedByName()
     {
         // Arrange
         var comparer = new SpecFileEntryComparer(SortColumn.Size, ascending: false, FileEntryDisplayStringCache.Shared);
@@ -22,12 +22,11 @@ public sealed class SpecFileEntryComparerTests
         items.Sort(comparer);
 
         // Assert
-        await Assert.That(string.Join("|", items.Select(static item => item.Model?.Name)))
-            .IsEqualTo("alpha|zeta|large.txt|small.txt");
+        Assert.Equal("alpha|zeta|large.txt|small.txt", string.Join("|", items.Select(static item => item.Model?.Name)));
     }
 
-    [Test]
-    public async Task Test_NameSort_AppliesDirectionInsideDirectoryGroup()
+    [Fact]
+    public void NameSort_AppliesDirectionInsideDirectoryGroup()
     {
         // Arrange
         var comparer = new SpecFileEntryComparer(SortColumn.Name, ascending: false, FileEntryDisplayStringCache.Shared);
@@ -43,8 +42,7 @@ public sealed class SpecFileEntryComparerTests
         items.Sort(comparer);
 
         // Assert
-        await Assert.That(string.Join("|", items.Select(static item => item.Model?.Name)))
-            .IsEqualTo("zeta|alpha|z.txt|a.txt");
+        Assert.Equal("zeta|alpha|z.txt|a.txt", string.Join("|", items.Select(static item => item.Model?.Name)));
     }
 
     private static SpecFileEntryViewModel Directory(string name) =>

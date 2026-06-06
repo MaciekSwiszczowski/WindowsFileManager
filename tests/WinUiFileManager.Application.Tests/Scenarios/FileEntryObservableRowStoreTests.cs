@@ -6,8 +6,8 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class FileEntryObservableRowStoreTests
 {
-    [Test]
-    public async Task Test_Reset_DeduplicatesByPathAndSortsRows()
+    [Fact]
+    public void Reset_DeduplicatesByPathAndSortsRows()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -22,12 +22,12 @@ public sealed class FileEntryObservableRowStoreTests
             CreateNameComparer());
 
         // Assert
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt");
-        await Assert.That(sut.Rows[1].Model!.Size).IsEqualTo(2);
+        Assert.Equal("a.txt|b.txt", GetNames(sut));
+        Assert.Equal(2, sut.Rows[1].Model!.Size);
     }
 
-    [Test]
-    public async Task Test_AddOrUpdate_ReplacesExistingRowAndKeepsSort()
+    [Fact]
+    public void AddOrUpdate_ReplacesExistingRowAndKeepsSort()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -37,12 +37,12 @@ public sealed class FileEntryObservableRowStoreTests
         sut.AddOrUpdate(File("b.txt", size: 5));
 
         // Assert
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt");
-        await Assert.That(sut.Rows[1].Model!.Size).IsEqualTo(5);
+        Assert.Equal("a.txt|b.txt", GetNames(sut));
+        Assert.Equal(5, sut.Rows[1].Model!.Size);
     }
 
-    [Test]
-    public async Task Test_AddOrUpdate_InsertsNewRowInSortedPosition()
+    [Fact]
+    public void AddOrUpdate_InsertsNewRowInSortedPosition()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -52,11 +52,11 @@ public sealed class FileEntryObservableRowStoreTests
         sut.AddOrUpdate(File("b.txt", size: 1));
 
         // Assert
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt|c.txt");
+        Assert.Equal("a.txt|b.txt|c.txt", GetNames(sut));
     }
 
-    [Test]
-    public async Task Test_AddOrUpdate_MovesRowWhenSortKeyChanges()
+    [Fact]
+    public void AddOrUpdate_MovesRowWhenSortKeyChanges()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -68,12 +68,12 @@ public sealed class FileEntryObservableRowStoreTests
         sut.AddOrUpdate(File("a.txt", size: 0));
 
         // Assert
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt|b.txt|c.txt");
-        await Assert.That(sut.Rows[0].Model!.Size).IsEqualTo(0);
+        Assert.Equal("a.txt|b.txt|c.txt", GetNames(sut));
+        Assert.Equal(0, sut.Rows[0].Model!.Size);
     }
 
-    [Test]
-    public async Task Test_Remove_RemovesMatchingKey()
+    [Fact]
+    public void Remove_RemovesMatchingKey()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -84,12 +84,12 @@ public sealed class FileEntryObservableRowStoreTests
         var removed = sut.Remove(removeTarget.GetKey());
 
         // Assert
-        await Assert.That(removed).IsTrue();
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt|c.txt");
+        Assert.True(removed);
+        Assert.Equal("a.txt|c.txt", GetNames(sut));
     }
 
-    [Test]
-    public async Task Test_Remove_ReturnsFalseWhenKeyAbsent()
+    [Fact]
+    public void Remove_ReturnsFalseWhenKeyAbsent()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -99,12 +99,12 @@ public sealed class FileEntryObservableRowStoreTests
         var removed = sut.Remove(File("missing.txt", size: 1).GetKey());
 
         // Assert
-        await Assert.That(removed).IsFalse();
-        await Assert.That(GetNames(sut)).IsEqualTo("a.txt");
+        Assert.False(removed);
+        Assert.Equal("a.txt", GetNames(sut));
     }
 
-    [Test]
-    public async Task Test_Sort_ReordersRowsUnderNewComparer()
+    [Fact]
+    public void Sort_ReordersRowsUnderNewComparer()
     {
         // Arrange
         using var sut = new FileEntryObservableRowStore();
@@ -114,7 +114,7 @@ public sealed class FileEntryObservableRowStoreTests
         sut.Sort(CreateNameComparer(ascending: false));
 
         // Assert
-        await Assert.That(GetNames(sut)).IsEqualTo("c.txt|b.txt|a.txt");
+        Assert.Equal("c.txt|b.txt|a.txt", GetNames(sut));
     }
 
     private static IComparer<SpecFileEntryViewModel> CreateNameComparer(bool ascending = true) =>

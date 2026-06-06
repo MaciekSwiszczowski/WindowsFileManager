@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using TUnit.Core;
 using WinUiFileManager.Application.Settings;
 using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Infrastructure.Persistence;
@@ -13,11 +12,13 @@ namespace WinUiFileManager.Infrastructure.Tests.Scenarios;
 /// These tests use the real app-data path at %LOCALAPPDATA%\WinUiFileManager\settings.json.
 /// Each test backs up and restores the original file to avoid corrupting real settings.
 /// </remarks>
-public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
+public sealed class JsonSettingsRepositoryTests : IAsyncLifetime
 {
     private readonly string _tempFilePath = Path.Combine(Path.GetTempPath(), $"settings_{Guid.NewGuid()}.json");
 
-    public async ValueTask DisposeAsync()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
         if (File.Exists(_tempFilePath))
         {
@@ -30,10 +31,12 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
                 // Ignore cleanup
             }
         }
+
+        await Task.CompletedTask;
     }
 
-    [Test]
-    public async Task Test_LoadAsync_ReturnsDefaultsWhenNoFile()
+    [Fact]
+    public async Task LoadAsync_ReturnsDefaultsWhenNoFile()
     {
         // Arrange
         var sut = CreateRepository();
@@ -43,13 +46,13 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
 
         // Assert
         var defaults = new AppSettings();
-        await Assert.That(settings.ParallelExecutionEnabled).IsEqualTo(defaults.ParallelExecutionEnabled);
-        await Assert.That(settings.MaxDegreeOfParallelism).IsEqualTo(defaults.MaxDegreeOfParallelism);
-        await Assert.That(settings.LastActivePane).IsEqualTo(defaults.LastActivePane);
+        Assert.Equal(defaults.ParallelExecutionEnabled, settings.ParallelExecutionEnabled);
+        Assert.Equal(defaults.MaxDegreeOfParallelism, settings.MaxDegreeOfParallelism);
+        Assert.Equal(defaults.LastActivePane, settings.LastActivePane);
     }
 
-    [Test]
-    public async Task Test_SaveAndLoad_RoundTrips()
+    [Fact]
+    public async Task SaveAndLoad_RoundTrips()
     {
         // Arrange
         var sut = CreateRepository();
@@ -65,13 +68,13 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         var loaded = await sut.LoadAsync(CancellationToken.None);
 
         // Assert
-        await Assert.That(loaded.ParallelExecutionEnabled).IsTrue();
-        await Assert.That(loaded.MaxDegreeOfParallelism).IsEqualTo(8);
-        await Assert.That(loaded.LastActivePane).IsEqualTo("Right");
+        Assert.True(loaded.ParallelExecutionEnabled);
+        Assert.Equal(8, loaded.MaxDegreeOfParallelism);
+        Assert.Equal("Right", loaded.LastActivePane);
     }
 
-    [Test]
-    public async Task Test_SaveAndLoad_PreservesAllSettings()
+    [Fact]
+    public async Task SaveAndLoad_PreservesAllSettings()
     {
         // Arrange
         var sut = CreateRepository();
@@ -88,15 +91,15 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         var loaded = await reader.LoadAsync(CancellationToken.None);
 
         // Assert
-        await Assert.That(loaded.ParallelExecutionEnabled).IsEqualTo(settings.ParallelExecutionEnabled);
-        await Assert.That(loaded.MaxDegreeOfParallelism).IsEqualTo(settings.MaxDegreeOfParallelism);
-        await Assert.That(loaded.LastLeftPanePath!.Value.DisplayPath).IsEqualTo(@"C:\Users");
-        await Assert.That(loaded.LastRightPanePath!.Value.DisplayPath).IsEqualTo(@"C:\Temp");
-        await Assert.That(loaded.LastActivePane).IsEqualTo(settings.LastActivePane);
+        Assert.Equal(settings.ParallelExecutionEnabled, loaded.ParallelExecutionEnabled);
+        Assert.Equal(settings.MaxDegreeOfParallelism, loaded.MaxDegreeOfParallelism);
+        Assert.Equal(@"C:\Users", loaded.LastLeftPanePath!.Value.DisplayPath);
+        Assert.Equal(@"C:\Temp", loaded.LastRightPanePath!.Value.DisplayPath);
+        Assert.Equal(settings.LastActivePane, loaded.LastActivePane);
     }
 
-    [Test]
-    public async Task Test_SaveAndLoad_RoundTripsLayoutFields()
+    [Fact]
+    public async Task SaveAndLoad_RoundTripsLayoutFields()
     {
         // Arrange
         var sut = CreateRepository();
@@ -125,21 +128,21 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         var loaded = await CreateRepository().LoadAsync(CancellationToken.None);
 
         // Assert
-        await Assert.That(loaded.LeftPaneWidth).IsEqualTo(512d);
-        await Assert.That(loaded.InspectorWidth).IsEqualTo(400d);
-        await Assert.That(loaded.LeftPaneColumns.NameWidth).IsEqualTo(350d);
-        await Assert.That(loaded.LeftPaneColumns.ModifiedWidth).IsEqualTo(140d);
-        await Assert.That(loaded.LeftPaneSort.Column).IsEqualTo(SortColumn.Size);
-        await Assert.That(loaded.LeftPaneSort.Ascending).IsFalse();
-        await Assert.That(loaded.RightPaneSort.Column).IsEqualTo(SortColumn.Modified);
-        await Assert.That(loaded.MainWindowPlacement.X).IsEqualTo(120);
-        await Assert.That(loaded.MainWindowPlacement.Width).IsEqualTo(1600);
-        await Assert.That(loaded.MainWindowPlacement.IsMaximized).IsFalse();
-        await Assert.That(loaded.MainWindowPlacement.DisplayDeviceName).IsEqualTo(@"\\.\DISPLAY1");
+        Assert.Equal(512d, loaded.LeftPaneWidth);
+        Assert.Equal(400d, loaded.InspectorWidth);
+        Assert.Equal(350d, loaded.LeftPaneColumns.NameWidth);
+        Assert.Equal(140d, loaded.LeftPaneColumns.ModifiedWidth);
+        Assert.Equal(SortColumn.Size, loaded.LeftPaneSort.Column);
+        Assert.False(loaded.LeftPaneSort.Ascending);
+        Assert.Equal(SortColumn.Modified, loaded.RightPaneSort.Column);
+        Assert.Equal(120, loaded.MainWindowPlacement.X);
+        Assert.Equal(1600, loaded.MainWindowPlacement.Width);
+        Assert.False(loaded.MainWindowPlacement.IsMaximized);
+        Assert.Equal(@"\\.\DISPLAY1", loaded.MainWindowPlacement.DisplayDeviceName);
     }
 
-    [Test]
-    public async Task Test_LoadAsync_UsesDefaultsForMissingLayoutFields()
+    [Fact]
+    public async Task LoadAsync_UsesDefaultsForMissingLayoutFields()
     {
         // Arrange
         var legacyJson = """
@@ -160,10 +163,10 @@ public sealed class JsonSettingsRepositoryTests : IAsyncDisposable
         var loaded = await sut.LoadAsync(CancellationToken.None);
 
         // Assert
-        await Assert.That(loaded.LeftPaneWidth).IsEqualTo(600d);
-        await Assert.That(loaded.LeftPaneColumns).IsEqualTo(PaneColumnLayout.Default);
-        await Assert.That(loaded.LeftPaneSort).IsEqualTo(SortState.Default);
-        await Assert.That(loaded.MainWindowPlacement).IsEqualTo(WindowPlacement.Default);
+        Assert.Equal(600d, loaded.LeftPaneWidth);
+        Assert.Equal(PaneColumnLayout.Default, loaded.LeftPaneColumns);
+        Assert.Equal(SortState.Default, loaded.LeftPaneSort);
+        Assert.Equal(WindowPlacement.Default, loaded.MainWindowPlacement);
     }
 
     private JsonSettingsRepository CreateRepository()

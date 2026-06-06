@@ -1,7 +1,7 @@
 // Global using directives
 
 global using Microsoft.Extensions.Logging.Abstractions;
-global using TUnit.Core;
+global using Xunit;
 global using AutoFixture;
 global using WinUiFileManager.Application.Abstractions;
 global using WinUiFileManager.Application.Diagnostics;

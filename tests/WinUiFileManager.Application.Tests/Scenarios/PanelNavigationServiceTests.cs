@@ -5,8 +5,8 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class PanelNavigationServiceTests
 {
-    [Test]
-    public async Task Test_NavigateUp_UsesStoredCurrentPath()
+    [Fact]
+    public void NavigateUp_UsesStoredCurrentPath()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -26,13 +26,13 @@ public sealed class PanelNavigationServiceTests
         messenger.Send(new FileTableNavigateUpRequestedMessage("Left"));
 
         // Assert
-        await Assert.That(received).IsNotNull();
-        await Assert.That(received!.Identity).IsEqualTo("Left");
-        await Assert.That(received.Path.DisplayPath).IsEqualTo(fixture.RootPath);
+        Assert.NotNull(received);
+        Assert.Equal("Left", received!.Identity);
+        Assert.Equal(fixture.RootPath, received.Path.DisplayPath);
     }
 
-    [Test]
-    public async Task Test_NavigateDown_CombinesStoredPathAndFolderName()
+    [Fact]
+    public void NavigateDown_CombinesStoredPathAndFolderName()
     {
         // Arrange
         using var fixture = new NtfsTempDirectoryFixture();
@@ -52,8 +52,8 @@ public sealed class PanelNavigationServiceTests
         messenger.Send(new FileTableNavigateDownRequestedMessage("Right", "Child"));
 
         // Assert
-        await Assert.That(received).IsNotNull();
-        await Assert.That(received!.Identity).IsEqualTo("Right");
-        await Assert.That(received.Path.DisplayPath).IsEqualTo(childPath);
+        Assert.NotNull(received);
+        Assert.Equal("Right", received!.Identity);
+        Assert.Equal(childPath, received.Path.DisplayPath);
     }
 }

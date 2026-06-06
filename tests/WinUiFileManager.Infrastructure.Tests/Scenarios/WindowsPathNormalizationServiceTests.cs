@@ -1,12 +1,11 @@
-using TUnit.Core;
 using WinUiFileManager.Infrastructure.Services;
 
 namespace WinUiFileManager.Infrastructure.Tests.Scenarios;
 
 public sealed class WindowsPathNormalizationServiceTests
 {
-    [Test]
-    public async Task Test_Normalize_ReturnsNormalizedPath()
+    [Fact]
+    public void Normalize_ReturnsNormalizedPath()
     {
         // Arrange
         var sut = new WindowsPathNormalizationService();
@@ -16,12 +15,12 @@ public sealed class WindowsPathNormalizationServiceTests
         var result = sut.Normalize(rawPath);
 
         // Assert
-        await Assert.That(result.DisplayPath).IsEqualTo(@"C:\Users\Test");
-        await Assert.That(result.Value).IsEqualTo(@"\\?\C:\Users\Test");
+        Assert.Equal(@"C:\Users\Test", result.DisplayPath);
+        Assert.Equal(@"\\?\C:\Users\Test", result.Value);
     }
 
-    [Test]
-    public async Task Test_Validate_ValidPath_ReturnsValid()
+    [Fact]
+    public void Validate_ValidPath_ReturnsValid()
     {
         // Arrange
         var sut = new WindowsPathNormalizationService();
@@ -30,11 +29,11 @@ public sealed class WindowsPathNormalizationServiceTests
         var result = sut.Validate(@"C:\Windows\System32");
 
         // Assert
-        await Assert.That(result.IsValid).IsTrue();
+        Assert.True(result.IsValid);
     }
 
-    [Test]
-    public async Task Test_Validate_EmptyPath_ReturnsInvalid()
+    [Fact]
+    public void Validate_EmptyPath_ReturnsInvalid()
     {
         // Arrange
         var sut = new WindowsPathNormalizationService();
@@ -43,12 +42,12 @@ public sealed class WindowsPathNormalizationServiceTests
         var result = sut.Validate(string.Empty);
 
         // Assert
-        await Assert.That(result.IsValid).IsFalse();
-        await Assert.That(result.ErrorMessage).IsNotNull();
+        Assert.False(result.IsValid);
+        Assert.NotNull(result.ErrorMessage);
     }
 
-    [Test]
-    public async Task Test_Validate_InvalidChars_ReturnsInvalid()
+    [Fact]
+    public void Validate_InvalidChars_ReturnsInvalid()
     {
         // Arrange
         var sut = new WindowsPathNormalizationService();
@@ -58,6 +57,6 @@ public sealed class WindowsPathNormalizationServiceTests
         var result = sut.Validate(pathWithInvalidChars);
 
         // Assert
-        await Assert.That(result.IsValid).IsFalse();
+        Assert.False(result.IsValid);
     }
 }

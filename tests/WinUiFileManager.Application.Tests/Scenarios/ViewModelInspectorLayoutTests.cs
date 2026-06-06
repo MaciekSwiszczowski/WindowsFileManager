@@ -5,39 +5,39 @@ namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class ViewModelInspectorLayoutTests
 {
-    [Test]
-    public async Task Test_InspectorColumnWidth_CollapsesWhenInspectorHidden()
+    [Fact]
+    public void InspectorColumnWidth_CollapsesWhenInspectorHidden()
     {
         var vm = CreateLayoutHarness();
         vm.InspectorWidth = 412d;
 
         SetInspectorVisible(vm, false);
 
-        await Assert.That(vm.InspectorColumnWidth).IsEqualTo(0d);
-        await Assert.That(vm.InspectorMinWidth).IsEqualTo(0d);
+        Assert.Equal(0d, vm.InspectorColumnWidth);
+        Assert.Equal(0d, vm.InspectorMinWidth);
     }
 
-    [Test]
-    public async Task Test_InspectorColumnWidth_UsesMinimumWhenVisible()
+    [Fact]
+    public void InspectorColumnWidth_UsesMinimumWhenVisible()
     {
         var vm = CreateLayoutHarness();
         vm.InspectorWidth = 100d;
         SetInspectorVisible(vm, true);
 
-        await Assert.That(vm.InspectorColumnWidth).IsEqualTo(260d);
-        await Assert.That(vm.InspectorMinWidth).IsEqualTo(260d);
+        Assert.Equal(260d, vm.InspectorColumnWidth);
+        Assert.Equal(260d, vm.InspectorMinWidth);
     }
 
-    [Test]
-    public async Task Test_UpdateInspectorWidthFromLayout_ClampsAndStoresVisibleWidth()
+    [Fact]
+    public void UpdateInspectorWidthFromLayout_ClampsAndStoresVisibleWidth()
     {
         var vm = CreateLayoutHarness();
         SetInspectorVisible(vm, true);
 
         vm.UpdateInspectorWidthFromLayout(180d);
 
-        await Assert.That(vm.InspectorWidth).IsEqualTo(260d);
-        await Assert.That(vm.InspectorColumnWidth).IsEqualTo(260d);
+        Assert.Equal(260d, vm.InspectorWidth);
+        Assert.Equal(260d, vm.InspectorColumnWidth);
     }
 
     private static MainShellViewModel CreateLayoutHarness()

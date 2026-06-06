@@ -57,7 +57,6 @@ public class ThumbnailHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -85,9 +84,9 @@ public class ThumbnailHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorThumbnailDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorThumbnailDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<ThumbnailHandlerBenchmarks, InspectorThumbnailDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [Benchmark]
@@ -107,8 +106,7 @@ public class ThumbnailHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
         _container?.Dispose();
         _container = null;
         _messenger = null;

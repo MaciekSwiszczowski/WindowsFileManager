@@ -30,7 +30,6 @@ public class CloudHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -56,9 +55,9 @@ public class CloudHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorCloudDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorCloudDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<CloudHandlerBenchmarks, InspectorCloudDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [Benchmark]
@@ -78,8 +77,7 @@ public class CloudHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
         _container?.Dispose();
         _container = null;
         _messenger = null;

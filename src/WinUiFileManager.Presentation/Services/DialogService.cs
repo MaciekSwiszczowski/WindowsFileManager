@@ -24,7 +24,7 @@ namespace WinUiFileManager.Presentation.Services;
 public sealed class DialogService : IDisposable
 {
     private readonly ILogger<DialogService> _logger;
-    private readonly IMessenger _messenger;
+    private readonly IFileManagerMessenger _messenger;
     private ContentDialog? _activeDialog;
     private UiDispatcherQueue? _dispatcherQueue;
     private DialogMessageOrchestrator? _orchestrator;
@@ -32,7 +32,7 @@ public sealed class DialogService : IDisposable
     private bool _disposed;
 
     /// <exception cref="ArgumentNullException">Thrown when <paramref name="messenger"/> is null.</exception>
-    public DialogService(ILogger<DialogService> logger, IMessenger messenger)
+    public DialogService(ILogger<DialogService> logger, IFileManagerMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(messenger);
         _logger = logger;

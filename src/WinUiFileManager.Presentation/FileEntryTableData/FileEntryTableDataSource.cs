@@ -12,8 +12,7 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Built on <see cref="FileEntryObservableRowStore"/> (R3 + ObservableCollections, the successor to the
-/// former DynamicData <c>SourceCache</c> + <c>SortAndBind</c>). The store is the authoritative keyed, sorted
+/// Built on <see cref="FileEntryObservableRowStore"/> (R3 + ObservableCollections). The store is the authoritative keyed, sorted
 /// row set, keyed by normalised full path so a scan row and a later watcher update for the same file collapse
 /// onto one entry. <see cref="Items"/> is a thin <c>INotifyCollectionChanged</c> adapter over the store's
 /// <see cref="FileEntryObservableRowStore.Rows"/> (<see cref="ObservableList{T}.ToNotifyCollectionChangedSlim()"/>):
@@ -112,14 +111,13 @@ public sealed class FileEntryTableDataSource : IDisposable
         // Filesystem watcher → one incremental action per change. Concat'd after the seed so a watcher update
         // can never be applied before the initial rows exist.
         var changes = directoryChangeStream
-            .WatchR3(_folderPath)
+            .Watch(_folderPath)
             .Select(change => new Action(() => ApplyDirectoryChange(change)));
 
-        // Sort requests scoped to this pane → re-sort action. Bridged from the messenger's cold observable to
-        // R3, then filtered by pane identity with a static (allocation-free) predicate.
+        // Sort requests scoped to this pane → re-sort action, filtered by pane identity with a static
+        // (allocation-free) predicate.
         var sorts = messenger
             .CreateObservable<FileTableSortRequestedMessage>()
-            .ToObservable()
             .Where(_identity, static (message, identity) => message.Identity == identity)
             .Select(message => new Action(() => ApplySort(new SortState(message.Column, message.Ascending))));
 

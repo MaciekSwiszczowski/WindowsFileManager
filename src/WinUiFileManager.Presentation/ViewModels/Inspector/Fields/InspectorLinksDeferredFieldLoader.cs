@@ -21,10 +21,10 @@ internal sealed class InspectorLinksDeferredFieldLoader :
     ];
 
     public InspectorLinksDeferredFieldLoader(
-        IMessenger messenger,
-        ISchedulerProvider schedulers,
+        IFileManagerMessenger messenger,
+        SynchronizationContext uiSynchronizationContext,
         ILogger<InspectorLinksDeferredFieldLoader> logger)
-        : base(messenger, schedulers, logger)
+        : base(messenger, uiSynchronizationContext, logger)
     {
     }
 

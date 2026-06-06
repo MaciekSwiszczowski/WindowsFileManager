@@ -3,7 +3,6 @@ using Autofac;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Persistence;
-using WinUiFileManager.Infrastructure.Scheduling;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
 
@@ -50,7 +49,6 @@ public static class InfrastructureContainerBuilderExtensions
 
         builder.RegisterType<NtfsVolumePolicyService>().As<INtfsVolumePolicyService>().SingleInstance();
         builder.RegisterType<WindowsPathNormalizationService>().As<IPathNormalizationService>().SingleInstance();
-        builder.RegisterType<RxSchedulerProvider>().As<ISchedulerProvider>().SingleInstance();
         builder.RegisterType<WindowsDirectoryChangeStream>().As<IDirectoryChangeStream>().SingleInstance();
         builder.RegisterType<WindowsShellService>().As<IShellService>().SingleInstance();
 

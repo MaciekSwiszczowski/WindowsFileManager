@@ -12,8 +12,8 @@ P:System.IO.DriveInfo.VolumeLabel;Route through INtfsVolumePolicyService (cached
 # DllImport is excluded here because CsWin32 generates source trees inside this project that cannot be waived with file pragmas.
 # Handwritten interop call sites still carry explicit RS0030 pragmas until they are migrated into NativeMethods.txt wrappers.
 
-# SynchronizationContext.Current is captured eagerly by RxSchedulerProvider — direct use elsewhere is a trap.
-P:System.Threading.SynchronizationContext.Current;Inject DispatcherQueue or ISchedulerProvider explicitly.
+# SynchronizationContext.Current is ambient state; direct use outside composition is a trap.
+P:System.Threading.SynchronizationContext.Current;Inject DispatcherQueue or SynchronizationContext explicitly.
 
 # No hand-rolled GC in shipped code.
 M:System.GC.Collect;Remove. Measure with dotnet-counters instead.

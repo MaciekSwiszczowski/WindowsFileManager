@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+using R3;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileEntries;
 
@@ -15,7 +14,7 @@ public sealed class FakeDirectoryChangeStream : IDirectoryChangeStream
     private readonly ConcurrentDictionary<string, Subject<DirectoryChange>> _subjects = new(StringComparer.OrdinalIgnoreCase);
     private bool _disposed;
 
-    public IObservable<DirectoryChange> Watch(NormalizedPath path)
+    public Observable<DirectoryChange> Watch(NormalizedPath path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
@@ -23,7 +22,7 @@ public sealed class FakeDirectoryChangeStream : IDirectoryChangeStream
             path.DisplayPath,
             static _ => new Subject<DirectoryChange>());
 
-        return subject.AsObservable();
+        return subject;
     }
 
     public void Push(NormalizedPath watchedPath, DirectoryChange change)

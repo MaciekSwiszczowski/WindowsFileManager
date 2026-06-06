@@ -1,5 +1,5 @@
-using System.Reactive.Linq;
 using AsyncAwaitBestPractices;
+using R3;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Presentation.FileEntryTable;
 
@@ -16,17 +16,17 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
     where TResponse : class, IInspectorDiagnosticsResponseMessage<TDiagnostics>
 {
     private readonly ILogger _logger;
-    private readonly IMessenger _messenger;
-    private readonly ISchedulerProvider _schedulers;
+    private readonly IFileManagerMessenger _messenger;
+    private readonly SynchronizationContext _uiSynchronizationContext;
     private InspectorFieldValueUpdater? _fieldValueUpdater;
     private IDisposable? _responseSubscription;
     private bool _hasPendingRequest;
     private bool _disposed;
 
-    protected InspectorDeferredFieldLoaderBase(IMessenger messenger, ISchedulerProvider schedulers, ILogger logger)
+    protected InspectorDeferredFieldLoaderBase(IFileManagerMessenger messenger, SynchronizationContext uiSynchronizationContext, ILogger logger)
     {
         _messenger = messenger;
-        _schedulers = schedulers;
+        _uiSynchronizationContext = uiSynchronizationContext;
         _logger = logger;
     }
 
@@ -50,7 +50,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
         _fieldValueUpdater = fieldValueUpdater;
         _responseSubscription = _messenger
             .CreateObservable<TResponse>()
-            .ObserveOn(_schedulers.MainThread)
+            .ObserveOn(_uiSynchronizationContext)
             .Subscribe(response => ApplyResponseAsync(response).SafeFireAndForget(OnApplyException));
     }
 

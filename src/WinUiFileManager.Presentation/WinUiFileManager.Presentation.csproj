@@ -11,12 +11,10 @@
   <ItemGroup>
     <PackageReference Include="Autofac" />
     <PackageReference Include="AsyncAwaitBestPractices" />
-    <PackageReference Include="DynamicData" />
     <PackageReference Include="ObservableCollections" />
     <PackageReference Include="ObservableCollections.R3" />
     <PackageReference Include="R3" />
     <PackageReference Include="R3Extensions.WinUI3" />
-    <PackageReference Include="System.Reactive" />
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
     <PackageReference Include="CommunityToolkit.WinUI.Behaviors" />

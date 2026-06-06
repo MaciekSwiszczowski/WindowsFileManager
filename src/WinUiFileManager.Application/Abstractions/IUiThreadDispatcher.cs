@@ -5,7 +5,7 @@ namespace WinUiFileManager.Application.Abstractions;
 /// application-layer consumers. Presentation supplies the concrete dispatcher.
 /// </summary>
 /// <remarks>
-/// This is the migration seam away from <see cref="ISchedulerProvider.MainThread"/> for code that only needs
+/// This is the migration seam away from scheduler abstractions for code that only needs
 /// UI-affine execution, not reactive scheduling. Implementations must preserve exception flow for
 /// <see cref="RunAsync(Action, CancellationToken)"/> so background callers can observe dispatcher failures.
 /// </remarks>

@@ -1,6 +1,6 @@
-using System.Reactive.Linq;
-using WinUiFileManager.Presentation.Scheduling;
+using R3;
 using UiDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue;
+using DispatcherQueueSynchronizationContext = Microsoft.UI.Dispatching.DispatcherQueueSynchronizationContext;
 
 namespace WinUiFileManager.Presentation.Services;
 
@@ -10,12 +10,12 @@ namespace WinUiFileManager.Presentation.Services;
 /// second dialog opens while one is showing). Owned and (re)created by <see cref="DialogService"/>.
 /// </summary>
 /// <remarks>
-/// Built as a cold Rx pipeline: dialog messages are observed on a <see cref="DispatcherQueueScheduler"/>
-/// (UI thread, AGENTS.md §6) and processed with <c>Concat</c> so each dialog's task completes before the
-/// next begins (strict FIFO, no concurrency). Each request replies its own
-/// <see cref="TaskCompletionSource{T}"/> task back to the sender immediately, and the pipeline completes
-/// it with the dialog result. The single subscription is owned here and disposed in <see cref="Dispose"/>
-/// (AGENTS.md §5), which is what unsubscribes from the messenger observable.
+/// Built as a cold R3 pipeline: dialog messages are observed on the UI thread (a
+/// <see cref="DispatcherQueueSynchronizationContext"/>, AGENTS.md §6) and processed with
+/// <see cref="AwaitOperation.Sequential"/> so each dialog's task completes before the next begins (strict
+/// FIFO, no concurrency). Each request replies its own <see cref="TaskCompletionSource{T}"/> task back to the
+/// sender immediately, and the pipeline completes it with the dialog result. The single subscription is owned
+/// here and disposed in <see cref="Dispose"/> (AGENTS.md §5), which unsubscribes from the messenger observable.
 /// </remarks>
 internal sealed class DialogMessageOrchestrator : IDisposable
 {
@@ -26,24 +26,24 @@ internal sealed class DialogMessageOrchestrator : IDisposable
         UiDispatcherQueue dispatcherQueue,
         Func<ShowDialogMessage, Task<DialogResult>> showDialogAsync,
         ILogger logger,
-        IMessenger messenger)
+        IFileManagerMessenger messenger)
     {
         ArgumentNullException.ThrowIfNull(dispatcherQueue);
         ArgumentNullException.ThrowIfNull(showDialogAsync);
         ArgumentNullException.ThrowIfNull(logger);
         ArgumentNullException.ThrowIfNull(messenger);
 
-        var scheduler = new DispatcherQueueScheduler(dispatcherQueue);
+        var uiSynchronizationContext = new DispatcherQueueSynchronizationContext(dispatcherQueue);
         _subscription = messenger
             .CreateObservable<ShowDialogMessage>()
             .Select(QueuedDialogMessage.Create)
-            .ObserveOn(scheduler)
-            // Concat (not Merge) guarantees strictly one dialog at a time.
-            .Select(request => Observable.FromAsync(() => ProcessAsync(request, showDialogAsync)))
-            .Concat()
-            .Subscribe(
-                static _ => { },
-                ex => logger.LogError(ex, "Dialog message queue failed."));
+            .ObserveOn(uiSynchronizationContext)
+            // AwaitOperation.Sequential guarantees strictly one dialog at a time (FIFO, no concurrency).
+            .SubscribeAwait(
+                async (request, _) => await ProcessAsync(request, showDialogAsync),
+                ex => logger.LogError(ex, "Dialog message queue failed."),
+                _ => { },
+                AwaitOperation.Sequential);
     }
 
     /// <summary>Disposes the messenger subscription, stopping further dialog processing.</summary>

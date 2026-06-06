@@ -24,10 +24,10 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
     ];
 
     public InspectorThumbnailDeferredFieldLoader(
-        IMessenger messenger,
-        ISchedulerProvider schedulers,
+        IFileManagerMessenger messenger,
+        SynchronizationContext uiSynchronizationContext,
         ILogger<InspectorThumbnailDeferredFieldLoader> logger)
-        : base(messenger, schedulers, logger)
+        : base(messenger, uiSynchronizationContext, logger)
     {
     }
 

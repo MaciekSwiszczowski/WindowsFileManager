@@ -1,4 +1,5 @@
 using CommunityToolkit.Mvvm.Messaging;
+using R3;
 
 namespace WinUiFileManager.Application.Messaging;
 
@@ -81,21 +82,21 @@ public interface IFileManagerMessenger : IMessenger
         where TMessage : class, IIdentityMessage;
 
     /// <summary>
-    /// Creates a cold observable sequence backed by a default-channel messenger registration.
+    /// Creates a cold R3 observable sequence backed by a default-channel messenger registration.
     /// </summary>
     /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
     /// <returns>A cold observable. Each subscription creates and owns its messenger registration.</returns>
-    IObservable<TMessage> CreateObservable<TMessage>()
+    Observable<TMessage> CreateObservable<TMessage>()
         where TMessage : class;
 
     /// <summary>
-    /// Creates a cold observable sequence backed by a token-scoped messenger registration.
+    /// Creates a cold R3 observable sequence backed by a token-scoped messenger registration.
     /// </summary>
     /// <typeparam name="TMessage">The message type emitted by the observable.</typeparam>
     /// <typeparam name="TToken">The messenger token type.</typeparam>
     /// <param name="token">The token identifying the message channel observed by each subscription.</param>
     /// <returns>A cold observable. Each subscription creates and owns its messenger registration.</returns>
-    IObservable<TMessage> CreateObservable<TMessage, TToken>(TToken token)
+    Observable<TMessage> CreateObservable<TMessage, TToken>(TToken token)
         where TMessage : class
         where TToken : IEquatable<TToken>;
 }

@@ -9,7 +9,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// <remarks>
 /// Sorting is deliberately taken away from the <see cref="TableView"/> (<c>e.Handled = true</c> and
 /// <c>SortDescriptions</c> is cleared) because the rows are a virtualised, externally-ordered
-/// DynamicData collection — letting the control reorder its own items would fight the data source and
+/// externally ordered collection — letting the control reorder its own items would fight the data source and
 /// break virtualization assumptions (AGENTS.md §3). Sort state is held on the behavior and the initial
 /// state is published on load. Subscribes <c>Sorting</c> in <see cref="OnLoaded"/>, detaches in
 /// <see cref="OnUnloaded"/>.

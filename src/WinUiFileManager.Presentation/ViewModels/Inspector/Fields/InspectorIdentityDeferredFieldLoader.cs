@@ -26,10 +26,10 @@ internal sealed class InspectorIdentityDeferredFieldLoader :
     ];
 
     public InspectorIdentityDeferredFieldLoader(
-        IMessenger messenger,
-        ISchedulerProvider schedulers,
+        IFileManagerMessenger messenger,
+        SynchronizationContext uiSynchronizationContext,
         ILogger<InspectorIdentityDeferredFieldLoader> logger)
-        : base(messenger, schedulers, logger)
+        : base(messenger, uiSynchronizationContext, logger)
     {
     }
 

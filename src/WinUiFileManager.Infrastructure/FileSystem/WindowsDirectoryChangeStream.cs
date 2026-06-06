@@ -1,13 +1,12 @@
-using System.Reactive.Linq;
-using System.Reactive.Disposables;
 using Microsoft.Extensions.Logging;
+using R3;
 using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileEntries;
 
 namespace WinUiFileManager.Infrastructure.FileSystem;
 
 /// <summary>
-/// Produces a cold observable of <see cref="DirectoryChange"/> events for a directory,
+/// Produces a cold R3 observable of <see cref="DirectoryChange"/> events for a directory,
 /// backed by <see cref="FileSystemWatcher"/>. When the underlying watcher fails, the stream
 /// attempts to recreate the watcher without asking consumers to rescan. Infrastructure implementation of
 /// <see cref="IDirectoryChangeStream"/>.
@@ -17,9 +16,9 @@ namespace WinUiFileManager.Infrastructure.FileSystem;
 /// subscribes, and EACH subscription gets its OWN <see cref="FileSystemWatcher"/> via a private
 /// <see cref="DirectoryWatcherSubscription"/>. There is no sharing/multicasting between subscribers, so two
 /// subscriptions to the same path run two independent OS watchers. Disposing the subscription (the
-/// <see cref="System.IDisposable"/> returned by <see cref="IObservable{T}.Subscribe"/>) is what tears the watcher
-/// down — that disposal is the owner of the native watcher's lifetime. The singleton itself owns no watcher; its
-/// <see cref="Dispose"/> only flips a guard so no further <see cref="Watch"/> calls succeed.
+/// <see cref="System.IDisposable"/> returned by <c>Subscribe</c>) is what tears the watcher down — that disposal
+/// is the owner of the native watcher's lifetime. The singleton itself owns no watcher; its <see cref="Dispose"/>
+/// only flips a guard so no further <see cref="Watch"/> calls succeed.
 /// Threading: <see cref="FileSystemWatcher"/> raises events on a thread-pool thread, so events reach the observer
 /// off the UI thread; consumers must marshal to the UI thread themselves if needed.
 /// </remarks>
@@ -36,22 +35,24 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
     /// <summary>Returns a cold observable that begins watching <paramref name="path"/> only when subscribed.</summary>
     /// <param name="path">Directory to watch (non-recursive).</param>
     /// <returns>
-    /// A cold <see cref="IObservable{T}"/>; each subscription owns an independent watcher and must be disposed to
+    /// A cold <see cref="Observable{T}"/>; each subscription owns an independent watcher and must be disposed to
     /// release it.
     /// </returns>
     /// <exception cref="ObjectDisposedException">If the stream has already been disposed.</exception>
-    public IObservable<DirectoryChange> Watch(NormalizedPath path)
+    public Observable<DirectoryChange> Watch(NormalizedPath path)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
 
         // Observable.Create runs this factory per subscriber, so each subscriber gets its own watcher subscription;
-        // the returned subscription IS the unsubscribe/dispose handle.
-        return Observable.Create<DirectoryChange>(observer =>
-        {
-            var subscription = new DirectoryWatcherSubscription(path.DisplayPath, _logger, observer);
-            subscription.Start();
-            return subscription;
-        });
+        // the returned subscription IS the unsubscribe/dispose handle. The state overload avoids a closure (AGENTS.md §10).
+        return Observable.Create<DirectoryChange, (string Path, ILogger Logger)>(
+            (path.DisplayPath, _logger),
+            static (observer, state) =>
+            {
+                var subscription = new DirectoryWatcherSubscription(state.Path, state.Logger, observer);
+                subscription.Start();
+                return subscription;
+            });
     }
 
     /// <summary>Marks the stream disposed so subsequent <see cref="Watch"/> calls throw. Owns no native resource itself.</summary>
@@ -61,9 +62,9 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
     }
 
     /// <summary>
-    /// One subscriber's private watcher: owns a single <see cref="FileSystemWatcher"/> (held in a
-    /// <see cref="SerialDisposable"/> so it can be swapped on recreation) and forwards its events to one
-    /// <see cref="IObserver{T}"/>. Disposing this stops and releases the watcher exactly once.
+    /// One subscriber's private watcher: owns a single <see cref="FileSystemWatcher"/> (swappable on recreation)
+    /// and forwards its events to one R3 <see cref="Observer{T}"/>. Disposing this stops and releases the watcher
+    /// exactly once.
     /// </summary>
     /// <remarks>
     /// The <see cref="_gate"/> lock guards the disposed flag and the swappable watcher so the OS error callback
@@ -75,13 +76,13 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
     {
         private readonly string _path;
         private readonly ILogger _logger;
-        private readonly IObserver<DirectoryChange> _observer;
+        private readonly Observer<DirectoryChange> _observer;
         private readonly Lock _gate = new();
-        // SerialDisposable: assigning a new watcher disposes the previous one, which is exactly what recreation needs.
-        private readonly SerialDisposable _watcher = new();
+        // The current watcher; assigning a replacement disposes the previous one (the recreation case).
+        private FileSystemWatcher? _watcher;
         private bool _disposed;
 
-        public DirectoryWatcherSubscription(string path, ILogger logger, IObserver<DirectoryChange> observer)
+        public DirectoryWatcherSubscription(string path, ILogger logger, Observer<DirectoryChange> observer)
         {
             _path = path;
             _logger = logger;
@@ -103,7 +104,8 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 }
 
                 _disposed = true;
-                _watcher.Dispose();
+                _watcher?.Dispose();
+                _watcher = null;
             }
         }
 
@@ -153,8 +155,9 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                     return;
                 }
 
-                // Assigning swaps in the new watcher and disposes any prior one (the recreation case).
-                _watcher.Disposable = created;
+                // Swap in the new watcher and dispose any prior one (the recreation case).
+                _watcher?.Dispose();
+                _watcher = created;
             }
         }
 
@@ -193,7 +196,8 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
                 }
 
                 _logger.LogWarning(e.GetException(), "Directory watcher failed for {Path}. Recreating watcher.", _path);
-                _watcher.Disposable = null; // dispose the failed watcher before rebuilding.
+                _watcher?.Dispose(); // dispose the failed watcher before rebuilding.
+                _watcher = null;
             }
 
             // CreateAndStart re-checks _disposed under the gate before publishing the replacement watcher.

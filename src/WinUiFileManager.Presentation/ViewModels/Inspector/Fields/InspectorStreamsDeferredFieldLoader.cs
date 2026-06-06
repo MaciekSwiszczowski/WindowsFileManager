@@ -18,10 +18,10 @@ internal sealed class InspectorStreamsDeferredFieldLoader :
     ];
 
     public InspectorStreamsDeferredFieldLoader(
-        IMessenger messenger,
-        ISchedulerProvider schedulers,
+        IFileManagerMessenger messenger,
+        SynchronizationContext uiSynchronizationContext,
         ILogger<InspectorStreamsDeferredFieldLoader> logger)
-        : base(messenger, schedulers, logger)
+        : base(messenger, uiSynchronizationContext, logger)
     {
     }
 

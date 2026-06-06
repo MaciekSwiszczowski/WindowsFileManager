@@ -25,7 +25,6 @@ public class IdentityHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -51,9 +50,9 @@ public class IdentityHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorIdentityDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorIdentityDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<IdentityHandlerBenchmarks, InspectorIdentityDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [Benchmark]
@@ -73,8 +72,7 @@ public class IdentityHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
         _container?.Dispose();
         _container = null;
         _messenger = null;

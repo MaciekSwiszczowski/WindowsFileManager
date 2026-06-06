@@ -28,7 +28,6 @@ public class SecurityHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -54,9 +53,9 @@ public class SecurityHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorSecurityDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorSecurityDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<SecurityHandlerBenchmarks, InspectorSecurityDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [Benchmark]
@@ -76,8 +75,7 @@ public class SecurityHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
         _container?.Dispose();
         _container = null;
         _messenger = null;

@@ -1,4 +1,4 @@
-﻿using System.Reactive.Linq;
+﻿using R3;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
@@ -7,7 +7,7 @@ using static WinUiFileManager.Presentation.ViewModels.FileInspectorCategory;
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 
 /// <summary>
-/// Builds the inspector's category/field tree once and constructs the Rx selection pipeline that
+/// Builds the inspector's category/field tree once and constructs the R3 selection pipeline that
 /// <see cref="InspectorViewModel"/> subscribes to. Splits raw selection-change/refresh messages into three
 /// derived observables: non-single (empty/multi), immediate single, and a throttled deferred single stream.
 /// </summary>
@@ -18,8 +18,8 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 /// the derived subscriptions is the consumer's responsibility (<see cref="InspectorViewModel"/> tracks them).
 /// </para>
 /// <para>
-/// Threading: selection messages are observed on the background scheduler for filtering/async fan-out, then the
-/// derived streams switch to <see cref="ISchedulerProvider.MainThread"/> so handlers run UI-affine. The deferred
+/// Threading: selection messages are filtered in the reactive pipeline, then the derived streams switch to the
+/// injected UI <see cref="SynchronizationContext"/> so handlers run UI-affine. The deferred
 /// stream additionally throttles by <see cref="SelectionThrottle"/> so transient selections don't trigger
 /// expensive diagnostics.
 /// </para>
@@ -30,8 +30,8 @@ public sealed class InspectorInitializationViewModel
     private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(300);
 
     private readonly IActivePanelsService _activePanelsService;
-    private readonly ISchedulerProvider _schedulers;
-    private readonly IMessenger _messenger;
+    private readonly SynchronizationContext _uiSynchronizationContext;
+    private readonly IFileManagerMessenger _messenger;
     private readonly Func<FileInspectorCategory, InspectorCategoryViewModel> _categoryFactory;
     private readonly Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> _fieldFactory;
     private readonly Func<InspectorFieldCreationRequest, InspectorThumbnailFieldViewModel> _thumbnailFieldFactory;
@@ -43,15 +43,15 @@ public sealed class InspectorInitializationViewModel
     /// </summary>
     public InspectorInitializationViewModel(
         IActivePanelsService activePanelsService,
-        ISchedulerProvider schedulers,
-        IMessenger messenger,
+        SynchronizationContext uiSynchronizationContext,
+        IFileManagerMessenger messenger,
         Func<FileInspectorCategory, InspectorCategoryViewModel> categoryFactory,
         Func<InspectorFieldCreationRequest, InspectorBasicFieldViewModel> fieldFactory,
         Func<InspectorFieldCreationRequest, InspectorThumbnailFieldViewModel> thumbnailFieldFactory,
         Func<InspectorFieldCreationRequest, InspectorToggleFieldViewModel> toggleFieldFactory)
     {
         _activePanelsService = activePanelsService;
-        _schedulers = schedulers;
+        _uiSynchronizationContext = uiSynchronizationContext;
         _messenger = messenger;
         _categoryFactory = categoryFactory;
         _fieldFactory = fieldFactory;
@@ -64,29 +64,29 @@ public sealed class InspectorInitializationViewModel
 
         NonSingleSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count != 1)
-            .ObserveOn(_schedulers.MainThread)
+            .ObserveOn(_uiSynchronizationContext)
             .Select(static message => message.SelectedItems);
 
         ImmediateSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count == 1)
             .Select(static message => message.SelectedItems.First())
-            .ObserveOn(_schedulers.MainThread);
+            .ObserveOn(_uiSynchronizationContext);
 
         DeferredSelectionObservable = selectionChanges
             .Where(static message => message.SelectedItems.Count == 1)
             .Select(static message => message.SelectedItems.First())
-            .Throttle(SelectionThrottle, _schedulers.Background)
-            .ObserveOn(_schedulers.MainThread);
+            .Debounce(SelectionThrottle)
+            .ObserveOn(_uiSynchronizationContext);
     }
 
     /// <summary>Emits when the selection is empty or has more than one item (UI thread).</summary>
-    public IObservable<IReadOnlyList<SpecFileEntryViewModel>> NonSingleSelectionObservable { get; }
+    public Observable<IReadOnlyList<SpecFileEntryViewModel>> NonSingleSelectionObservable { get; }
 
     /// <summary>Emits the single selected item immediately, for synchronously-available fields (UI thread).</summary>
-    public IObservable<SpecFileEntryViewModel> ImmediateSelectionObservable { get; }
+    public Observable<SpecFileEntryViewModel> ImmediateSelectionObservable { get; }
 
     /// <summary>Emits the single selected item after <see cref="SelectionThrottle"/>, for expensive diagnostics (UI thread).</summary>
-    public IObservable<SpecFileEntryViewModel> DeferredSelectionObservable { get; }
+    public Observable<SpecFileEntryViewModel> DeferredSelectionObservable { get; }
 
     /// <summary>The fully-built category sections with their fields; shared with <see cref="InspectorViewModel"/>.</summary>
     public List<InspectorCategoryViewModel> Categories { get; }
@@ -223,22 +223,21 @@ public sealed class InspectorInitializationViewModel
 
     /// <summary>
     /// Merges two selection sources into one stream: live table selection changes scoped to the active pane, and
-    /// focus-driven refresh requests that synthesize a selection by querying the active pane on demand. Both run on
-    /// the background scheduler; downstream derived observables marshal to the UI thread.
+    /// focus-driven refresh requests that synthesize a selection by querying the active pane on demand. Downstream derived
+    /// observables marshal to the UI thread.
     /// </summary>
-    private IObservable<FileTableSelectionChangedMessage> CreateSelectionChanges()
+    private Observable<FileTableSelectionChangedMessage> CreateSelectionChanges()
     {
         var tableSelectionObservable = _messenger
             .CreateObservable<FileTableSelectionChangedMessage>()
-            .ObserveOn(_schedulers.Background)
             .Where(message => IsSelectionFromActivePanel(message.Identity));
 
         var focusSelectionObservable = _messenger
             .CreateObservable<RefreshInspectorRequestMessage>()
-            .ObserveOn(_schedulers.Background)
             .Select(_ => _activePanelsService.ActivePanelIdentity)
             .Where(static identity => !string.IsNullOrWhiteSpace(identity))
-            .SelectMany(identity => Observable.FromAsync(() => CreateSelectionChangedMessageAsync(identity)));
+            .SelectAwait(
+                (identity, _) => new ValueTask<FileTableSelectionChangedMessage>(CreateSelectionChangedMessageAsync(identity)));
 
         return tableSelectionObservable
             .Merge(focusSelectionObservable);

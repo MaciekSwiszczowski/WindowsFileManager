@@ -26,7 +26,6 @@ public class LinksHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -67,9 +66,9 @@ public class LinksHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorLinksDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorLinksDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<LinksHandlerBenchmarks, InspectorLinksDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [Benchmark]
@@ -89,8 +88,7 @@ public class LinksHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
         _container?.Dispose();
         _container = null;
         _messenger = null;

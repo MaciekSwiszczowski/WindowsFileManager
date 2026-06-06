@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+using R3;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
@@ -20,7 +20,7 @@ using Application.Messages.RequestMessages.FileOperations;
 /// the AGENTS.md §4 pane-scoping convention. Documented here intentionally; not changed.
 /// </para>
 /// <para>
-/// The watch is a Rx subscription stored in <see cref="_snapshotSubscription"/>; it self-terminates
+/// The watch is an R3 subscription stored in <see cref="_snapshotSubscription"/>; it self-terminates
 /// after <see cref="SnapshotTimeout"/> via <c>TakeUntil</c> and is also disposed in
 /// <see cref="OnUnloaded"/> so it never outlives the behavior (AGENTS.md §5).
 /// </para>
@@ -37,7 +37,7 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         context.Messenger.Register<FileTableSelectionSnapshotRequestMessage>(this, OnSnapshotRequested);
     }
 
-    // Dispose the Rx watch on detach; messenger unregistration is handled by the base class.
+    // Dispose the R3 watch on detach; messenger unregistration is handled by the base class.
     protected override void OnUnloaded(FileEntryTableContext context) => ClearSnapshotSubscription();
 
     private void OnSnapshotRequested(object recipient, FileTableSelectionSnapshotRequestMessage message)
@@ -60,13 +60,18 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
         // Replace any in-flight watch before starting a new one so we never hold two subscriptions.
         ClearSnapshotSubscription();
         _snapshotSubscription = Observable
-            .FromEventPattern<NotifyCollectionChangedEventArgs>(itemsSource, nameof(INotifyCollectionChanged.CollectionChanged))
-            .Where(_ => snapshot.DirectoryPath == Context.View.CurrentFolder)
+            .FromEvent<NotifyCollectionChangedEventHandler, NotifyCollectionChangedEventArgs>(
+                static handler => (_, args) => handler(args),
+                handler => itemsSource.CollectionChanged += handler,
+                handler => itemsSource.CollectionChanged -= handler)
+            .Where(
+                (Context.View, Snapshot: snapshot),
+                static (_, state) => state.Snapshot.DirectoryPath == state.View.CurrentFolder)
             .TakeUntil(Observable.Timer(SnapshotTimeout))
-            .SelectMany(args => FindChangedItems(args.EventArgs.NewItems, snapshot.NewName))
+            .SelectMany(args => FindChangedItems(args.NewItems, snapshot.NewName).ToObservable())
             .Subscribe(
-                onNext: changedItem => RestoreChangedItem(snapshot, changedItem),
-                onCompleted: ClearSnapshotSubscription);
+                changedItem => RestoreChangedItem(snapshot, changedItem),
+                _ => ClearSnapshotSubscription());
 
         message.TryReply(response: true);
     }
@@ -120,13 +125,14 @@ public sealed class FileEntryTableSelectionSnapshotBehavior : FileEntryTableBeha
     private void RestoreActiveItem(SpecFileEntryViewModel item)
     {
         Context.Table.SelectedItem = item;
-        if (Context.Table.GetRowIndex(item) is { } idx)
+        if (Context.Table.GetRowIndex(item) is not { } idx)
         {
-            // SelectedItem is WinUI state; NavigationState is the table behavior state used by keyboard range
-            // selection and active-row navigation, so both need to point at the restored active item.
-            Context.NavigationState.SetCurrent(Context.Table, idx, resetSelectionAnchor: true);
-            TableViewKeyboardAnchorSynchronizer.Sync(Context.Table, idx);
+            return;
         }
+        // SelectedItem is WinUI state; NavigationState is the table behavior state used by keyboard range
+        // selection and active-row navigation, so both need to point at the restored active item.
+        Context.NavigationState.SetCurrent(Context.Table, idx, resetSelectionAnchor: true);
+        TableViewKeyboardAnchorSynchronizer.Sync(Context.Table, idx);
     }
 
     /// <summary>Disposes and clears the active items-source watch; safe to call repeatedly.</summary>

@@ -25,7 +25,6 @@ public class LocksHandlerBenchmarks
 
     private IContainer? _container;
     private IMessenger? _messenger;
-    private IDisposable? _responseSubscription;
 
     [GlobalSetup]
     public void Setup()
@@ -49,9 +48,9 @@ public class LocksHandlerBenchmarks
         _container = CreateContainer();
         _container.Resolve<InspectorLocksDiagnosticsHandler>().Initialize();
         _messenger = _container.Resolve<IMessenger>();
-        _responseSubscription = _messenger
-            .CreateObservable<InspectorLocksDiagnosticsResponseMessage>()
-            .Subscribe(OnResponse);
+        _messenger.Register<LocksHandlerBenchmarks, InspectorLocksDiagnosticsResponseMessage>(
+            this,
+            static (benchmark, response) => benchmark.OnResponse(response));
     }
 
     [IterationSetup]
@@ -83,8 +82,7 @@ public class LocksHandlerBenchmarks
     [GlobalCleanup]
     public void Cleanup()
     {
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
+        _messenger?.UnregisterAll(this);
 
         ReleaseExclusiveLocks();
         _container?.Dispose();

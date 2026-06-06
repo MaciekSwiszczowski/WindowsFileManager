@@ -5,8 +5,7 @@ using WinUiFileManager.Presentation.FileEntryTable;
 namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 /// <summary>
-/// Keyed, comparer-sorted row store backed by <see cref="ObservableList{T}"/> - the ObservableCollections/R3
-/// successor to the DynamicData <c>SourceCache</c> + <c>SortAndBind</c> pipeline.
+/// Keyed, comparer-sorted row store backed by <see cref="ObservableList{T}"/> for the file-entry table data pipeline.
 /// </summary>
 /// <remarks>
 /// <para>

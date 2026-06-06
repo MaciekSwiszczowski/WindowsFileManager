@@ -10,7 +10,7 @@ namespace WinUiFileManager.Presentation.FileEntryTable;
 /// </summary>
 /// <remarks>
 /// Implements both the non-generic <see cref="System.Collections.IComparer"/> (required by the
-/// <see cref="TableView"/>/DynamicData pipeline) and the typed <see cref="IComparer{T}"/>. Attribute
+/// <see cref="TableView"/> integration) and the typed <see cref="IComparer{T}"/>. Attribute
 /// comparison reuses the process-wide <see cref="FileEntryDisplayStringCache"/> so it sorts by the same
 /// text the UI displays without re-deriving it per comparison.
 /// </remarks>

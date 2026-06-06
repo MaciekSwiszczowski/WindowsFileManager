@@ -1,5 +1,4 @@
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+using R3;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Presentation.FileEntryTable;
 using WinUiFileManager.Presentation.Services;
@@ -17,20 +16,20 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Subscriptions: all Rx subscriptions and the deferred-field loaders are added to <see cref="_subscriptions"/>
+/// Subscriptions: all R3 subscriptions and the deferred-field loaders are added to <see cref="_subscriptions"/>
 /// (a <see cref="CompositeDisposable"/>) and released in <see cref="Dispose"/> (AGENTS.md §5). The three selection
 /// streams are gated by <c>Where(_ =&gt; _inspectorPanelVisible)</c> so a hidden inspector does no work.
 /// </para>
 /// <para>
 /// Messaging: registers <see cref="ToggleInspectorRequestedMessage"/> on the strong-reference messenger and
 /// unregisters in <see cref="Dispose"/>. <see cref="_inspectorPanelVisible"/> is <c>volatile</c> because it is
-/// read on the Rx pipeline (potentially background) and written from the messenger callback.
+/// read on the reactive pipeline and written from the messenger callback.
 /// </para>
 /// <para>Threading: the selection observables are observed on the UI thread upstream, so the handlers below run UI-affine.</para>
 /// </remarks>
 public sealed partial class InspectorViewModel : ObservableObject, IDisposable
 {
-    /// <summary>Holds every Rx subscription and the deferred-field loaders; disposed once on teardown.</summary>
+    /// <summary>Holds every R3 subscription and the deferred-field loaders; disposed once on teardown.</summary>
     private readonly CompositeDisposable _subscriptions = [];
     private readonly IMessenger _messenger;
     private readonly IActivePanelsService _activePanelsService;
@@ -129,7 +128,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Disposes all Rx subscriptions and deferred-field loaders and unregisters from the messenger. Idempotent
+    /// Disposes all reactive subscriptions and deferred-field loaders and unregisters from the messenger. Idempotent
     /// via <see cref="_disposed"/>. Must be reachable from inspector/window teardown to avoid rooting this
     /// instance through the strong-reference messenger.
     /// </summary>

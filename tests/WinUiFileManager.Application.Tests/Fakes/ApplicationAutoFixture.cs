@@ -1,7 +1,7 @@
 using AutoFixture.Kernel;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
-using Microsoft.Reactive.Testing;
+using WinUiFileManager.Presentation.Messaging;
 using WinUiFileManager.Presentation.FileEntryTableData;
 using WinUiFileManager.Presentation.Services;
 using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
@@ -20,8 +20,10 @@ public static class ApplicationAutoFixture
 
         fixture.Customizations.Add(new NullLoggerSpecimenBuilder());
 
-        fixture.Inject<IMessenger>(new StrongReferenceMessenger());
-        fixture.Inject<ISchedulerProvider>(new TestSchedulerProvider(new TestScheduler()));
+        var messenger = new FileManagerMessenger(new StrongReferenceMessenger());
+        fixture.Inject<IMessenger>(messenger);
+        fixture.Inject<IFileManagerMessenger>(messenger);
+        fixture.Inject(new SynchronizationContext());
         fixture.Inject(FileEntryDisplayStringCache.Shared);
         fixture.Inject<ILogger<MainShellViewModel>>(NullLogger<MainShellViewModel>.Instance);
         fixture.Inject<ILogger<SetParallelExecutionCommandHandler>>(

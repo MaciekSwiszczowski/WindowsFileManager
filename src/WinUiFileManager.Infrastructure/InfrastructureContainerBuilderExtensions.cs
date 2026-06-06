@@ -1,7 +1,6 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Autofac;
 using WinUiFileManager.Application.Abstractions;
-using WinUiFileManager.Infrastructure.FileSystem;
 using WinUiFileManager.Infrastructure.Persistence;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
@@ -17,7 +16,7 @@ namespace WinUiFileManager.Infrastructure;
 /// <remarks>
 /// Lifetime: everything here is registered <c>SingleInstance</c> (process-lifetime singletons). Per AGENTS.md §5,
 /// singletons that implement <see cref="System.IDisposable"/> (e.g. <see cref="ActivePanelsService"/>,
-/// <see cref="RenameService"/>, <see cref="WindowsDirectoryChangeStream"/>) are only released if the container
+/// <see cref="RenameService"/>) are only released if the container
 /// itself is disposed on shutdown. Non-UI containers get the shared <see cref="StrongReferenceMessenger.Default"/>
 /// as their <see cref="IMessenger"/> fallback; the App composition root overrides that registration with the
 /// Presentation messenger wrapper so UI-thread dispatch stays out of the Infrastructure layer. Both registrations
@@ -49,7 +48,6 @@ public static class InfrastructureContainerBuilderExtensions
 
         builder.RegisterType<NtfsVolumePolicyService>().As<INtfsVolumePolicyService>().SingleInstance();
         builder.RegisterType<WindowsPathNormalizationService>().As<IPathNormalizationService>().SingleInstance();
-        builder.RegisterType<WindowsDirectoryChangeStream>().As<IDirectoryChangeStream>().SingleInstance();
         builder.RegisterType<WindowsShellService>().As<IShellService>().SingleInstance();
 
         builder.RegisterType<JsonSettingsRepository>().As<ISettingsRepository>().SingleInstance();

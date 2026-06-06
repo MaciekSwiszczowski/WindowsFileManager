@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using R3;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.FileListingEngine;
 
 namespace WinUiFileManager.Application.Tests.Fakes;
 

@@ -1,6 +1,7 @@
 using R3;
+using WinUiFileManager.Application.FileEntries;
 
-namespace WinUiFileManager.Application.Abstractions;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
 /// Emits <see cref="DirectoryChange"/> events for the contents of a directory.

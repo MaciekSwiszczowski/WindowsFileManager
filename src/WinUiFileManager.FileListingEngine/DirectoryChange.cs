@@ -1,8 +1,8 @@
-﻿namespace WinUiFileManager.Application.FileEntries;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>
 /// A single change notification for a watched directory's contents, emitted by
-/// <see cref="WinUiFileManager.Application.Abstractions.IDirectoryChangeStream"/>.
+/// <see cref="IDirectoryChangeStream"/>.
 /// </summary>
 /// <param name="Kind">What happened to the entry (created/deleted/changed/renamed).</param>
 /// <param name="Path">The affected path; for a rename this is the new path.</param>

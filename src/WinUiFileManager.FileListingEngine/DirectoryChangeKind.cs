@@ -1,4 +1,4 @@
-﻿namespace WinUiFileManager.Application.FileEntries;
+namespace WinUiFileManager.FileListingEngine;
 
 /// <summary>Classifies a <see cref="DirectoryChange"/> notification.</summary>
 public enum DirectoryChangeKind

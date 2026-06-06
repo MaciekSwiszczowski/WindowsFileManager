@@ -12,6 +12,7 @@ global using WinUiFileManager.Application.Tests.Fixtures;
 global using WinUiFileManager.Application.FileEntries;
 global using WinUiFileManager.Application.Validation;
 global using WinUiFileManager.FileListingEngine;
+global using WinUiFileManager.FileListingEngine.FileSystem;
 global using WinUiFileManager.Infrastructure.Services;
 global using WinUiFileManager.Interop.Adapters;
 global using WinUiFileManager.Presentation.FileEntryTable;

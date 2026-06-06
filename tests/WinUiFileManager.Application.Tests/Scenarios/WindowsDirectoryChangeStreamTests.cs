@@ -1,10 +1,6 @@
 using R3;
-using Microsoft.Extensions.Logging.Abstractions;
-using WinUiFileManager.Application.FileEntries;
-using WinUiFileManager.Infrastructure.FileSystem;
-using WinUiFileManager.Infrastructure.Tests.Fixtures;
 
-namespace WinUiFileManager.Infrastructure.Tests.Scenarios;
+namespace WinUiFileManager.Application.Tests.Scenarios;
 
 public sealed class WindowsDirectoryChangeStreamTests
 {

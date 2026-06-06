@@ -1,4 +1,5 @@
 using Autofac;
+using WinUiFileManager.FileListingEngine.FileSystem;
 
 namespace WinUiFileManager.FileListingEngine;
 
@@ -9,7 +10,8 @@ namespace WinUiFileManager.FileListingEngine;
 /// <remarks>
 /// Keeps DI registration inside this assembly so Presentation depends only on public engine surfaces
 /// (<see cref="FileListingDataSource"/>, <see cref="IFileListingRowReader"/>,
-/// <see cref="IFolderListingScanner"/>) and never needs <c>InternalsVisibleTo</c> access to internal types.
+/// <see cref="IFolderListingScanner"/>, <see cref="IDirectoryChangeStream"/>) and never needs
+/// <c>InternalsVisibleTo</c> access to internal types.
 /// </remarks>
 public static class FileListingEngineContainerBuilderExtensions
 {
@@ -22,6 +24,7 @@ public static class FileListingEngineContainerBuilderExtensions
         builder.RegisterType<FileListingDataSource>().InstancePerDependency();
         builder.RegisterType<WindowsFileListingRowReader>().As<IFileListingRowReader>().SingleInstance();
         builder.RegisterType<WindowsFolderListingScanner>().As<IFolderListingScanner>().SingleInstance();
+        builder.RegisterType<WindowsDirectoryChangeStream>().As<IDirectoryChangeStream>().SingleInstance();
         // Supplies Func<FileSystemEntryModel, FileListingRow> to FileListingRowFactory.
         builder.RegisterType<FileListingRow>().InstancePerDependency();
 

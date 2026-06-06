@@ -9,13 +9,13 @@
 
   <ItemGroup>
     <PackageReference Include="Autofac" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="ObservableCollections" />
     <PackageReference Include="R3" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="WinUiFileManager.Application.Tests" />
-    <InternalsVisibleTo Include="WinUiFileManager.Infrastructure.Tests" />
     <InternalsVisibleTo Include="WinUiFileManager.Interop.Tests" />
   </ItemGroup>
 </Project>

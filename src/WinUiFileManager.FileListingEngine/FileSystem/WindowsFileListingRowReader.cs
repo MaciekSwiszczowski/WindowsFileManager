@@ -1,6 +1,7 @@
 using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.FileListingEngine;
 
-namespace WinUiFileManager.FileListingEngine;
+namespace WinUiFileManager.FileListingEngine.FileSystem;
 
 /// <summary>
 /// Default <see cref="IFileListingRowReader"/>: reads a single filesystem entry on demand (used to refresh

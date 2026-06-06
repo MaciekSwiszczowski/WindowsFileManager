@@ -1,7 +1,8 @@
 using System.IO.Enumeration;
 using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.FileListingEngine;
 
-namespace WinUiFileManager.FileListingEngine;
+namespace WinUiFileManager.FileListingEngine.FileSystem;
 
 /// <summary>
 /// Default <see cref="IFolderListingScanner"/>: enumerates a directory with

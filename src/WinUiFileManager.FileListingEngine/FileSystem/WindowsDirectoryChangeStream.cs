@@ -1,14 +1,14 @@
 using Microsoft.Extensions.Logging;
 using R3;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileEntries;
+using WinUiFileManager.FileListingEngine;
 
-namespace WinUiFileManager.Infrastructure.FileSystem;
+namespace WinUiFileManager.FileListingEngine.FileSystem;
 
 /// <summary>
 /// Produces a cold R3 observable of <see cref="DirectoryChange"/> events for a directory,
 /// backed by <see cref="FileSystemWatcher"/>. When the underlying watcher fails, the stream
-/// attempts to recreate the watcher without asking consumers to rescan. Infrastructure implementation of
+/// attempts to recreate the watcher without asking consumers to rescan. Windows implementation of
 /// <see cref="IDirectoryChangeStream"/>.
 /// </summary>
 /// <remarks>

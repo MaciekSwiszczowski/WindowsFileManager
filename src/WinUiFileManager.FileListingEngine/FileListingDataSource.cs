@@ -1,6 +1,5 @@
 using ObservableCollections;
 using R3;
-using WinUiFileManager.Application.Abstractions;
 using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Application.Messaging;
 using WinUiFileManager.Application.Settings;

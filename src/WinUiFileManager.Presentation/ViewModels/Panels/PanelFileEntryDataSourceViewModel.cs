@@ -82,7 +82,10 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
         _initialized = true;
     }
 
-    /// <summary>Unregisters the recipient and disposes the live data source. Idempotent via <see cref="_disposed"/>.</summary>
+    /// <summary>Unregisters the recipient and disposes the live data source. Idempotent via <see cref="_disposed"/>.
+    /// Must run on the UI thread: the data source owns a UI-bound adapter and the single-writer store. Pane teardown
+    /// cascades from window/shell close (UI thread), and navigation swaps dispose the previous source on the UI
+    /// callback, so this contract holds.</summary>
     public void Dispose()
     {
         if (_disposed)
@@ -104,11 +107,12 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     /// its rows/path on the UI thread.
     /// </summary>
     /// <remarks>
-    /// The new source is created here (this view model owns its lifetime). The whole swap — dispose the previous
-    /// source, adopt the new one, rebind rows/path — runs in one callback on the UI thread (navigation may arrive
-    /// off it). Keeping it a single synchronous callback matters now that <see cref="FileEntryTableDataSource.Items"/>
-    /// is a disposable adapter bound to the table: the table never observes the old adapter after disposal because
-    /// the rebind happens in the same callback. If disposal races ahead, the new source is disposed instead of leaked.
+    /// The source is built inside the UI callback (this view model owns its lifetime). Building it there means a
+    /// <see cref="IUiThreadDispatcher.Post"/> rejected during shutdown can never leave a started — watching,
+    /// scanning — source undisposed, and the source's UI-bound adapter is created on the UI thread. The whole swap
+    /// — dispose the previous source, adopt the new one, rebind rows/path — runs in that one synchronous callback,
+    /// so the table never observes the old (now-disposed) adapter between dispose and rebind. Navigation may arrive
+    /// off the UI thread, hence the marshalling.
     /// </remarks>
     private void ApplyDataSource(NormalizedPath path)
     {
@@ -117,19 +121,17 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
             return;
         }
 
-        var dataSource = _dataSourceFactory(_identity, path);
         _uiDispatcher.Post(() =>
         {
             if (_disposed)
             {
-                dataSource.Dispose();
                 return;
             }
 
             _dataSource?.Dispose();
-            _dataSource = dataSource;
-            Items = dataSource.Items;
-            CurrentPath = dataSource.CurrentPath;
+            _dataSource = _dataSourceFactory(_identity, path);
+            Items = _dataSource.Items;
+            CurrentPath = _dataSource.CurrentPath;
         });
     }
 

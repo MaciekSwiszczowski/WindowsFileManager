@@ -129,7 +129,9 @@ public sealed class FileEntryTableDataSource : IDisposable
             .Subscribe(static action => action());
     }
 
-    /// <summary>Cancels the in-flight scan, tears down the pipeline, then the adapter and store. Idempotent.</summary>
+    /// <summary>Cancels the in-flight scan, tears down the pipeline, then the adapter and store. Idempotent.
+    /// Call on the UI thread: it disposes the UI-bound notify-adapter (<see cref="Items"/>) and the single-writer
+    /// store. The owning pane view model disposes it on the UI thread (navigation swap or window teardown).</summary>
     public void Dispose()
     {
         if (_disposed)

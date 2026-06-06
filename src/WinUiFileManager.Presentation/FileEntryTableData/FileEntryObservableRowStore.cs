@@ -1,13 +1,12 @@
 using System.Diagnostics;
 using ObservableCollections;
-using R3;
 using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTableData;
 
 /// <summary>
-/// Keyed, comparer-sorted row store backed by <see cref="ObservableList{T}"/> - the phase-two
-/// ObservableCollections/R3 successor to the DynamicData <c>SourceCache</c> + <c>SortAndBind</c> pipeline.
+/// Keyed, comparer-sorted row store backed by <see cref="ObservableList{T}"/> - the ObservableCollections/R3
+/// successor to the DynamicData <c>SourceCache</c> + <c>SortAndBind</c> pipeline.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,10 +25,12 @@ namespace WinUiFileManager.Presentation.FileEntryTableData;
 /// </para>
 /// <para>
 /// <b>Threading: single-writer, not thread-safe.</b> Every mutating member must run on the one owning
-/// thread. The current data source owns it from the UI scheduler; a later synchronized-view adapter can move
-/// that ownership to a background pump. The store itself performs no marshalling. A debug-only affinity
-/// check enforces the single-writer contract; teardown (<see cref="Clear"/>/<see cref="Dispose"/>) is the one
-/// reset point, so it may run on a different thread once writing has stopped.
+/// thread. The data source currently writes from the UI thread and binds the table to <see cref="Rows"/>
+/// through a same-thread notify-adapter (<see cref="ObservableList{T}"/>'s slim
+/// <c>ToNotifyCollectionChangedSlim()</c>); moving the writer to a dedicated background thread with a
+/// dispatcher-backed adapter is a planned later step. The store itself performs no marshalling. A debug-only
+/// affinity check enforces the single-writer contract; teardown (<see cref="Clear"/>/<see cref="Dispose"/>) is
+/// the one reset point, so it may run on a different thread once writing has stopped.
 /// </para>
 /// </remarks>
 internal sealed class FileEntryObservableRowStore : IDisposable
@@ -47,12 +48,11 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     private int _ownerThreadId;
 
     /// <summary>
-    /// The live, sorted row list. Mutated only on the owning writer thread.
+    /// The live, sorted row list. Mutated only on the owning writer thread. The data source binds the table to
+    /// this via <see cref="ObservableList{T}"/>'s notify-adapter, so each mutation surfaces as one
+    /// <c>INotifyCollectionChanged</c> event.
     /// </summary>
     public ObservableList<SpecFileEntryViewModel> Rows { get; } = [];
-
-    /// <summary>Returns an R3 stream of row-list changes for downstream table/binding infrastructure.</summary>
-    public Observable<CollectionChangedEvent<SpecFileEntryViewModel>> ObserveRowsChanged() => Rows.ObserveChanged();
 
     /// <summary>
     /// Clears the store and seeds it with a de-duplicated, sorted row set, establishing
@@ -167,9 +167,10 @@ internal sealed class FileEntryObservableRowStore : IDisposable
     }
 
     /// <summary>Replaces <paramref name="existingRow"/> with <paramref name="newRow"/>, keeping sort order.
-    /// Stays in place with a single Replace when the changed row still sorts between its neighbours
-    /// (the common case where the edited field is not the active sort key); otherwise removes and re-inserts
-    /// it. Each path emits one granular change on <see cref="Rows"/> for bindings to mirror.</summary>
+    /// Stays in place with a single Replace notification when the changed row still sorts between its
+    /// neighbours (the common case where the edited field is not the active sort key); otherwise removes and
+    /// re-inserts it, which surfaces as a Remove followed by an Insert (two notifications) on
+    /// <see cref="Rows"/>.</summary>
     private void ReplaceSorted(
         SpecFileEntryViewModel existingRow,
         SpecFileEntryViewModel newRow,

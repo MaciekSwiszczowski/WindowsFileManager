@@ -18,7 +18,7 @@ public sealed class StorageProviderSyncRootCache
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
 
-    private readonly object _syncRootGate = new();
+    private readonly Lock _syncRootGate = new();
     private StorageProviderSyncRootSnapshot[] _syncRoots = [];
     private DateTimeOffset _syncRootsLoadedAt = DateTimeOffset.MinValue;
 

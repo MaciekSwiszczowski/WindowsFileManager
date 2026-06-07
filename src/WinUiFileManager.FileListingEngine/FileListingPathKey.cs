@@ -33,5 +33,17 @@ public readonly struct FileListingPathKey : IEquatable<FileListingPathKey>, ICom
     public int CompareTo(FileListingPathKey other) =>
         StringComparer.OrdinalIgnoreCase.Compare(_value, other._value);
 
+    public static bool operator ==(FileListingPathKey left, FileListingPathKey right) => left.Equals(right);
+
+    public static bool operator !=(FileListingPathKey left, FileListingPathKey right) => !left.Equals(right);
+
+    public static bool operator <(FileListingPathKey left, FileListingPathKey right) => left.CompareTo(right) < 0;
+
+    public static bool operator <=(FileListingPathKey left, FileListingPathKey right) => left.CompareTo(right) <= 0;
+
+    public static bool operator >(FileListingPathKey left, FileListingPathKey right) => left.CompareTo(right) > 0;
+
+    public static bool operator >=(FileListingPathKey left, FileListingPathKey right) => left.CompareTo(right) >= 0;
+
     public override string ToString() => _value;
 }

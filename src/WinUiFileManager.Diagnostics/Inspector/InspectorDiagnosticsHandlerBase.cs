@@ -42,16 +42,29 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
 
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>
+    /// Releases the messenger registration so the strong-reference messenger stops rooting this handler. Idempotent.
+    /// Derived classes that own disposable resources may override and call <c>base.Dispose(disposing)</c>.
+    /// </summary>
+    protected virtual void Dispose(bool disposing)
+    {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
         {
             return;
         }
 
-        _messenger.UnregisterAll(this);
+        if (disposing)
+        {
+            _messenger.UnregisterAll(this);
+        }
     }
 
     /// <summary>Loads diagnostics for one request. Runs on a thread-pool thread.</summary>
-    protected abstract Task<TDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage request);
+    protected abstract Task<TDiagnostics> LoadAsync(InspectorDiagnosticsRequestMessage message);
 
     /// <summary>Fallback diagnostics used when loading fails.</summary>
     protected abstract TDiagnostics GetEmptyDiagnostics(InspectorDiagnosticsRequestMessage request);

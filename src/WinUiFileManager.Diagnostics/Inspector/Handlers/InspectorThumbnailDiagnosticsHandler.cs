@@ -81,9 +81,12 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
         thumbnail.Seek(0);
         try
         {
-            await using var input = thumbnail.AsStreamForRead();
-            await buffer.FillFromAsync(input, cancellationToken).ConfigureAwait(false);
-            return buffer;
+            var input = thumbnail.AsStreamForRead();
+            await using (input.ConfigureAwait(false))
+            {
+                await buffer.FillFromAsync(input, cancellationToken).ConfigureAwait(false);
+                return buffer;
+            }
         }
         catch
         {

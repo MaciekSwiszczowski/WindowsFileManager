@@ -36,7 +36,7 @@ public sealed class PersistPaneStateCommandHandler
     /// <param name="ct">Cancels both the load and the save.</param>
     public async Task ExecuteAsync(PersistPaneStateRequest request, CancellationToken ct)
     {
-        var current = await _settingsRepository.LoadAsync(ct);
+        var current = await _settingsRepository.LoadAsync(ct).ConfigureAwait(false);
 
         var updated = current with
         {
@@ -53,7 +53,7 @@ public sealed class PersistPaneStateCommandHandler
             MainWindowPlacement = request.MainWindowPlacement
         };
 
-        await _settingsRepository.SaveAsync(updated, ct);
+        await _settingsRepository.SaveAsync(updated, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Pane state persisted: Left={Left}, Right={Right}, Active={Active}, InspectorVisible={InspectorVisible}, InspectorWidth={InspectorWidth}, LeftPaneWidth={LeftPaneWidth}, Placement={Placement}",

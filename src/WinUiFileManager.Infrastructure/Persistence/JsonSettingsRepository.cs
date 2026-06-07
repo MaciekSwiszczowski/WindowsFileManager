@@ -87,8 +87,11 @@ internal sealed class JsonSettingsRepository : ISettingsRepository
 
         var dto = ToDto(settings);
         // File.Create truncates any existing file before the serializer writes the new content.
-        await using var stream = File.Create(_filePath);
-        await JsonSerializer.SerializeAsync(stream, dto, SettingsJsonContext.Default.SettingsDto, cancellationToken);
+        var stream = File.Create(_filePath);
+        await using (stream.ConfigureAwait(false))
+        {
+            await JsonSerializer.SerializeAsync(stream, dto, SettingsJsonContext.Default.SettingsDto, cancellationToken).ConfigureAwait(false);
+        }
     }
 
     // DTO -> domain. This is where persisted values are sanitized: empty path strings become null NormalizedPath?,

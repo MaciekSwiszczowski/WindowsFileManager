@@ -18,5 +18,9 @@ public sealed record FileThumbnailDiagnosticsDetails(PooledThumbnailBytes? Thumb
     public static FileThumbnailDiagnosticsDetails Empty { get; } = new(null, string.Empty);
 
     /// <summary>Returns owned thumbnail bytes to the shared pool, when present.</summary>
+    // IDISP007: the positional parameter looks "injected" to the analyzer, but per the single-owner contract
+    // documented above this record *owns* the pooled buffer and is responsible for returning it to the pool.
+#pragma warning disable IDISP007
     public void Dispose() => ThumbnailBytes?.Dispose();
+#pragma warning restore IDISP007
 }

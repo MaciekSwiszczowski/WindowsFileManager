@@ -103,13 +103,15 @@ public sealed class RenameService : IDisposable
                     contentTemplateKey: DialogTemplateKeys.Rename));
 
             // Only proceed on the primary ("Rename") button; Cancel/Close abort silently.
-            var result = await dialogRequest.Response;
+            // ConfigureAwait(true): this flow shows dialogs via _messenger.Send(ShowDialogMessage…), which must run
+            // on the UI thread (AGENTS.md §6), so every await here must resume on the captured UI context.
+            var result = await dialogRequest.Response.ConfigureAwait(true);
             if (result.ButtonRole is not DialogButtonRole.Primary)
             {
                 return;
             }
 
-            await RenameAsync(item, viewModel.NewName.Trim());
+            await RenameAsync(item, viewModel.NewName.Trim()).ConfigureAwait(true);
         }
         catch (Exception ex)
         {
@@ -161,7 +163,8 @@ public sealed class RenameService : IDisposable
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to rename {Path} to {NewName}", item.FullPath.DisplayPath, newName);
-            await ShowRenameErrorAsync(ex.Message);
+            // ConfigureAwait(true): keep the UI context so the error dialog can be sent on the UI thread.
+            await ShowRenameErrorAsync(ex.Message).ConfigureAwait(true);
         }
     }
 
@@ -177,6 +180,6 @@ public sealed class RenameService : IDisposable
                 title: "Rename failed",
                 contentTemplateKey: DialogTemplateKeys.Message));
 
-        _ = await dialogRequest.Response;
+        _ = await dialogRequest.Response.ConfigureAwait(true);
     }
 }

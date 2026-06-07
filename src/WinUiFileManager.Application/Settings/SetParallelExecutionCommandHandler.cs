@@ -35,7 +35,7 @@ public sealed class SetParallelExecutionCommandHandler
     /// <param name="ct">Cancels both the load and the save.</param>
     public async Task ExecuteAsync(bool enabled, int maxDegreeOfParallelism, CancellationToken ct)
     {
-        var settings = await _settingsRepository.LoadAsync(ct);
+        var settings = await _settingsRepository.LoadAsync(ct).ConfigureAwait(false);
 
         var updated = settings with
         {
@@ -43,7 +43,7 @@ public sealed class SetParallelExecutionCommandHandler
             MaxDegreeOfParallelism = maxDegreeOfParallelism
         };
 
-        await _settingsRepository.SaveAsync(updated, ct);
+        await _settingsRepository.SaveAsync(updated, ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Parallel execution settings updated: Enabled={Enabled}, MaxDegree={MaxDegree}",

@@ -15,6 +15,7 @@ public static class BenchmarkConfig
         ManualConfig
             .Create(DefaultConfig.Instance)
             .WithBuildTimeout(TimeSpan.FromMinutes(5))
+            .AddColumn(BenchmarkDotNet.Columns.CategoriesColumn.Default)
             .AddJob(Job.Default
                 .WithStrategy(RunStrategy.Monitoring)
                 .WithLaunchCount(1)

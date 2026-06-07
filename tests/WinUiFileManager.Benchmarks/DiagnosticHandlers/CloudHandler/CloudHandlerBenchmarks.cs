@@ -1,7 +1,8 @@
-namespace WinUiFileManager.Benchmarks.CloudHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.CloudHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class CloudHandlerBenchmarks
 {

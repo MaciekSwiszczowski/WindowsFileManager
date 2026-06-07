@@ -1,10 +1,11 @@
 using System.Security.AccessControl;
 using System.Security.Principal;
 
-namespace WinUiFileManager.Benchmarks.SecurityHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.SecurityHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class SecurityHandlerBenchmarks
 {

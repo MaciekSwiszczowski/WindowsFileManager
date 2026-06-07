@@ -1,7 +1,8 @@
-namespace WinUiFileManager.Benchmarks.IdentityHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.IdentityHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class IdentityHandlerBenchmarks
 {

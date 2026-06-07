@@ -1,7 +1,8 @@
-namespace WinUiFileManager.Benchmarks.LocksHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.LocksHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class LocksHandlerBenchmarks
 {

@@ -1,7 +1,8 @@
-namespace WinUiFileManager.Benchmarks.StreamsHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.StreamsHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class StreamsHandlerBenchmarks
 {

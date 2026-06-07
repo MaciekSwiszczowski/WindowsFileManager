@@ -6,6 +6,9 @@ public static class Program
     {
         BenchmarkProjectConfig.Load();
 
-        BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, BenchmarkConfig.Create());
+        var benchmarkAssembly = typeof(Program).Assembly;
+        var runArgs = BenchmarkCategoryMenu.AddCategoryFilterIfSelected(args, benchmarkAssembly);
+
+        BenchmarkSwitcher.FromAssembly(benchmarkAssembly).Run(runArgs, BenchmarkConfig.Create());
     }
 }

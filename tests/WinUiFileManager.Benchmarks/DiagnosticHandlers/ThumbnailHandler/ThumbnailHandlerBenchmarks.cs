@@ -1,7 +1,8 @@
-namespace WinUiFileManager.Benchmarks.ThumbnailHandler;
+namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.ThumbnailHandler;
 
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
+[BenchmarkCategory("DiagnosticHandlers")]
 // ReSharper disable once ClassCanBeSealed.Global
 public class ThumbnailHandlerBenchmarks
 {

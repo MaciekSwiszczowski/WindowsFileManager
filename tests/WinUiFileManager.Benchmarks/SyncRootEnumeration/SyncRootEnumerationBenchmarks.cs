@@ -1,28 +1,26 @@
 using Windows.Storage.Provider;
+using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Benchmarks.SyncRootEnumeration;
 
 /// <summary>
-/// Measures the allocation cost of <see cref="StorageProviderSyncRootManager.GetCurrentSyncRoots"/>,
-/// the WinRT call that <c>StorageProviderSyncRootCache</c> makes on every cache miss.
+/// Validates the fix for the sync-root enumeration native-memory leak by comparing the new registry-backed
+/// reader (<see cref="ISyncRootRegistryReader"/>, what <c>StorageProviderSyncRootCache</c> now uses) against the
+/// WinRT <see cref="StorageProviderSyncRootManager.GetCurrentSyncRoots"/> enumeration it replaced.
 /// </summary>
 /// <remarks>
 /// <para>
-/// The cache has a 30-second TTL specifically to amortize this call: each invocation enumerates all
-/// registered cloud-provider sync roots and allocates a <see cref="StorageProviderSyncRootInfo"/> WinRT
-/// object per root. Without the cache, every cloud-file inspection would pay this cost independently.
+/// <see cref="ReadViaWinRt"/> is the retained "before" baseline: each call enumerates all registered sync roots
+/// and allocates a COM-backed <see cref="StorageProviderSyncRootInfo"/> per root, whose native memory is reclaimed
+/// only on GC finalization — the original benchmark showed this leaking ~50 KB of native memory per call, scaling
+/// linearly with <see cref="EnumerationCount"/>. <see cref="ReadViaRegistry"/> is the production path: it reads the
+/// same fields from the registry into plain records with no native footprint.
 /// </para>
 /// <para>
-/// <strong>Reading the results:</strong>
-/// <list type="bullet">
-///   <item><c>EnumerationCount = 1</c> — baseline cost of a single cache miss.</item>
-///   <item><c>EnumerationCount = 10</c> — cost of ten back-to-back misses, representing what would
-///   happen without the cache when ten cloud-attribute files are inspected in rapid succession.</item>
-/// </list>
-/// The managed-allocation column from <see cref="MemoryDiagnoserAttribute"/> shows how many
-/// <see cref="StorageProviderSyncRootInfo"/> objects are created per enumeration pass. The native-byte
-/// delta from <see cref="NativeMemoryProfiler"/> shows whether the WinRT provider-registration objects
-/// retain native memory after the managed references are dropped.
+/// <strong>Reading the results:</strong> the <see cref="NativeMemoryProfiler"/> "native memory leak" column should
+/// be flat and near-zero for <see cref="ReadViaRegistry"/> regardless of <see cref="EnumerationCount"/>, versus the
+/// linear growth of <see cref="ReadViaWinRt"/>. The baseline ratio on <see cref="ReadViaRegistry"/> also shows the
+/// throughput gain from dropping the WinRT provider enumeration.
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
@@ -35,14 +33,43 @@ public class SyncRootEnumerationBenchmarks
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int EnumerationCount { get; set; }
 
+    private IContainer? _container;
+    private ISyncRootRegistryReader? _reader;
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _container = CreateContainer();
+        _reader = _container.Resolve<ISyncRootRegistryReader>();
+    }
+
     /// <summary>
-    /// Simulates <c>StorageProviderSyncRootCache.LoadSyncRoots()</c>: calls
-    /// <see cref="StorageProviderSyncRootManager.GetCurrentSyncRoots"/> the requested number of times,
-    /// extracting only the string fields (path, id) that the cache snapshots, and discards the WinRT
-    /// objects — mirroring the cache's design of storing managed strings rather than live WinRT objects.
+    /// Production path: reads registered sync roots from the registry the requested number of times, summing the
+    /// path/id lengths so the read is not optimized away.
     /// </summary>
     [Benchmark]
-    public int EnumerateSyncRoots()
+    public int ReadViaRegistry()
+    {
+        var reader = _reader ?? throw new InvalidOperationException("Benchmark reader is not initialized.");
+        var total = 0;
+
+        for (var i = 0; i < EnumerationCount; i++)
+        {
+            foreach (var registration in reader.ReadRegisteredSyncRoots())
+            {
+                total += registration.Path.Length + registration.Id.Length;
+            }
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Retained "before" baseline: the WinRT enumeration that previously backed the cache, kept only to quantify the
+    /// leak and throughput difference the registry reader fixes. Not used by production code anymore.
+    /// </summary>
+    [Benchmark(Baseline = true)]
+    public int ReadViaWinRt()
     {
         var total = 0;
 
@@ -54,5 +81,25 @@ public class SyncRootEnumerationBenchmarks
         }
 
         return total;
+    }
+
+    [GlobalCleanup]
+    public void Cleanup()
+    {
+        _container?.Dispose();
+        _container = null;
+        _reader = null;
+    }
+
+    private static IContainer CreateContainer()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var builder = new ContainerBuilder();
+        builder.Populate(services);
+        builder.AddInfrastructureServices();
+
+        return builder.Build();
     }
 }

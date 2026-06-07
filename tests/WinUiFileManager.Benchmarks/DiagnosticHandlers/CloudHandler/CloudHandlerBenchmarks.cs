@@ -1,5 +1,19 @@
+using WinUiFileManager.Interop.Adapters;
+
 namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.CloudHandler;
 
+/// <summary>
+/// End-to-end native-memory benchmark for <c>InspectorCloudDiagnosticsHandler</c>. A
+/// <see cref="BenchmarkSyncRootRegistryReader"/> is registered over the real registry reader so the benchmark's temp
+/// directory is treated as a registered sync root; this forces the handler's WinRT branch
+/// (<c>StorageFile/StorageFolder.GetFromPathAsync</c> → <c>Provider</c> → <c>Properties.RetrievePropertiesAsync</c>)
+/// to run for every request. Without the override the registry has no sync root for the temp path, the handler
+/// short-circuits, and the COM-allocating path this benchmark targets is never measured.
+/// </summary>
+/// <remarks>
+/// <c>FileCount</c> is kept modest because each request now performs several real WinRT/Shell calls; the
+/// <see cref="NativeMemoryProfiler"/> native-byte delta is the signal of interest.
+/// </remarks>
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
 [BenchmarkCategory("DiagnosticHandlers")]
@@ -11,7 +25,7 @@ public class CloudHandlerBenchmarks
     private const FileAttributes FileAttributeRecallOnOpen = (FileAttributes)0x00040000;
     private const FileAttributes FileAttributeRecallOnDataAccess = (FileAttributes)0x00400000;
 
-    [Params(10, 200)]
+    [Params(10, 50)]
     // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public int FileCount { get; set; }
 
@@ -90,7 +104,7 @@ public class CloudHandlerBenchmarks
         BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
     }
 
-    private static IContainer CreateContainer()
+    private IContainer CreateContainer()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -99,6 +113,11 @@ public class CloudHandlerBenchmarks
         builder.Populate(services);
         builder.AddInfrastructureServices();
         builder.AddDiagnosticsServices();
+
+        // Override the real registry reader (registered last wins in Autofac) so the handler treats the benchmark
+        // directory as a sync root and exercises its WinRT/Shell branch on every request.
+        builder.RegisterInstance(new BenchmarkSyncRootRegistryReader(_benchmarkDirectory))
+            .As<ISyncRootRegistryReader>();
 
         return builder.Build();
     }

@@ -1,4 +1,4 @@
-using Windows.Storage.Provider;
+using WinUiFileManager.Interop.Adapters;
 
 namespace WinUiFileManager.Diagnostics.Inspector;
 
@@ -8,19 +8,29 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// <remarks>
 /// Looking up a sync root by repeatedly opening <c>StorageFolder</c> instances for a path and each ancestor is
 /// expensive, especially in benchmarks that send many requests under the same few parent folders. This cache reads
-/// the registered sync-root list once per short interval and performs ordinal-insensitive path-prefix matching in
-/// managed code. The cache stores only managed strings, not <see cref="StorageProviderSyncRootInfo"/> WinRT
-/// objects, so refreshes do not retain native provider-registration objects for the container lifetime. The
-/// short expiry keeps the main application responsive to provider registration changes without reintroducing
+/// the registered sync-root list once per short interval via <see cref="ISyncRootRegistryReader"/> and performs
+/// ordinal-insensitive path-prefix matching in managed code. The reader returns plain registration records read
+/// from the registry, not WinRT <c>StorageProviderSyncRootInfo</c> objects, so neither the reader nor this cache
+/// retains native provider-registration state — that WinRT enumeration was the earlier native-memory leak source.
+/// The short expiry keeps the main application responsive to provider registration changes without reintroducing
 /// per-file WinRT ancestor probes.
 /// </remarks>
 public sealed class StorageProviderSyncRootCache
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
 
+    private readonly ISyncRootRegistryReader _syncRootRegistryReader;
     private readonly Lock _syncRootGate = new();
     private StorageProviderSyncRootSnapshot[] _syncRoots = [];
     private DateTimeOffset _syncRootsLoadedAt = DateTimeOffset.MinValue;
+
+    /// <param name="syncRootRegistryReader">
+    /// Source of registered sync roots; injected so the path-matching logic is unit-testable against a fake reader.
+    /// </param>
+    public StorageProviderSyncRootCache(ISyncRootRegistryReader syncRootRegistryReader)
+    {
+        _syncRootRegistryReader = syncRootRegistryReader;
+    }
 
     /// <summary>
     /// Finds the deepest registered sync root that contains <paramref name="path"/>, or null when no root matches.
@@ -71,46 +81,29 @@ public sealed class StorageProviderSyncRootCache
         }
     }
 
-    private static StorageProviderSyncRootSnapshot[] LoadSyncRoots()
+    /// <summary>
+    /// Maps the reader's registration records into cache snapshots. The reader is best-effort and never throws,
+    /// so no defensive catch is needed here; an empty result simply means "no cloud sync roots are registered".
+    /// </summary>
+    private StorageProviderSyncRootSnapshot[] LoadSyncRoots()
     {
-        try
-        {
-            var snapshots = new List<StorageProviderSyncRootSnapshot>();
-            foreach (var syncRoot in StorageProviderSyncRootManager.GetCurrentSyncRoots())
-            {
-                if (TryCreateSnapshot(syncRoot) is { } snapshot)
-                {
-                    snapshots.Add(snapshot);
-                }
-            }
-
-            return [.. snapshots];
-        }
-        catch
+        var registrations = _syncRootRegistryReader.ReadRegisteredSyncRoots();
+        if (registrations.Count == 0)
         {
             return [];
         }
-    }
 
-    private static StorageProviderSyncRootSnapshot? TryCreateSnapshot(StorageProviderSyncRootInfo syncRoot)
-    {
-        try
+        var snapshots = new StorageProviderSyncRootSnapshot[registrations.Count];
+        for (var index = 0; index < registrations.Count; index++)
         {
-            var path = syncRoot.Path?.Path;
-            if (string.IsNullOrWhiteSpace(path))
-            {
-                return null;
-            }
+            var registration = registrations[index];
+            snapshots[index] = new StorageProviderSyncRootSnapshot(
+                registration.Path,
+                registration.Id,
+                registration.ProviderId);
+        }
 
-            return new StorageProviderSyncRootSnapshot(
-                path,
-                syncRoot.Id ?? string.Empty,
-                syncRoot.ProviderId.ToString());
-        }
-        catch
-        {
-            return null;
-        }
+        return snapshots;
     }
 
     private static bool TryNormalizePath(string path, out string normalizedPath)

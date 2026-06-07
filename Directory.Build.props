@@ -5,6 +5,15 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <Configurations>Debug;Debug_Analyzers;Release</Configurations>
+    <!--
+      The solution is x64-only (CsWin32 generates architecture-specific APIs such as ShellExecuteEx that
+      AnyCPU cannot emit). Building a single project standalone — e.g. `dotnet run` on the BenchmarkDotNet
+      project — leaves Platform unset, which the SDK would default to AnyCPU and propagate to referenced
+      projects, breaking the Interop CsWin32 build. Default Platform/Platforms to x64 so any standalone or
+      project-reference build matches the solution. Set before the SDK so its AnyCPU default is skipped.
+    -->
+    <Platforms>x64</Platforms>
+    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>

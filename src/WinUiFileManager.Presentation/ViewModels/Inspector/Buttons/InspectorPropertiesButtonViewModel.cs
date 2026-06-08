@@ -36,6 +36,6 @@ public sealed class InspectorPropertiesButtonViewModel
             return;
         }
 
-        await _shellService.ShowPropertiesAsync(selectedItem.FullPath, CancellationToken.None);
+        await _shellService.ShowPropertiesAsync(selectedItem.FullPath, CancellationToken.None).ConfigureAwait(true);
     }
 }

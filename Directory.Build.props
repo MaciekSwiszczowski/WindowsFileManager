@@ -44,7 +44,26 @@
     <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug_Analyzers'">
+  <!--
+    Test and benchmark projects are exempt from the strict analyzer gate (AGENTS.md §11: "Tests are exempt").
+    Benchmark method names intentionally omit the Async suffix (VSTHRD200), and the once-only GlobalSetup container
+    assignment trips IDISP003 — both false positives for this code. Exempt projects still build under Debug_Analyzers
+    (same DEBUG defines) but without analyzers or warnings-as-errors.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and ($([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests')) or '$(MSBuildProjectName)' == 'WinUiFileManager.Benchmarks')">
+    <IsAnalyzerExemptProject>true</IsAnalyzerExemptProject>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug_Analyzers' and '$(IsAnalyzerExemptProject)' == 'true'">
+    <DebugSymbols>true</DebugSymbols>
+    <Optimize>false</Optimize>
+    <DefineConstants>$(DefineConstants);DEBUG;TRACE;DEBUG_ANALYZERS</DefineConstants>
+    <EnableNETAnalyzers>false</EnableNETAnalyzers>
+    <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug_Analyzers' and '$(IsAnalyzerExemptProject)' != 'true'">
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <DefineConstants>$(DefineConstants);DEBUG;TRACE;DEBUG_ANALYZERS</DefineConstants>
@@ -63,7 +82,7 @@
     </WarningsAsErrors>
   </PropertyGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Debug_Analyzers'">
+  <ItemGroup Condition="'$(Configuration)' == 'Debug_Analyzers' and '$(IsAnalyzerExemptProject)' != 'true'">
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
     <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
     <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
@@ -73,7 +92,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" PrivateAssets="all" />
   </ItemGroup>
 
-  <ItemGroup Condition="'$(Configuration)' == 'Debug_Analyzers'">
+  <ItemGroup Condition="'$(Configuration)' == 'Debug_Analyzers' and '$(IsAnalyzerExemptProject)' != 'true'">
     <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
   </ItemGroup>
 

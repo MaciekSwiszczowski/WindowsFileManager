@@ -40,7 +40,7 @@ internal sealed class DialogMessageOrchestrator : IDisposable
             .ObserveOn(uiSynchronizationContext)
             // AwaitOperation.Sequential guarantees strictly one dialog at a time (FIFO, no concurrency).
             .SubscribeAwait(
-                async (request, _) => await ProcessAsync(request, showDialogAsync),
+                async (request, _) => await ProcessAsync(request, showDialogAsync).ConfigureAwait(true),
                 ex => logger.LogError(ex, "Dialog message queue failed."),
                 _ => { },
                 AwaitOperation.Sequential);
@@ -57,7 +57,7 @@ internal sealed class DialogMessageOrchestrator : IDisposable
     {
         try
         {
-            request.Complete(await showDialogAsync(request.Message));
+            request.Complete(await showDialogAsync(request.Message).ConfigureAwait(true));
         }
         catch (OperationCanceledException)
         {

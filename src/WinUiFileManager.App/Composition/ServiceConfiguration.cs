@@ -86,7 +86,11 @@ public static class ServiceConfiguration
         builder.RegisterType<StartupChainRunner>().SingleInstance();
         builder.RegisterType<StartupPathResolver>().SingleInstance();
 
+        // IDISP001: ownership of the root container transfers to AutofacServiceProvider, which disposes it on
+        // shutdown; this is the process-lifetime composition root, not a local resource to dispose here.
+#pragma warning disable IDISP001
         var container = builder.Build();
+#pragma warning restore IDISP001
         ApplyDevelopmentContainerValidation(container);
         return new AutofacServiceProvider(container);
     }

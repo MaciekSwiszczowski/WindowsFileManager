@@ -102,12 +102,16 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
     /// to await it. The top-level <c>try/catch</c> is mandatory for <c>async void</c> (AGENTS.md §6) so a failed
     /// handler/settings write logs instead of crashing on an unobserved exception.
     /// </remarks>
+    // VSTHRD100: async void is intentional — invoked from a property setter with a mandatory top-level try/catch
+    // (see the doc comment / AGENTS.md §6); there is no caller to await.
+#pragma warning disable VSTHRD100
     private async void OnParallelExecutionEnabledChanged(bool value)
+#pragma warning restore VSTHRD100
     {
         try
         {
-            await _setParallelExecutionHandler.ExecuteAsync(value, 4, CancellationToken.None);
-            _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None);
+            await _setParallelExecutionHandler.ExecuteAsync(value, 4, CancellationToken.None).ConfigureAwait(true);
+            _currentSettings = await _settingsRepository.LoadAsync(CancellationToken.None).ConfigureAwait(true);
             OnPropertyChanged(nameof(ParallelExecutionEnabled));
         }
         catch (Exception ex)
@@ -292,7 +296,7 @@ public sealed partial class MainShellViewModel : ObservableObject, IDisposable
                 RightPaneSort: _currentSettings.RightPaneSort,
                 MainWindowPlacement: MainWindowPlacement);
 
-            await _persistPaneStateHandler.ExecuteAsync(request, cancellationToken);
+            await _persistPaneStateHandler.ExecuteAsync(request, cancellationToken).ConfigureAwait(true);
         }
         catch (Exception ex)
         {

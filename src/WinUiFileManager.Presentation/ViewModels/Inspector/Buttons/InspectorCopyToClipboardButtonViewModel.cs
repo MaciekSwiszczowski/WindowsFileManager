@@ -52,7 +52,7 @@ public sealed class InspectorCopyToClipboardButtonViewModel
         var text = builder.ToString().TrimEnd();
         if (!string.IsNullOrWhiteSpace(text))
         {
-            await _clipboardService.SetTextAsync(text, CancellationToken.None);
+            await _clipboardService.SetTextAsync(text, CancellationToken.None).ConfigureAwait(true);
         }
     }
 

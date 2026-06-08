@@ -100,7 +100,8 @@ internal static class FileEntryTableExtensionMethods
             var visibleRange = GetVisibleRowRange(table);
             if (targetIndex < visibleRange.FirstIndex || targetIndex > visibleRange.LastIndex)
             {
-                table.ScrollRowIntoView(targetIndex);
+                // Fire-and-forget UI scroll; this helper is synchronous and the scroll has no result to await.
+                _ = table.ScrollRowIntoView(targetIndex);
             }
         }
 

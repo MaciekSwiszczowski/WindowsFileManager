@@ -114,7 +114,11 @@ public sealed partial class MainShellWindow
     /// through (and that persistence runs exactly once).
     /// </para>
     /// </remarks>
+    // VSTHRD100: async void is required — this is the AppWindow.Closing event handler with a mandatory top-level
+    // try/finally (see the doc comment / AGENTS.md §6); the event signature cannot return Task.
+#pragma warning disable VSTHRD100
     private async void OnAppWindowClosing(AppWindow sender, AppWindowClosingEventArgs args)
+#pragma warning restore VSTHRD100
     {
         if (_statePersisted || _viewModel is null)
         {
@@ -130,7 +134,7 @@ public sealed partial class MainShellWindow
         {
             ShellView.CapturePaneColumnLayouts();
             _viewModel.MainWindowPlacement = _windowManager.Capture();
-            await _viewModel.PersistStateAsync();
+            await _viewModel.PersistStateAsync().ConfigureAwait(true);
         }
         finally
         {

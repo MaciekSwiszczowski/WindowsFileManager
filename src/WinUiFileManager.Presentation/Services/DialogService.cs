@@ -194,12 +194,16 @@ public sealed class DialogService : IDisposable
     /// VM's async confirmation (which may veto the close); otherwise it records the button and lets the
     /// dialog close. <c>async void</c> because it is a UI event handler — note the top-level try/catch
     /// (AGENTS.md §6). Cancellation lets the dialog close; other exceptions are logged and keep it open.</summary>
+    // VSTHRD100: async void is intentional and correct here — this is a UI event handler with a top-level
+    // try/catch (see the doc comment / AGENTS.md §6); it cannot return Task.
+#pragma warning disable VSTHRD100
     private async void OnDialogButtonClick(
         ShowDialogMessage message,
         DialogButtonRole role,
         ContentDialogButtonClickEventArgs args,
         Action<DialogButtonRole> setInvokedButton)
     {
+#pragma warning restore VSTHRD100
         if (message.ViewModel is not IDialogViewModel dialogViewModel)
         {
             setInvokedButton(role);
@@ -210,7 +214,7 @@ public sealed class DialogService : IDisposable
         var deferral = args.GetDeferral();
         try
         {
-            var result = await dialogViewModel.OnDialogButtonAsync(role, message.CancellationToken);
+            var result = await dialogViewModel.OnDialogButtonAsync(role, message.CancellationToken).ConfigureAwait(true);
             args.Cancel = !result.ShouldClose;
             if (result.ShouldClose)
             {

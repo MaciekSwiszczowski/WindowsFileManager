@@ -35,7 +35,7 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
 
     protected override async Task ApplyAsync(FileThumbnailDiagnosticsDetails diagnostics)
     {
-        var thumbnailSource = await CreateThumbnailSourceAsync(diagnostics.ThumbnailBytes);
+        var thumbnailSource = await CreateThumbnailSourceAsync(diagnostics.ThumbnailBytes).ConfigureAwait(true);
         FieldValueUpdater.ShowThumbnailDiagnostics(diagnostics, thumbnailSource);
     }
 
@@ -47,7 +47,7 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
             return null;
         }
 
-        using var stream = await CreateThumbnailStreamAsync(thumbnailBytes);
+        using var stream = await CreateThumbnailStreamAsync(thumbnailBytes).ConfigureAwait(true);
         var bitmap = new BitmapImage { DecodePixelWidth = 256 };
 
         await bitmap.SetSourceAsync(stream);

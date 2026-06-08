@@ -84,8 +84,3 @@ public sealed class StartupPathResolver
             ?? @"C:\");
     }
 }
-
-/// <summary>
-/// Immutable pair of resolved startup paths, one per pane, produced by <see cref="StartupPathResolver"/>.
-/// </summary>
-public sealed record StartupPanelPaths(NormalizedPath LeftPath, NormalizedPath RightPath);

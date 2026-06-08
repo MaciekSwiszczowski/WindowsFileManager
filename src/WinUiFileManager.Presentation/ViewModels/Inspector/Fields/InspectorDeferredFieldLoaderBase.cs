@@ -48,6 +48,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
         }
 
         _fieldValueUpdater = fieldValueUpdater;
+        _responseSubscription?.Dispose();
         _responseSubscription = _messenger
             .CreateObservable<TResponse>()
             .ObserveOn(_uiSynchronizationContext)
@@ -85,15 +86,25 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
 
     public void Dispose()
     {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    /// <summary>Disposes the response subscription and clears loading state. Idempotent.</summary>
+    protected virtual void Dispose(bool disposing)
+    {
         if (_disposed)
         {
             return;
         }
 
         _disposed = true;
-        _responseSubscription?.Dispose();
-        _responseSubscription = null;
-        CancelCurrentLoad(clearLoading: true);
+        if (disposing)
+        {
+            _responseSubscription?.Dispose();
+            _responseSubscription = null;
+            CancelCurrentLoad(clearLoading: true);
+        }
     }
 
     private async Task ApplyResponseAsync(TResponse response)
@@ -107,7 +118,7 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
         _hasPendingRequest = false;
         try
         {
-            await ApplyAsync(response.Diagnostics);
+            await ApplyAsync(response.Diagnostics).ConfigureAwait(true);
         }
         finally
         {
@@ -121,10 +132,14 @@ internal abstract class InspectorDeferredFieldLoaderBase<TResponse, TDiagnostics
 
     private static void DisposeDiagnostics(TDiagnostics diagnostics)
     {
+        // IDISP007: the diagnostics payload is owned by this loader (single-owner pooled buffer), not injected — we
+        // are the consumer responsible for releasing it once applied or discarded.
+#pragma warning disable IDISP007
         if (diagnostics is IDisposable disposable)
         {
             disposable.Dispose();
         }
+#pragma warning restore IDISP007
     }
 
     private void CancelCurrentLoad(bool clearLoading)

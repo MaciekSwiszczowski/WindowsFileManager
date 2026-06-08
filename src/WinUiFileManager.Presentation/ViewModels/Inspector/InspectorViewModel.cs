@@ -63,7 +63,7 @@ public sealed partial class InspectorViewModel : ObservableObject, IDisposable
         : $"{_selectedItemCount} items selected";
 
     /// <summary>The category sections (with their fields); shared instance created by initialization.</summary>
-    public List<InspectorCategoryViewModel> Categories { get; }
+    public IReadOnlyList<InspectorCategoryViewModel> Categories { get; }
 
     /// <summary>
     /// Wires up the inspector: captures the shared categories, builds the field-value updater, initializes the

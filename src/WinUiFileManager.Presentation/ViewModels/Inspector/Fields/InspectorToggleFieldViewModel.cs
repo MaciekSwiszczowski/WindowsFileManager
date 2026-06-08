@@ -66,9 +66,9 @@ public sealed partial class InspectorToggleFieldViewModel : InspectorFieldViewMo
     }
 
     /// <summary>Disables further toggling and requests the inverse state; the value updates via the refresh that follows.</summary>
-    private async Task SendRefreshDrivenToggleRequestAsync(Func<bool, Task> toggleAsync)
+    private Task SendRefreshDrivenToggleRequestAsync(Func<bool, Task> toggleAsync)
     {
         CanExecuteToggle = false;
-        await toggleAsync(!IsToggleOn);
+        return toggleAsync(!IsToggleOn);
     }
 }

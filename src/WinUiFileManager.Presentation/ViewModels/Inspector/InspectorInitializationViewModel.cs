@@ -92,7 +92,7 @@ public sealed class InspectorInitializationViewModel
     public Observable<FileListingRow> DeferredSelectionObservable { get; }
 
     /// <summary>The fully-built category sections with their fields; shared with <see cref="InspectorViewModel"/>.</summary>
-    public List<InspectorCategoryViewModel> Categories { get; }
+    public IReadOnlyList<InspectorCategoryViewModel> Categories { get; }
 
     /// <summary>
     /// Builds the inspector's category/field tree. Local helpers (<c>Category</c>/<c>Field</c>/<c>ToggleField</c>/

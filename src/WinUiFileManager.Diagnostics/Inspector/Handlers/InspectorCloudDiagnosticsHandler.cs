@@ -40,6 +40,13 @@ public sealed class InspectorCloudDiagnosticsHandler :
     private const uint PlaceholderStateInSync = 0x00000008;
     private const uint PlaceholderStatePartial = 0x00000010;
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
+    // Shared, immutable key set for the Shell sync-property query — avoids allocating a new string[] per inspection.
+    private static readonly string[] SyncPropertyKeys =
+    [
+        "System.Sync.State",
+        "System.SyncTransferStatus",
+        "System.Sync.Status",
+    ];
 
     private readonly ICloudFilesInterop _cloudFilesInterop;
     private readonly IFileSystemMetadataInterop _fileSystemMetadataInterop;
@@ -84,9 +91,13 @@ public sealed class InspectorCloudDiagnosticsHandler :
             return FileCloudDiagnosticsDetails.None;
         }
 
-        var storageItem = syncRoot is null
-            ? null
-            : await TryGetStorageItemAsync(path).ConfigureAwait(false);
+        // Live Shell queries (StorageItem acquisition, Provider, availability, RetrievePropertiesAsync) are the
+        // dominant managed+native allocation on this path. Gate them behind actual cloud evidence — a plain local
+        // file that merely sits inside a sync-root folder needs no live provider/sync-state lookup; its sync-root
+        // identity (id/provider id) still comes cheaply from the cache below.
+        var storageItem = hasCloudAttributeEvidence || isReparsePoint
+            ? await TryGetStorageItemAsync(path).ConfigureAwait(false)
+            : null;
         var provider = storageItem is null ? string.Empty : TryGetProviderDisplayName(storageItem);
         var available = storageItem is null ? string.Empty : TryGetAvailability(storageItem, timeoutCts.Token);
         var (syncState, transferState, customStatus) = await TryGetCloudPropertyValuesAsync(storageItem).ConfigureAwait(false);
@@ -219,18 +230,8 @@ public sealed class InspectorCloudDiagnosticsHandler :
         {
             var rawValues = storageItem switch
             {
-                StorageFile file => await file.Properties.RetrievePropertiesAsync(
-                [
-                    "System.Sync.State",
-                    "System.SyncTransferStatus",
-                    "System.Sync.Status",
-                ]),
-                StorageFolder folder => await folder.Properties.RetrievePropertiesAsync(
-                [
-                    "System.Sync.State",
-                    "System.SyncTransferStatus",
-                    "System.Sync.Status",
-                ]),
+                StorageFile file => await file.Properties.RetrievePropertiesAsync(SyncPropertyKeys),
+                StorageFolder folder => await folder.Properties.RetrievePropertiesAsync(SyncPropertyKeys),
                 _ => null,
             };
 

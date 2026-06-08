@@ -9,11 +9,13 @@
       The solution is x64-only (CsWin32 generates architecture-specific APIs such as ShellExecuteEx that
       AnyCPU cannot emit). Building a single project standalone — e.g. `dotnet run` on the BenchmarkDotNet
       project — leaves Platform unset, which the SDK would default to AnyCPU and propagate to referenced
-      projects, breaking the Interop CsWin32 build. Default Platform/Platforms to x64 so any standalone or
-      project-reference build matches the solution. Set before the SDK so its AnyCPU default is skipped.
+      projects, breaking the Interop CsWin32 build with a cryptic PInvoke005 error. Default an *unset*
+      Platform to x64 so any standalone or project-reference build matches the solution; Directory.Build.targets
+      then fails loudly if Platform was *explicitly* set to AnyCPU. Set before the SDK so its AnyCPU default is
+      skipped (Directory.Build.props is imported before the SDK assigns Platform=AnyCPU).
     -->
     <Platforms>x64</Platforms>
-    <Platform Condition="'$(Platform)' == '' or '$(Platform)' == 'AnyCPU'">x64</Platform>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>false</EnableNETAnalyzers>
     <EnforceCodeStyleInBuild>false</EnforceCodeStyleInBuild>

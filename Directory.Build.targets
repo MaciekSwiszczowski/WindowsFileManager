@@ -1,4 +1,14 @@
 <Project>
+  <!--
+    Fail fast with a clear message if a build is forced to AnyCPU. The solution is x64-only; an AnyCPU build
+    breaks the Interop CsWin32 generation with an opaque "PInvoke005: AnyCPU cannot generate this API" error.
+    Directory.Build.props defaults an unset Platform to x64, so this only triggers when AnyCPU is passed
+    explicitly (e.g. `dotnet build -p:Platform=AnyCPU`).
+  -->
+  <Target Name="FailOnAnyCpuPlatform" BeforeTargets="BeforeBuild" Condition="'$(Platform)' == 'AnyCPU'">
+    <Error Text="This solution is x64-only and cannot be built for AnyCPU (CsWin32 emits architecture-specific APIs). Build with -p:Platform=x64, or omit the platform to use the x64 default." />
+  </Target>
+
   <PropertyGroup>
     <DisableBuildTimeCoveragePathMaps Condition="'$(DisableBuildTimeCoveragePathMaps)' == '' and '$(IsTestProject)' == 'true'">true</DisableBuildTimeCoveragePathMaps>
   </PropertyGroup>

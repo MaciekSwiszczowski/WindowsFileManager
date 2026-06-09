@@ -46,7 +46,7 @@
                     Height="10"
                     HorizontalAlignment="Left"
                     Fill="{ThemeResource SystemControlHighlightAccentBrush}"
-                    Opacity="{x:Bind fileEntryTable:ActiveRowTracker.IndicatorOpacity(Model, fileEntryTable:ActiveRowTracker.Instance.Version), Mode=OneWay}" />
+                    Opacity="{x:Bind fileEntryTable:ActiveRowTracker.IndicatorOpacity((fileListing:FileListingRow), fileEntryTable:ActiveRowTracker.Instance.Version), Mode=OneWay}" />
 
                 <TextBlock
                     Grid.Column="2"

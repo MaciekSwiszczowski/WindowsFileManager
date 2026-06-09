@@ -1,4 +1,5 @@
 using WinUiFileManager.Application.Messages.RequestMessages.Navigation;
+using WinUiFileManager.Presentation.FileEntryTable;
 
 namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 
@@ -24,10 +25,6 @@ namespace WinUiFileManager.Presentation.FileEntryTable.Behaviors;
 /// </remarks>
 public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 {
-    private const string IndicatorName = "ActiveRowIndicator";
-    private const double ActiveOpacity = 1d;
-    private const double InactiveOpacity = 0d;
-
     private FileListingRow? _activeItem;
     private PointerEventHandler? _pointerPressedHandler;
 
@@ -94,16 +91,10 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void SetActiveRow(FileListingRow item)
     {
-        if (ReferenceEquals(_activeItem, item))
-        {
-            QueueApplyActiveIndicator();
-            return;
-        }
-
-        ClearActiveItem();
         _activeItem = item;
-        ApplyActiveIndicator();
-        QueueApplyActiveIndicator();
+        // Publish to the shared tracker; the per-row x:Bind indicator re-evaluates and shows on the matching row.
+        // No visual-tree walk (the old approach churned COM wrappers per node on every selection).
+        ActiveRowTracker.Instance.SetActive(Context.View.Identity, item);
     }
 
     private bool TrySendNavigationMessage(FileListingRow item)
@@ -125,63 +116,7 @@ public sealed class ActiveRowIndicatorBehavior : FileEntryTableBehaviorBase
 
     private void ClearActiveItem()
     {
-        if (_activeItem is { } activeItem)
-        {
-            SetItemIndicatorOpacity(Context.Table, activeItem, InactiveOpacity);
-        }
-
         _activeItem = null;
-    }
-
-    private void QueueApplyActiveIndicator()
-    {
-        // Re-apply once the dispatcher drains: when selection changes the target row's container may
-        // not be realised yet (virtualization), and the IsLoaded guard avoids touching a detached view.
-        Context.View.DispatcherQueue.TryEnqueue(() =>
-        {
-            if (IsLoaded)
-            {
-                ApplyActiveIndicator();
-            }
-        });
-    }
-
-    private void ApplyActiveIndicator()
-    {
-        if (_activeItem is { } activeItem)
-        {
-            SetItemIndicatorOpacity(Context.Table, activeItem, ActiveOpacity);
-        }
-    }
-
-    private static void SetItemIndicatorOpacity(TableView table, FileListingRow item, double opacity)
-    {
-        // ContainerFromItem returns null for virtualized-away rows; in that case there is nothing to
-        // update and the indicator will be re-applied when the row is realised.
-        if (table.ContainerFromItem(item) is not { } container)
-        {
-            return;
-        }
-
-        SetDescendantIndicatorOpacity(container, opacity);
-    }
-
-    /// <summary>Walks the realised container's visual subtree to find the named indicator element(s)
-    /// and sets their opacity. Recurses because the indicator is nested several levels inside the row
-    /// template.</summary>
-
-    private static void SetDescendantIndicatorOpacity(DependencyObject parent, double opacity)
-    {
-        var childCount = VisualTreeHelper.GetChildrenCount(parent);
-        for (var i = 0; i < childCount; i++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, i);
-            if (child is FrameworkElement { Name: IndicatorName } indicator)
-            {
-                indicator.Opacity = opacity;
-            }
-
-            SetDescendantIndicatorOpacity(child, opacity);
-        }
+        ActiveRowTracker.Instance.SetActive(Context.View.Identity, null);
     }
 }

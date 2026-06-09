@@ -15,7 +15,6 @@
         <behaviors:FileEntryTableKeyboardNavigationBehavior />
         <behaviors:FileEntryTableKeyboardSelectionBehavior />
         <behaviors:FileEntryTableSelectionSnapshotBehavior />
-        <behaviors:ParentRowSelectionOpacityBehavior />
         <behaviors:ActiveRowIndicatorBehavior />
     </interactivity:Interaction.Behaviors>
 
@@ -47,7 +46,7 @@
                     Height="10"
                     HorizontalAlignment="Left"
                     Fill="{ThemeResource SystemControlHighlightAccentBrush}"
-                    Opacity="0" />
+                    Opacity="{x:Bind fileEntryTable:ActiveRowTracker.IndicatorOpacity(Model, fileEntryTable:ActiveRowTracker.Instance.Version), Mode=OneWay}" />
 
                 <TextBlock
                     Grid.Column="2"

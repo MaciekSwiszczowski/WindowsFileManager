@@ -77,6 +77,10 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         }
 
         var context = Context;
+        // The synthetic ".." row is never selectable: strip it from any selection (native click, native arrow,
+        // Shift-range, jump) so it shows no selection highlight and can only ever be the active/cursor row. This is
+        // the single choke point that catches every selection source.
+        DeselectParentRow(context);
         _shiftRangeActive = false;
 
         if (context.Table.GetRowIndex(
@@ -141,6 +145,12 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
             context.Table.SelectedItems.Clear();
             for (var i = startIndex; i <= endIndex; i++)
             {
+                // The ".." row is never selectable, so a range that spans it selects only the real rows.
+                if (context.Table.Items[i] is FileListingRow row && FileListingRow.IsParentEntry(row))
+                {
+                    continue;
+                }
+
                 context.Table.SelectedItems.Add(context.Table.Items[i]);
             }
         }
@@ -154,6 +164,35 @@ public sealed class FileEntryTableKeyboardSelectionBehavior : FileEntryTableBeha
         TableViewKeyboardAnchorSynchronizer.Sync(context.Table, targetIndex);
         context.Table.ScrollRowIntoViewIfNeeded(targetIndex);
         PublishSelectionChanged();
+    }
+
+    /// <summary>
+    /// Removes the synthetic ".." parent row from the current selection, if present. Guarded by
+    /// <see cref="_syncingSelection"/> so the resulting echo is ignored. No-op when the parent is not selected.
+    /// </summary>
+    private void DeselectParentRow(FileEntryTableContext context)
+    {
+        var selectedItems = context.Table.SelectedItems;
+        if (selectedItems.Count == 0)
+        {
+            return;
+        }
+
+        _syncingSelection = true;
+        try
+        {
+            for (var i = selectedItems.Count - 1; i >= 0; i--)
+            {
+                if (selectedItems[i] is FileListingRow row && FileListingRow.IsParentEntry(row))
+                {
+                    selectedItems.RemoveAt(i);
+                }
+            }
+        }
+        finally
+        {
+            _syncingSelection = false;
+        }
     }
 
     private void PublishSelectionChanged()

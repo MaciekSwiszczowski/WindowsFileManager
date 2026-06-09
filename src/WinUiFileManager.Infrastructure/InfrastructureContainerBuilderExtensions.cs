@@ -1,6 +1,8 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Autofac;
 using WinUiFileManager.Application.Abstractions;
+using WinUiFileManager.Application.Diagnostics.Profiling;
+using WinUiFileManager.Infrastructure.Diagnostics;
 using WinUiFileManager.Infrastructure.Persistence;
 using WinUiFileManager.Infrastructure.Services;
 using WinUiFileManager.Interop.Adapters;
@@ -39,6 +41,7 @@ public static class InfrastructureContainerBuilderExtensions
         builder.RegisterType<FileLockProbeInterop>().SingleInstance();
         builder.RegisterType<CloudFilesInterop>().As<ICloudFilesInterop>().SingleInstance();
         builder.RegisterType<SyncRootRegistryReader>().As<ISyncRootRegistryReader>().SingleInstance();
+        builder.RegisterType<InspectorDiagnosticsGate>().As<IInspectorDiagnosticsGate>().SingleInstance();
         builder.RegisterType<FileDeletionInterop>().As<IFileDeletionInterop>().SingleInstance();
         // FileSystemMetadataInterop satisfies two segregated interfaces from one shared instance.
         builder.RegisterType<FileSystemMetadataInterop>()

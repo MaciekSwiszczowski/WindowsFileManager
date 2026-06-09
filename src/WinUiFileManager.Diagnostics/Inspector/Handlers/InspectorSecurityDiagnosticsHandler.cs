@@ -3,6 +3,7 @@ using System.Security.Principal;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.Inspector;
 
@@ -24,10 +25,13 @@ public sealed class InspectorSecurityDiagnosticsHandler :
     public InspectorSecurityDiagnosticsHandler(
         IMessenger messenger,
         ILogger<InspectorSecurityDiagnosticsHandler> logger,
-        Func<FileSecurityDiagnosticsDetails, InspectorSecurityDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileSecurityDiagnosticsDetails, InspectorSecurityDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Security;
 
     /// <summary>
     /// Reads and summarizes the security descriptor for the requested path.

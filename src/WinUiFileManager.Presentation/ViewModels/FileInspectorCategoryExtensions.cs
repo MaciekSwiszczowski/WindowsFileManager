@@ -1,3 +1,4 @@
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using static WinUiFileManager.Presentation.ViewModels.FileInspectorCategory;
 
 namespace WinUiFileManager.Presentation.ViewModels;
@@ -8,6 +9,23 @@ namespace WinUiFileManager.Presentation.ViewModels;
 /// </summary>
 internal static class FileInspectorCategoryExtensions
 {
+    /// <summary>
+    /// Maps a visual category to the diagnostics handler that feeds it, or <see langword="null"/> when the category
+    /// has no deferred handler (Basic). NTFS and Ids are both fed by the Identity handler.
+    /// </summary>
+    public static DiagnosticsCategory? ToDiagnosticsCategory(this FileInspectorCategory category) => category switch
+    {
+        Ntfs => DiagnosticsCategory.Identity,
+        Ids => DiagnosticsCategory.Identity,
+        Locks => DiagnosticsCategory.Locks,
+        Links => DiagnosticsCategory.Links,
+        Streams => DiagnosticsCategory.Streams,
+        Security => DiagnosticsCategory.Security,
+        Thumbnails => DiagnosticsCategory.Thumbnail,
+        Cloud => DiagnosticsCategory.Cloud,
+        _ => null,
+    };
+
     /// <summary>Returns the display header for a category, falling back to the enum name for unmapped values.</summary>
     public static string GetDisplayName(this FileInspectorCategory category) => category switch
     {

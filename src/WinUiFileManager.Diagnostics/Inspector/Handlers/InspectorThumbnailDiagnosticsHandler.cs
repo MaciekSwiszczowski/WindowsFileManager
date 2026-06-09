@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Windows.Storage;
 using Windows.Storage.FileProperties;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.Inspector;
 
@@ -30,10 +31,13 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     public InspectorThumbnailDiagnosticsHandler(
         IMessenger messenger,
         ILogger<InspectorThumbnailDiagnosticsHandler> logger,
-        Func<FileThumbnailDiagnosticsDetails, InspectorThumbnailDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileThumbnailDiagnosticsDetails, InspectorThumbnailDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Thumbnail;
 
     /// <summary>
     /// Retrieves a 256px single-item thumbnail for the path and copies it into a byte array.

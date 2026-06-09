@@ -2,6 +2,7 @@ using Microsoft.Win32.SafeHandles;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.FileEntries;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.Inspector;
@@ -29,11 +30,14 @@ public sealed class InspectorIdentityDiagnosticsHandler :
         IMessenger messenger,
         IFileSystemMetadataInterop fileSystemMetadataInterop,
         ILogger<InspectorIdentityDiagnosticsHandler> logger,
-        Func<InspectorIdentityDiagnosticsDetails, InspectorIdentityDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<InspectorIdentityDiagnosticsDetails, InspectorIdentityDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Identity;
 
     /// <summary>
     /// Opens the path for metadata read and assembles its NTFS metadata + identity details.

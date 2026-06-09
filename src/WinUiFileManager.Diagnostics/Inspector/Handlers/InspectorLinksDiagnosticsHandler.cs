@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.Inspector;
 
@@ -18,10 +19,13 @@ public sealed class InspectorLinksDiagnosticsHandler :
     public InspectorLinksDiagnosticsHandler(
         IMessenger messenger,
         ILogger<InspectorLinksDiagnosticsHandler> logger,
-        Func<FileLinkDiagnosticsDetails, InspectorLinksDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileLinkDiagnosticsDetails, InspectorLinksDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Links;
 
     /// <summary>
     /// Reads link/reparse details for the requested path.

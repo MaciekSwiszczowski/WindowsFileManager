@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
 
@@ -21,11 +22,14 @@ public sealed class InspectorStreamsDiagnosticsHandler :
         IMessenger messenger,
         IAlternateDataStreamInterop alternateDataStreamInterop,
         ILogger<InspectorStreamsDiagnosticsHandler> logger,
-        Func<FileStreamDiagnosticsDetails, InspectorStreamsDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileStreamDiagnosticsDetails, InspectorStreamsDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
         _alternateDataStreamInterop = alternateDataStreamInterop;
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Streams;
 
     /// <summary>
     /// Enumerates alternate data streams for the requested path.

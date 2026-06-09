@@ -23,11 +23,31 @@
         </DataTemplate>
     </UserControl.Resources>
 
-    <Expander Header="{x:Bind Category.Name, Mode=OneWay}"
-              Visibility="{x:Bind Category.HasVisibleFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+    <Expander Visibility="{x:Bind Category.HasVisibleFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
               IsExpanded="{x:Bind Category.IsExpanded, Mode=TwoWay}"
               HorizontalAlignment="Stretch"
               HorizontalContentAlignment="Stretch">
+        <Expander.Header>
+            <Grid HorizontalAlignment="Stretch">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Text="{x:Bind Category.Name}" />
+                <!-- Debug-only per-handler profiling toggle (Active / Run-no-refresh / Inactive). Hidden in Release. -->
+                <Button Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Padding="8,2"
+                        FontSize="11"
+                        VerticalAlignment="Center"
+                        Visibility="{x:Bind Category.ProfilingControlAvailable, Converter={StaticResource BoolToVisibilityConverter}}"
+                        Command="{x:Bind Category.CycleProfilingModeCommand}"
+                        Content="{x:Bind Category.ProfilingModeLabel, Mode=OneWay}"
+                        ToolTipService.ToolTip="Profiling: cycle Active → Run without refreshing → Inactive" />
+            </Grid>
+        </Expander.Header>
         <ItemsRepeater ItemsSource="{x:Bind Category.Fields, Mode=OneWay}"
                        HorizontalAlignment="Stretch">
             <ItemsRepeater.Layout>

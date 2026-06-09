@@ -1,6 +1,7 @@
 using AsyncAwaitBestPractices;
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 
 namespace WinUiFileManager.Diagnostics.Inspector;
@@ -15,6 +16,7 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
     private readonly ILogger _logger;
     private readonly IMessenger _messenger;
     private readonly Func<TDiagnostics, TResponse> _responseFactory;
+    private readonly IInspectorDiagnosticsGate _diagnosticsGate;
     private int _disposed;
     private int _initialized;
     private long _requestVersion;
@@ -22,12 +24,17 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
     protected InspectorDiagnosticsHandlerBase(
         IMessenger messenger,
         ILogger logger,
-        Func<TDiagnostics, TResponse> responseFactory)
+        Func<TDiagnostics, TResponse> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
     {
         _messenger = messenger;
         _logger = logger;
         _responseFactory = responseFactory;
+        _diagnosticsGate = diagnosticsGate;
     }
+
+    /// <summary>The profiling category identifying this handler in the Debug-only diagnostics gate.</summary>
+    protected abstract DiagnosticsCategory Category { get; }
 
     /// <summary>Registers the request pipeline. Not idempotent; call exactly once from startup.</summary>
     public void Initialize()
@@ -83,7 +90,24 @@ public abstract class InspectorDiagnosticsHandlerBase<TDiagnostics, TResponse> :
 
     private async Task ProcessRequestAsync(InspectorDiagnosticsRequestMessage request, long requestVersion)
     {
+        // Debug-only profiling gate (always Default in Release; see IInspectorDiagnosticsGate).
+        var mode = _diagnosticsGate.GetMode(Category);
+        if (mode == InspectorDiagnosticsMode.Inactive)
+        {
+            // State 3: skip the load entirely so this handler contributes zero cost.
+            return;
+        }
+
         var diagnostics = await LoadWithFallbackAsync(request).ConfigureAwait(false);
+
+        // State 2: the load ran (its cost is measured) but the response is withheld, so the inspector category is
+        // not refreshed — isolating handler compute from the messaging/UI apply cost.
+        if (mode == InspectorDiagnosticsMode.RunWithoutResponding)
+        {
+            (diagnostics as IDisposable)?.Dispose();
+            return;
+        }
+
         // Native/WinRT diagnostics loads are not reliably cancellable; stale completions are suppressed here.
         if (Volatile.Read(ref _disposed) == 0 && requestVersion == Volatile.Read(ref _requestVersion))
         {

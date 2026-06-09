@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.Messaging;
 using Microsoft.Extensions.Logging;
 using WinUiFileManager.Application.Diagnostics;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Diagnostics.Inspector;
 using WinUiFileManager.Interop.Adapters;
@@ -33,12 +34,15 @@ public sealed class InspectorLocksDiagnosticsHandler :
         IRestartManagerInterop restartManagerInterop,
         FileLockProbeInterop fileLockProbeInterop,
         ILogger<InspectorLocksDiagnosticsHandler> logger,
-        Func<FileLockDiagnostics, InspectorLocksDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileLockDiagnostics, InspectorLocksDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
         _restartManagerInterop = restartManagerInterop;
         _fileLockProbeInterop = fileLockProbeInterop;
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Locks;
 
     /// <summary>
     /// Determines whether the path is locked and by whom.

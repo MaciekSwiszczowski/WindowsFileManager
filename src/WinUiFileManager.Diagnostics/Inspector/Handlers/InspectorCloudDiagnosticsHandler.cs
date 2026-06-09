@@ -5,6 +5,7 @@ using Windows.Storage.Provider;
 using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
+using WinUiFileManager.Application.Diagnostics.Profiling;
 using WinUiFileManager.Diagnostics.Inspector;
 using FileAttributes = System.IO.FileAttributes;
 
@@ -58,13 +59,16 @@ public sealed class InspectorCloudDiagnosticsHandler :
         IFileSystemMetadataInterop fileSystemMetadataInterop,
         StorageProviderSyncRootCache syncRootCache,
         ILogger<InspectorCloudDiagnosticsHandler> logger,
-        Func<FileCloudDiagnosticsDetails, InspectorCloudDiagnosticsResponseMessage> responseFactory)
-        : base(messenger, logger, responseFactory)
+        Func<FileCloudDiagnosticsDetails, InspectorCloudDiagnosticsResponseMessage> responseFactory,
+        IInspectorDiagnosticsGate diagnosticsGate)
+        : base(messenger, logger, responseFactory, diagnosticsGate)
     {
         _cloudFilesInterop = cloudFilesInterop;
         _fileSystemMetadataInterop = fileSystemMetadataInterop;
         _syncRootCache = syncRootCache;
     }
+
+    protected override DiagnosticsCategory Category => DiagnosticsCategory.Cloud;
 
     /// <summary>
     /// Gathers cloud/placeholder diagnostics for the requested path from several sources and merges them.

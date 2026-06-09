@@ -48,7 +48,7 @@ public sealed class InspectorInitializationViewModelTests
             new ImmediateSynchronizationContext(),
             timeProvider,
             messenger,
-            static category => new InspectorCategoryViewModel(category),
+            static category => new InspectorCategoryViewModel(category, FakeInspectorDiagnosticsGate.Instance),
             static request => new InspectorBasicFieldViewModel(request),
             static request => new InspectorThumbnailFieldViewModel(request),
             static request => new InspectorToggleFieldViewModel(request));

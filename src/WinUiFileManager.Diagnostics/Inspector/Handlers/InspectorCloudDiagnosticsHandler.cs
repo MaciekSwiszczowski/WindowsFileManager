@@ -134,7 +134,12 @@ public sealed class InspectorCloudDiagnosticsHandler :
                 providerId,
                 available,
                 transferState,
-                customStatus)
+                customStatus,
+                (attributes & FileAttributePinned) != 0,
+                (attributes & FileAttributeUnpinned) != 0,
+                (attributes & FileAttributeRecallOnOpen) != 0,
+                (attributes & FileAttributeRecallOnDataAccess) != 0,
+                (attributes & FileAttributes.Offline) != 0)
             : FileCloudDiagnosticsDetails.None;
     }
 

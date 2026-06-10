@@ -220,7 +220,12 @@ public sealed class InspectorInitializationViewModel
                     Cloud,
                     "Transfer",
                     "Current transfer state such as upload, download, or paused, when Windows exposes it."),
-                Field(Cloud, "Custom", "Provider-defined custom cloud status text, when available.")),
+                Field(Cloud, "Custom", "Provider-defined custom cloud status text, when available."),
+                Field(Cloud, "Pinned", "FILE_ATTRIBUTE_PINNED: always keep this item on the device."),
+                Field(Cloud, "Unpinned", "FILE_ATTRIBUTE_UNPINNED: free up space (content may be dehydrated)."),
+                Field(Cloud, "Recall On Open", "FILE_ATTRIBUTE_RECALL_ON_OPEN: dehydrated; content is fetched when opened."),
+                Field(Cloud, "Recall On Data Access", "FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS: dehydrated; content is fetched on data access."),
+                Field(Cloud, "Offline", "FILE_ATTRIBUTE_OFFLINE: the item's content is not currently stored locally.")),
         ];
     }
 

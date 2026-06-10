@@ -21,6 +21,11 @@ internal sealed class InspectorCloudDeferredFieldLoader :
         "Available",
         "Transfer",
         "Custom",
+        "Pinned",
+        "Unpinned",
+        "Recall On Open",
+        "Recall On Data Access",
+        "Offline",
     ];
 
     public InspectorCloudDeferredFieldLoader(

@@ -16,7 +16,12 @@ public sealed record FileCloudDiagnosticsDetails(
     string ProviderId,
     string Available,
     string Transfer,
-    string Custom)
+    string Custom,
+    bool Pinned,
+    bool Unpinned,
+    bool RecallOnOpen,
+    bool RecallOnDataAccess,
+    bool Offline)
 {
     /// <summary>Sentinel for a file with no cloud involvement (all fields empty, <c>IsCloudControlled = false</c>).</summary>
     public static FileCloudDiagnosticsDetails None { get; } = new(
@@ -28,5 +33,10 @@ public sealed record FileCloudDiagnosticsDetails(
         string.Empty,
         string.Empty,
         string.Empty,
-        string.Empty);
+        string.Empty,
+        false,
+        false,
+        false,
+        false,
+        false);
 }

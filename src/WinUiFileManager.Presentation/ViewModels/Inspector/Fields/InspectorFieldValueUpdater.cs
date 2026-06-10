@@ -82,41 +82,25 @@ internal sealed class InspectorFieldValueUpdater
     /// <summary>Populates the Locks category; when there is no positive lock evidence, marks "Is locked" False and blanks the detail fields.</summary>
     public void ShowLockDiagnostics(FileLockDiagnostics diagnostics)
     {
-        if (!InspectorFieldFormatting.HasPositiveLockEvidence(diagnostics))
-        {
-            SetValue("Is locked", "False");
-            SetValue("In Use", string.Empty);
-            SetValue("Locked By", string.Empty);
-            SetValue("Lock PIDs", string.Empty);
-            SetValue("Lock Services", string.Empty);
-            return;
-        }
+        var isLocked = InspectorFieldFormatting.HasPositiveLockEvidence(diagnostics);
 
-        SetValue("Is locked", "True");
-        SetValue("In Use", InspectorFieldFormatting.OptionalBoolean(diagnostics.InUse));
-        SetValue("Locked By", diagnostics.LockBy.Count == 0 ? string.Empty : string.Join(Environment.NewLine, diagnostics.LockBy));
-        SetValue("Lock PIDs", diagnostics.LockPids.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockPids));
-        SetValue("Lock Services", diagnostics.LockServices.Count == 0 ? string.Empty : string.Join(", ", diagnostics.LockServices));
+        SetValue("Is locked", isLocked ? "True" : "False");
+        SetValue("In Use", isLocked ? InspectorFieldFormatting.OptionalBoolean(diagnostics.InUse) : string.Empty);
+        SetValue("Locked By", isLocked && diagnostics.LockBy.Count > 0 ? string.Join(Environment.NewLine, diagnostics.LockBy) : string.Empty);
+        SetValue("Lock PIDs", isLocked && diagnostics.LockPids.Count > 0 ? string.Join(", ", diagnostics.LockPids) : string.Empty);
+        SetValue("Lock Services", isLocked && diagnostics.LockServices.Count > 0 ? string.Join(", ", diagnostics.LockServices) : string.Empty);
     }
 
     /// <summary>Populates the Links category; shows a "No link or reparse data" placeholder when no link evidence is present.</summary>
     public void ShowLinkDiagnostics(FileLinkDiagnosticsDetails diagnostics)
     {
-        if (!InspectorFieldFormatting.HasLinkEvidence(diagnostics))
-        {
-            SetValue("Link Target", "No link or reparse data");
-            SetValue("Link Status", string.Empty);
-            SetValue("Reparse Tag", string.Empty);
-            SetValue("Reparse Data", string.Empty);
-            SetValue("Object ID", string.Empty);
-            return;
-        }
+        var hasLinkEvidence = InspectorFieldFormatting.HasLinkEvidence(diagnostics);
 
-        SetValue("Link Target", diagnostics.LinkTarget);
-        SetValue("Link Status", diagnostics.LinkStatus);
-        SetValue("Reparse Tag", diagnostics.ReparseTag);
-        SetValue("Reparse Data", diagnostics.ReparseData);
-        SetValue("Object ID", diagnostics.ObjectId);
+        SetValue("Link Target", hasLinkEvidence ? diagnostics.LinkTarget : "No link or reparse data");
+        SetValue("Link Status", hasLinkEvidence ? diagnostics.LinkStatus : string.Empty);
+        SetValue("Reparse Tag", hasLinkEvidence ? diagnostics.ReparseTag : string.Empty);
+        SetValue("Reparse Data", hasLinkEvidence ? diagnostics.ReparseData : string.Empty);
+        SetValue("Object ID", hasLinkEvidence ? diagnostics.ObjectId : string.Empty);
     }
 
     /// <summary>Populates the Security category (owner/group, DACL/SACL summaries, inherited/protected flags).</summary>
@@ -133,27 +117,21 @@ internal sealed class InspectorFieldValueUpdater
     /// <summary>Populates the Cloud category; shows "Not cloud controlled" and blanks the rest when the item is not cloud-managed.</summary>
     public void ShowCloudDiagnostics(FileCloudDiagnosticsDetails diagnostics)
     {
-        if (!diagnostics.IsCloudControlled)
-        {
-            SetValue("Status", "Not cloud controlled");
-            SetValue("Provider", string.Empty);
-            SetValue("Sync Root", string.Empty);
-            SetValue("Root ID", string.Empty);
-            SetValue("Provider ID", string.Empty);
-            SetValue("Available", string.Empty);
-            SetValue("Transfer", string.Empty);
-            SetValue("Custom", string.Empty);
-            return;
-        }
+        var isCloudControlled = diagnostics.IsCloudControlled;
 
-        SetValue("Status", diagnostics.Status);
-        SetValue("Provider", diagnostics.Provider);
-        SetValue("Sync Root", diagnostics.SyncRoot);
-        SetValue("Root ID", diagnostics.SyncRootId);
-        SetValue("Provider ID", diagnostics.ProviderId);
-        SetValue("Available", diagnostics.Available);
-        SetValue("Transfer", diagnostics.Transfer);
-        SetValue("Custom", diagnostics.Custom);
+        SetValue("Status", isCloudControlled ? diagnostics.Status : "Not cloud controlled");
+        SetValue("Provider", isCloudControlled ? diagnostics.Provider : string.Empty);
+        SetValue("Sync Root", isCloudControlled ? diagnostics.SyncRoot : string.Empty);
+        SetValue("Root ID", isCloudControlled ? diagnostics.SyncRootId : string.Empty);
+        SetValue("Provider ID", isCloudControlled ? diagnostics.ProviderId : string.Empty);
+        SetValue("Available", isCloudControlled ? diagnostics.Available : string.Empty);
+        SetValue("Transfer", isCloudControlled ? diagnostics.Transfer : string.Empty);
+        SetValue("Custom", isCloudControlled ? diagnostics.Custom : string.Empty);
+        SetValue("Pinned", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.Pinned) : string.Empty);
+        SetValue("Unpinned", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.Unpinned) : string.Empty);
+        SetValue("Recall On Open", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.RecallOnOpen) : string.Empty);
+        SetValue("Recall On Data Access", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.RecallOnDataAccess) : string.Empty);
+        SetValue("Offline", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.Offline) : string.Empty);
     }
 
     /// <summary>Populates the Thumbnails category with the decoded image (built off-UI by the loader) plus availability/association text.</summary>

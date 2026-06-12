@@ -23,11 +23,21 @@
         </DataTemplate>
     </UserControl.Resources>
 
+    <!-- One Expander per category. Default expanded so an expert can scan every property at a glance; the user can
+         collapse categories they don't care about. The Expander supplies the chevron, the click-to-toggle header, and
+         the expand/collapse animation (nicer than a hand-rolled toggle). IsExpanded is two-way bound so the collapse
+         state persists on the view model. The old Expander-vs-masonry overlap problem is gone: the parent
+         AutoFillColumnsPanel is position-driven (not height-driven), and a child's expand/collapse changes its
+         DesiredSize, which re-invalidates the panel so it re-packs the columns. Padding is zeroed so the body is as
+         compact as the flat card was; the ItemsRepeater margin provides the inset. -->
     <Expander Visibility="{x:Bind Category.HasVisibleFields, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
-              IsExpanded="{x:Bind Category.IsExpanded, Mode=TwoWay}"
               HorizontalAlignment="Stretch"
-              HorizontalContentAlignment="Stretch">
+              HorizontalContentAlignment="Stretch"
+              Padding="0"
+              IsExpanded="{x:Bind Category.IsExpanded, Mode=TwoWay}">
         <Expander.Header>
+            <!-- Category name plus the Debug-only per-handler profiling toggle (Active / Run-no-refresh / Inactive),
+                 hidden in Release. The Button handles its own pointer, so tapping it does not toggle the Expander. -->
             <Grid HorizontalAlignment="Stretch">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -35,8 +45,8 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            VerticalAlignment="Center"
+                           Style="{StaticResource BodyStrongTextBlockStyle}"
                            Text="{x:Bind Category.Name}" />
-                <!-- Debug-only per-handler profiling toggle (Active / Run-no-refresh / Inactive). Hidden in Release. -->
                 <Button Grid.Column="1"
                         Margin="8,0,0,0"
                         Padding="8,2"
@@ -48,7 +58,9 @@
                         ToolTipService.ToolTip="Profiling: cycle Active → Run without refreshing → Inactive" />
             </Grid>
         </Expander.Header>
-        <ItemsRepeater ItemsSource="{x:Bind Category.Fields, Mode=OneWay}"
+        <!-- 4px side margin so a field's 6px cell padding lines up nicely inside the expander body. -->
+        <ItemsRepeater Margin="4,4,4,6"
+                       ItemsSource="{x:Bind Category.Fields, Mode=OneWay}"
                        HorizontalAlignment="Stretch">
             <ItemsRepeater.Layout>
                 <StackLayout />

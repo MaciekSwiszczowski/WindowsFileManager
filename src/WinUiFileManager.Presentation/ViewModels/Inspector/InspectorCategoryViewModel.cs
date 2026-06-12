@@ -5,9 +5,11 @@ using WinUiFileManager.Presentation.ViewModels.Inspector.Fields;
 namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 
 /// <summary>
-/// View model for one collapsible category section in the inspector (e.g. Basic, NTFS, Security). Holds the
-/// section's fields and tracks its expand/collapse state and whether it currently has any visible fields
-/// (used to hide empty sections during search filtering).
+/// View model for one category card in the inspector (e.g. Basic, NTFS, Security). Holds the section's fields,
+/// tracks whether it currently has any visible fields (used to hide empty cards during search filtering), and
+/// whether the user has collapsed the card's body. Default is expanded so every property is visible at a glance;
+/// collapsing lets the user hide categories they don't care about. The card is rendered as an <c>Expander</c>, which
+/// owns the chevron and the toggle; this view model only persists the <see cref="IsExpanded"/> state.
 /// </summary>
 /// <remarks>
 /// In Debug builds, categories backed by a deferred diagnostics handler expose a three-state profiling toggle
@@ -35,7 +37,7 @@ public sealed partial class InspectorCategoryViewModel : ObservableObject
     /// <summary>The category's display header.</summary>
     public string Name { get; }
 
-    /// <summary>Whether the section is expanded in the UI.</summary>
+    /// <summary>Whether the card body (its fields) is shown. Two-way bound to the <c>Expander</c>; default expanded.</summary>
     [ObservableProperty]
     public partial bool IsExpanded { get; set; } = true;
 

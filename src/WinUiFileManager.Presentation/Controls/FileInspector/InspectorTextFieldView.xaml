@@ -37,8 +37,8 @@
                        Padding="6,3"
                        IsTextSelectionEnabled="True"
                        Text="{x:Bind BasicField.DisplayValue, Mode=OneWay}"
+                       ToolTipService.ToolTip="{x:Bind BasicField.ValueTooltip, Mode=OneWay}"
                        FontSize="12"
-                       TextTrimming="CharacterEllipsis"
                        TextWrapping="Wrap" />
         </Grid>
     </Border>

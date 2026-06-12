@@ -46,6 +46,12 @@ public abstract partial class InspectorFieldViewModelBase : ObservableObject
     /// <summary>The value as displayed; a hook for subclasses/converters (currently the raw <see cref="Value"/>).</summary>
     public string DisplayValue => Value;
 
+    /// <summary>
+    /// Full value for a hover tooltip, or <c>null</c> (no tooltip) when empty. Lets a long value stay readable when
+    /// the inspector is shrunk, without a blank tooltip on empty fields. Typed <c>object?</c> for <c>ToolTipService.ToolTip</c>.
+    /// </summary>
+    public object? ValueTooltip => string.IsNullOrEmpty(Value) ? null : Value;
+
     /// <summary>Concatenated category/key/value text the search filter matches against.</summary>
     public string SearchText => string.Concat(Category.GetDisplayName(), " ", Key, " ", DisplayValue);
 
@@ -76,10 +82,11 @@ public abstract partial class InspectorFieldViewModelBase : ObservableObject
     {
     }
 
-    /// <summary>Raises change notifications for the value-derived read-only properties (<see cref="DisplayValue"/>, <see cref="IsUnavailable"/>).</summary>
+    /// <summary>Raises change notifications for the value-derived read-only properties (<see cref="DisplayValue"/>, <see cref="ValueTooltip"/>, <see cref="IsUnavailable"/>).</summary>
     protected void NotifyValueStateChanged()
     {
         OnPropertyChanged(nameof(DisplayValue));
+        OnPropertyChanged(nameof(ValueTooltip));
         OnPropertyChanged(nameof(IsUnavailable));
     }
 }

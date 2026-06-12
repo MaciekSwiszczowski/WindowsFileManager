@@ -27,7 +27,7 @@ namespace WinUiFileManager.Presentation.ViewModels.Inspector;
 public sealed class InspectorInitializationViewModel
 {
     /// <summary>Quiet period a single selection must persist before deferred diagnostics are requested.</summary>
-    private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan SelectionThrottle = TimeSpan.FromMilliseconds(150);
 
     private readonly IActivePanelsService _activePanelsService;
     private readonly SynchronizationContext _uiSynchronizationContext;

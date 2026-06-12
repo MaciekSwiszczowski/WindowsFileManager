@@ -2,8 +2,15 @@
     x:Class="WinUiFileManager.Presentation.Controls.FileInspector.InspectorSingleSelectionView"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:behaviors="using:WinUiFileManager.Presentation.Controls.FileInspector.Behaviors"
     xmlns:fileInspector="using:WinUiFileManager.Presentation.Controls.FileInspector"
-    xmlns:inspector="using:WinUiFileManager.Presentation.ViewModels.Inspector">
+    xmlns:inspector="using:WinUiFileManager.Presentation.ViewModels.Inspector"
+    xmlns:interactivity="using:Microsoft.Xaml.Interactivity"
+    xmlns:panel="using:WinUiFileManager.Presentation.Controls.FileInspector.Panel">
+
+    <interactivity:Interaction.Behaviors>
+        <behaviors:InspectorStickyScrollBehavior />
+    </interactivity:Interaction.Behaviors>
 
     <Grid RowSpacing="6">
         <Grid.RowDefinitions>
@@ -38,21 +45,35 @@
                  PlaceholderText="Search property or value"
                  Text="{x:Bind ViewModel.Search.SearchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-        <ScrollViewer Grid.Row="2"
-                      HorizontalScrollBarVisibility="Auto"
+        <!-- AutoFillColumnsPanel: cards fill column-major in declaration order (first column top-to-bottom, then the
+             next) into the fewest columns whose layout fits the viewport height, capped by the viewport width; once the
+             cards already fit vertically, widening just stretches the existing columns instead of adding an empty one.
+             Each column is a tight top-aligned stack, so reading order stays natural and a long value only grows its
+             own column. Horizontal scroll is disabled so the panel is constrained to the viewport width; the panel
+             reads this ScrollViewer's ViewportHeight to know when the content fits without scrolling. -->
+        <ScrollViewer x:Name="ContentScrollViewer"
+                      Grid.Row="2"
+                      HorizontalScrollMode="Disabled"
+                      HorizontalScrollBarVisibility="Disabled"
                       VerticalScrollBarVisibility="Auto">
-            <Grid MinWidth="250">
-                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}">
-                    <ItemsRepeater.Layout>
-                        <StackLayout Spacing="4" />
-                    </ItemsRepeater.Layout>
-                    <ItemsRepeater.ItemTemplate>
-                        <DataTemplate x:DataType="inspector:InspectorCategoryViewModel">
-                            <fileInspector:InspectorCategoryView Category="{x:Bind}" />
-                        </DataTemplate>
-                    </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-            </Grid>
+            <ItemsControl x:Name="CategoriesItemsControl"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch"
+                          ItemsSource="{x:Bind ViewModel.Categories, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <panel:AutoFillColumnsPanel DesiredColumnWidth="200"
+                                                            ColumnSpacing="2"
+                                                            RowSpacing="2" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="inspector:InspectorCategoryViewModel">
+                        <fileInspector:InspectorCategoryView HorizontalAlignment="Stretch"
+                                                             Category="{x:Bind}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </ScrollViewer>
     </Grid>
 </UserControl>

@@ -25,7 +25,11 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
         InspectorThumbnailDiagnosticsResponseMessage>
 {
     private static readonly TimeSpan LoadTimeout = TimeSpan.FromSeconds(5);
-    private const uint ThumbnailSize = 256;
+    // 48px keeps the rented thumbnail buffer far under the 85KB large-object-heap threshold even uncompressed
+    // (48*48*4 = 9KB), so it stays on the SOH and never churns/fragments the LOH. The inspector preview is only
+    // about one row tall and looks sharp at this size. ThumbnailOptions.ResizeThumbnail (used below) forces the
+    // Shell to honor this size instead of handing back a larger cached frame.
+    private const uint ThumbnailSize = 48;
     private const int MaxThumbnailBytes = 4 * 1024 * 1024;
 
     public InspectorThumbnailDiagnosticsHandler(
@@ -40,7 +44,7 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
     protected override DiagnosticsCategory Category => DiagnosticsCategory.Thumbnail;
 
     /// <summary>
-    /// Retrieves a 256px single-item thumbnail for the path and copies it into a byte array.
+    /// Retrieves a 48px single-item thumbnail for the path and copies it into a byte array.
     /// </summary>
     /// <param name="message">The request carrying the target path.</param>
     /// <returns>
@@ -62,8 +66,8 @@ public sealed class InspectorThumbnailDiagnosticsHandler :
         }
 
         using var thumbnail = storageItem is StorageFile file
-            ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false)
-            : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize).AsTask(timeoutCts.Token).ConfigureAwait(false);
+            ? await file.GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize, ThumbnailOptions.ResizeThumbnail).AsTask(timeoutCts.Token).ConfigureAwait(false)
+            : await ((StorageFolder)storageItem).GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize, ThumbnailOptions.ResizeThumbnail).AsTask(timeoutCts.Token).ConfigureAwait(false);
 
         if (thumbnail is null || thumbnail.Size == 0 || thumbnail.Size > MaxThumbnailBytes)
         {

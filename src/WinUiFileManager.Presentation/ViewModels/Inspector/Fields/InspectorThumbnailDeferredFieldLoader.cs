@@ -48,7 +48,8 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
         }
 
         using var stream = await CreateThumbnailStreamAsync(thumbnailBytes).ConfigureAwait(true);
-        var bitmap = new BitmapImage { DecodePixelWidth = 256 };
+        // Match the 48px source the thumbnail handler requests; decoding wider would only upscale a small image.
+        var bitmap = new BitmapImage { DecodePixelWidth = 48 };
 
         await bitmap.SetSourceAsync(stream);
         return bitmap;
@@ -65,7 +66,7 @@ internal sealed class InspectorThumbnailDeferredFieldLoader :
         try
         {
             var segment = thumbnailBytes.Segment;
-            await stream.WriteAsync(segment.Array!.AsBuffer(segment.Offset, segment.Count));
+            await stream.WriteAsync(segment.Array.AsBuffer(segment.Offset, segment.Count));
             stream.Seek(0);
             return stream;
         }

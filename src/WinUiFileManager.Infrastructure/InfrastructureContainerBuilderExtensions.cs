@@ -40,6 +40,7 @@ public static class InfrastructureContainerBuilderExtensions
         builder.RegisterType<RestartManagerInterop>().As<IRestartManagerInterop>().SingleInstance();
         builder.RegisterType<FileLockProbeInterop>().SingleInstance();
         builder.RegisterType<CloudFilesInterop>().As<ICloudFilesInterop>().SingleInstance();
+        builder.RegisterType<ShellThumbnailInterop>().As<IShellThumbnailInterop>().SingleInstance();
         builder.RegisterType<SyncRootRegistryReader>().As<ISyncRootRegistryReader>().SingleInstance();
         builder.RegisterType<InspectorDiagnosticsGate>().As<IInspectorDiagnosticsGate>().SingleInstance();
         builder.RegisterType<FileDeletionInterop>().As<IFileDeletionInterop>().SingleInstance();

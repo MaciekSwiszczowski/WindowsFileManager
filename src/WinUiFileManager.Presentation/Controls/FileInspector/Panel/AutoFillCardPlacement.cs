@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace WinUiFileManager.Presentation.Controls.FileInspector.Panel;
 
 /// <summary>
@@ -10,6 +12,7 @@ namespace WinUiFileManager.Presentation.Controls.FileInspector.Panel;
 /// <param name="Y">Top edge of the card within its column's top-aligned stack.</param>
 /// <param name="Width">Card width (the uniform column width).</param>
 /// <param name="Height">Card height as measured at the chosen column width.</param>
+[StructLayout(LayoutKind.Auto)]
 internal readonly record struct AutoFillCardPlacement(
     int Column,
     double X,

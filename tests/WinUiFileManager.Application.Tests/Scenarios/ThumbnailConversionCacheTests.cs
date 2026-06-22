@@ -10,7 +10,7 @@ public sealed class ThumbnailConversionCacheTests
         using var cache = new ThumbnailConversionCache<FakeImage>();
         var calls = 0;
 
-        var image = cache.GetOrConvert(Content(1), () =>
+        var image = cache.GetOrConvert(Key(1), () =>
         {
             calls++;
             return new FakeImage();
@@ -27,8 +27,22 @@ public sealed class ThumbnailConversionCacheTests
         using var cache = new ThumbnailConversionCache<FakeImage>();
         var calls = 0;
 
-        var first = cache.GetOrConvert(Content(7), () => { calls++; return new FakeImage(); });
-        var second = cache.GetOrConvert(Content(7), () => { calls++; return new FakeImage(); });
+        var first = cache.GetOrConvert(Key(7), () => { calls++; return new FakeImage(); });
+        var second = cache.GetOrConvert(Key(7), () => { calls++; return new FakeImage(); });
+
+        Assert.Same(first, second);
+        Assert.Equal(1, calls);
+        Assert.Equal(1, cache.Count);
+    }
+
+    [Fact]
+    public async Task GetOrConvertAsync_IdenticalContent_DedupesToSingleConversion()
+    {
+        using var cache = new ThumbnailConversionCache<FakeImage>();
+        var calls = 0;
+
+        var first = await cache.GetOrConvertAsync(Key(5), () => { calls++; return Task.FromResult(new FakeImage()); });
+        var second = await cache.GetOrConvertAsync(Key(5), () => { calls++; return Task.FromResult(new FakeImage()); });
 
         Assert.Same(first, second);
         Assert.Equal(1, calls);
@@ -40,8 +54,8 @@ public sealed class ThumbnailConversionCacheTests
     {
         using var cache = new ThumbnailConversionCache<FakeImage>();
 
-        var first = cache.GetOrConvert(Content(1), static () => new FakeImage());
-        var second = cache.GetOrConvert(Content(2), static () => new FakeImage());
+        var first = cache.GetOrConvert(Key(1), static () => new FakeImage());
+        var second = cache.GetOrConvert(Key(2), static () => new FakeImage());
 
         Assert.NotSame(first, second);
         Assert.Equal(2, cache.Count);
@@ -52,9 +66,9 @@ public sealed class ThumbnailConversionCacheTests
     {
         using var cache = new ThumbnailConversionCache<FakeImage>(capacity: 2);
 
-        var a = cache.GetOrConvert(Content(1), static () => new FakeImage());
-        var b = cache.GetOrConvert(Content(2), static () => new FakeImage());
-        var c = cache.GetOrConvert(Content(3), static () => new FakeImage());
+        var a = cache.GetOrConvert(Key(1), static () => new FakeImage());
+        var b = cache.GetOrConvert(Key(2), static () => new FakeImage());
+        var c = cache.GetOrConvert(Key(3), static () => new FakeImage());
 
         Assert.True(a.IsDisposed);
         Assert.False(b.IsDisposed);
@@ -67,10 +81,10 @@ public sealed class ThumbnailConversionCacheTests
     {
         using var cache = new ThumbnailConversionCache<FakeImage>(capacity: 2);
 
-        var a = cache.GetOrConvert(Content(1), static () => new FakeImage());
-        var b = cache.GetOrConvert(Content(2), static () => new FakeImage());
-        var aAgain = cache.GetOrConvert(Content(1), static () => new FakeImage());
-        var c = cache.GetOrConvert(Content(3), static () => new FakeImage());
+        var a = cache.GetOrConvert(Key(1), static () => new FakeImage());
+        var b = cache.GetOrConvert(Key(2), static () => new FakeImage());
+        var aAgain = cache.GetOrConvert(Key(1), static () => new FakeImage());
+        var c = cache.GetOrConvert(Key(3), static () => new FakeImage());
 
         Assert.Same(a, aAgain);
         Assert.False(a.IsDisposed);
@@ -82,8 +96,8 @@ public sealed class ThumbnailConversionCacheTests
     public void Dispose_DisposesAllCachedImages()
     {
         var cache = new ThumbnailConversionCache<FakeImage>();
-        var a = cache.GetOrConvert(Content(1), static () => new FakeImage());
-        var b = cache.GetOrConvert(Content(2), static () => new FakeImage());
+        var a = cache.GetOrConvert(Key(1), static () => new FakeImage());
+        var b = cache.GetOrConvert(Key(2), static () => new FakeImage());
 
         cache.Dispose();
 
@@ -92,13 +106,26 @@ public sealed class ThumbnailConversionCacheTests
     }
 
     [Fact]
-    public void GetOrConvert_AfterDispose_Throws()
+    public async Task GetOrConvertAsync_DisposedDuringConversion_OrphansImageAndReturnsNull()
     {
         var cache = new ThumbnailConversionCache<FakeImage>();
-        cache.Dispose();
+        var gate = new TaskCompletionSource();
+        var image = new FakeImage();
+        var pending = cache.GetOrConvertAsync(Key(1), async () =>
+        {
+            await gate.Task;
+            return image;
+        });
 
-        Assert.Throws<ObjectDisposedException>(() => cache.GetOrConvert(Content(1), static () => new FakeImage()));
+        cache.Dispose();
+        gate.SetResult();
+        var result = await pending;
+
+        Assert.Null(result);
+        Assert.True(image.IsDisposed);
     }
+
+    private static ThumbnailContentHash Key(byte value) => ThumbnailContentHash.Compute(Content(value));
 
     private static byte[] Content(byte value)
     {

@@ -68,12 +68,10 @@ public sealed partial class PanelFileEntryDataSourceViewModel : ObservableObject
     /// Registers the pane-scoped navigation recipient. Idempotent (guarded by <see cref="_initialized"/>) per
     /// AGENTS.md §4 so it cannot double-register and double-handle navigations.
     /// </summary>
-    /// <exception cref="ObjectDisposedException">Thrown if called after disposal.</exception>
     public void Initialize()
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
-
-        if (_initialized)
+        // Trust the internal lifecycle: a disposed pane simply does not register (no defensive throw — AGENTS.md §10).
+        if (_disposed || _initialized)
         {
             return;
         }

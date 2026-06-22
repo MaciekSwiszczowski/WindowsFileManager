@@ -38,6 +38,28 @@ public readonly struct ThumbnailContentHash : IEquatable<ThumbnailContentHash>
             BinaryPrimitives.ReadUInt64LittleEndian(digest[8..]));
     }
 
+    /// <summary>
+    /// Computes the fingerprint of <paramref name="content"/> together with the <paramref name="width"/> and
+    /// <paramref name="height"/> the bytes are interpreted as, so two byte-identical buffers that differ only in
+    /// dimensions (e.g. a uniform thumbnail at 48×24 vs 24×48) produce distinct keys.
+    /// </summary>
+    public static ThumbnailContentHash Compute(ReadOnlySpan<byte> content, int width, int height)
+    {
+        var hasher = new XxHash128();
+        hasher.Append(content);
+
+        Span<byte> dimensions = stackalloc byte[8];
+        BinaryPrimitives.WriteInt32LittleEndian(dimensions, width);
+        BinaryPrimitives.WriteInt32LittleEndian(dimensions[4..], height);
+        hasher.Append(dimensions);
+
+        Span<byte> digest = stackalloc byte[16];
+        hasher.GetHashAndReset(digest);
+        return new ThumbnailContentHash(
+            BinaryPrimitives.ReadUInt64LittleEndian(digest),
+            BinaryPrimitives.ReadUInt64LittleEndian(digest[8..]));
+    }
+
     public bool Equals(ThumbnailContentHash other) => _low == other._low && _high == other._high;
 
     public override bool Equals(object? obj) => obj is ThumbnailContentHash other && Equals(other);

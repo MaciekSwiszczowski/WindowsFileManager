@@ -6,21 +6,16 @@ namespace WinUiFileManager.Application.Diagnostics;
 /// <see cref="WinUiFileManager.Application.Messages.RequestMessages.Inspector.InspectorDiagnosticsRequestMessage"/>.
 /// </summary>
 /// <remarks>
-/// Single-owner: exactly one consumer reads <see cref="ThumbnailBytes"/> and then disposes this instance, which
-/// returns the pooled buffer. The bytes are invalid after disposal, so additional subscribers must not retain or
-/// read <see cref="ThumbnailBytes"/> past the owning consumer's disposal.
+/// Carries decoded, top-down 32-bpp <b>BGRA</b> pixels plus their dimensions (the Win32 Shell imaging path returns
+/// raw pixels, not an encoded stream). The buffer is a small (≈ edge² × 4) plain managed array — at the inspector's
+/// 48px request it is ≈ 9 KB, comfortably on the SOH — so this type needs no pooling or disposal.
 /// </remarks>
-/// <param name="ThumbnailBytes">Owned encoded thumbnail image bytes, or <see langword="null"/> when none is available.</param>
-/// <param name="ProgId">The shell ProgID of the handler that produced the thumbnail, for diagnostics.</param>
-public sealed record FileThumbnailDiagnosticsDetails(PooledThumbnailBytes? ThumbnailBytes, string ProgId) : IDisposable
+/// <param name="ThumbnailPixels">Top-down BGRA8 pixels (length = <paramref name="Height"/> × <paramref name="Width"/> × 4), or <see langword="null"/> when none is available.</param>
+/// <param name="Width">Thumbnail pixel width, or <c>0</c> when there are no pixels.</param>
+/// <param name="Height">Thumbnail pixel height, or <c>0</c> when there are no pixels.</param>
+/// <param name="ProgId">The shell ProgID / extension association for the file, for diagnostics.</param>
+public sealed record FileThumbnailDiagnosticsDetails(byte[]? ThumbnailPixels, int Width, int Height, string ProgId)
 {
-    /// <summary>Sentinel for "no thumbnail available" (null bytes, empty ProgID).</summary>
-    public static FileThumbnailDiagnosticsDetails Empty { get; } = new(null, string.Empty);
-
-    /// <summary>Returns owned thumbnail bytes to the shared pool, when present.</summary>
-    // IDISP007: the positional parameter looks "injected" to the analyzer, but per the single-owner contract
-    // documented above this record *owns* the pooled buffer and is responsible for returning it to the pool.
-#pragma warning disable IDISP007
-    public void Dispose() => ThumbnailBytes?.Dispose();
-#pragma warning restore IDISP007
+    /// <summary>Sentinel for "no thumbnail available" (null pixels, empty ProgID).</summary>
+    public static FileThumbnailDiagnosticsDetails Empty { get; } = new(null, 0, 0, string.Empty);
 }

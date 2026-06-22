@@ -16,7 +16,10 @@ public sealed class FakeDirectoryChangeStream : IDirectoryChangeStream
 
     public Observable<DirectoryChange> Watch(NormalizedPath path)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_disposed)
+        {
+            return Observable.Empty<DirectoryChange>();
+        }
 
         var subject = _subjects.GetOrAdd(
             path.DisplayPath,

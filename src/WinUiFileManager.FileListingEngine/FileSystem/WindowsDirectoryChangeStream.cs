@@ -18,7 +18,7 @@ namespace WinUiFileManager.FileListingEngine.FileSystem;
 /// subscriptions to the same path run two independent OS watchers. Disposing the subscription (the
 /// <see cref="System.IDisposable"/> returned by <c>Subscribe</c>) is what tears the watcher down — that disposal
 /// is the owner of the native watcher's lifetime. The singleton itself owns no watcher; its <see cref="Dispose"/>
-/// only flips a guard so no further <see cref="Watch"/> calls succeed.
+/// only flips a guard so further <see cref="Watch"/> calls return an empty stream instead of starting a watcher.
 /// Threading: <see cref="FileSystemWatcher"/> raises events on a thread-pool thread, so events reach the observer
 /// off the UI thread; consumers must marshal to the UI thread themselves if needed.
 /// </remarks>
@@ -38,10 +38,14 @@ internal sealed class WindowsDirectoryChangeStream : IDirectoryChangeStream
     /// A cold <see cref="Observable{T}"/>; each subscription owns an independent watcher and must be disposed to
     /// release it.
     /// </returns>
-    /// <exception cref="ObjectDisposedException">If the stream has already been disposed.</exception>
+    /// <remarks>After disposal this returns an empty stream rather than throwing (AGENTS.md §10): watching is
+    /// non-critical and a disposed process-lifetime singleton must not crash a caller.</remarks>
     public Observable<DirectoryChange> Watch(NormalizedPath path)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_disposed)
+        {
+            return Observable.Empty<DirectoryChange>();
+        }
 
         // Observable.Create runs this factory per subscriber, so each subscriber gets its own watcher subscription;
         // the returned subscription IS the unsubscribe/dispose handle. The state overload avoids a closure.

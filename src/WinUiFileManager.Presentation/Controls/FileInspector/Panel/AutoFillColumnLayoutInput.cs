@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace WinUiFileManager.Presentation.Controls.FileInspector.Panel;
 
 /// <summary>
@@ -15,6 +17,7 @@ namespace WinUiFileManager.Presentation.Controls.FileInspector.Panel;
 /// <param name="DesiredColumnWidth">Target column width; the column count is at most how many of these fit the width.</param>
 /// <param name="ColumnSpacing">Horizontal gap between columns.</param>
 /// <param name="RowSpacing">Vertical gap between cards stacked within a column.</param>
+[StructLayout(LayoutKind.Auto)]
 internal readonly record struct AutoFillColumnLayoutInput(
     double AvailableWidth,
     double ViewportHeight,

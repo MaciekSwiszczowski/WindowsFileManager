@@ -65,7 +65,10 @@ public class ThumbnailConversionCacheBenchmarks
         var total = 0;
         for (var i = 0; i < FileCount; i++)
         {
-            total += cache.GetOrConvert(pixels, factory).PixelWidth;
+            // Recompute the key each iteration to reflect the real per-selection cost (the inspector always hashes
+            // the freshly read bytes); only the conversion is skipped on a hit.
+            var key = ThumbnailContentHash.Compute(pixels, Edge, Edge);
+            total += cache.GetOrConvert(key, factory).PixelWidth;
         }
 
         return total;
@@ -80,7 +83,8 @@ public class ThumbnailConversionCacheBenchmarks
         for (var i = 0; i < FileCount; i++)
         {
             var pixels = _distinctPixels[i];
-            total += cache.GetOrConvert(pixels, () => Convert(pixels)).PixelWidth;
+            var key = ThumbnailContentHash.Compute(pixels, Edge, Edge);
+            total += cache.GetOrConvert(key, () => Convert(pixels)).PixelWidth;
         }
 
         return total;

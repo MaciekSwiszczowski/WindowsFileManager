@@ -20,15 +20,18 @@ public sealed class InspectorInitializationViewModelTests
 
         using var subscription = sut.DeferredSelectionObservable.Subscribe(received.Add);
 
+        var throttle = TimeSpan.FromMilliseconds(150);
+        var justUnderThrottle = throttle - TimeSpan.FromMilliseconds(1);
         var first = File("first.txt");
         var second = File("second.txt");
+
         messenger.Send(new FileTableSelectionChangedMessage("Left", [first], IsParentRowSelected: false, first));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(299));
+        timeProvider.Advance(justUnderThrottle);
 
         Assert.Empty(received);
 
         messenger.Send(new FileTableSelectionChangedMessage("Left", [second], IsParentRowSelected: false, second));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(299));
+        timeProvider.Advance(justUnderThrottle);
 
         Assert.Empty(received);
 

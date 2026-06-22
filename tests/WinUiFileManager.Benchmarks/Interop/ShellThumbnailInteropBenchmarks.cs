@@ -1,35 +1,28 @@
-using Windows.Storage;
-using Windows.Storage.FileProperties;
 using WinUiFileManager.Interop.Adapters;
 
-namespace WinUiFileManager.Benchmarks.StorageItemDisposal;
+namespace WinUiFileManager.Benchmarks.Interop;
 
 /// <summary>
-/// Head-to-head comparison of the two per-selection thumbnail paths the inspector can use: the current WinRT
-/// <c>StorageFile.GetThumbnailAsync</c> path versus the candidate Win32 Shell path
-/// (<c>SHCreateItemFromParsingName</c> → <c>IShellItemImageFactory::GetImage</c>) behind
-/// <see cref="IShellThumbnailInterop"/>.
+/// Measures the new Win32 Shell thumbnail path (<see cref="IShellThumbnailInterop.TryGetThumbnail"/>:
+/// <c>SHCreateItemFromParsingName</c> → <c>IShellItemImageFactory::GetImage</c> → HBITMAP pixel copy) that replaced the
+/// inspector's former WinRT <c>StorageFile.GetThumbnailAsync</c> path. This is the per-selection cost the thumbnail
+/// handler now pays, measured in isolation from the messaging/handler plumbing covered by
+/// <c>ThumbnailHandlerBenchmarks</c>.
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both arms start from a <em>path</em> and produce a usable thumbnail, so the WinRT arm deliberately includes the
-/// <see cref="StorageFile"/> acquisition: the Win32 path eliminates that acquisition entirely, and it is a primary
-/// source of the non-disposable runtime-callable wrappers (and their finalizer churn) this migration targets.
-/// Measuring from the path is therefore the honest "what the inspector pays per selection" comparison.
-/// </para>
-/// <para>
-/// <strong>Reading the results:</strong> the <see cref="MemoryDiagnoserAttribute"/> <c>Allocated</c> column is the
-/// key managed signal — the WinRT arm should allocate several RCWs per file (released only by the finalizer) while
-/// the Win32 arm allocates one deterministically-released RCW plus the pixel buffer. The
-/// <see cref="NativeMemoryProfiler"/> delta (run elevated per AGENTS.md §9) shows the native side. The WinRT arm is
-/// the baseline so the Win32 arm reports as a ratio.
+/// The migration's goal was deterministic COM lifetime: every COM object the path creates (the shell item, the image
+/// factory, the HBITMAP) is released before the call returns, so no runtime-callable wrapper survives to the finalizer.
+/// The expected <see cref="NativeMemoryProfiler"/> "native memory leak" delta is therefore flat; a growing delta would
+/// mean a COM object or GDI handle is escaping release on this path. The <see cref="MemoryDiagnoserAttribute"/>
+/// <c>Allocated</c> column reflects the one deterministically-released RCW per file plus the copied BGRA pixel buffer.
 /// </para>
 /// </remarks>
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
-[BenchmarkCategory("Thumbnail", "StorageItem", "Win32", "WinRT")]
+[BenchmarkCategory("Interop", "Thumbnail")]
 // ReSharper disable once ClassCanBeSealed.Global
-public class ShellThumbnailComparisonBenchmarks
+public class ShellThumbnailInteropBenchmarks
 {
     // 48px matches the size the inspector thumbnail handler requests today.
     private const uint ThumbnailSize = 48;
@@ -62,7 +55,7 @@ public class ShellThumbnailComparisonBenchmarks
     {
         _benchmarkDirectory = Path.Combine(
             BenchmarkProjectConfig.BenchmarkDirectory,
-            nameof(ShellThumbnailComparisonBenchmarks));
+            nameof(ShellThumbnailInteropBenchmarks));
 
         BenchmarkDirectoryCleanup.ForceDelete(_benchmarkDirectory);
         Directory.CreateDirectory(_benchmarkDirectory);
@@ -73,36 +66,11 @@ public class ShellThumbnailComparisonBenchmarks
     }
 
     /// <summary>
-    /// Current path: acquire a <see cref="StorageFile"/> from each path, retrieve and dispose its thumbnail, summing
-    /// the reported sizes so the work is not optimized away.
-    /// </summary>
-    [Benchmark(Baseline = true)]
-    public async Task<ulong> WinRt_StorageFileThumbnail()
-    {
-        ulong total = 0;
-
-        foreach (var path in _paths)
-        {
-            var file = await StorageFile.GetFileFromPathAsync(path);
-            using var thumbnail = await file
-                .GetThumbnailAsync(ThumbnailMode.SingleItem, ThumbnailSize, ThumbnailOptions.ResizeThumbnail)
-                .AsTask()
-                .ConfigureAwait(false);
-            if (thumbnail is not null)
-            {
-                total += thumbnail.Size;
-            }
-        }
-
-        return total;
-    }
-
-    /// <summary>
-    /// Candidate path: extract each thumbnail straight from the path via the Win32 Shell imaging COM API, summing
-    /// the copied pixel-buffer lengths so the work is not optimized away.
+    /// Extracts each thumbnail straight from its path via the Win32 Shell imaging COM path, summing the copied
+    /// pixel-buffer lengths so the work is not optimized away.
     /// </summary>
     [Benchmark]
-    public ulong Win32_ShellItemImageFactory()
+    public ulong ExtractThumbnails()
     {
         var shellThumbnails = _shellThumbnails ?? throw new InvalidOperationException("Benchmark thumbnail interop is not initialized.");
         ulong total = 0;

@@ -125,7 +125,7 @@ public sealed class ThumbnailConversionCacheTests
         Assert.True(image.IsDisposed);
     }
 
-    private static ThumbnailContentHash Key(byte value) => ThumbnailContentHash.Compute(Content(value));
+    private static ThumbnailContentHash Key(byte value) => ThumbnailContentHash.Compute(Content(value), 8, 8);
 
     private static byte[] Content(byte value)
     {

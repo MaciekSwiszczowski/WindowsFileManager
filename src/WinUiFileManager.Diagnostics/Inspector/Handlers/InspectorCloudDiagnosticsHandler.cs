@@ -6,7 +6,6 @@ using WinUiFileManager.Application.Diagnostics;
 using WinUiFileManager.Application.Messages.RequestMessages.Inspector;
 using WinUiFileManager.Interop.Adapters;
 using WinUiFileManager.Application.Diagnostics.Profiling;
-using WinUiFileManager.Diagnostics.Inspector;
 using FileAttributes = System.IO.FileAttributes;
 
 namespace WinUiFileManager.Diagnostics.Inspector.Handlers;

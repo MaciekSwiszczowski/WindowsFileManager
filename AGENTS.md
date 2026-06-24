@@ -98,6 +98,10 @@ Status: ~90% of core features built. Largest remaining features: **favourites** 
   - If an IDE holds locks, build with `-p:UseCodexIsolatedBuild=true` to redirect intermediates to `codex-artifacts\`.
   - Do not run BenchmarkDotNet native-memory/ETL benchmarks by default. Benchmarks using `NativeMemoryProfiler` require elevated access for ETW/ETL collection; treat existing benchmark reports as input unless the user explicitly asks for an elevated benchmark run.
 - Tests use **xUnit**.
+- **Tests must run fast — a single test must complete in under 1 minute.** Never author a test (especially a loop/stress/soak harness) whose runtime you have not bounded.
+  - **Probe iteration count first.** Start with a low iteration count, measure per-iteration cost (e.g. `Stopwatch`), then scale up only to what still fits the 1-minute budget. Never pick a large iteration count blind.
+  - **Always set an explicit timeout** so a runaway test self-terminates instead of churning unseen (xUnit `[Fact(Timeout = …)]`, plus a `--timeout`/process cap when running from the CLI).
+  - Prefer an exact, noise-free signal (handle counts, deterministic asserts) over coarse high-iteration sampling that needs huge loops to clear measurement noise.
 
 ---
 

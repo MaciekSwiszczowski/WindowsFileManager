@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Standalone diagnostics tool — intentionally NOT added to the solution, so repo-wide solution builds
+    (including Debug_Analyzers) never touch it. TFM/Platform (net10.0-windows / x64) are inherited from the
+    repo Directory.Build.props; ETL/ETW parsing is Windows + x64 only anyway. Warnings-as-errors is relaxed
+    because this is a throwaway investigative tool, not shipping code.
+
+    Build/run: see the usage header in Program.cs (pass trace.etl, optional topN, optional keyword list).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Version is centrally managed in Directory.Packages.props (CPM). -->
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.TraceEvent" />
+  </ItemGroup>
+
+</Project>

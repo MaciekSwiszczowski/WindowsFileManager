@@ -31,6 +31,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinUiFileManager.Benchmarks
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinUiFileManager.Diagnostics.Tests", "tests\WinUiFileManager.Diagnostics.Tests\WinUiFileManager.Diagnostics.Tests.csproj", "{AF0154C2-8636-41B6-A0C4-9B9969C053E9}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tools", "tools", "{07C2787E-EAC7-C090-1BA3-A61EC2A24D84}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EtlLeakAnalyzer", "tools\EtlLeakAnalyzer\EtlLeakAnalyzer.csproj", "{3532E759-FDEF-433C-B48B-D344CD37C4AB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug_Analyzers|x64 = Debug_Analyzers|x64
@@ -257,6 +261,24 @@ Global
 		{AF0154C2-8636-41B6-A0C4-9B9969C053E9}.Release|Any CPU.Build.0 = Release|x64
 		{AF0154C2-8636-41B6-A0C4-9B9969C053E9}.Release|x86.ActiveCfg = Release|x64
 		{AF0154C2-8636-41B6-A0C4-9B9969C053E9}.Release|x86.Build.0 = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|x64.ActiveCfg = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|x64.Build.0 = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|Any CPU.ActiveCfg = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|Any CPU.Build.0 = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|x86.ActiveCfg = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug_Analyzers|x86.Build.0 = Debug_Analyzers|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|x64.ActiveCfg = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|x64.Build.0 = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|Any CPU.ActiveCfg = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|Any CPU.Build.0 = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|x86.ActiveCfg = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Debug|x86.Build.0 = Debug|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|x64.ActiveCfg = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|x64.Build.0 = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|Any CPU.ActiveCfg = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|Any CPU.Build.0 = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|x86.ActiveCfg = Release|x64
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB}.Release|x86.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -274,5 +296,6 @@ Global
 		{C1000003-0000-0000-0000-000000000003} = {A1B2C3D4-0002-0002-0002-000000000002}
 		{E0F59885-E03B-480D-B310-50C3A944510C} = {A1B2C3D4-0002-0002-0002-000000000002}
 		{AF0154C2-8636-41B6-A0C4-9B9969C053E9} = {A1B2C3D4-0002-0002-0002-000000000002}
+		{3532E759-FDEF-433C-B48B-D344CD37C4AB} = {07C2787E-EAC7-C090-1BA3-A61EC2A24D84}
 	EndGlobalSection
 EndGlobal

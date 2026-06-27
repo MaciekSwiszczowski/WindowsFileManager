@@ -13,7 +13,7 @@ public sealed class StorageProviderSyncRootCacheTests
         // Arrange
         const string root = @"C:\WinUiFileManagerBenchmarks2\CloudHandlerBenchmarks";
         var cache = new StorageProviderSyncRootCache(
-            new FakeSyncRootRegistryReader(new SyncRootRegistration(root, "Provider!sid!account", "Provider")));
+            new FakeSyncRootRegistryReader(new SyncRootRegistration(root, "Provider!sid!account", "Provider", "Provider")));
 
         // Act
         var match = cache.FindForPath(@"C:\WinUiFileManagerBenchmarks2\CloudHandlerBenchmarks\local\file-000000.bin");
@@ -29,7 +29,7 @@ public sealed class StorageProviderSyncRootCacheTests
         // Arrange
         const string root = @"C:\Cloud\OneDrive";
         var cache = new StorageProviderSyncRootCache(
-            new FakeSyncRootRegistryReader(new SyncRootRegistration(root, "id", "OneDrive")));
+            new FakeSyncRootRegistryReader(new SyncRootRegistration(root, "id", "OneDrive", "OneDrive")));
 
         // Act
         var match = cache.FindForPath(root);
@@ -44,7 +44,7 @@ public sealed class StorageProviderSyncRootCacheTests
     {
         // Arrange
         var cache = new StorageProviderSyncRootCache(
-            new FakeSyncRootRegistryReader(new SyncRootRegistration(@"C:\Cloud\OneDrive", "id", "OneDrive")));
+            new FakeSyncRootRegistryReader(new SyncRootRegistration(@"C:\Cloud\OneDrive", "id", "OneDrive", "OneDrive")));
 
         // Act
         var match = cache.FindForPath(@"C:\Other\file.txt");
@@ -58,7 +58,7 @@ public sealed class StorageProviderSyncRootCacheTests
     {
         // Arrange
         var cache = new StorageProviderSyncRootCache(
-            new FakeSyncRootRegistryReader(new SyncRootRegistration(@"C:\Cloud\One", "id", "One")));
+            new FakeSyncRootRegistryReader(new SyncRootRegistration(@"C:\Cloud\One", "id", "One", "One")));
 
         // Act
         var match = cache.FindForPath(@"C:\Cloud\OneOther\file.txt");
@@ -75,8 +75,8 @@ public sealed class StorageProviderSyncRootCacheTests
         const string inner = @"C:\Cloud\Team\Project";
         var cache = new StorageProviderSyncRootCache(
             new FakeSyncRootRegistryReader(
-                new SyncRootRegistration(outer, "outer", "P"),
-                new SyncRootRegistration(inner, "inner", "P")));
+                new SyncRootRegistration(outer, "outer", "P", "P"),
+                new SyncRootRegistration(inner, "inner", "P", "P")));
 
         // Act
         var match = cache.FindForPath(@"C:\Cloud\Team\Project\sub\file.txt");

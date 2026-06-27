@@ -45,7 +45,7 @@ public class SyncRootEnumerationBenchmarks
 
     /// <summary>
     /// Production path: reads registered sync roots from the registry the requested number of times, summing the
-    /// path/id lengths so the read is not optimized away.
+    /// path/id/provider/display-name lengths so the read is not optimized away.
     /// </summary>
     [Benchmark]
     public int ReadViaRegistry()
@@ -57,7 +57,10 @@ public class SyncRootEnumerationBenchmarks
         {
             foreach (var registration in reader.ReadRegisteredSyncRoots())
             {
-                total += registration.Path.Length + registration.Id.Length;
+                total += registration.Path.Length
+                    + registration.Id.Length
+                    + registration.ProviderId.Length
+                    + registration.DisplayName.Length;
             }
         }
 

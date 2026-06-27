@@ -9,4 +9,5 @@ namespace WinUiFileManager.Diagnostics.Inspector;
 /// <param name="Path">Filesystem path of the registered sync root.</param>
 /// <param name="Id">Provider registration id for the sync root.</param>
 /// <param name="ProviderId">Provider identifier formatted for display.</param>
-internal readonly record struct StorageProviderSyncRootSnapshot(string Path, string Id, string ProviderId);
+/// <param name="DisplayName">Friendly provider display name (registry-sourced replacement for <c>StorageProvider.DisplayName</c>).</param>
+internal readonly record struct StorageProviderSyncRootSnapshot(string Path, string Id, string ProviderId, string DisplayName);

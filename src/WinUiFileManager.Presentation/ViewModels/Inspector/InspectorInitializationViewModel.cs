@@ -215,12 +215,6 @@ public sealed class InspectorInitializationViewModel
                 Field(Cloud, "Sync Root", "Owning sync-root path or display name."),
                 Field(Cloud, "Root ID", "Sync-root registration identifier."),
                 Field(Cloud, "Provider ID", "Provider identifier from the sync-root registration."),
-                Field(Cloud, "Available", "Whether the selected item is currently available locally."),
-                Field(
-                    Cloud,
-                    "Transfer",
-                    "Current transfer state such as upload, download, or paused, when Windows exposes it."),
-                Field(Cloud, "Custom", "Provider-defined custom cloud status text, when available."),
                 Field(Cloud, "Pinned", "FILE_ATTRIBUTE_PINNED: always keep this item on the device."),
                 Field(Cloud, "Unpinned", "FILE_ATTRIBUTE_UNPINNED: free up space (content may be dehydrated)."),
                 Field(Cloud, "Recall On Open", "FILE_ATTRIBUTE_RECALL_ON_OPEN: dehydrated; content is fetched when opened."),

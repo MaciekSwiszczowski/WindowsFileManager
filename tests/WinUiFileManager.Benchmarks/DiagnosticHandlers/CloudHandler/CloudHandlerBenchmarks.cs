@@ -5,14 +5,14 @@ namespace WinUiFileManager.Benchmarks.DiagnosticHandlers.CloudHandler;
 /// <summary>
 /// End-to-end native-memory benchmark for <c>InspectorCloudDiagnosticsHandler</c>. A
 /// <see cref="BenchmarkSyncRootRegistryReader"/> is registered over the real registry reader so the benchmark's temp
-/// directory is treated as a registered sync root; this forces the handler's WinRT branch
-/// (<c>StorageFile/StorageFolder.GetFromPathAsync</c> → <c>Provider</c> → <c>Properties.RetrievePropertiesAsync</c>)
-/// to run for every request. Without the override the registry has no sync root for the temp path, the handler
-/// short-circuits, and the COM-allocating path this benchmark targets is never measured.
+/// directory is treated as a registered sync root, giving the handler provider identity for local files. Without the
+/// override the registry has no sync root for the temp path, the handler short-circuits, and the cloud diagnostics
+/// path this benchmark targets is never measured.
 /// </summary>
 /// <remarks>
-/// <c>FileCount</c> is kept modest because each request now performs several real WinRT/Shell calls; the
-/// <see cref="NativeMemoryProfiler"/> native-byte delta is the signal of interest.
+/// The handler now reads only cheap, non-COM sources (file attributes, CldApi placeholder state, the registry
+/// sync-root snapshot); the former Shell property-store read of <c>System.Sync.*</c> was removed. The
+/// <see cref="NativeMemoryProfiler"/> native-byte delta — expected flat — is the signal of interest.
 /// </remarks>
 [MemoryDiagnoser]
 [NativeMemoryProfiler]
@@ -115,7 +115,7 @@ public class CloudHandlerBenchmarks
         builder.AddDiagnosticsServices();
 
         // Override the real registry reader (registered last wins in Autofac) so the handler treats the benchmark
-        // directory as a sync root and exercises its WinRT/Shell branch on every request.
+        // directory as a sync root and reports cloud diagnostics (attributes + CldApi placeholder state) for its files.
         builder.RegisterInstance(new BenchmarkSyncRootRegistryReader(_benchmarkDirectory))
             .As<ISyncRootRegistryReader>();
 

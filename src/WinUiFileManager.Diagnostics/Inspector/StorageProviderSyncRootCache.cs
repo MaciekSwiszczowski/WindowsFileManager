@@ -100,7 +100,8 @@ public sealed class StorageProviderSyncRootCache
             snapshots[index] = new StorageProviderSyncRootSnapshot(
                 registration.Path,
                 registration.Id,
-                registration.ProviderId);
+                registration.ProviderId,
+                registration.DisplayName);
         }
 
         return snapshots;

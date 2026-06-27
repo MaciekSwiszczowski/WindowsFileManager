@@ -124,9 +124,6 @@ internal sealed class InspectorFieldValueUpdater
         SetValue("Sync Root", isCloudControlled ? diagnostics.SyncRoot : string.Empty);
         SetValue("Root ID", isCloudControlled ? diagnostics.SyncRootId : string.Empty);
         SetValue("Provider ID", isCloudControlled ? diagnostics.ProviderId : string.Empty);
-        SetValue("Available", isCloudControlled ? diagnostics.Available : string.Empty);
-        SetValue("Transfer", isCloudControlled ? diagnostics.Transfer : string.Empty);
-        SetValue("Custom", isCloudControlled ? diagnostics.Custom : string.Empty);
         SetValue("Pinned", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.Pinned) : string.Empty);
         SetValue("Unpinned", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.Unpinned) : string.Empty);
         SetValue("Recall On Open", isCloudControlled ? InspectorFieldFormatting.Flag(diagnostics.RecallOnOpen) : string.Empty);

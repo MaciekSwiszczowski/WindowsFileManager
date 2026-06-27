@@ -14,9 +14,6 @@ public sealed record FileCloudDiagnosticsDetails(
     string SyncRoot,
     string SyncRootId,
     string ProviderId,
-    string Available,
-    string Transfer,
-    string Custom,
     bool Pinned,
     bool Unpinned,
     bool RecallOnOpen,
@@ -26,9 +23,6 @@ public sealed record FileCloudDiagnosticsDetails(
     /// <summary>Sentinel for a file with no cloud involvement (all fields empty, <c>IsCloudControlled = false</c>).</summary>
     public static FileCloudDiagnosticsDetails None { get; } = new(
         false,
-        string.Empty,
-        string.Empty,
-        string.Empty,
         string.Empty,
         string.Empty,
         string.Empty,

@@ -60,3 +60,4 @@ CreateCompatibleDC
 DeleteDC
 DIBSECTION
 BITMAPINFO
+SHLoadIndirectString

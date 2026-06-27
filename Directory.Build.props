@@ -50,7 +50,7 @@
     assignment trips IDISP003 — both false positives for this code. Exempt projects still build under Debug_Analyzers
     (same DEBUG defines) but without analyzers or warnings-as-errors.
   -->
-  <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and ($([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests')) or '$(MSBuildProjectName)' == 'WinUiFileManager.Benchmarks')">
+  <PropertyGroup Condition="'$(MSBuildProjectName)' != '' and ($([System.String]::Copy('$(MSBuildProjectName)').EndsWith('.Tests')) or '$(MSBuildProjectName)' == 'WinUiFileManager.Benchmarks' or '$(MSBuildProjectName)' == 'EtlLeakAnalyzer')">
     <IsAnalyzerExemptProject>true</IsAnalyzerExemptProject>
   </PropertyGroup>
 
